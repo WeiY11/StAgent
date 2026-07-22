@@ -559,11 +559,6 @@ class ContextManager:
                 try:
                     from leagent.utils.metrics import get_metrics
 
-                    get_metrics().record_cache_event(
-                        "context_source",
-                        hit=True,
-                        entries=self._cache.stats["size"],
-                    )
                     get_metrics().record_agent_turn_phase(
                         f"context_source:{entry.source_id}",
                         time.perf_counter() - source_started,
@@ -596,16 +591,6 @@ class ContextManager:
                     priority=block.priority,
                 ))
                 return
-            try:
-                from leagent.utils.metrics import get_metrics
-
-                get_metrics().record_cache_event(
-                    "context_source",
-                    hit=False,
-                    entries=self._cache.stats["size"],
-                )
-            except Exception:
-                logger.debug("context_cache_metrics_failed", exc_info=True)
 
             try:
                 block = await source.resolve(ctx)
@@ -637,7 +622,7 @@ class ContextManager:
                     metadata=block.metadata,
                 )
 
-            self._cache.put(inv_key, block)
+            self._cache.put(inv_key, block, source.scope)
             blocks.append(block)
             try:
                 from leagent.utils.metrics import get_metrics
