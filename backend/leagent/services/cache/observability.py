@@ -49,6 +49,8 @@ class CacheStat:
     evictions: int = 0
     expirations: int = 0
     rejections: int = 0
+    fills: int = 0
+    coalesced: int = 0
     size_provider: Callable[[], int] | None = None
     detail_provider: Callable[[], dict[str, Any]] | None = None
     #: bucket_index -> [hits, misses] for the sliding window.
@@ -92,6 +94,8 @@ class CacheStat:
             "evictions": self.evictions,
             "expirations": self.expirations,
             "rejections": self.rejections,
+            "fills": self.fills,
+            "coalesced": self.coalesced,
             "total_requests": self.total_requests,
             "hit_rate": round(self.hit_rate, 4),
             "recent_hit_rate": round(recent_h / recent_total, 4) if recent_total else 0.0,
@@ -108,6 +112,31 @@ class CacheStat:
             except Exception:  # noqa: BLE001 - detail is best-effort
                 out["detail"] = None
         return out
+
+    def copy_for_snapshot(self) -> "CacheStat":
+        """Return a lock-free copy for snapshotting outside the registry lock.
+
+        Counters are copied by value and the sliding-window bucket lists are
+        deep-copied so the returned stat never shares mutable state with the
+        live one. The (idempotent) provider callables are copied by reference
+        and invoked later, off the lock, so a slow ``size_provider`` /
+        ``detail_provider`` can never block cache event recording.
+        """
+        clone = CacheStat(
+            name=self.name,
+            hits=self.hits,
+            misses=self.misses,
+            sets=self.sets,
+            evictions=self.evictions,
+            expirations=self.expirations,
+            rejections=self.rejections,
+            fills=self.fills,
+            coalesced=self.coalesced,
+            size_provider=self.size_provider,
+            detail_provider=self.detail_provider,
+        )
+        clone._window = {k: list(v) for k, v in self._window.items()}
+        return clone
 
 
 class CacheStatsRegistry:
@@ -163,6 +192,19 @@ class CacheStatsRegistry:
         with self._lock:
             self._get(name).rejections += count
 
+    def record_fill(self, name: str, *, coalesced: int = 0) -> None:
+        """Record a single-flight cache fill and its coalesced waiter count.
+
+        ``coalesced`` is the number of concurrent callers that piggy-backed on
+        this one factory execution instead of running their own — the direct
+        measure of single-flight effectiveness.
+        """
+        with self._lock:
+            stat = self._get(name)
+            stat.fills += 1
+            if coalesced > 0:
+                stat.coalesced += coalesced
+
     def register_size_provider(self, name: str, provider: Callable[[], int]) -> None:
         """Attach a live entry-count provider for *name* (idempotent)."""
         with self._lock:
@@ -176,11 +218,19 @@ class CacheStatsRegistry:
             self._get(name).detail_provider = provider
 
     def snapshot(self) -> dict[str, Any]:
-        """Return per-cache snapshots plus a rolled-up overall hit rate."""
+        """Return per-cache snapshots plus a rolled-up overall hit rate.
+
+        Counters and provider callables are copied under the lock; the lock is
+        then released before invoking ``size_provider`` / ``detail_provider``
+        (via each copy's :meth:`CacheStat.snapshot`) so a slow provider cannot
+        block the hot-path recorders or invert future locks.
+        """
         with self._lock:
-            caches = [stat.snapshot() for stat in sorted(self._stats.values(), key=lambda s: s.name)]
-            total_hits = sum(s.hits for s in self._stats.values())
-            total_misses = sum(s.misses for s in self._stats.values())
+            rows = [stat.copy_for_snapshot() for stat in self._stats.values()]
+        rows.sort(key=lambda item: item.name)
+        caches = [row.snapshot() for row in rows]
+        total_hits = sum(row.hits for row in rows)
+        total_misses = sum(row.misses for row in rows)
         total = total_hits + total_misses
         return {
             "caches": caches,
@@ -238,6 +288,7 @@ def record_cache_event(
         reg.record_expiration(cache_name, count=expired)
 
     _mirror_to_prometheus(cache_name, hit=hit, entries=entries)
+    _mirror_pressure_to_prometheus(cache_name, evicted=evicted, expired=expired)
 
 
 def record_cache_set(cache_name: str, *, evicted: int = 0, expired: int = 0) -> None:
@@ -248,6 +299,7 @@ def record_cache_set(cache_name: str, *, evicted: int = 0, expired: int = 0) -> 
         reg.record_eviction(cache_name, count=evicted)
     if expired:
         reg.record_expiration(cache_name, count=expired)
+    _mirror_pressure_to_prometheus(cache_name, evicted=evicted, expired=expired)
 
 
 def record_cache_rejection(cache_name: str, *, reason: str = "oversized", count: int = 1) -> None:
@@ -265,9 +317,30 @@ def record_cache_rejection(cache_name: str, *, reason: str = "oversized", count:
         pass
 
 
+def record_cache_fill(
+    cache_name: str, *, duration_sec: float = 0.0, coalesced: int = 0
+) -> None:
+    """Record a single-flight cache fill for *cache_name*.
+
+    ``duration_sec`` (factory latency) and ``coalesced`` (waiters that shared
+    the fill) mirror to Prometheus as low-cardinality series keyed only by
+    ``cache_name``.
+    """
+    get_cache_stats_registry().record_fill(cache_name, coalesced=coalesced)
+    try:
+        from leagent.utils.metrics import get_metrics
+
+        get_metrics().record_cache_fill(
+            cache_name, duration_sec=duration_sec, coalesced=coalesced
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def record_cache_expiration(cache_name: str, *, count: int = 1) -> None:
     """Record *count* TTL expirations swept for *cache_name*."""
     get_cache_stats_registry().record_expiration(cache_name, count=count)
+    _mirror_pressure_to_prometheus(cache_name, evicted=0, expired=count)
 
 
 def _mirror_to_prometheus(cache_name: str, *, hit: bool, entries: int | None) -> None:
@@ -276,5 +349,23 @@ def _mirror_to_prometheus(cache_name: str, *, hit: bool, entries: int | None) ->
         from leagent.utils.metrics import get_metrics
 
         get_metrics().record_cache_event(cache_name, hit=hit, entries=entries)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _mirror_pressure_to_prometheus(
+    cache_name: str, *, evicted: int = 0, expired: int = 0
+) -> None:
+    """Best-effort mirror of eviction/expiration counters to Prometheus."""
+    if not evicted and not expired:
+        return
+    try:
+        from leagent.utils.metrics import get_metrics
+
+        metrics = get_metrics()
+        if evicted:
+            metrics.record_cache_eviction(cache_name, count=evicted)
+        if expired:
+            metrics.record_cache_expiration(cache_name, count=expired)
     except Exception:  # noqa: BLE001
         pass

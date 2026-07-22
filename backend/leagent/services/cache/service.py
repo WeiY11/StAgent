@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import logging
 import sys
+import time
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from leagent.services.base import Service, ServiceState, ServiceType, service_factory
@@ -14,6 +15,7 @@ from leagent.services.cache.observability import (
     get_cache_stats_registry,
     record_cache_event,
     record_cache_expiration,
+    record_cache_fill,
     record_cache_rejection,
     record_cache_set,
 )
@@ -135,6 +137,7 @@ class CacheService(Service):
         # Single-flight state: one in-flight fill task per full key coalesces
         # concurrent ``get_or_set`` callers onto a single factory execution.
         self._inflight: dict[str, asyncio.Task[Any]] = {}
+        self._inflight_waiters: dict[str, int] = {}
         self._inflight_lock = asyncio.Lock()
         self._maintenance_stop = asyncio.Event()
         self._maintenance_task: asyncio.Task[None] | None = None
@@ -276,9 +279,16 @@ class CacheService(Service):
             task = self._inflight.get(full_key)
             if task is None:
                 task = asyncio.create_task(
-                    self._fill(key, factory, namespace=namespace, ttl=ttl)
+                    self._fill(key, factory, namespace=namespace, ttl=ttl, full_key=full_key)
                 )
                 self._inflight[full_key] = task
+            else:
+                # This caller piggy-backs on the in-flight fill instead of
+                # running its own factory; count it so single-flight savings
+                # are observable.
+                self._inflight_waiters[full_key] = (
+                    self._inflight_waiters.get(full_key, 0) + 1
+                )
 
         try:
             # Shield so a cancelled waiter never cancels the shared fill; other
@@ -291,17 +301,24 @@ class CacheService(Service):
                         self._inflight.pop(full_key, None)
 
     async def _fill(
-        self, key: str, factory: Any, *, namespace: str | None, ttl: Any
+        self, key: str, factory: Any, *, namespace: str | None, ttl: Any, full_key: str
     ) -> Any:
         # Re-check under the fill: a concurrent writer may have populated the
         # key between the miss and task creation.
         cached = await self.get(key, namespace=namespace, default=_MISS)
         if cached is not _MISS:
             return cached
+        started = time.perf_counter()
         value = await factory() if asyncio.iscoroutinefunction(factory) else factory()
         if asyncio.iscoroutine(value):
             value = await value
         await self.set(key, value, namespace=namespace, ttl=ttl)
+        duration = time.perf_counter() - started
+        async with self._inflight_lock:
+            coalesced = self._inflight_waiters.pop(full_key, 0)
+        record_cache_fill(
+            self._stat_name(namespace), duration_sec=duration, coalesced=coalesced
+        )
         return value
 
     async def get_generation(self, subject: str, *, namespace: str) -> int:
@@ -391,20 +408,35 @@ class CacheService(Service):
     def update_limits(self, *, max_items: int | None = None) -> dict[str, Any]:
         """Resize the in-memory store at runtime (Admin / autotuning lever).
 
-        Shrinking evicts LRU entries immediately. Returns the effective config
-        snapshot so callers can echo the applied value.
+        Shrinking evicts LRU entries immediately. Rejects a ``max_items`` below
+        the configured ``shard_count`` (which would starve one or more shards)
+        with :class:`ValueError`. Returns the effective config snapshot so
+        callers can echo the applied value.
         """
         if max_items is not None:
+            if int(max_items) < self._cache_cfg.shard_count:
+                raise ValueError(
+                    "cache max_items must be >= shard_count "
+                    f"({self._cache_cfg.shard_count})"
+                )
             self._memory_cache.resize(max_items)
             self._cache_cfg.max_items = int(max_items)
         return self.config_snapshot()
 
     def config_snapshot(self) -> dict[str, Any]:
-        """Return the live cache configuration (for the stats endpoint)."""
+        """Return the live cache configuration (for the stats endpoint).
+
+        ``backend``/``persistent`` are reported explicitly so operators never
+        assume a durable (e.g. Redis) cache exists behind the API: the runtime
+        cache is process-local, in-memory, and lost on restart.
+        """
         cfg = self._cache_cfg
         return {
+            "backend": "memory",
+            "persistent": False,
             "default_ttl": cfg.default_ttl,
             "max_items": cfg.max_items,
+            "max_value_bytes": cfg.max_value_bytes,
             "shard_count": cfg.shard_count,
             "namespace_ttls": dict(cfg.namespace_ttls),
             "resident_items": self._memory_cache.size,

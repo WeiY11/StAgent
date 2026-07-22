@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import func, select
 
-from leagent.services.auth import CurrentUserId
+from leagent.services.auth import AdminUserId, CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import Flow, Task, TaskStatus
 from leagent.db.models.workflow_execution import WorkflowExecution
@@ -49,6 +49,49 @@ class UsageDataPoint(BaseModel):
     success: int
     failed: int
     date: str
+
+
+class CacheEntryStat(BaseModel):
+    name: str
+    hits: int
+    misses: int
+    sets: int
+    evictions: int
+    #: TTL-driven drops, split from capacity (LRU) ``evictions`` so operators
+    #: can tell "raise max_items" apart from "raise TTL".
+    expirations: int = 0
+    #: Writes refused (e.g. oversized value) — a bounded-cache pressure signal.
+    rejections: int = 0
+    #: Single-flight fills and the callers coalesced onto them.
+    fills: int = 0
+    coalesced: int = 0
+    total_requests: int
+    hit_rate: float
+    #: Hit rate over the recent sliding window; surfaces regressions that the
+    #: since-boot cumulative ``hit_rate`` would otherwise mask.
+    recent_hit_rate: float = 0.0
+    recent_requests: int = 0
+    size: Optional[int] = None
+    #: Lazy per-cache diagnostics (backend, L2 circuit state, split counters).
+    detail: Optional[dict] = None
+
+
+class CacheStatsResponse(BaseModel):
+    """Real-time hit-rate snapshot across every instrumented cache layer."""
+
+    caches: list[CacheEntryStat]
+    total_hits: int
+    total_misses: int
+    total_requests: int
+    overall_hit_rate: float
+    #: Live :class:`CacheService` configuration (sizes, TTLs) for context.
+    config: Optional[dict] = None
+
+
+class CacheConfigUpdate(BaseModel):
+    """Runtime cache-tuning payload for ``POST /stats/cache/config``."""
+
+    max_items: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -437,3 +480,70 @@ async def get_usage_data(
             )
 
     return result
+
+
+@router.get("/cache", response_model=CacheStatsResponse)
+async def get_cache_stats(user_id: CurrentUserId) -> CacheStatsResponse:
+    """Return a real-time hit-rate snapshot for all instrumented caches.
+
+    Aggregates the process-wide :class:`CacheStatsRegistry`, which every cache
+    layer (``CacheService`` in-memory LRU, workflow node-output cache, the
+    ``cache_manager`` tool cache, the LLM tool-schema cache, and the tiered
+    agent-memory cache) reports into via ``record_cache_event``.
+    """
+    from leagent.services.cache.observability import get_cache_stats_registry
+
+    snapshot = get_cache_stats_registry().snapshot()
+
+    config: dict | None = None
+    try:
+        from leagent.services.cache.service import get_cache_service
+
+        config = get_cache_service().config_snapshot()
+    except Exception:  # noqa: BLE001 - config context is best-effort
+        config = None
+
+    return CacheStatsResponse(
+        caches=[CacheEntryStat(**c) for c in snapshot["caches"]],
+        total_hits=snapshot["total_hits"],
+        total_misses=snapshot["total_misses"],
+        total_requests=snapshot["total_requests"],
+        overall_hit_rate=snapshot["overall_hit_rate"],
+        config=config,
+    )
+
+
+@router.post("/cache/config", response_model=CacheStatsResponse)
+async def update_cache_config(
+    _admin_id: AdminUserId,
+    payload: CacheConfigUpdate,
+) -> CacheStatsResponse:
+    """Apply a runtime cache-tuning change and return the fresh snapshot.
+
+    Currently exposes the in-memory :class:`CacheService` capacity bound
+    (``max_items``); shrinking evicts LRU entries immediately. Wired as the
+    operator/autotuning lever behind **Admin → Cache** (admin-only).
+    """
+    from fastapi import HTTPException
+
+    from leagent.services.cache.observability import get_cache_stats_registry
+    from leagent.services.cache.service import get_cache_service
+
+    try:
+        service = get_cache_service()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail="CacheService not initialized") from exc
+
+    try:
+        config = service.update_limits(max_items=payload.max_items)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    snapshot = get_cache_stats_registry().snapshot()
+    return CacheStatsResponse(
+        caches=[CacheEntryStat(**c) for c in snapshot["caches"]],
+        total_hits=snapshot["total_hits"],
+        total_misses=snapshot["total_misses"],
+        total_requests=snapshot["total_requests"],
+        overall_hit_rate=snapshot["overall_hit_rate"],
+        config=config,
+    )
