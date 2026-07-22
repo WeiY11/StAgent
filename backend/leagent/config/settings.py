@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 
 from leagent.config.constants import MAX_UPLOAD_SIZE_BYTES
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -457,6 +457,67 @@ class TraceSettings(BaseSettings):
     retention_days: int = Field(default=30, ge=1, le=3650)
 
 
+class CacheSettings(BaseSettings):
+    """In-memory :class:`CacheService` tuning knobs.
+
+    ``namespace_ttls`` overrides the default TTL per logical namespace so hot,
+    cheap-to-recompute domains (e.g. ``recall``) expire fast while expensive,
+    stable ones (e.g. ``embeddings``) live long — this is the primary lever for
+    raising the aggregate hit rate. Env prefix: ``LEAGENT_CACHE_*``; the map
+    accepts JSON, e.g. ``LEAGENT_CACHE_NAMESPACE_TTLS='{"embeddings":7200}'``.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="LEAGENT_CACHE_")
+
+    default_ttl: int = Field(default=3600, ge=1)
+    max_items: int = Field(default=10_000, ge=1)
+    #: Hard cap on a single cached value's estimated serialized size. Oversized
+    #: values are rejected (not cached) so a few large payloads cannot evict the
+    #: whole working set. Large blobs cache a ``FileRef``/``MediaRef`` instead.
+    max_value_bytes: int = Field(default=1_048_576, ge=1_024)
+    #: Period of the background expired-entry sweep. ``0`` disables the loop.
+    maintenance_interval_sec: float = Field(default=30.0, ge=0.0, le=3_600.0)
+    #: Deterministic +/- jitter band applied to TTLs so a namespace's entries do
+    #: not all expire in the same burst (stampede protection).
+    ttl_jitter_ratio: float = Field(default=0.05, ge=0.0, le=0.25)
+    #: Shard count for the :class:`CacheService` store. ``1`` keeps exact global
+    #: LRU semantics; ``>1`` trades exactness for lower lock contention under
+    #: concurrent access (per-shard locks).
+    shard_count: int = Field(default=1, ge=1, le=64)
+    #: Hard bound on the agent-facing ``cache_manager`` tool cache.
+    tool_cache_max_items: int = Field(default=5_000, ge=1)
+    #: L1 bound for the tiered agent-memory caches (embeddings / recall / other).
+    memory_l1_max_items: int = Field(default=512, ge=1)
+    memory_embedding_l1_max_items: int = Field(default=1_024, ge=1)
+    memory_recall_l1_max_items: int = Field(default=256, ge=1)
+    namespace_ttls: dict[str, int] = Field(
+        default_factory=lambda: {
+            "embeddings": 7200,
+            "recall": 300,
+            "files": 1800,
+            "chat": 900,
+            "memory": 1800,
+            "webhooks": 600,
+            "variables": 1800,
+        }
+    )
+    #: When true, subsystems that expose a warm-up loader preload hot keys on
+    #: startup (see ``CacheService.warm``). Off by default (no I/O at boot).
+    warm_on_start: bool = False
+
+    @model_validator(mode="after")
+    def validate_cache_capacity(self) -> "CacheSettings":
+        if self.max_items < self.shard_count:
+            raise ValueError("cache max_items must be >= shard_count")
+        return self
+
+    def ttl_for(self, namespace: str | None) -> int:
+        """Resolve the effective TTL for *namespace* (falls back to default)."""
+        if namespace and namespace in self.namespace_ttls:
+            return int(self.namespace_ttls[namespace])
+        return int(self.default_ttl)
+
+
 class SecuritySettings(BaseSettings):
     """HTTP security hardening knobs.
 
@@ -547,6 +608,7 @@ class Settings(BaseSettings):
     prompt: PromptSettings = Field(default_factory=PromptSettings)
     context: "ContextSettings" = Field(default_factory=ContextSettings)
     workflow: WorkflowEngineSettings = Field(default_factory=WorkflowEngineSettings)
+    cache: CacheSettings = Field(default_factory=CacheSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     trace: TraceSettings = Field(default_factory=TraceSettings)
 
