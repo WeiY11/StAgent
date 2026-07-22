@@ -135,7 +135,7 @@ async def test_update_todo_status_demotes_other_in_progress(tmp_path) -> None:
     settings.session.in_memory_lru_size = 4
 
     session_id = uuid4()
-    manager = SessionManager(settings, cache=None, database=None)
+    manager = SessionManager(settings, database=None)
 
     await manager.set_todos(
         session_id,

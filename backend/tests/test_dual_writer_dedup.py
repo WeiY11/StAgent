@@ -97,7 +97,7 @@ async def database() -> _InMemoryDatabase:
 
 @pytest.fixture()
 async def manager(settings, database) -> SessionManager:  # noqa: ANN001
-    return SessionManager(settings, cache=None, database=database)
+    return SessionManager(settings, database=database)
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ class TestDualWriterNoDuplicate:
         ))
 
         # 3) Run the store's save — this should NOT insert a new user row.
-        store = TieredSessionStore(settings, cache=None, database=database)
+        store = TieredSessionStore(settings, database=database)
         await store._save_to_database(state)
 
         # Verify: still exactly 1 user row.
@@ -205,7 +205,7 @@ class TestDualWriterNoDuplicate:
             tool_call_id="call_1",
         ))
 
-        store = TieredSessionStore(settings, cache=None, database=database)
+        store = TieredSessionStore(settings, database=database)
         await store._save_to_database(state)
 
         msgs = await _all_messages(database, session_id)

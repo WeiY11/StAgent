@@ -52,7 +52,6 @@ if TYPE_CHECKING:
     from fastapi import UploadFile
 
     from leagent.config.settings import Settings
-    from leagent.services.cache.service import CacheService
     from leagent.db.service import DatabaseService
 
 logger = get_logger(__name__)
@@ -70,16 +69,14 @@ class SessionManager:
         self,
         settings: Settings,
         *,
-        cache: CacheService | None,
         database: DatabaseService | None,
         file_service: Any | None = None,
     ) -> None:
         self._settings = settings
         self._paths = SessionPathRegistry(settings)
-        self._cache = cache
         self._database = database
         self._file_service = file_service
-        self._store = TieredSessionStore(settings, cache=cache, database=database)
+        self._store = TieredSessionStore(settings, database=database)
         self._locks: dict[UUID, asyncio.Lock] = {}
         self._locks_mutex = asyncio.Lock()
 
@@ -114,7 +111,18 @@ class SessionManager:
             try:
                 yield state
             finally:
-                await self._store.save(state)
+                # Durable save is now authoritative: it raises on failure so it
+                # cannot publish an undurable state to L1. Recover here (the
+                # runtime boundary) so a transient database error does not crash
+                # the turn, leaving the previously durable state untouched.
+                try:
+                    await self._store.save(state)
+                except Exception:  # noqa: BLE001
+                    logger.warning(
+                        "session_state_save_failed: session_id=%s",
+                        session_id,
+                        exc_info=True,
+                    )
 
     # -- high-level API -------------------------------------------------
 
