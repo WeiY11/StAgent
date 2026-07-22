@@ -184,7 +184,7 @@ async def test_cache_hits_transform_before_blocked_agent(progress_collector):
     runtime = FakeAgentRuntime(stream_reason="awaiting_user_input")
     executor = WorkflowExecutor(
         agent_runtime=runtime,
-        cache_set=build_cache_set("classic"),
+        cache_set=build_cache_set("lru"),
         progress_handlers=[handler],
     )
     doc = load(_agent_pause_workflow(include_transform=True))

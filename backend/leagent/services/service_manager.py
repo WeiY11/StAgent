@@ -505,6 +505,10 @@ class ServiceManager:
                 workflow_registry=None,
                 agent_runtime=agent_runtime,
                 cache_mode=wf_settings.cache_mode,
+                cache_options={
+                    "lru_size": wf_settings.cache_lru_size,
+                    "ram_mb": wf_settings.cache_ram_mb,
+                },
                 cache_provider=None,
                 state_store=state_store,
             )

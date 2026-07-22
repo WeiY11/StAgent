@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 import structlog
 
+from leagent.config.settings import get_settings
 from leagent.workflow.base import (
     NodeExecutionResult,
     WorkflowResult,
@@ -36,7 +38,12 @@ from leagent.workflow.io.validator import _LOOP_SAFE_TYPES
 from leagent.workflow.nodes import NodeRegistry, get_registry
 
 from .cache_provider import CacheProvider, NullCacheProvider
-from .caching import CacheKeySetInputSignature, CacheSet, build_cache_set
+from .caching import (
+    CacheKeySetInputSignature,
+    CacheSet,
+    WorkflowCacheScope,
+    build_cache_set,
+)
 from .errors import (
     DependencyCycleError,
     NodeExecutionError,
@@ -91,7 +98,9 @@ class WorkflowExecutor:
         cache_provider: CacheProvider | None = None,
         node_registry: NodeRegistry | None = None,
         progress_handlers: list[ProgressHandler] | None = None,
-        cache_mode: str = "classic",
+        cache_mode: str = "lru",
+        cache_options: dict[str, Any] | None = None,
+        cache_scope: WorkflowCacheScope | None = None,
         state_store: Any = None,
         max_parallelism: int = 8,
     ) -> None:
@@ -102,15 +111,46 @@ class WorkflowExecutor:
         self.workflow_registry = workflow_registry
         self.agent_controller = agent_controller
         self.agent_runtime = agent_runtime
-        self.cache_set = cache_set or build_cache_set(cache_mode)
+        self.cache_options = dict(cache_options or {})
+        self.cache_set = cache_set or build_cache_set(cache_mode, **self.cache_options)
+        self.cache_scope = cache_scope or WorkflowCacheScope()
         self.cache_provider = cache_provider or NullCacheProvider()
         self.node_registry = node_registry or get_registry()
         self._progress_handlers: list[ProgressHandler] = list(progress_handlers or [])
         self._active_lists: dict[str, ExecutionList] = {}
         self._states: dict[str, WorkflowState] = {}
         self._abort_events: dict[str, asyncio.Event] = {}
+        self._scope_digests: dict[str, str] = {}
         self.state_store = state_store
         self.max_parallelism = max(1, int(max_parallelism or 1))
+
+    # ------------------------------------------------------------------
+    # Cache scoping
+    # ------------------------------------------------------------------
+
+    def _effective_scope(
+        self, doc: WorkflowDocument, extra_data: dict[str, Any] | None
+    ) -> WorkflowCacheScope:
+        """Derive the per-run cache scope from the configured base scope.
+
+        The authenticated owner (``user_id``) and the concrete workflow id
+        override the defaults so byte-identical node inputs from two owners or
+        two workflows never collide in the shared output cache.
+        """
+        base = self.cache_scope
+        owner = (extra_data or {}).get("user_id")
+        workflow_id = doc.id
+        return replace(
+            base,
+            owner_id=str(owner) if owner else base.owner_id,
+            workflow_digest=str(workflow_id) if workflow_id else base.workflow_digest,
+        )
+
+    def _max_value_bytes(self) -> int | None:
+        try:
+            return int(get_settings().cache.max_value_bytes)
+        except Exception:  # noqa: BLE001
+            return None
 
     # ------------------------------------------------------------------
     # Convenience facade
@@ -206,7 +246,11 @@ class WorkflowExecutor:
         if cycles := exec_list.detect_cycles():
             raise DependencyCycleError(f"Dependency cycles detected: {cycles}")
 
-        cache_keys = CacheKeySetInputSignature(prompt, registry=self.node_registry)
+        scope_digest = self._effective_scope(doc, extra_data).digest()
+        self._scope_digests[state_id] = scope_digest
+        cache_keys = CacheKeySetInputSignature(
+            prompt, registry=self.node_registry, scope_digest=scope_digest
+        )
         await self.cache_provider.on_prompt_start(prompt_id)
 
         runner = NodeRunner(
@@ -216,6 +260,8 @@ class WorkflowExecutor:
             cache_keys=cache_keys,
             progress=progress,
             cache_provider=self.cache_provider,
+            scope_digest=scope_digest,
+            max_value_bytes=self._max_value_bytes(),
         )
 
         hidden = HiddenHolder(
@@ -245,6 +291,7 @@ class WorkflowExecutor:
             await self.cache_provider.on_prompt_end(prompt_id)
             self._active_lists.pop(state_id, None)
             self._abort_events.pop(state_id, None)
+            self._scope_digests.pop(state_id, None)
 
         duration_ms = int((time.monotonic() - start_ts) * 1000)
         state.completed_at = datetime.utcnow()
@@ -563,9 +610,12 @@ class WorkflowExecutor:
             cache_keys=CacheKeySetInputSignature(
                 hidden.dynprompt or DynamicPrompt({node_id: node_def}),
                 registry=self.node_registry,
+                scope_digest=self._scope_digests.get(str(state.id), ""),
             ),
             progress=hidden.progress,
             cache_provider=self.cache_provider,
+            scope_digest=self._scope_digests.get(str(state.id), ""),
+            max_value_bytes=self._max_value_bytes(),
         )
 
         # Resolve literal inputs (templates against the forked state); link
