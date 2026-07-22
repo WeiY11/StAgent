@@ -26,7 +26,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -38,6 +37,8 @@ from leagent.memory.types import MemoryKind, RecallBundle, RecallEntry
 from leagent.services.cache.keys import build_scoped_cache_key
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from leagent.context.file_state import FileState as FileStateCache
     from leagent.memory.embeddings import EmbeddingProvider
     from leagent.memory.episodic import EpisodicStore
@@ -567,8 +568,8 @@ def _apply_boosts(
     return base * boost
 
 
-def _mentions_known_file(entry: RecallEntry, fileState: FileStateCache) -> bool:
-    paths = fileState.paths()
+def _mentions_known_file(entry: RecallEntry, file_state: FileStateCache) -> bool:
+    paths = file_state.paths()
     if not paths:
         return False
     text = entry.text or ""

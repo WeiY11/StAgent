@@ -7,7 +7,10 @@ cache exists behind the API.
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 
 def test_cache_config_response_is_explicitly_ephemeral(
