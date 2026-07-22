@@ -5,13 +5,21 @@ Keys include resolved path and mtime so edits invalidate automatically.
 
 from __future__ import annotations
 
-from collections import OrderedDict
+import hashlib
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from leagent.services.cache.lru import BoundedLRU
+from leagent.services.cache.observability import record_cache_event, record_cache_set
+
 _CACHE_MAX = 384
-_resource_payload_cache: OrderedDict[tuple[str, int | float, int], dict[str, Any]] = OrderedDict()
+_resource_payload_cache: BoundedLRU = BoundedLRU(_CACHE_MAX)
+
+
+def _key_digest(key: tuple[Any, ...]) -> str:
+    """Hash a tuple cache key to a stable string usable by :class:`BoundedLRU`."""
+    return hashlib.sha256(repr(key).encode("utf-8")).hexdigest()
 
 
 def clear_skill_resource_read_cache() -> None:
@@ -21,18 +29,15 @@ def clear_skill_resource_read_cache() -> None:
 
 def get_cached_resource_payload(key: tuple[str, int | float, int]) -> dict[str, Any] | None:
     """Return a deep copy of a cached payload, or None."""
-    if key not in _resource_payload_cache:
-        return None
-    _resource_payload_cache.move_to_end(key)
-    return deepcopy(_resource_payload_cache[key])
+    value, hit = _resource_payload_cache.get(_key_digest(key))
+    record_cache_event("skill_resource", hit=hit, entries=_resource_payload_cache.size)
+    return deepcopy(value) if hit else None
 
 
 def put_cached_resource_payload(key: tuple[str, int | float, int], payload: dict[str, Any]) -> None:
     """Store a deep copy so callers cannot mutate the cache."""
-    _resource_payload_cache[key] = deepcopy(payload)
-    _resource_payload_cache.move_to_end(key)
-    while len(_resource_payload_cache) > _CACHE_MAX:
-        _resource_payload_cache.popitem(last=False)
+    evicted = _resource_payload_cache.set(_key_digest(key), deepcopy(payload))
+    record_cache_set("skill_resource", evicted=evicted)
 
 
 def cache_key_for_path(path: Path, effective_cap: int) -> tuple[str, int | float, int] | None:

@@ -7,12 +7,20 @@ Callers (e.g. ``SkillTool``) build a content-revision key; see that module. Not 
 
 from __future__ import annotations
 
-from collections import OrderedDict
+import hashlib
 from copy import deepcopy
 from typing import Any
 
+from leagent.services.cache.lru import BoundedLRU
+from leagent.services.cache.observability import record_cache_event, record_cache_set
+
 _MAX_ENTRIES = 64
-_bundle_cache: OrderedDict[tuple[Any, ...], tuple[str, dict[str, Any]]] = OrderedDict()
+_bundle_cache: BoundedLRU = BoundedLRU(_MAX_ENTRIES)
+
+
+def _key_digest(key: tuple[Any, ...]) -> str:
+    """Hash a tuple cache key to a stable string usable by :class:`BoundedLRU`."""
+    return hashlib.sha256(repr(key).encode("utf-8")).hexdigest()
 
 
 def clear_bundle_payload_cache() -> None:
@@ -21,15 +29,15 @@ def clear_bundle_payload_cache() -> None:
 
 
 def get_cached_bundle(cache_key: tuple[Any, ...]) -> tuple[str, dict[str, Any]] | None:
-    if cache_key not in _bundle_cache:
+    value, hit = _bundle_cache.get(_key_digest(cache_key))
+    record_cache_event("skill_bundle", hit=hit, entries=_bundle_cache.size)
+    if not hit:
         return None
-    _bundle_cache.move_to_end(cache_key)
-    body_out, extra = _bundle_cache[cache_key]
+    body_out, extra = value
     return deepcopy(body_out), deepcopy(extra)
 
 
 def put_cached_bundle(cache_key: tuple[Any, ...], value: tuple[str, dict[str, Any]]) -> None:
-    _bundle_cache[cache_key] = value
-    _bundle_cache.move_to_end(cache_key)
-    while len(_bundle_cache) > _MAX_ENTRIES:
-        _bundle_cache.popitem(last=False)
+    body_out, extra = value
+    evicted = _bundle_cache.set(_key_digest(cache_key), (deepcopy(body_out), deepcopy(extra)))
+    record_cache_set("skill_bundle", evicted=evicted)

@@ -2,49 +2,48 @@
 
 from __future__ import annotations
 
-import time
-from threading import Lock
 from typing import Any, Generic, TypeVar
+
+from leagent.services.cache.lru import BoundedLRU
+from leagent.services.cache.observability import (
+    record_cache_event,
+    record_cache_set,
+)
 
 T = TypeVar("T")
 
 
 class TtlCache(Generic[T]):
-    """Thread-safe dict with per-entry TTL (monotonic clock)."""
+    """Thread-safe, bounded per-entry TTL cache over the shared LRU primitive.
 
-    def __init__(self, *, default_ttl_sec: float = 900.0, max_entries: int = 256) -> None:
+    Backed by :class:`BoundedLRU` so capacity and TTL eviction are precise and
+    observable. Each instance reports under its own ``metric_name`` so the
+    ``web_search`` and ``web_fetch`` caches stay independently actionable.
+    """
+
+    def __init__(
+        self,
+        *,
+        default_ttl_sec: float = 900.0,
+        max_entries: int = 256,
+        metric_name: str = "web_tool",
+    ) -> None:
         self._default_ttl = max(0.0, float(default_ttl_sec))
-        self._max_entries = max(1, int(max_entries))
-        self._lock = Lock()
-        self._store: dict[str, tuple[float, T]] = {}
+        self._metric_name = metric_name
+        self._lru: BoundedLRU = BoundedLRU(max(1, int(max_entries)))
 
     def get(self, key: str) -> T | None:
-        now = time.monotonic()
-        with self._lock:
-            hit = self._store.get(key)
-            if hit is None:
-                return None
-            exp, value = hit
-            if now >= exp:
-                self._store.pop(key, None)
-                return None
-            return value
+        value, hit = self._lru.get(key)
+        record_cache_event(self._metric_name, hit=hit, entries=self._lru.size)
+        return value if hit else None
 
     def set(self, key: str, value: T, *, ttl_sec: float | None = None) -> None:
-        ttl = self._default_ttl if ttl_sec is None else max(0.0, float(ttl_sec))
-        if ttl <= 0:
-            return
-        exp = time.monotonic() + ttl
-        with self._lock:
-            if len(self._store) >= self._max_entries and key not in self._store:
-                # Drop oldest by expiry
-                oldest = min(self._store.items(), key=lambda kv: kv[1][0])[0]
-                self._store.pop(oldest, None)
-            self._store[key] = (exp, value)
+        ttl = self._default_ttl if ttl_sec is None else float(ttl_sec)
+        evicted = self._lru.set(key, value, ttl=ttl)
+        record_cache_set(self._metric_name, evicted=evicted)
 
     def clear(self) -> None:
-        with self._lock:
-            self._store.clear()
+        self._lru.clear()
 
 
 # Module-level caches shared across tool calls in-process.
@@ -55,14 +54,20 @@ _fetch_cache: TtlCache[dict[str, Any]] | None = None
 def get_search_cache(*, ttl_minutes: float = 15.0) -> TtlCache[dict[str, Any]]:
     global _search_cache
     if _search_cache is None:
-        _search_cache = TtlCache(default_ttl_sec=max(0.0, ttl_minutes) * 60.0)
+        _search_cache = TtlCache(
+            default_ttl_sec=max(0.0, ttl_minutes) * 60.0,
+            metric_name="web_search",
+        )
     return _search_cache
 
 
 def get_fetch_cache(*, ttl_minutes: float = 15.0) -> TtlCache[dict[str, Any]]:
     global _fetch_cache
     if _fetch_cache is None:
-        _fetch_cache = TtlCache(default_ttl_sec=max(0.0, ttl_minutes) * 60.0)
+        _fetch_cache = TtlCache(
+            default_ttl_sec=max(0.0, ttl_minutes) * 60.0,
+            metric_name="web_fetch",
+        )
     return _fetch_cache
 
 
