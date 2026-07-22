@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from leagent.mcp.manager import MCPClientManager
     from leagent.memory.agent_memory import AgentMemory
     from leagent.services.canvas.service import CanvasService
+    from leagent.services.cache.service import CacheService
     from leagent.services.chat.service import ChatService
     from leagent.project.manager import CodingProjectManager
     from leagent.db.service import DatabaseService
@@ -40,6 +41,7 @@ class ServiceManager:
         self.settings = settings
 
         self._db: DatabaseService | None = None
+        self._cache: "CacheService | None" = None
         self._chat: ChatService | None = None
         self._canvas: "CanvasService | None" = None
         self._coding_projects: "CodingProjectManager | None" = None
@@ -73,8 +75,8 @@ class ServiceManager:
         return None
 
     @property
-    def cache(self) -> Any:
-        return None
+    def cache(self) -> "CacheService | None":
+        return self._cache
 
     @property
     def chat(self) -> "ChatService | None":
@@ -234,6 +236,7 @@ class ServiceManager:
 
         await self._start_database()
         await self._start_event()
+        await self._start_cache()
         await self._start_chat()
         await self._start_canvas()
         await self._start_coding_projects()
@@ -302,6 +305,12 @@ class ServiceManager:
             except Exception:
                 logger.warning("Event service shutdown error", exc_info=True)
 
+        if self._cache:
+            try:
+                await self._cache.stop()
+            except Exception:
+                logger.warning("Cache service shutdown error", exc_info=True)
+
         if self._db:
             try:
                 await self._db.dispose()
@@ -316,6 +325,7 @@ class ServiceManager:
         results: dict[str, Any] = {"healthy": True, "services": {}}
         services = [
             ("database", self._db),
+            ("cache", self._cache),
             ("chat", self._chat),
             ("variable", self._variable),
             ("event", self._event),
@@ -366,11 +376,20 @@ class ServiceManager:
         except Exception:
             logger.warning("Event manager initialization skipped", exc_info=True)
 
+    async def _start_cache(self) -> None:
+        from leagent.services.cache.service import init_cache_service
+
+        self._cache = await init_cache_service(self.settings)
+        logger.info(
+            "CacheService initialized (memory, max_items=%d)",
+            self.settings.cache.max_items,
+        )
+
     async def _start_chat(self) -> None:
         try:
             from leagent.services.chat.service import init_chat_service
             if self._db:
-                self._chat = await init_chat_service(self.settings, self._db, None)
+                self._chat = await init_chat_service(self.settings, self._db, self._cache)
                 logger.info("Chat service initialized")
         except Exception:
             logger.warning("Chat initialization skipped", exc_info=True)
@@ -402,7 +421,7 @@ class ServiceManager:
         try:
             from leagent.services.variable.service import init_variable_service
             if self._db:
-                self._variable = await init_variable_service(self.settings, self._db, None)
+                self._variable = await init_variable_service(self.settings, self._db, self._cache)
                 logger.info("Variable service initialized")
         except Exception:
             logger.warning("Variable initialization skipped", exc_info=True)
@@ -591,7 +610,7 @@ class ServiceManager:
             self._file_service = FileService(
                 default_backend=backend,
                 default_backend_name="local",
-                cache=None,
+                cache=self._cache,
                 database=self._db,
             )
             logger.info("FileService initialised (root=%s)", upload_dir)
