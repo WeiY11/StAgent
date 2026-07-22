@@ -14,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 import leagent.db.models  # noqa: F401 — register metadata
 from leagent.config.settings import get_settings
 from leagent.db.models.message import ChatSession, Message, MessageRole
+from leagent.services.cache.service import CacheService
 from leagent.services.chat.service import ChatService
 from leagent.services.session.store import TieredSessionStore
 
@@ -73,7 +74,8 @@ async def chat_svc() -> AsyncIterator[tuple[ChatService, UUID, UUID]]:
     db = _InMemoryDatabase()
     await db.start()
     settings = get_settings()
-    svc = ChatService(settings, db_service=db, cache_service=None)
+    cache = CacheService(settings)
+    svc = ChatService(settings, db_service=db, cache_service=cache)
     user_id = uuid4()
     session_id = uuid4()
     async with db.session() as session:
@@ -123,6 +125,19 @@ async def test_get_messages_paginated_returns_user_before_assistant(
 
 
 @pytest.mark.asyncio
+async def test_history_write_bumps_generation_and_old_page_is_not_reused(
+    chat_svc: tuple[ChatService, UUID, UUID],
+) -> None:
+    service, session_id, user_id = chat_svc
+    assert await service.get_history(session_id, user_id=user_id, limit=20) == []
+    await service.add_message(
+        session_id, MessageRole.USER, "new", user_id=user_id
+    )
+    history = await service.get_history(session_id, user_id=user_id, limit=20)
+    assert [message.content for message in history] == ["new"]
+
+
+@pytest.mark.asyncio
 async def test_rehydrate_from_messages_preserves_insert_order(
     chat_svc: tuple[ChatService, UUID, UUID],
 ) -> None:
@@ -136,7 +151,7 @@ async def test_rehydrate_from_messages_preserves_insert_order(
 
     async with db.session() as session:
         chat = (await session.exec(select(ChatSession).where(ChatSession.id == session_id))).one()
-        store = TieredSessionStore(get_settings(), database=db, cache=None)
+        store = TieredSessionStore(get_settings(), database=db)
         state = await store._rehydrate_from_messages(session, chat)
 
     assert [m.content for m in state.messages] == ["one", "two", "three"]

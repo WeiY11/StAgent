@@ -632,7 +632,6 @@ class ServiceManager:
                 return
             self._session_manager = SessionManager(
                 self.settings,
-                cache=None,
                 database=self._db,
                 file_service=self._file_service,
             )

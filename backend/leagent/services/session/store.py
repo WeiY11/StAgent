@@ -22,7 +22,6 @@ The LRU is a read-through cache; it never holds state the JSON blob does not.
 from __future__ import annotations
 
 import json
-from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -38,6 +37,7 @@ from leagent.db.sqlite_compat import (
     sqlite_parent_id_text,
 )
 from leagent.db.models.message import ChatSession, Message, MessageRole
+from leagent.services.cache.lru import BoundedLRU
 from leagent.services.session.state import (
     SessionAttachment,
     SessionMessage,
@@ -93,26 +93,24 @@ def _role_to_enum(role: str) -> MessageRole:
 
 
 class _LRUCache:
-    """Tiny async-friendly LRU for hot-path session reads."""
+    """Tiny async-friendly LRU for hot-path session reads.
+
+    Backed by the shared thread-safe :class:`BoundedLRU` primitive so eviction
+    accounting and concurrency semantics match the rest of the cache stack.
+    """
 
     def __init__(self, max_size: int) -> None:
-        self._max_size = max(8, max_size)
-        self._data: OrderedDict[UUID, SessionState] = OrderedDict()
+        self._lru = BoundedLRU(max(8, max_size))
 
     def get(self, session_id: UUID) -> SessionState | None:
-        state = self._data.get(session_id)
-        if state is not None:
-            self._data.move_to_end(session_id)
-        return state
+        value, hit = self._lru.get(str(session_id))
+        return value if hit else None
 
     def put(self, state: SessionState) -> None:
-        self._data[state.session_id] = state
-        self._data.move_to_end(state.session_id)
-        while len(self._data) > self._max_size:
-            self._data.popitem(last=False)
+        self._lru.set(str(state.session_id), state)
 
     def drop(self, session_id: UUID) -> None:
-        self._data.pop(session_id, None)
+        self._lru.delete(str(session_id))
 
 
 class TieredSessionStore:
@@ -126,7 +124,6 @@ class TieredSessionStore:
         self,
         settings: Settings,
         *,
-        cache: Any | None = None,
         database: DatabaseService | None,
     ) -> None:
         self._settings = settings
@@ -146,8 +143,11 @@ class TieredSessionStore:
         return state
 
     async def save(self, state: SessionState) -> None:
-        self._lru.put(state)
+        # Persist to the durable tier first; only publish to the read-through
+        # L1 after the database write succeeds so a failed save can never leave
+        # an undurable state visible to subsequent reads.
         await self._save_to_database(state)
+        self._lru.put(state)
 
     async def delete(self, session_id: UUID) -> None:
         self._lru.drop(session_id)
@@ -364,7 +364,11 @@ class TieredSessionStore:
                         )
                     )
         except Exception as exc:  # noqa: BLE001
+            # Re-raise after logging so ``save`` cannot publish an undurable
+            # state to L1. The runtime recovery boundary in ``SessionManager``
+            # catches this and leaves the previously durable state untouched.
             logger.warning("session_store_database_save_failed: %s", exc)
+            raise
 
     async def list_sessions_for_user(
         self,

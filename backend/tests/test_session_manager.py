@@ -120,7 +120,7 @@ async def database() -> _InMemoryDatabase:
 
 @pytest.fixture()
 async def manager(settings_for_session, database) -> SessionManager:  # noqa: ANN001
-    return SessionManager(settings_for_session, cache=None, database=database)
+    return SessionManager(settings_for_session, database=database)
 
 
 def _upload(contents: bytes, *, filename: str, content_type: str) -> UploadFile:
@@ -420,7 +420,7 @@ class TestTieredSessionStoreFallback:
         self, settings_for_session, database
     ) -> None:
         """Even with a flushed LRU, state must rehydrate from SQLite."""
-        store = TieredSessionStore(settings_for_session, cache=None, database=database)
+        store = TieredSessionStore(settings_for_session, database=database)
 
         sid = uuid4()
         state = SessionState(session_id=sid, user_id=uuid4())
@@ -428,8 +428,28 @@ class TestTieredSessionStoreFallback:
         await store.save(state)
 
         # Simulate fresh worker: new store with a fresh LRU.
-        restart = TieredSessionStore(settings_for_session, cache=None, database=database)
+        restart = TieredSessionStore(settings_for_session, database=database)
         loaded = await restart.load(sid)
         assert loaded is not None
         assert [m.role for m in loaded.messages] == ["user"]
         assert loaded.messages[0].content == "persist me"
+
+
+@pytest.mark.asyncio
+async def test_failed_database_save_does_not_publish_l1(settings_for_session) -> None:
+    class FailingSessionContext:
+        async def __aenter__(self):  # noqa: ANN201
+            raise RuntimeError("db down")
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+            return None
+
+    class FailingDatabase:
+        def session(self) -> FailingSessionContext:
+            return FailingSessionContext()
+
+    store = TieredSessionStore(settings_for_session, database=FailingDatabase())
+    state = SessionState(session_id=uuid4(), user_id=uuid4())
+    with pytest.raises(RuntimeError, match="db down"):
+        await store.save(state)
+    assert store._lru.get(state.session_id) is None

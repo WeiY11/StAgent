@@ -23,6 +23,7 @@ from leagent.db.sqlite_compat import (
 )
 
 from leagent.services.base import Service, ServiceType, service_factory
+from leagent.services.cache import build_scoped_cache_key
 from leagent.db.models.agent_memory import AgentEpisode
 from leagent.db.models.base import naive_utc_for_db_column, utc_now
 from leagent.db.models.canvas import CanvasDocument
@@ -165,13 +166,27 @@ class ChatService(Service):
         bumped = last_at + timedelta(microseconds=1)
         return max(now, bumped)
 
+    async def _message_cache_generation(self, session_id: UUID) -> int:
+        if self._cache is None:
+            return 0
+        return await self._cache.get_generation(
+            f"messages:{session_id}", namespace="chat"
+        )
+
     async def _invalidate_session_message_cache(self, session_id: UUID) -> None:
-        """Drop cached history/list keys for a session after writes."""
-        if not self._cache:
+        """Drop cached history/list keys for a session after writes.
+
+        History pages are versioned by a monotonic generation counter, so a
+        single O(1) ``bump_generation`` retires every cached page for the
+        session without an O(n) prefix scan; stale pages are simply never hit
+        again because readers fold the new generation into their key.
+        """
+        if self._cache is None:
             return
-        sid = str(session_id)
-        await self._cache.delete_prefix(f"messages:{sid}", namespace="chat")
-        await self._cache.delete(f"session:{sid}", namespace="chat")
+        await self._cache.bump_generation(
+            f"messages:{session_id}", namespace="chat"
+        )
+        await self._cache.delete(f"session:{session_id}", namespace="chat")
 
     async def create_session(
         self,
@@ -923,6 +938,7 @@ class ChatService(Service):
         self,
         session_id: UUID,
         *,
+        user_id: UUID | None = None,
         limit: int = 100,
         before_id: UUID | None = None,
         include_system: bool = True,
@@ -931,6 +947,8 @@ class ChatService(Service):
 
         Args:
             session_id: The session ID
+            user_id: Optional owner scope for the cache key (never derived from
+                untrusted query text)
             limit: Maximum messages to return
             before_id: Only return messages before this ID
             include_system: Include system messages
@@ -941,8 +959,24 @@ class ChatService(Service):
         if self._db is None:
             return []
 
-        cache_key = f"messages:{session_id}:{limit}:{before_id}:{include_system}"
+        session = await self.get_session(session_id, user_id=user_id)
+        if session is None:
+            return []
+
+        cache_key: str | None = None
         if self._cache:
+            generation = await self._message_cache_generation(session_id)
+            cache_key = build_scoped_cache_key(
+                "messages",
+                owner_id=session.user_id,
+                resource_id=session_id,
+                generation=generation,
+                vary={
+                    "limit": limit,
+                    "before_id": before_id,
+                    "include_system": include_system,
+                },
+            )
             cached = await self._cache.get(cache_key, namespace="chat")
             if cached:
                 return [MessageRead.model_validate(m) for m in cached]
@@ -972,7 +1006,7 @@ class ChatService(Service):
 
         message_reads = [MessageRead.model_validate(m) for m in messages]
 
-        if self._cache:
+        if self._cache and cache_key is not None:
             await self._cache.set(
                 cache_key,
                 [m.model_dump(mode="json") for m in message_reads],
@@ -1012,6 +1046,7 @@ class ChatService(Service):
         self,
         session_id: UUID,
         *,
+        user_id: UUID | None = None,
         max_tokens: int | None = None,
         max_messages: int = 50,
     ) -> list[dict[str, Any]]:
@@ -1019,13 +1054,16 @@ class ChatService(Service):
 
         Args:
             session_id: The session ID
+            user_id: Optional owner scope forwarded to :meth:`get_history`
             max_tokens: Maximum total tokens (approximate)
             max_messages: Maximum number of messages
 
         Returns:
             List of message dicts in OpenAI format
         """
-        messages = await self.get_history(session_id, limit=max_messages)
+        messages = await self.get_history(
+            session_id, user_id=user_id, limit=max_messages
+        )
 
         if max_tokens is None:
             max_tokens = self._settings.agent.context_window_tokens

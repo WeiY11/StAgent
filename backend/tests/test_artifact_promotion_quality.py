@@ -162,7 +162,7 @@ async def test_register_external_file_versions_on_content_change(
             )
 
     settings = get_settings()
-    manager = SessionManager(settings, cache=None, database=None)
+    manager = SessionManager(settings, database=None)
     store = _MemoryStore()
     manager._store = store  # type: ignore[attr-defined]
     manager._ensure_file_service = lambda: _FakeFileService()  # type: ignore[method-assign]
@@ -272,7 +272,7 @@ async def test_promote_tool_output_path_and_bytes(
             )
 
     settings = get_settings()
-    manager = SessionManager(settings, cache=None, database=None)
+    manager = SessionManager(settings, database=None)
     store = _MemoryStore()
     manager._store = store  # type: ignore[attr-defined]
     manager._ensure_file_service = lambda: _FakeFileService()  # type: ignore[method-assign]
