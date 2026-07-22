@@ -6,6 +6,11 @@ import pytest
 
 from leagent.workflow.base import WorkflowStatus
 from leagent.workflow.engine import WorkflowExecutor, build_cache_set
+from leagent.workflow.engine.caching import (
+    CacheKeySetInputSignature,
+    LRUCache,
+    WorkflowCacheScope,
+)
 from leagent.workflow.engine.errors import ValidationError
 from leagent.workflow.io import load
 from leagent.workflow.nodes import bootstrap
@@ -141,5 +146,32 @@ async def test_execute_rejects_invalid_graph():
 
 def test_cache_set_policies_are_isolated():
     none_set = build_cache_set("none")
-    basic = build_cache_set("classic")
-    assert none_set.outputs is not basic.outputs
+    lru = build_cache_set("lru")
+    assert none_set.outputs is not lru.outputs
+    assert isinstance(lru.outputs, LRUCache)
+
+
+def test_build_cache_set_rejects_unknown_mode():
+    with pytest.raises(ValueError):
+        build_cache_set("classic")
+
+
+def test_executor_default_output_cache_is_bounded() -> None:
+    executor = WorkflowExecutor()
+    assert isinstance(executor.cache_set.outputs, LRUCache)
+    assert executor.cache_set.outputs.max_size == 128
+    assert isinstance(executor.cache_set.objects, LRUCache)
+    assert isinstance(executor.cache_set.ui, LRUCache)
+
+
+def test_identical_node_inputs_do_not_cross_owner_scope() -> None:
+    prompt = {
+        "end": {"class_type": "EndNode", "inputs": {"result": "same"}}
+    }
+    left = CacheKeySetInputSignature(
+        prompt, scope_digest=WorkflowCacheScope(owner_id="u1").digest()
+    )
+    right = CacheKeySetInputSignature(
+        prompt, scope_digest=WorkflowCacheScope(owner_id="u2").digest()
+    )
+    assert left.signature("end") != right.signature("end")

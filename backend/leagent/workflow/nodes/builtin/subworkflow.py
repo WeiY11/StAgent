@@ -74,6 +74,9 @@ class SubworkflowNode(WorkflowNode):
                 llm_service=getattr(ctx, "llm_service", None),
                 review_service=getattr(ctx, "review_service", None),
                 agent_runtime=hidden.agent_runtime or getattr(ctx, "agent_runtime", None),
+                # Nested runs must stay bounded; never silently fall back to an
+                # unbounded output cache.
+                cache_mode="lru",
             )
             # Child run inherits the parent's identity (agent nodes need
             # user/session) and abort signal (cancelling the parent cancels

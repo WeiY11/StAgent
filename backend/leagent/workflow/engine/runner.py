@@ -12,13 +12,18 @@ import asyncio
 import time
 from typing import Any
 
+from leagent.services.cache.observability import (
+    record_cache_event,
+    record_cache_rejection,
+    record_cache_set,
+)
 from leagent.utils.logging import get_logger
 from leagent.workflow.io import Hidden, HiddenHolder, NodeOutput
 from leagent.workflow.io.contract import NOT_CACHEABLE
 from leagent.workflow.nodes import NodeRegistry
 
 from .cache_provider import CacheProvider, NullCacheProvider
-from .caching import BaseCache, CacheEntry, CacheKeySet
+from .caching import BaseCache, CacheEntry, CacheKeySet, _estimate_size
 from .errors import NodeExecutionError, WorkflowEngineError
 from .progress import CurrentNodeContext, NodeStatus, ProgressRegistry
 
@@ -95,6 +100,8 @@ class NodeRunner:
         cache_keys: CacheKeySet,
         progress: ProgressRegistry,
         cache_provider: CacheProvider | None = None,
+        scope_digest: str = "",
+        max_value_bytes: int | None = None,
     ) -> None:
         self.registry = registry
         self.output_cache = output_cache
@@ -102,6 +109,11 @@ class NodeRunner:
         self.cache_keys = cache_keys
         self.progress = progress
         self.cache_provider = cache_provider or NullCacheProvider()
+        self.scope_digest = scope_digest
+        self.max_value_bytes = max_value_bytes
+
+    def _object_key(self, node_id: str) -> str:
+        return f"{self.scope_digest}:{node_id}" if self.scope_digest else node_id
 
     async def run(
         self,
@@ -166,10 +178,11 @@ class NodeRunner:
                 raise NodeExecutionError(err_v or f"invalid input '{inp.id}'", node_id=node_id)
 
         # -------------------- instance memoization --------------------
-        instance_entry = self.object_cache.get(node_id)
+        object_key = self._object_key(node_id)
+        instance_entry = self.object_cache.get(object_key)
         if instance_entry is None:
             instance = node_cls()
-            self.object_cache.set(node_id, CacheEntry(value=instance))
+            self.object_cache.set(object_key, CacheEntry(value=instance))
         else:
             instance = instance_entry.value
 
@@ -194,8 +207,10 @@ class NodeRunner:
                 if provider_hit is not None:
                     cached = CacheEntry(value=_output_from_payload(provider_hit))
             if cached is not None:
+                record_cache_event("workflow_node_output", hit=True)
                 self.progress.set_status(node_id, NodeStatus.CACHED)
                 return NodeRunResult(cached.value, cached=True)
+            record_cache_event("workflow_node_output", hit=False)
 
         # -------------------- lazy input resolution --------------------
         has_lazy = any(getattr(inp, "lazy", False) for inp in schema.inputs)
@@ -269,9 +284,18 @@ class NodeRunner:
 
         # -------------------- cache writeback --------------------
         if cacheable:
-            self.output_cache.set(key, CacheEntry(value=output))
-            if self.cache_provider.should_cache(key, node_def):
-                await self.cache_provider.on_store(key, _payload_from_output(output))
+            size = _estimate_size(output)
+            if self.max_value_bytes is not None and size > self.max_value_bytes:
+                # Oversized payloads are returned normally but never cached, so a
+                # single large node output cannot blow the bounded cache budget.
+                record_cache_rejection("workflow_node_output")
+            else:
+                self.output_cache.set(
+                    key, CacheEntry(value=output, size_bytes=size)
+                )
+                record_cache_set("workflow_node_output")
+                if self.cache_provider.should_cache(key, node_def):
+                    await self.cache_provider.on_store(key, _payload_from_output(output))
 
         self.progress.set_status(node_id, NodeStatus.SUCCESS,
                                  metadata={"duration_ms": duration_ms, **output.metadata})

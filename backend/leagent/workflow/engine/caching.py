@@ -31,7 +31,7 @@ import json
 import sys
 import threading
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Iterable
 
 
@@ -110,17 +110,33 @@ class CacheKeySetID(CacheKeySet):
 
 
 class CacheKeySetInputSignature(CacheKeySet):
-    """Signature = immediate signature ⊕ ancestor signatures, recursively."""
+    """Signature = immediate signature ⊕ ancestor signatures, recursively.
 
-    def __init__(self, prompt: Any, registry: Any | None = None) -> None:
+    ``scope_digest`` isolates otherwise-identical graphs by execution scope
+    (owner / workflow / permission / model revision) so two tenants never
+    read each other's cached node outputs even for byte-identical inputs.
+    """
+
+    def __init__(
+        self,
+        prompt: Any,
+        registry: Any | None = None,
+        *,
+        scope_digest: str = "",
+    ) -> None:
         self._prompt = prompt
         self._registry = registry
+        self._scope_digest = scope_digest
         self._memo: dict[str, str] = {}
 
     def invalidate(self, node_id: str) -> None:
         self._memo.pop(node_id, None)
 
     def signature(self, node_id: str) -> str:
+        base = self._base_signature(node_id)
+        return f"{self._scope_digest}:{base}" if self._scope_digest else base
+
+    def _base_signature(self, node_id: str) -> str:
         if node_id in self._memo:
             return self._memo[node_id]
         node = self._prompt.get(node_id)
@@ -134,7 +150,7 @@ class CacheKeySetInputSignature(CacheKeySet):
         upstream_sigs: list[tuple[str, str]] = []
         for k, v in (node.get("inputs") or {}).items():
             if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str):
-                upstream_sigs.append((k, self.signature(v[0])))
+                upstream_sigs.append((k, self._base_signature(v[0])))
 
         sig = hash_signature({
             "immediate": immediate,
@@ -142,6 +158,24 @@ class CacheKeySetInputSignature(CacheKeySet):
         })
         self._memo[node_id] = sig
         return sig
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowCacheScope:
+    """Execution scope folded into node-output cache keys.
+
+    Internal/local callers use ``owner_id="local"``; ingress builds the real
+    scope from the authenticated user/workspace and the allowed-tool set so
+    output caches are never shared across tenants or permission boundaries.
+    """
+
+    owner_id: str = "local"
+    workflow_digest: str = "adhoc"
+    permission_digest: str = "default"
+    model_revision: str = "default"
+
+    def digest(self) -> str:
+        return hash_signature(asdict(self))
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +278,28 @@ class LRUCache(BaseCache):
         with self._lock:
             self._store.clear()
 
+    def snapshot_entries(self) -> dict[str, Any]:
+        """Serialize cache entries for durable workflow resume."""
+        with self._lock:
+            return {
+                key: {"value": entry.value, "metadata": dict(entry.metadata or {})}
+                for key, entry in self._store.items()
+            }
+
+    def restore_entries(self, data: dict[str, Any]) -> None:
+        """Restore cache entries from a snapshot, honoring the size bound."""
+        with self._lock:
+            for key, raw in (data or {}).items():
+                if not isinstance(raw, dict):
+                    continue
+                self._store[key] = CacheEntry(
+                    value=raw.get("value"),
+                    metadata=dict(raw.get("metadata") or {}),
+                )
+                self._store.move_to_end(key)
+            while len(self._store) > self.max_size:
+                self._store.popitem(last=False)
+
 
 class RAMPressureCache(BaseCache):
     def __init__(self, ram_budget_mb: int = 256) -> None:
@@ -276,6 +332,27 @@ class RAMPressureCache(BaseCache):
         with self._lock:
             self._store.clear()
             self._used = 0
+
+    def snapshot_entries(self) -> dict[str, Any]:
+        """Serialize cache entries for durable workflow resume."""
+        with self._lock:
+            return {
+                key: {"value": entry.value, "metadata": dict(entry.metadata or {})}
+                for key, entry in self._store.items()
+            }
+
+    def restore_entries(self, data: dict[str, Any]) -> None:
+        """Restore cache entries from a snapshot; ``set`` re-enforces the budget."""
+        for key, raw in (data or {}).items():
+            if not isinstance(raw, dict):
+                continue
+            self.set(
+                key,
+                CacheEntry(
+                    value=raw.get("value"),
+                    metadata=dict(raw.get("metadata") or {}),
+                ),
+            )
 
 
 class HierarchicalCache(BaseCache):
@@ -335,8 +412,8 @@ class CacheSet:
     """
 
     outputs: BaseCache
-    objects: BasicCache = field(default_factory=BasicCache)
-    ui: BasicCache = field(default_factory=BasicCache)
+    objects: BaseCache = field(default_factory=BasicCache)
+    ui: BaseCache = field(default_factory=BasicCache)
 
     def all(self) -> Iterable[BaseCache]:
         yield self.outputs
@@ -348,30 +425,37 @@ class CacheSet:
             cache.clear()
 
 
-def build_cache_set(mode: str = "classic", **options: Any) -> CacheSet:
+def build_cache_set(mode: str = "lru", **options: Any) -> CacheSet:
     """Construct a :class:`CacheSet` from a mode string.
 
-    Supported modes: ``classic`` (BasicCache), ``lru``, ``ram``, ``none``.
+    Supported modes: ``lru`` (default), ``ram``, ``none``, ``hierarchical``.
+    Every default is bounded — there is no unbounded ``classic`` output cache.
+    ``objects`` and ``ui`` are always bounded LRUs so a long-lived executor
+    cannot leak live node instances or UI payloads without limit.
     """
-    mode = (mode or "classic").lower()
+    mode = (mode or "lru").lower()
+    if mode not in {"lru", "ram", "none", "hierarchical"}:
+        raise ValueError(f"unsupported workflow cache mode: {mode}")
+    lru_size = max(1, int(options.get("lru_size", 128)))
     if mode == "none":
         outputs: BaseCache = NullCache()
     elif mode == "lru":
-        outputs = LRUCache(max_size=int(options.get("lru_size", 128)))
+        outputs = LRUCache(max_size=lru_size)
     elif mode == "ram":
-        outputs = RAMPressureCache(ram_budget_mb=int(options.get("ram_mb", 256)))
-    elif mode == "hierarchical":
-        factory_name = options.get("factory", "basic")
+        outputs = RAMPressureCache(
+            ram_budget_mb=max(1, int(options.get("ram_mb", 256)))
+        )
+    else:  # hierarchical
+        factory_name = options.get("factory", "lru")
         factory: Callable[[], BaseCache]
-        if factory_name == "lru":
-            size = int(options.get("lru_size", 128))
-            factory = lambda: LRUCache(max_size=size)  # noqa: E731
-        elif factory_name == "ram":
-            mb = int(options.get("ram_mb", 256))
-            factory = lambda: RAMPressureCache(ram_budget_mb=mb)  # noqa: E731
+        if factory_name == "ram":
+            ram_mb = max(1, int(options.get("ram_mb", 256)))
+            factory = lambda: RAMPressureCache(ram_budget_mb=ram_mb)  # noqa: E731
         else:
-            factory = BasicCache
+            factory = lambda: LRUCache(max_size=lru_size)  # noqa: E731
         outputs = HierarchicalCache(factory)
-    else:
-        outputs = BasicCache()
-    return CacheSet(outputs=outputs)
+    return CacheSet(
+        outputs=outputs,
+        objects=LRUCache(max_size=lru_size),
+        ui=LRUCache(max_size=lru_size),
+    )

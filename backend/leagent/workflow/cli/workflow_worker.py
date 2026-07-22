@@ -107,6 +107,10 @@ async def _run(
         workflow_registry=None,
         agent_runtime=agent_runtime,
         cache_mode=wf_settings.cache_mode,
+        cache_options={
+            "lru_size": wf_settings.cache_lru_size,
+            "ram_mb": wf_settings.cache_ram_mb,
+        },
     )
 
     event_bus: ExecutionEventBus = await get_event_bus(sm)
