@@ -154,10 +154,12 @@ class BoundedLRU:
                 if entry is not None:
                     del self._data[key]
                     self._expirations += 1
+                self._misses += 1
                 current = default
             else:
                 current = entry.value
                 del self._data[key]
+                self._hits += 1
             value = updater(current)
             self._data[key] = _Entry(value, _expiry(ttl))
             self._sets += 1
