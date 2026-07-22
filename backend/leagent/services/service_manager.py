@@ -41,7 +41,7 @@ class ServiceManager:
         self.settings = settings
 
         self._db: DatabaseService | None = None
-        self._cache: "CacheService | None" = None
+        self._cache: CacheService | None = None
         self._chat: ChatService | None = None
         self._canvas: "CanvasService | None" = None
         self._coding_projects: "CodingProjectManager | None" = None
@@ -75,7 +75,7 @@ class ServiceManager:
         return None
 
     @property
-    def cache(self) -> "CacheService | None":
+    def cache(self) -> CacheService | None:
         return self._cache
 
     @property

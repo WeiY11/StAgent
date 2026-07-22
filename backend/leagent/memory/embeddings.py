@@ -69,7 +69,7 @@ class LLMServiceEmbeddingProvider:
         self,
         llm_service: "LLMService",
         *,
-        cache: "CacheService | None" = None,
+        cache: CacheService | None = None,
         model: str | None = None,
         dimension: int = 1024,
     ) -> None:

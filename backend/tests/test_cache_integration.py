@@ -17,6 +17,7 @@ import pytest
 from leagent.config.settings import Settings
 from leagent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
 from leagent.memory.recall import RecallOptions, RetrievalPipeline
+from leagent.services.cache.observability import get_cache_stats_registry
 from leagent.services.cache.service import CacheService
 
 
@@ -74,3 +75,39 @@ async def test_recall_key_isolated_by_user() -> None:
     await pipeline.recall(RecallOptions(query="q", user_id=UUID(int=1)))
     await pipeline.recall(RecallOptions(query="q", user_id=UUID(int=2)))
     assert episodic.search_calls == 2
+
+
+def _rejections_for(stat_name: str) -> int:
+    """Read the cumulative rejection counter for *stat_name* from the singleton."""
+    for cache in get_cache_stats_registry().snapshot()["caches"]:
+        if cache["name"] == stat_name:
+            return int(cache.get("rejections", 0))
+    return 0
+
+
+@pytest.mark.asyncio
+async def test_oversized_value_is_rejected_without_caching() -> None:
+    # Task 4 invariant: an oversized single value must not be cached (it would
+    # evict the whole working set), the write reports failure, the value stays
+    # absent, and the rejection counter increments.
+    service = CacheService(Settings())
+    before = _rejections_for("cache:chat")
+    oversized = "x" * (service._cache_cfg.max_value_bytes + 1_024)
+
+    stored = await service.set("huge", oversized, namespace="chat")
+
+    assert stored is False
+    assert await service.get("huge", namespace="chat", default="MISS") == "MISS"
+    assert _rejections_for("cache:chat") == before + 1
+
+
+@pytest.mark.asyncio
+async def test_resident_set_stays_bounded_under_many_unique_writes() -> None:
+    # Task 4 invariant: 20,000 unique writes against a 1,000-item cap must never
+    # let the resident set exceed the cap (bounded memory, LRU eviction).
+    settings = Settings()
+    settings.cache.max_items = 1_000
+    service = CacheService(settings)
+    for i in range(20_000):
+        await service.set(f"k{i}", i, namespace="chat")
+    assert service.memory_stats()["size"] <= 1_000

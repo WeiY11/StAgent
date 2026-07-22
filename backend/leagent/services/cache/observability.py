@@ -21,7 +21,10 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 #: Sliding-window configuration for the "recent" hit rate. Cumulative rates
 #: since process start mask regressions; a short window surfaces them. Kept
@@ -113,7 +116,7 @@ class CacheStat:
                 out["detail"] = None
         return out
 
-    def copy_for_snapshot(self) -> "CacheStat":
+    def copy_for_snapshot(self) -> CacheStat:
         """Return a lock-free copy for snapshotting outside the registry lock.
 
         Counters are copied by value and the sliding-window bucket lists are

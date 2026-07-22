@@ -1,5 +1,5 @@
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from leagent.config.settings import CacheSettings
 from leagent.services.cache.keys import build_scoped_cache_key
