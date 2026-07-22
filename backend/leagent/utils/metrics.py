@@ -360,6 +360,45 @@ class LeAgentMetrics:
             registry=self._registry,
         )
 
+        # Cache pressure + single-flight metrics. Labels are limited to the
+        # logical ``cache_name`` on purpose: owner, resource, session, model and
+        # rejection detail must never become Prometheus labels (cardinality).
+        self.cache_evictions_total = Counter(
+            "leagent_cache_evictions_total",
+            "Total cache entries evicted for capacity (LRU)",
+            labelnames=["cache_name"],
+            registry=self._registry,
+        )
+
+        self.cache_expirations_total = Counter(
+            "leagent_cache_expirations_total",
+            "Total cache entries dropped for TTL expiry",
+            labelnames=["cache_name"],
+            registry=self._registry,
+        )
+
+        self.cache_rejections_total = Counter(
+            "leagent_cache_rejections_total",
+            "Total cache writes rejected (e.g. oversized value)",
+            labelnames=["cache_name"],
+            registry=self._registry,
+        )
+
+        self.cache_fill_duration_seconds = Histogram(
+            "leagent_cache_fill_duration_seconds",
+            "Single-flight cache fill (factory) duration in seconds",
+            labelnames=["cache_name"],
+            buckets=DURATION_BUCKETS,
+            registry=self._registry,
+        )
+
+        self.cache_coalesced_total = Counter(
+            "leagent_cache_coalesced_total",
+            "Total concurrent callers coalesced onto a single cache fill",
+            labelnames=["cache_name"],
+            registry=self._registry,
+        )
+
         # Application info
         self.app_info = Info(
             "leagent_app",
@@ -573,6 +612,31 @@ class LeAgentMetrics:
             self.cache_misses_total.labels(cache_name=cache_name).inc()
         if entries is not None:
             self.cache_entries.labels(cache_name=cache_name).set(max(0, int(entries)))
+
+    def record_cache_eviction(self, cache_name: str, *, count: int = 1) -> None:
+        """Record *count* capacity (LRU) evictions for *cache_name*."""
+        if count > 0:
+            self.cache_evictions_total.labels(cache_name=cache_name).inc(count)
+
+    def record_cache_expiration(self, cache_name: str, *, count: int = 1) -> None:
+        """Record *count* TTL expirations for *cache_name*."""
+        if count > 0:
+            self.cache_expirations_total.labels(cache_name=cache_name).inc(count)
+
+    def record_cache_rejection(self, cache_name: str, *, count: int = 1) -> None:
+        """Record *count* rejected writes (e.g. oversized) for *cache_name*."""
+        if count > 0:
+            self.cache_rejections_total.labels(cache_name=cache_name).inc(count)
+
+    def record_cache_fill(
+        self, cache_name: str, *, duration_sec: float = 0.0, coalesced: int = 0
+    ) -> None:
+        """Record a single-flight cache fill duration and coalesced waiters."""
+        self.cache_fill_duration_seconds.labels(cache_name=cache_name).observe(
+            max(0.0, duration_sec)
+        )
+        if coalesced > 0:
+            self.cache_coalesced_total.labels(cache_name=cache_name).inc(coalesced)
 
     def record_sandbox_execution(
         self,
