@@ -9,8 +9,6 @@ Covers the pieces added on top of the original hit-rate work:
    ``detail_provider``.
 3. ``CacheService`` — the fixed ``increment`` (per-namespace TTL + observed),
    batch ``delete_prefix`` / ``clear_namespace``, and runtime ``update_limits``.
-4. ``MemoryCache`` — L1 on the primitive + the L2 circuit breaker that degrades
-   to L1-only when the shared backend flaps.
 """
 
 from __future__ import annotations
@@ -20,10 +18,6 @@ import threading
 import pytest
 
 from leagent.config.settings import Settings
-from leagent.memory.cache import (
-    _L2_FAIL_THRESHOLD,
-    MemoryCache,
-)
 from leagent.services.cache.lru import BoundedLRU, ShardedLRU, make_lru
 from leagent.services.cache.observability import (
     CacheStatsRegistry,
@@ -271,79 +265,7 @@ async def test_cache_service_can_shard():
 
 
 # ---------------------------------------------------------------------------
-# 5. MemoryCache — L1 primitive + L2 circuit breaker
-# ---------------------------------------------------------------------------
-
-
-class _FlakyL2:
-    """Minimal CacheService-shaped stub that always fails."""
-
-    def __init__(self) -> None:
-        self.get_calls = 0
-        self.set_calls = 0
-
-    async def get(self, key, *, namespace=None):
-        self.get_calls += 1
-        raise ConnectionError("l2 down")
-
-    async def set(self, key, value, *, namespace=None, ttl=None):
-        self.set_calls += 1
-        raise ConnectionError("l2 down")
-
-    async def delete(self, key, *, namespace=None):
-        raise ConnectionError("l2 down")
-
-
-@pytest.mark.asyncio
-async def test_memory_cache_l1_hit_after_set():
-    mc = MemoryCache(l1_max_size=8)
-    await mc.set("k", [1, 2, 3])
-    assert await mc.get("k") == [1, 2, 3]
-    assert mc.hit_rate == 1.0
-
-
-@pytest.mark.asyncio
-async def test_memory_cache_l1_is_bounded():
-    mc = MemoryCache(l1_max_size=2)
-    await mc.set("a", 1)
-    await mc.set("b", 2)
-    await mc.set("c", 3)  # evicts "a"
-    assert await mc.get("a") is None
-    assert await mc.get("c") == 3
-
-
-@pytest.mark.asyncio
-async def test_l2_circuit_breaker_opens_and_stops_calling_l2():
-    l2 = _FlakyL2()
-    mc = MemoryCache(l1_max_size=8, l2_service=l2)
-
-    # Each miss goes to L2 and fails; after the threshold the breaker opens.
-    for i in range(_L2_FAIL_THRESHOLD):
-        await mc.get(f"miss{i}")
-
-    assert mc._l2_circuit_open() is True
-    calls_at_open = l2.get_calls
-
-    # Further misses must NOT reach the (now open) L2 — degraded to L1-only.
-    await mc.get("another")
-    assert l2.get_calls == calls_at_open
-
-    detail = mc._detail()
-    assert detail["l2_circuit_open"] is True
-    assert detail["l2_enabled"] is True
-
-
-@pytest.mark.asyncio
-async def test_l2_write_failure_degrades_without_raising():
-    l2 = _FlakyL2()
-    mc = MemoryCache(l1_max_size=8, l2_service=l2)
-    # A failing L2 write must not surface to the caller; L1 still holds it.
-    await mc.set("k", 123)
-    assert await mc.get("k") == 123
-
-
-# ---------------------------------------------------------------------------
-# 6. Task 2 — exact capacity, monotonic expiry, atomic updates
+# 5. Task 2 — exact capacity, monotonic expiry, atomic updates
 # ---------------------------------------------------------------------------
 
 

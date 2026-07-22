@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from leagent.memory.episodic import EpisodicStore
     from leagent.memory.procedural import ProceduralStore
     from leagent.memory.semantic import SemanticStore
+    from leagent.services.cache.service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +69,13 @@ class AgentMemory:
         procedural: ProceduralStore,
         embeddings: EmbeddingProvider,
         formation_policy: FormationPolicy | None = None,
+        cache: CacheService | None = None,
     ) -> None:
         self._episodic = episodic
         self._semantic = semantic
         self._procedural = procedural
         self._embeddings = embeddings
+        self._cache = cache
         self._formation = formation_policy or FormationPolicy()
         self._last_procedure_write_status: dict[str, object] | None = None
         self._last_episode_write: dict[str, Any] = {"ok": True, "error": None}
@@ -83,11 +86,47 @@ class AgentMemory:
             semantic=semantic,
             procedural=procedural,
             embeddings=embeddings,
+            cache=cache,
+            generation_getter=self._recall_generation,
         )
         # Deterministic bounded LRU of observed ``(session_id, turn_id)`` keys
         # so duplicate ``observe_turn`` calls (controller + hook) are
         # idempotent without unbounded growth or non-deterministic eviction.
         self._observed_turn_keys: OrderedDict[str, None] = OrderedDict()
+
+    # -- recall generation (owner-scoped cache versioning) --------------
+
+    @staticmethod
+    def _memory_generation_subject(
+        user_id: UUID | None, workspace_id: UUID | None
+    ) -> str:
+        return f"{user_id or '-'}:{workspace_id or '-'}"
+
+    async def _recall_generation(self, options: RecallOptions) -> int:
+        if self._cache is None:
+            return 0
+        return await self._cache.get_generation(
+            self._memory_generation_subject(options.user_id, options.workspace_id),
+            namespace="memory",
+        )
+
+    async def _bump_memory_generation(
+        self, user_id: UUID | None, workspace_id: UUID | None
+    ) -> None:
+        """Invalidate cached recall for an owner after a durable write.
+
+        Never called inside a failure branch: a failed write must not advance
+        the generation, or a stale bundle would be served as if fresh.
+        """
+        if self._cache is None:
+            return
+        try:
+            await self._cache.bump_generation(
+                self._memory_generation_subject(user_id, workspace_id),
+                namespace="memory",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("memory_generation_bump_failed: %s", exc)
 
     @property
     def pipeline(self) -> RetrievalPipeline:
@@ -184,6 +223,7 @@ class AgentMemory:
         try:
             out = await self._episodic.record(episode)
             self._last_episode_write = {"ok": True, "error": None}
+            await self._bump_memory_generation(episode.user_id, episode.workspace_id)
             return out
         except Exception as exc:  # noqa: BLE001
             logger.warning("record_episode_failed: %s", exc)
@@ -196,6 +236,7 @@ class AgentMemory:
         try:
             out = await self._semantic.upsert(fact)
             self._last_fact_write = {"ok": True, "error": None}
+            await self._bump_memory_generation(fact.user_id, fact.workspace_id)
             return out
         except Exception as exc:  # noqa: BLE001
             logger.warning("upsert_fact_failed: %s", exc)
@@ -222,6 +263,9 @@ class AgentMemory:
                 duration_ms=duration_ms,
             )
             self._last_procedure_write_status = self._build_procedure_write_status(pg_written=True)
+            await self._bump_memory_generation(
+                procedure.user_id, procedure.workspace_id
+            )
             return out
         except Exception as exc:  # noqa: BLE001
             logger.warning("record_procedure_failed: %s", exc)
@@ -386,6 +430,7 @@ class AgentMemory:
         include_semantic: bool = True,
         include_procedural: bool = True,
         file_state: FileStateCache | None = None,
+        bm25_rerank: bool = True,
     ) -> RecallBundle:
         options = RecallOptions(
             query=query,
@@ -399,6 +444,7 @@ class AgentMemory:
             include_semantic=include_semantic,
             include_procedural=include_procedural,
             file_state=file_state,
+            bm25_rerank=bm25_rerank,
         )
         try:
             return await self._pipeline.recall(options)
