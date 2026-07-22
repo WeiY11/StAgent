@@ -5,7 +5,8 @@ arbitrary text into dense vectors. Rather than letting each store pull in
 :class:`LLMService` directly, they talk to an :class:`EmbeddingProvider`.
 
 ``LLMServiceEmbeddingProvider`` is the production implementation: it
-delegates to :meth:`LLMService.embed` with an in-memory LRU cache.
+delegates to :meth:`LLMService.embed` and coalesces identical ``(model, text)``
+lookups through the shared :class:`CacheService` when one is wired in.
 
 ``NullEmbeddingProvider`` returns zero vectors, which disables semantic
 search but lets the BM25 / ILIKE fallback path continue to work.
@@ -13,18 +14,17 @@ search but lets the BM25 / ILIKE fallback path continue to work.
 
 from __future__ import annotations
 
-import hashlib
+import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Iterable, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Iterable, Protocol, runtime_checkable
 
-from cachetools import LRUCache
+from leagent.services.cache.keys import build_scoped_cache_key
 
 if TYPE_CHECKING:
     from leagent.llm import LLMService
+    from leagent.services.cache.service import CacheService
 
 logger = logging.getLogger(__name__)
-
-_CACHE_MAX_SIZE = 10_000
 
 
 @runtime_checkable
@@ -58,84 +58,88 @@ class NullEmbeddingProvider:
 class LLMServiceEmbeddingProvider:
     """Production embedding provider backed by :class:`LLMService`.
 
-    Uses an in-memory LRU cache keyed by ``(model, text)`` SHA-256.
+    Identical ``(model, text, dimension)`` embeddings are coalesced through the
+    shared :class:`CacheService` (namespace ``embeddings``) when one is wired
+    in, so repeat lookups never re-hit the backend. A per-instance batch lock
+    also collapses concurrent identical requests onto a single provider call.
+    Never logs text or vector values.
     """
 
     def __init__(
         self,
         llm_service: "LLMService",
         *,
-        redis: Any | None = None,
+        cache: "CacheService | None" = None,
         model: str | None = None,
         dimension: int = 1024,
-        ttl_seconds: int = 0,
     ) -> None:
         self._llm = llm_service
+        self._cache = cache
         self._model = model
         self.dimension = dimension
         self.last_degraded = False
         self.last_error: str | None = None
-        self._cache: LRUCache[str, list[float]] = LRUCache(maxsize=_CACHE_MAX_SIZE)
+        self._batch_lock = asyncio.Lock()
 
     @property
     def model(self) -> str:
         return self._model or "default"
 
-    def _cache_key(self, text: str) -> str:
-        digest = hashlib.sha256(
-            (self.model + "\x00" + text).encode("utf-8")
-        ).hexdigest()
-        return digest
-
-    async def embed(self, texts: Iterable[str]) -> list[list[float]]:
-        items = [t or "" for t in texts]
-        if not items:
-            return []
-
-        cached: list[list[float] | None] = []
-        for t in items:
-            key = self._cache_key(t)
-            cached.append(self._cache.get(key))
-
-        missing = [i for i, v in enumerate(cached) if v is None]
-        if not missing:
-            self.last_degraded = False
-            self.last_error = None
-            return [v for v in cached if v is not None]
-
-        to_embed = [items[i] for i in missing]
+    async def _embed_uncached(self, texts: list[str]) -> list[list[float]]:
         try:
-            response = await self._llm.embed(to_embed, model=self._model)
+            response = await self._llm.embed(texts, model=self._model)
         except Exception as exc:  # noqa: BLE001
             logger.warning("embedding_backend_failed: %s", exc)
             self.last_degraded = True
             self.last_error = str(exc)
             raise RuntimeError(f"embedding_backend_failed: {exc}") from exc
-
         vectors = list(response.embeddings or [])
+        if len(vectors) != len(texts):
+            self.last_degraded = True
+            self.last_error = "embedding_response_incomplete"
+            raise RuntimeError("embedding_response_incomplete")
         if vectors and len(vectors[0]) != self.dimension:
             self.dimension = len(vectors[0])
-
-        for pos, idx in enumerate(missing):
-            if pos >= len(vectors):
-                self.last_degraded = True
-                self.last_error = "embedding_response_incomplete"
-                raise RuntimeError("embedding_response_incomplete")
-            vec = vectors[pos]
-            cached[idx] = vec
-            self._cache[self._cache_key(items[idx])] = vec
-
         self.last_degraded = False
         self.last_error = None
+        return vectors
 
-        out: list[list[float]] = []
-        for v in cached:
-            if v is None:
-                self.last_degraded = True
-                self.last_error = "embedding_cache_incomplete"
-                raise RuntimeError("embedding_cache_incomplete")
-            out.append(v)
-        return out
+    def _cache_key(self, text: str) -> str:
+        return build_scoped_cache_key(
+            "embedding",
+            resource_id=self.model,
+            vary={"text": text, "dimension": self.dimension},
+        )
+
+    async def embed(self, texts: Iterable[str]) -> list[list[float]]:
+        items = [t or "" for t in texts]
+        if not items:
+            return []
+        if self._cache is None:
+            return await self._embed_uncached(items)
+
+        keys = [self._cache_key(text) for text in items]
+        cached = await self._cache.get_many(keys, namespace="embeddings")
+        async with self._batch_lock:
+            missing_keys = [key for key in dict.fromkeys(keys) if key not in cached]
+            if missing_keys:
+                # Re-check under the lock: a concurrent batch may have filled
+                # these keys while we waited, collapsing identical requests
+                # onto a single backend call.
+                refreshed = await self._cache.get_many(
+                    missing_keys, namespace="embeddings"
+                )
+                cached.update(refreshed)
+                missing_keys = [key for key in missing_keys if key not in cached]
+            if missing_keys:
+                text_for_key = dict(zip(keys, items, strict=True))
+                vectors = await self._embed_uncached(
+                    [text_for_key[key] for key in missing_keys]
+                )
+                writes = dict(zip(missing_keys, vectors, strict=True))
+                await self._cache.set_many(writes, namespace="embeddings")
+                cached.update(writes)
+        return [list(cached[key]) for key in keys]
 
     async def embed_one(self, text: str) -> list[float]:
         result = await self.embed([text])

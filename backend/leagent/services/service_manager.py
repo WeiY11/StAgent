@@ -657,7 +657,7 @@ class ServiceManager:
             if self._llm_service is not None:
                 embeddings = LLMServiceEmbeddingProvider(
                     self._llm_service,
-                    redis=None,
+                    cache=self._cache,
                     model=getattr(self.settings.llm, "embedding_model", None),
                     dimension=embedding_dim,
                 )
@@ -687,6 +687,7 @@ class ServiceManager:
                 semantic=semantic,
                 procedural=procedural,
                 embeddings=embeddings,
+                cache=self._cache,
             )
             logger.info("AgentMemory initialised (embedding_dim=%d, vector=off)", embedding_dim)
         except Exception:
