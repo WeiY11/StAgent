@@ -57,6 +57,13 @@ Identity +  thrifty policies（always-on 薄层）
 
 路径解释：改一段 always-on 政策会影响所有命中该前缀的请求的 cache；改 gated 手册通常只影响相关域轮次。工具 schema 若因 allow 列表每轮剧变，也会打穿缓存——领域 Agent 宜收紧且稳定工具集合（第 09/10 篇）。
 
+### 两类缓存必须区分
+
+- **Provider prompt-prefix cache（厂商前缀缓存）**：由模型厂商（Anthropic/OpenAI）在其侧按稳定请求前缀计价的**计费优化**，LeAgent 不拥有其存储与失效，只能通过「稳定前缀」提高命中概率。
+- **Application result cache（应用结果缓存）**：进程内、有界、按 owner/resource/generation/variant 隔离的 `CacheService`（见 [缓存架构](../../technical/cache-architecture.md)），是本仓库控制面内的缓存。
+
+二者**都不是 ACL**：权限、审批、密钥判定一律在工具执行层 enforce，绝不因命中任一缓存而被跳过。应用结果缓存默认进程内、非持久（`backend=memory`、`persistent=false`），不依赖 Redis。
+
 ## 分步：提升可缓存性的实践清单
 
 1. 将极少变化的身份与安全政策放 always-on 薄层。  
