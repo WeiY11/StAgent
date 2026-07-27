@@ -15,7 +15,9 @@
       "newChat": "New Chat",
       "newChatDesc": "Start a conversation with AI",
       "newFlow": "New Workflow",
-      "newFlowDesc": "Create an automated workflow"
+      "newFlowDesc": "Create an automated workflow",
+      "dataAnalysis": "Data Analysis",
+      "dataAnalysisDesc": "Upload a table and explore data in chat"
     },
     "tips": {
       "title": "Getting Started",

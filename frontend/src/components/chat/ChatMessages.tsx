@@ -1,16 +1,16 @@
-import { Fragment, useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { Fragment, memo, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { BookOpen, LayoutTemplate, PawPrint, ArrowDown } from 'lucide-react';
+import { BookOpen, LayoutTemplate, BarChart3, PawPrint, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDailyChatGreetings } from '@/hooks/useDailyChatGreetings';
 import { PetSceneStage } from '@/components/pet/PetSceneStage';
 import { useChatStore } from '@/stores/chat';
+import type { Message } from '@/types/chat';
 import { AgentMessage } from './AgentMessage';
 import { UserMessage } from './UserMessage';
 import { useConversationVirtualizer } from './virtual/useConversationVirtualizer';
 import { VirtualConversationList } from './virtual/VirtualConversationList';
-import type { Message } from '@/types/chat';
 
 /** Above this loaded-message count the custom virtualizer takes over from the
  * direct `messages.map`. Short threads keep the simpler non-virtual path. */
@@ -85,7 +85,7 @@ function RotatingEmptyGreeting({ lines }: { lines: string[] }) {
   );
 }
 
-export function ChatMessages({
+export const ChatMessages = memo(function ChatMessages({
   className,
   onSuggestionClick,
   onEditAndResend,
@@ -102,7 +102,11 @@ export function ChatMessages({
       ? (state.messages[state.currentSessionId] ?? EMPTY_MESSAGES)
       : EMPTY_MESSAGES,
   );
-  const messagePages = useChatStore((state) => state.messagePages);
+  const messagePages = useChatStore((state) =>
+    state.currentSessionId
+      ? (state.messagePages[state.currentSessionId] ?? null)
+      : null,
+  );
   const messagesLoadingSessionId = useChatStore((state) => state.messagesLoadingSessionId);
   const fetchOlderMessages = useChatStore((state) => state.fetchOlderMessages);
   const streamTailForScroll = useMemo(() => {
@@ -134,7 +138,7 @@ export function ChatMessages({
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageStructureKey]);
-  const pageState = currentSessionId ? messagePages[currentSessionId] : undefined;
+  const pageState = messagePages ?? undefined;
   const hasOlderMessages = Boolean(pageState?.hasOlder);
   const isLoadingOlderMessages = Boolean(pageState?.isLoadingOlder);
   const threadLoading =
@@ -384,6 +388,25 @@ export function ChatMessages({
                 </span>
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() => onSuggestionClick?.(t('chat.suggestions.dataAnalysis.prompt'))}
+              className={cn(
+                'chat-empty-card chat-empty-card--data group cursor-pointer',
+                emptyCardFocus,
+              )}
+            >
+              <span className="chat-empty-card__aurora" aria-hidden />
+              <span className="chat-empty-card__shine" aria-hidden />
+              <span className="chat-empty-card__body">
+                <span className="chat-empty-card__iconZone">
+                  <BarChart3 className="chat-empty-card__icon" />
+                </span>
+                <span className="chat-empty-card__textZone">
+                  <span className="chat-empty-card__text">{t('chat.suggestions.dataAnalysis.label')}</span>
+                </span>
+              </span>
+            </button>
             <Link
               to="/pet-space"
               className={cn(
@@ -478,4 +501,4 @@ export function ChatMessages({
       )}
     </div>
   );
-}
+});

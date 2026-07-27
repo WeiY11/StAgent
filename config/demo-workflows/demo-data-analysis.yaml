@@ -1,0 +1,99 @@
+# Demo: chat-first data-analysis loop — profile a demo sales dataset, then
+# aggregate it by region/category. Fully offline (inline records, no API keys).
+# Same records as the chat "Try data analysis" suggestion so both paths match.
+id: demo_data_analysis
+name: "Demo: Data analysis (profile + aggregate)"
+description: >-
+  Runs data_profile on an inline demo sales dataset (with intentional missing
+  values), then data_aggregate to summarise revenue and units by region and
+  category. Mirrors the chat data-analysis conversation mode: profile first,
+  then aggregate, then chart/summarise in chat.
+inputs: []
+outputs:
+  - name: dataset_profile
+    value: "${var.profile.data}"
+  - name: region_summary
+    value: "${var.summary.data}"
+metadata:
+  category: demo
+  tags:
+    - demo
+    - data-analysis
+    - offline
+nodes:
+  start:
+    class_type: StartNode
+    inputs: {}
+    meta:
+      name: Start
+    control:
+      next: profile
+  profile:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_profile
+      params:
+        data:
+          - { date: "2026-06-01", region: "North", category: "Gadget", units: 12, revenue: 1440 }
+          - { date: "2026-06-02", region: "South", category: "Widget", units: 8, revenue: 640 }
+          - { date: "2026-06-03", region: "North", category: "Widget", units: 15, revenue: 1200 }
+          - { date: "2026-06-04", region: "East", category: "Gadget", units: 6, revenue: 720 }
+          - { date: "2026-06-05", region: "South", category: "Gadget", units: 9, revenue: null }
+          - { date: "2026-06-06", region: "West", category: "Widget", units: 11, revenue: 880 }
+          - { date: "2026-06-07", region: "North", category: "Gadget", units: 14, revenue: 1680 }
+          - { date: "2026-06-08", region: "East", category: "Widget", units: 7, revenue: 560 }
+          - { date: "2026-06-09", region: "West", category: "Gadget", units: 10, revenue: 1200 }
+          - { date: "2026-06-10", region: "South", category: "Widget", units: 13, revenue: 1040 }
+          - { date: "2026-06-11", region: "North", category: "Widget", units: 9, revenue: null }
+          - { date: "2026-06-12", region: "East", category: "Gadget", units: 16, revenue: 1920 }
+      output: profile
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Profile dataset
+    control:
+      next: aggregate
+  aggregate:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_aggregate
+      params:
+        operation: groupby
+        group_by: [region, category]
+        aggregations:
+          revenue: sum
+          units: sum
+        data:
+          - { date: "2026-06-01", region: "North", category: "Gadget", units: 12, revenue: 1440 }
+          - { date: "2026-06-02", region: "South", category: "Widget", units: 8, revenue: 640 }
+          - { date: "2026-06-03", region: "North", category: "Widget", units: 15, revenue: 1200 }
+          - { date: "2026-06-04", region: "East", category: "Gadget", units: 6, revenue: 720 }
+          - { date: "2026-06-05", region: "South", category: "Gadget", units: 9, revenue: null }
+          - { date: "2026-06-06", region: "West", category: "Widget", units: 11, revenue: 880 }
+          - { date: "2026-06-07", region: "North", category: "Gadget", units: 14, revenue: 1680 }
+          - { date: "2026-06-08", region: "East", category: "Widget", units: 7, revenue: 560 }
+          - { date: "2026-06-09", region: "West", category: "Gadget", units: 10, revenue: 1200 }
+          - { date: "2026-06-10", region: "South", category: "Widget", units: 13, revenue: 1040 }
+          - { date: "2026-06-11", region: "North", category: "Widget", units: 9, revenue: null }
+          - { date: "2026-06-12", region: "East", category: "Gadget", units: 16, revenue: 1920 }
+      output: summary
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Aggregate by region/category
+    control:
+      next: end
+  end:
+    class_type: EndNode
+    inputs: {}
+    meta:
+      name: End
+    control: {}
+control:
+  start: start
+  end: end
+  edges: []
+  timeout_sec: 300
+  max_retries: 1
+  tags:
+    - demo

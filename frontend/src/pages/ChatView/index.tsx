@@ -16,6 +16,7 @@ import { ChatTerminalReasonBanner } from '@/components/chat/ChatTerminalReasonBa
 import { ChatFabBar } from '@/components/chat/ChatFabBar';
 import { ChatErrorToast } from '@/components/chat/ChatErrorToast';
 import { ChatCommandPalette } from '@/components/chat/ChatCommandPalette';
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { RightPanel } from '@/components/chat/RightPanel';
 import { ResearchPanel, usePdfResearchStore } from '@/features/pdf-reader';
 import type { Message, SendMessageParams } from '@/types/chat';
@@ -526,6 +527,12 @@ export default function ChatView() {
       <ChatCommandPalette
         open={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
+      />
+
+      <OnboardingTour
+        onTryDataAnalysis={() => {
+          void handleSendWithSuggestion(t('chat.suggestions.dataAnalysis.prompt'));
+        }}
       />
     </div>
   );

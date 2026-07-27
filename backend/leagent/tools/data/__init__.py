@@ -7,6 +7,7 @@ transformation, aggregation, vector search, and SQL queries.
 from leagent.tools.data.data_aggregate import DataAggregateTool
 from leagent.tools.data.data_clean import DataCleanTool
 from leagent.tools.data.data_merge import DataMergeTool
+from leagent.tools.data.data_profile import DataProfileTool
 from leagent.tools.data.data_transform import DataTransformTool
 from leagent.tools.data.data_validate import DataValidateTool
 from leagent.tools.data.sql_query import SQLQueryTool
@@ -16,6 +17,7 @@ __all__ = [
     "DataAggregateTool",
     "DataCleanTool",
     "DataMergeTool",
+    "DataProfileTool",
     "DataTransformTool",
     "DataValidateTool",
     "SQLQueryTool",

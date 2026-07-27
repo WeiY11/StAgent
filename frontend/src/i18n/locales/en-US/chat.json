@@ -1,4 +1,30 @@
 {
+  "onboarding": {
+    "ariaLabel": "Getting started tour",
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "done": "Get started",
+    "steps": {
+      "welcome": {
+        "title": "Welcome to LeAgent",
+        "body": "LeAgent is an AI assistant that actually gets work done: it plans its own steps, calls tools, and self-corrects until the job is finished. Three quick steps to get you productive."
+      },
+      "data": {
+        "title": "Analyze data by chatting",
+        "body": "Drop a CSV / Excel file into the composer and describe what you want to learn. LeAgent first builds a dataset profile (shape, column stats, quality warnings), then cleans, aggregates, and charts the data, ending with an interactive one-page analysis summary."
+      },
+      "build": {
+        "title": "Save workflows and knowledge",
+        "body": "Useful analysis steps can be saved as visual workflows to re-run or schedule; frequently used documents can go into the knowledge base so answers cite your own material. Find Workflows and Knowledge in the sidebar anytime."
+      },
+      "start": {
+        "title": "Ready to try?",
+        "body": "No data at hand? No problem — click the button below and LeAgent will run the full profile → clean → aggregate → chart → summary loop on a demo sales dataset, so you can see exactly how it works.",
+        "cta": "Try data analysis"
+      }
+    }
+  },
   "chat": {
     "roleUserAria": "User message",
     "roleUserShort": "You",
@@ -499,6 +525,10 @@
       "genuiResume": {
         "label": "Summarize this week's work",
         "prompt": "First call conversation_history (operation=extract, days=7) to load this week's chat transcripts, then summarize the work: completed items, in-progress tasks, follow-ups, and key conclusions. Present it as a clear GenUI weekly report I can review and amend. Do not invent details that are not in the history."
+      },
+      "dataAnalysis": {
+        "label": "Try data analysis",
+        "prompt": "I want to try LeAgent's data-analysis conversation mode. If I attached a data file (CSV/Excel) to this message, first run data_profile to build a dataset profile (shape, per-column stats, quality warnings, correlations), walk me through the highlights, and propose 2-3 analysis directions worth digging into. If I did not attach a file, build a demo sales dataset of about 60 rows yourself (date, region, category, units, revenue, with a few intentional missing values), then run the full loop: data_profile → cleaning notes → data_aggregate by region/category → chart visualization → finally a one-page GenUI analysis summary (key metrics + charts + conclusions), and tell me how to upload my own data next time to reuse this flow."
       },
       "petSpace": {
         "label": "Or adopt a desk pet first?",
