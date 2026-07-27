@@ -133,6 +133,9 @@ async def test_publish_revision_accepts_html_files(monkeypatch: pytest.MonkeyPat
     inner.add = MagicMock()
     inner.flush = AsyncMock()
     inner.refresh = AsyncMock()
+    inner.get_bind = MagicMock(
+        return_value=MagicMock(dialect=MagicMock(name="postgresql"))
+    )
     db.session.return_value.__aenter__.return_value = inner
 
     settings = MagicMock()
@@ -196,6 +199,9 @@ async def test_publish_revision_auto_resolves_sole_html_entry(
     inner.add = MagicMock()
     inner.flush = AsyncMock()
     inner.refresh = AsyncMock()
+    inner.get_bind = MagicMock(
+        return_value=MagicMock(dialect=MagicMock(name="postgresql"))
+    )
     db.session.return_value.__aenter__.return_value = inner
 
     settings = MagicMock()

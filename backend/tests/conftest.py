@@ -1,3 +1,4 @@
+# ruff: noqa: E402, I001
 """Shared pytest fixtures for the LeAgent test suite.
 
 Intentional skips elsewhere (do not remove without product scope):
@@ -29,6 +30,10 @@ os.environ.setdefault("LEAGENT_HOME", str(_wa_pytest.resolve()))
 os.environ.setdefault("LEAGENT_HOST", "127.0.0.1")
 os.environ.setdefault("LEAGENT_SECURITY_ENFORCE_AUTH", "false")
 os.environ.setdefault("LEAGENT_SECURITY_RATE_LIMIT_ENABLED", "false")
+# TestClient startup uses ``SQLModel.metadata.create_all`` via DatabaseService;
+# dedicated migration tests exercise Alembic directly. Skipping lifespan
+# migrations keeps combined API batches deterministic on Windows.
+os.environ.setdefault("LEAGENT_SKIP_STARTUP_MIGRATIONS", "true")
 # Deterministic routing: a developer ``LEAGENT_FRONTEND_DIST`` would mount StaticFiles
 # before API routes (405/404). Tests mount SPA last via ``mount_frontend_spa_if_configured``.
 os.environ.pop("LEAGENT_FRONTEND_DIST", None)
@@ -41,9 +46,8 @@ pytest_plugins = [
 import asyncio
 import tempfile
 import uuid
-from typing import Any, AsyncIterator, Iterator
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID
 
 import pytest
 import pytest_asyncio
@@ -63,20 +67,119 @@ from leagent.main import create_app, mount_frontend_spa_if_configured
 # model here leads to confusing "no such table" failures in tests that only
 # indirectly touch the missing entity — explicit is better than implicit.
 import leagent.db.models  # noqa: F401
-from leagent.tools.base import ToolCategory, ToolContext
+from leagent.tools.base import ToolContext
 from leagent.tools.registry import ToolRegistry
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterator
 
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-live",
+        action="store_true",
+        default=False,
+        help="Run tests marked live without requiring '-m live'.",
+    )
+
+
+def _live_tests_requested(config: pytest.Config) -> bool:
+    if bool(config.getoption("--run-live", default=False)):
+        return True
+    mark_expr = str(getattr(config.option, "markexpr", "") or "")
+    normalized = mark_expr.replace("(", " ").replace(")", " ")
+    tokens = {part.strip() for part in normalized.split() if part.strip()}
+    return "live" in tokens and "not live" not in mark_expr
+
+
+@pytest.hookimpl(trylast=True)
 def pytest_configure(config: pytest.Config) -> None:
     """Register warning filters early (belt-and-suspenders with ``pyproject.toml``).
 
     Ensures teardown noise from asyncio subprocess ``__del__`` and aiosqlite worker
     threads does not appear when pytest discovers config from a non-backend CWD.
+
+    ``trylast`` so this runs *after* the builtin ``unraisableexception`` plugin has
+    installed ``sys.unraisablehook`` — otherwise our wrapper is captured too early
+    and immediately overwritten by pytest's own hook.
     """
     import warnings
 
     warnings.filterwarnings("ignore", category=pytest.PytestUnraisableExceptionWarning)
     warnings.filterwarnings("ignore", category=pytest.PytestUnhandledThreadExceptionWarning)
+
+    _install_windows_unraisable_filter()
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config,
+    items: list[pytest.Item],
+) -> None:
+    """Keep network-backed live tests opt-in even when API keys are present."""
+    if _live_tests_requested(config):
+        return
+    skip_live = pytest.mark.skip(
+        reason="live tests require explicit '-m live' or '--run-live'",
+    )
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
+
+
+def _install_windows_unraisable_filter() -> None:
+    """Drop known-harmless Windows asyncio transport teardown from the unraisable hook.
+
+    pytest's ``unraisableexception`` plugin installs ``sys.unraisablehook`` and
+    records every exception raised in a ``__del__`` during GC; at each test
+    boundary it re-emits them as ``PytestUnraisableExceptionWarning``, which
+    ``pyproject.toml`` promotes to an error — failing a *random* later test.
+
+    On Windows, Proactor pipe/subprocess transports are routinely GC'd *after*
+    their event loop closes, so their ``__del__`` emits ``ResourceWarning:
+    unclosed transport`` / ``RuntimeError: Event loop is closed``. These are
+    benign and never occur on the POSIX loops CI uses. Patching ``__del__`` can't
+    help (the warning-as-error escapes it straight into the hook), so we wrap the
+    hook itself: swallow the known-harmless transport/socket teardown noise and
+    forward everything else to pytest so genuine fire-and-forget bugs still fail.
+    """
+    import sys
+
+    if sys.platform != "win32":
+        return
+
+    pytest_hook = sys.unraisablehook
+    harmless = (
+        "unclosed transport",
+        "unclosed <socket",
+        "unclosed event loop",
+        "Event loop is closed",
+        "_ProactorBasePipeTransport.__del__",
+        "BaseSubprocessTransport.__del__",
+        "asyncio\\proactor_events.py",
+        "asyncio\\base_subprocess.py",
+    )
+
+    import traceback as _tb
+
+    def _filtered_hook(unraisable: Any) -> None:
+        # The teardown exception itself is often a socket/repr error raised *while*
+        # building the "unclosed transport" ResourceWarning, so the tell-tale text
+        # lives in the traceback frames, not in ``exc_value``. Match against all of
+        # err_msg + exc_value + object + the formatted traceback.
+        parts = [
+            getattr(unraisable, "err_msg", None) or "",
+            repr(getattr(unraisable, "exc_value", None)),
+            repr(getattr(unraisable, "object", None)),
+        ]
+        exc_tb = getattr(unraisable, "exc_traceback", None)
+        if exc_tb is not None:
+            parts.extend(_tb.format_tb(exc_tb))
+        text = " ".join(parts)
+        if any(marker in text for marker in harmless):
+            return
+        pytest_hook(unraisable)
+
+    sys.unraisablehook = _filtered_hook
 
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
@@ -134,11 +237,34 @@ def app(test_settings: Settings):  # type: ignore[no-untyped-def]
     return application
 
 
-@pytest.fixture()
-def client(app) -> Iterator[TestClient]:  # type: ignore[no-untyped-def]
-    """Synchronous test client."""
+@pytest.fixture(scope="session")
+def _session_client(app) -> Iterator[TestClient]:  # type: ignore[no-untyped-def]
+    """Session-scoped TestClient.
+
+    Entering ``TestClient`` runs the full app lifespan on a portal thread
+    (~9s: portal start + ``start_all`` + tool bootstrap). Doing that per test
+    made the ~16 ``client``-based API files dominate the whole suite (~30 min).
+    Sharing one client runs that lifespan once; per-test isolation of
+    ``app.dependency_overrides`` is handled by the ``client`` wrapper below.
+    """
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
+
+
+@pytest.fixture()
+def client(_session_client, app) -> Iterator[TestClient]:  # type: ignore[no-untyped-def]
+    """Synchronous test client (shares the session-scoped lifespan).
+
+    Snapshots and restores ``app.dependency_overrides`` around each test so a
+    test's overrides never leak into the next one (fixtures like ``fake_manager``
+    still pop their own; this is a belt-and-suspenders safety net).
+    """
+    snapshot = dict(app.dependency_overrides)
+    try:
+        yield _session_client
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(snapshot)
 
 
 @pytest_asyncio.fixture()

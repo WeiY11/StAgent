@@ -10,47 +10,70 @@ preview-token handling.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from leagent.services.auth.tokens import mint_token
 
 from leagent.config.settings import get_settings
-from leagent.services.auth.deps import get_current_user_id
-from leagent.project.preview_tokens import (
-    PREVIEW_AUDIENCE,
-    mint_preview_token,
-)
 from leagent.db.models import (
     CodingProject,
     CodingProjectRuntimeKind,
     CodingProjectStatus,
 )
+from leagent.project.preview_tokens import (
+    PREVIEW_AUDIENCE,
+    mint_preview_token,
+)
+from leagent.services.auth.deps import get_current_user_id
+from leagent.services.auth.tokens import mint_token
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@pytest.fixture()
+def app() -> FastAPI:
+    """Lightweight API app for coding-project routes only.
+
+    These tests patch the project manager and exercise route/request contracts;
+    they do not need the full app lifespan, ServiceManager, or tool bootstrap.
+    """
+    from leagent.api.v1.coding_projects import router
+
+    application = FastAPI()
+    application.include_router(router, prefix="/api/v1/coding-projects")
+    return application
+
+
+@pytest.fixture()
+def client(app: FastAPI):
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
 def _project_row(user_id: UUID, **overrides: Any) -> CodingProject:
-    base = dict(
-        id=uuid4(),
-        user_id=user_id,
-        folder_id=None,
-        name="demo",
-        description=None,
-        template="vanilla-html",
-        runtime_kind=CodingProjectRuntimeKind.FRONTEND,
-        root_path="/tmp/demo",
-        port=None,
-        pid=None,
-        status=CodingProjectStatus.IDLE,
-        last_started_at=None,
-        last_stopped_at=None,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-        is_deleted=False,
-    )
+    base = {
+        "id": uuid4(),
+        "user_id": user_id,
+        "folder_id": None,
+        "name": "demo",
+        "description": None,
+        "template": "vanilla-html",
+        "runtime_kind": CodingProjectRuntimeKind.FRONTEND,
+        "root_path": "/tmp/demo",
+        "port": None,
+        "pid": None,
+        "status": CodingProjectStatus.IDLE,
+        "last_started_at": None,
+        "last_stopped_at": None,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "is_deleted": False,
+    }
     base.update(overrides)
     return CodingProject(**base)
 
@@ -281,10 +304,19 @@ def test_workspace_git_smoke(
     client: TestClient,
     test_user: dict[str, Any],
     fake_manager: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     user_id = UUID(test_user["user_id"])
     proj = _project_row(user_id, root_path=str(tmp_path))
     fake_manager.get_for_user.return_value = proj
+
+    async def fake_git_snapshot(_root: Path) -> dict[str, Any]:
+        return {"is_git": False, "git_available": True}
+
+    monkeypatch.setattr(
+        "leagent.api.v1.coding_projects.git_snapshot",
+        fake_git_snapshot,
+    )
 
     resp = client.get(
         f"/api/v1/coding-projects/{proj.id}/workspace/git",

@@ -33,14 +33,13 @@ class TestInMemoryCache:
 
     async def test_set_with_ttl_expires(self) -> None:
         from leagent.services.cache.service import InMemoryCache
-        import time
         cache = InMemoryCache()
-        await cache.set("short_lived", "data", ttl=1)
+        await cache.set("short_lived", "data", ttl=100)
         result = await cache.get("short_lived")
         assert result == "data"
-        # Manually expire the entry
-        cache._cache["short_lived"].expires_at = time.time() - 1
-        result_expired = await cache.get("short_lived")
+        # An entry whose TTL is already in the past reads back as a miss.
+        await cache.set("expired", "data", ttl=-1)
+        result_expired = await cache.get("expired")
         assert result_expired is None
 
     async def test_delete_existing_key(self) -> None:
@@ -69,7 +68,7 @@ class TestInMemoryCache:
         cache = InMemoryCache(max_size=3)
         for i in range(5):
             await cache.set(f"key{i}", f"value{i}")
-        assert len(cache._cache) <= 3
+        assert cache.size <= 3
 
     async def test_overwrite_key(self) -> None:
         from leagent.services.cache.service import InMemoryCache

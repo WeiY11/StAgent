@@ -573,6 +573,9 @@ class TestConfigFileTool:
         config.parent.mkdir(parents=True)
         config.write_text('{"app":{"name":"openclaw"}}', encoding="utf-8")
         monkeypatch.setenv("HOME", str(home))
+        # Windows expanduser honours USERPROFILE, not HOME, so set both to keep
+        # ``~`` pointing at the fake home cross-platform.
+        monkeypatch.setenv("USERPROFILE", str(home))
         monkeypatch.delenv("OPENCLAW_HOME", raising=False)
         monkeypatch.setenv("LEAGENT_TOOL_FILE_ROOTS", str(allowed_root))
         monkeypatch.setenv("LEAGENT_FILES_UPLOAD_DIR", str(upload_root))

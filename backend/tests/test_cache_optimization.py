@@ -164,6 +164,7 @@ def test_namespace_ttls_differ_from_default():
     assert cfg.ttl_for("recall") == 300
     assert cfg.ttl_for("embeddings") == 7200
     assert cfg.ttl_for("chat") == 900
+    assert cfg.ttl_for("workflow_node_output") == 900
     # Unknown namespace falls back to the default TTL.
     assert cfg.ttl_for("unknown") == cfg.default_ttl
     assert cfg.ttl_for(None) == cfg.default_ttl

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 
 def test_sandbox_builtins_has_full_builtins(tmp_path: Path) -> None:
     from leagent.code.runner import _sandbox_builtins
@@ -32,6 +34,30 @@ def test_unrestricted_import_allows_json(tmp_path: Path) -> None:
     imp = _sandbox_builtins(workspace_path=tmp_path)["__import__"]
     m = imp("json")
     assert m is json_stdlib
+
+
+def test_stdlib_import_blocks_non_stdlib_root(tmp_path: Path) -> None:
+    from leagent.code.runner import _sandbox_builtins
+
+    imp = _sandbox_builtins(workspace_path=tmp_path, import_tier="stdlib")[
+        "__import__"
+    ]
+
+    with pytest.raises(ImportError, match="not allowed"):
+        imp("leagent")
+
+
+def test_extra_import_roots_extend_restricted_tier(tmp_path: Path) -> None:
+    import leagent as leagent_pkg
+    from leagent.code.runner import _sandbox_builtins
+
+    imp = _sandbox_builtins(
+        workspace_path=tmp_path,
+        import_tier="stdlib",
+        extra_import_roots=("leagent.tools",),
+    )["__import__"]
+
+    assert imp("leagent") is leagent_pkg
 
 
 def test_open_allows_workspace_write(tmp_path: Path) -> None:

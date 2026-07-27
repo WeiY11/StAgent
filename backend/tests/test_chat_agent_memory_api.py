@@ -9,10 +9,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from leagent.db import get_database_service
+from leagent.db.models.message import ChatSession
 from leagent.memory.types import Episode, Fact, Procedure
 from leagent.services.auth.deps import get_current_user_id
 from leagent.services.chat.service import get_chat_service
-from leagent.db.models.message import ChatSession
 
 
 def _session_for_user(session_id: UUID, user_id: UUID) -> ChatSession:
@@ -44,6 +45,7 @@ class TestChatAgentMemoryEndpoint:
         mock_chat = MagicMock()
         mock_chat.get_session = AsyncMock(return_value=None)
         app.dependency_overrides[get_current_user_id] = _user_id
+        app.dependency_overrides[get_database_service] = lambda: MagicMock()
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         try:
             sid = uuid4()
@@ -74,9 +76,16 @@ class TestChatAgentMemoryEndpoint:
             return uid
 
         app.dependency_overrides[get_current_user_id] = _user_id
+        app.dependency_overrides[get_database_service] = lambda: MagicMock()
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         try:
-            with patch("leagent.main.get_service_manager", return_value=sm):
+            with (
+                patch("leagent.main.get_service_manager", return_value=sm),
+                patch(
+                    "leagent.api.v1.chat._require_session_project_access",
+                    new_callable=AsyncMock,
+                ),
+            ):
                 resp = await async_client.get(
                     f"/api/v1/chat/sessions/{sid}/agent-memory",
                 )
@@ -126,9 +135,16 @@ class TestChatAgentMemoryEndpoint:
             return uid
 
         app.dependency_overrides[get_current_user_id] = _user_id
+        app.dependency_overrides[get_database_service] = lambda: MagicMock()
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         try:
-            with patch("leagent.main.get_service_manager", return_value=sm):
+            with (
+                patch("leagent.main.get_service_manager", return_value=sm),
+                patch(
+                    "leagent.api.v1.chat._require_session_project_access",
+                    new_callable=AsyncMock,
+                ),
+            ):
                 resp = await async_client.get(
                     f"/api/v1/chat/sessions/{sid}/agent-memory",
                 )

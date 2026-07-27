@@ -4,16 +4,25 @@ from __future__ import annotations
 
 import pytest
 
+from leagent.config.settings import Settings
+from leagent.services.cache.service import CacheService
 from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine import WorkflowExecutor, build_cache_set
+from leagent.workflow.engine import (
+    CacheServiceWorkflowProvider,
+    WorkflowExecutor,
+    build_cache_set,
+)
 from leagent.workflow.engine.caching import (
     CacheKeySetInputSignature,
     LRUCache,
     WorkflowCacheScope,
 )
 from leagent.workflow.engine.errors import ValidationError
+from leagent.workflow.engine.runner import _is_cacheable_schema
 from leagent.workflow.io import load
 from leagent.workflow.nodes import bootstrap
+from leagent.workflow.nodes.builtin.end import EndNode
+from leagent.workflow.nodes.builtin.start import StartNode
 
 
 @pytest.mark.asyncio
@@ -175,3 +184,24 @@ def test_identical_node_inputs_do_not_cross_owner_scope() -> None:
         prompt, scope_digest=WorkflowCacheScope(owner_id="u2").digest()
     )
     assert left.signature("end") != right.signature("end")
+
+
+@pytest.mark.asyncio
+async def test_cache_service_workflow_provider_round_trips_node_payload() -> None:
+    cache = CacheService(Settings())
+    await cache.start()
+    try:
+        provider = CacheServiceWorkflowProvider(cache)
+        payload = {"values": ["ok"], "ui": None, "metadata": {"source": "test"}}
+
+        assert await provider.on_lookup("node-key") is None
+        await provider.on_store("node-key", payload)
+
+        assert await provider.on_lookup("node-key") == payload
+    finally:
+        await cache.stop()
+
+
+def test_control_flow_and_output_schemas_are_not_cacheable() -> None:
+    assert _is_cacheable_schema(StartNode.get_schema()) is False
+    assert _is_cacheable_schema(EndNode.get_schema()) is False

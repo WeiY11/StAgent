@@ -13,18 +13,24 @@ These are pure-Python tests — no FastAPI app, no real subprocesses.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
-from leagent.services.auth.tokens import mint_token
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from leagent.config.settings import Settings, get_settings
-from leagent.project.manager import CodingProjectManager
+from leagent.db.models import (
+    CodingProject,
+    CodingProjectStatus,
+    Folder,
+)
+from leagent.project.manager import CodingProjectManager, CodingProjectNotFoundError
 from leagent.project.ports import (
     PortAllocationError,
     PortAllocator,
@@ -40,12 +46,7 @@ from leagent.project.templates import (
     list_templates,
     load_template,
 )
-from leagent.db.models import (
-    CodingProject,
-    CodingProjectStatus,
-    Folder,
-)
-
+from leagent.services.auth.tokens import TokenError, mint_token
 
 # ---------------------------------------------------------------------------
 # Fake DatabaseService
@@ -79,11 +80,60 @@ class FakeDB:
         return _SessionCM(self._factory)
 
 
+class RecordingSupervisor:
+    def __init__(self) -> None:
+        self.stopped: list[object] = []
+
+    async def stop(self, project_id, *args, **kwargs) -> None:
+        self.stopped.append(project_id)
+
+
+class RecordingPorts:
+    def __init__(self) -> None:
+        self.released: list[str] = []
+
+    def release(self, lease_key: str) -> None:
+        self.released.append(lease_key)
+
+
+async def _insert_dashed_coding_project(
+    db: FakeDB,
+    *,
+    project_id: UUID,
+    folder_id: UUID,
+    user_id: UUID,
+    root_path: Path,
+) -> None:
+    now = datetime.utcnow().isoformat(sep=" ")
+    async with db.session() as session:
+        await session.execute(
+            text(
+                "INSERT INTO coding_projects "
+                "(is_deleted, created_at, updated_at, id, name, template, runtime_kind, "
+                "user_id, folder_id, root_path, status) "
+                "VALUES (0, :now, :now, :id, 'demo', 'vanilla-html', 'frontend', "
+                ":uid, :folder_id, :root_path, 'idle')"
+            ),
+            {
+                "now": now,
+                "id": str(project_id),
+                "uid": str(user_id),
+                "folder_id": str(folder_id),
+                "root_path": str(root_path),
+            },
+        )
+
+
 @pytest_asyncio.fixture()
 async def fake_db() -> FakeDB:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(
+            lambda sync_conn: SQLModel.metadata.create_all(
+                sync_conn,
+                tables=[Folder.__table__, CodingProject.__table__],
+            )
+        )
     factory = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
@@ -161,7 +211,7 @@ def test_port_allocator_returns_distinct_ports() -> None:
     assert alloc.allocate("a") == p1
 
     alloc.release("a")
-    assert "a" not in {k for k in alloc.held_ports}
+    assert "a" not in set(alloc.held_ports)
 
 
 def test_port_allocator_raises_when_range_exhausted() -> None:
@@ -204,7 +254,7 @@ def test_decode_preview_token_rejects_wrong_audience(tmp_settings: Settings) -> 
         "aud": "wrong-audience",
     }
     bogus = mint_token(payload, "leagent-local-secret")
-    with pytest.raises(Exception):  # noqa: PT011 — jose raises a JWTClaimsError
+    with pytest.raises(TokenError):
         decode_preview_token(tmp_settings, bogus)
 
 
@@ -248,3 +298,88 @@ async def test_scaffold_creates_files_and_folder(
     assert folders[0].is_project is True
     assert folders[0].project_path == project.root_path
     assert len(projects) == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_rejects_foreign_project_before_stopping_runtime(
+    fake_db: FakeDB, tmp_settings: Settings
+) -> None:
+    supervisor = RecordingSupervisor()
+    ports = RecordingPorts()
+    manager = CodingProjectManager(
+        tmp_settings,
+        fake_db,  # type: ignore[arg-type]
+        supervisor=supervisor,  # type: ignore[arg-type]
+        ports=ports,  # type: ignore[arg-type]
+    )
+    owner = uuid4()
+    attacker = uuid4()
+    project = await manager.scaffold(
+        user_id=owner,
+        name="owned",
+        template="vanilla-html",
+    )
+
+    with pytest.raises(CodingProjectNotFoundError):
+        await manager.delete(project_id=project.id, user_id=attacker)
+
+    assert supervisor.stopped == []
+    assert ports.released == []
+    async with fake_db.session() as session:  # type: ignore[attr-defined]
+        row = await session.get(CodingProject, project.id)
+    assert row is not None
+    assert row.is_deleted is False
+
+
+@pytest.mark.asyncio
+async def test_delete_owned_project_stops_runtime_and_soft_deletes(
+    fake_db: FakeDB, tmp_settings: Settings
+) -> None:
+    supervisor = RecordingSupervisor()
+    ports = RecordingPorts()
+    manager = CodingProjectManager(
+        tmp_settings,
+        fake_db,  # type: ignore[arg-type]
+        supervisor=supervisor,  # type: ignore[arg-type]
+        ports=ports,  # type: ignore[arg-type]
+    )
+    owner = uuid4()
+    project = await manager.scaffold(
+        user_id=owner,
+        name="owned",
+        template="vanilla-html",
+    )
+
+    await manager.delete(project_id=project.id, user_id=owner)
+
+    assert supervisor.stopped == [project.id]
+    assert ports.released == [str(project.id)]
+    async with fake_db.session() as session:  # type: ignore[attr-defined]
+        row = await session.get(CodingProject, project.id)
+    assert row is not None
+    assert row.is_deleted is True
+
+
+@pytest.mark.asyncio
+async def test_list_and_lookup_match_dashed_sqlite_uuid_rows(
+    fake_db: FakeDB,
+    tmp_settings: Settings,
+    tmp_path: Path,
+) -> None:
+    manager = CodingProjectManager(tmp_settings, fake_db)  # type: ignore[arg-type]
+    user_id = uuid4()
+    folder_id = uuid4()
+    project_id = uuid4()
+    await _insert_dashed_coding_project(
+        fake_db,
+        project_id=project_id,
+        folder_id=folder_id,
+        user_id=user_id,
+        root_path=tmp_path,
+    )
+
+    rows = await manager.list_for_user(user_id)
+    by_folder = await manager.get_by_folder_for_user(folder_id, user_id)
+
+    assert [row.id for row in rows] == [project_id]
+    assert by_folder.id == project_id
