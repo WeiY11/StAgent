@@ -187,16 +187,15 @@ class VectorSearchTool(BaseTool):
 
         if operation == "embed":
             return await self._execute_embed(params, context)
-        elif operation == "search":
+        if operation == "search":
             return await self._execute_search(params, context)
-        elif operation == "insert":
+        if operation == "insert":
             return await self._execute_insert(params, context)
-        elif operation == "delete":
+        if operation == "delete":
             return await self._execute_delete(params, context)
-        elif operation == "count":
+        if operation == "count":
             return await self._execute_count(params, context)
-        else:
-            raise ValueError(f"Unknown operation: {operation}")
+        raise ValueError(f"Unknown operation: {operation}")
 
     async def _get_embeddings(
         self, texts: list[str], model: str, context: ToolContext
