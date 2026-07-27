@@ -21,8 +21,8 @@ from leagent.agent.runtime_profile import resolve_runtime_budget
 from leagent.runtime.builder import AgentBuilder
 from leagent.runtime.context import RuntimeContext
 from leagent.runtime.definition import AgentDefinition
-from leagent.sdk.events import AgentEvent, AgentEventType, AgentResult
 from leagent.runtime.registry import AgentRegistry, get_agent_registry
+from leagent.sdk.events import AgentEvent, AgentEventType, AgentResult
 from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
+    from leagent.agent.subagent import SubagentResult
     from leagent.sdk.session import AgentSession
     from leagent.services.service_manager import ServiceManager
     from leagent.tools.registry import ToolRegistry
@@ -533,7 +534,7 @@ class AgentRuntime:
         log_fields: dict[str, Any] | None = None,
         session_id_hint: Any = None,
         user_id_hint: Any = None,
-    ) -> dict[str, Any]:
+    ) -> SubagentResult:
         """Run a definition-driven sub-agent forked off ``parent``.
 
         ``parent`` is an :class:`~leagent.agent.controller.AgentController`
@@ -578,7 +579,7 @@ class AgentRuntime:
         budget = resolve_runtime_budget(definition.runtime_profile)
         if profile_override:
             eff_max_turns = max_turns or budget.max_turns
-            eff_max_tool_calls = (
+            eff_max_tool_calls: int | None = (
                 max_tool_calls_per_turn
                 if max_tool_calls_per_turn is not None
                 else budget.max_tool_calls_per_turn

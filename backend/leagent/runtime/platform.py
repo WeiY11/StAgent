@@ -38,10 +38,10 @@ class PlatformAdapter:
         *,
         agent_name: str = "default_agent",
     ) -> ExecutionRun:
-        from leagent.runtime.execution_registry import get_execution_run_registry
+        from leagent.runtime.run_store import get_run_store
         from leagent.sdk import AgentRuntime
 
-        run = get_execution_run_registry().register(
+        run = get_run_store().register(
             ExecutionRun(
                 scope=ExecutionScope.CHAT_TURN,
                 session_id=str(ctx.session_id) if ctx.session_id else None,
