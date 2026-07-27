@@ -7,19 +7,20 @@ Functions here are designed to run from the cron system. They use the
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import sqlalchemy as sa
 from sqlmodel import select
 
+from leagent.db.models.agent_memory import AgentEpisode, AgentFact
 from leagent.memory.formation import retention_score
 from leagent.memory.types import Fact
-from leagent.db.models.agent_memory import AgentEpisode, AgentFact
 
 if TYPE_CHECKING:
-    from leagent.memory.agent_memory import AgentMemory
     from leagent.db.service import DatabaseService
+    from leagent.memory.agent_memory import AgentMemory
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,13 @@ async def forget_low_value_episodes(
     Two-stage filter: first the cheap SQL predicates, then the richer
     :func:`retention_score` computation on surviving rows.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, older_than_days))
+    cutoff = datetime.now(UTC) - timedelta(days=max(1, older_than_days))
     cutoff_naive = cutoff.replace(tzinfo=None)
-    now = datetime.now(timezone.utc)
-    removed = 0
+    now = datetime.now(UTC)
+    remove_ids: list[UUID] = []
     async with database.session() as session:
         result = await session.exec(
-            select(AgentEpisode).where(
+            select(AgentEpisode.id, AgentEpisode.importance, AgentEpisode.recall_count, AgentEpisode.created_at).where(
                 AgentEpisode.created_at < cutoff_naive,
                 AgentEpisode.importance <= max_importance,
                 AgentEpisode.recall_count <= max_recalls,
@@ -57,7 +58,7 @@ async def forget_low_value_episodes(
         for row in rows:
             created = row.created_at
             if created and created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
+                created = created.replace(tzinfo=UTC)
             age_days = (now - (created or now)).total_seconds() / 86_400 if created else 999
             score = retention_score(
                 importance=float(row.importance or 0.0),
@@ -65,8 +66,14 @@ async def forget_low_value_episodes(
                 age_days=age_days,
             )
             if score < retention_threshold:
-                await session.delete(row)
-                removed += 1
+                remove_ids.append(row.id)
+        if remove_ids:
+            await session.exec(
+                sa.delete(AgentEpisode)
+                .where(AgentEpisode.id.in_(remove_ids))
+                .execution_options(synchronize_session=False)
+            )
+    removed = len(remove_ids)
     if removed:
         logger.info("memory_forget_episodes_removed", count=removed)
     return removed
@@ -152,21 +159,30 @@ async def decay_episode_importance(
 
     Recalled episodes decay more slowly. The floor prevents rows from
     becoming un-recoverable before the forgetting job removes them.
+
+    Implemented as a single set-based ``UPDATE`` rather than loading every
+    row and flushing one ``UPDATE`` per row (N+1): the decay arithmetic is
+    pushed into SQL so cost is independent of how many episodes have
+    accumulated.
     """
-    updated = 0
+    old = sa.func.coalesce(AgentEpisode.importance, 0.0)
+    recalls = sa.func.coalesce(AgentEpisode.recall_count, 0)
+    base = old * decay_rate
+    bonus = base + recalls * recall_protection_per_count
+    # min(old, bonus) — portable CASE (SQLite lacks a scalar LEAST()).
+    protected = sa.case((bonus < old, bonus), else_=old)
+    candidate = sa.case((recalls > 0, protected), else_=base)
+    # max(floor, candidate) — portable CASE (SQLite lacks a scalar GREATEST()).
+    new = sa.case((candidate > floor, candidate), else_=floor)
+    stmt = (
+        sa.update(AgentEpisode)
+        .where(sa.func.abs(new - old) > 0.001)
+        .values(importance=new)
+        .execution_options(synchronize_session=False)
+    )
     async with database.session() as session:
-        result = await session.exec(select(AgentEpisode))
-        rows = list(result.all())
-        for row in rows:
-            old = float(row.importance or 0.0)
-            new = old * decay_rate
-            recalls = int(row.recall_count or 0)
-            if recalls > 0:
-                new = min(old, new + recalls * recall_protection_per_count)
-            new = max(floor, new)
-            if abs(new - old) > 0.001:
-                row.importance = new
-                updated += 1
+        result = await session.exec(stmt)
+        updated = result.rowcount or 0
     if updated:
         logger.info("memory_decay_episodes_updated", count=updated)
     return updated
@@ -184,21 +200,28 @@ async def decay_fact_confidence(
     decay_rate: float = 0.97,
     floor: float = 0.10,
 ) -> int:
-    """Decay confidence on semantic facts that haven't been refreshed recently."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, older_than_days))
+    """Decay confidence on semantic facts that haven't been refreshed recently.
+
+    Single set-based ``UPDATE`` (no per-row round-trips): ``new = max(floor,
+    old * decay_rate)`` applied to every fact older than the cutoff whose
+    change exceeds 0.001.
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=max(1, older_than_days))
     cutoff_naive = cutoff.replace(tzinfo=None)
-    updated = 0
+    old = sa.func.coalesce(AgentFact.confidence, 0.0)
+    decayed = old * decay_rate
+    # max(floor, decayed) — portable CASE (SQLite lacks a scalar GREATEST()).
+    new = sa.case((decayed > floor, decayed), else_=floor)
+    stmt = (
+        sa.update(AgentFact)
+        .where(AgentFact.updated_at < cutoff_naive)
+        .where(sa.func.abs(new - old) > 0.001)
+        .values(confidence=new)
+        .execution_options(synchronize_session=False)
+    )
     async with database.session() as session:
-        result = await session.exec(
-            select(AgentFact).where(AgentFact.updated_at < cutoff_naive)
-        )
-        rows = list(result.all())
-        for row in rows:
-            old = float(row.confidence or 0.0)
-            new = max(floor, old * decay_rate)
-            if abs(new - old) > 0.001:
-                row.confidence = new
-                updated += 1
+        result = await session.exec(stmt)
+        updated = result.rowcount or 0
     if updated:
         logger.info("memory_decay_facts_updated", count=updated)
     return updated

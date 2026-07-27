@@ -23,7 +23,7 @@ import json
 import logging
 import os
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -177,7 +177,7 @@ class AgentMemory:
         """Append-only log for operational replay / auditing (best-effort)."""
         line = json.dumps(
             {
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 "kind": kind,
                 "error": error,
                 "detail": detail[:2000],
@@ -228,7 +228,7 @@ class AgentMemory:
         except Exception as exc:  # noqa: BLE001
             logger.warning("record_episode_failed: %s", exc)
             self._last_episode_write = {"ok": False, "error": str(exc)}
-            self.last_write_failed_at = datetime.now(timezone.utc)
+            self.last_write_failed_at = datetime.now(UTC)
             self._append_failed_write_wal("episode", str(exc), repr(episode.id))
             return episode
 
@@ -241,7 +241,7 @@ class AgentMemory:
         except Exception as exc:  # noqa: BLE001
             logger.warning("upsert_fact_failed: %s", exc)
             self._last_fact_write = {"ok": False, "error": str(exc)}
-            self.last_write_failed_at = datetime.now(timezone.utc)
+            self.last_write_failed_at = datetime.now(UTC)
             self._append_failed_write_wal("fact", str(exc), str(fact.key))
             return fact
 
@@ -269,7 +269,7 @@ class AgentMemory:
             return out
         except Exception as exc:  # noqa: BLE001
             logger.warning("record_procedure_failed: %s", exc)
-            self.last_write_failed_at = datetime.now(timezone.utc)
+            self.last_write_failed_at = datetime.now(UTC)
             self._append_failed_write_wal("procedure", str(exc), procedure.signature or "")
             self._last_procedure_write_status = {
                 "pg_written": False,
@@ -568,7 +568,7 @@ class RecallHandle:
                 )
             else:
                 self._result = await self._task
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.info("recall_handle_consume_timeout: budget=%.3fs", timeout)
             return RecallBundle(query="")
         except Exception as exc:  # noqa: BLE001

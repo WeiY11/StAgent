@@ -15,20 +15,20 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from sqlmodel import select
 
+from leagent.db.models.agent_memory import AgentEpisode
 from leagent.memory.lexical_backend import column_text_match, session_dialect
 from leagent.memory.types import Episode, MemoryKind, RecallEntry
 from leagent.memory.vector import MilvusCollection, MilvusConnectionConfig
-from leagent.db.models.agent_memory import AgentEpisode
 
 if TYPE_CHECKING:
-    from leagent.memory.embeddings import EmbeddingProvider
     from leagent.db.service import DatabaseService
+    from leagent.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ COLLECTION_NAME = "agent_memory_episodes"
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class EpisodicStore:

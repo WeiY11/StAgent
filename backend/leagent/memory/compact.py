@@ -163,7 +163,7 @@ def _approximate_tokens(messages: list[dict[str, Any]]) -> int:
 
 
 def build_microcompact(
-    llm: "LLMService | None" = None,
+    llm: LLMService | None = None,
     *,
     budget_chars: int = DEFAULT_TOOL_RESULT_BUDGET_CHARS,
 ) -> Microcompact:
@@ -176,7 +176,7 @@ def build_microcompact(
 
     async def _microcompact(
         messages: list[dict[str, Any]],
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
     ) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for msg in messages:
@@ -198,7 +198,7 @@ def build_microcompact(
 
 
 def build_autocompact(
-    llm: "LLMService | None" = None,
+    llm: LLMService | None = None,
     *,
     token_threshold: int = AUTOCOMPACT_TOKEN_THRESHOLD,
     keep_recent: int = AUTOCOMPACT_KEEP_RECENT,
@@ -278,7 +278,7 @@ def build_autocompact(
 
     async def _autocompact(
         messages: list[dict[str, Any]],
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
         system_prompt: str,
     ) -> list[dict[str, Any]]:
         if not messages:
@@ -327,8 +327,8 @@ def build_autocompact(
 async def apply_forced_autocompact(
     messages: list[dict[str, Any]],
     *,
-    llm: "LLMService | None",
-    tool_use_context: "ToolUseContext",
+    llm: LLMService | None,
+    tool_use_context: ToolUseContext,
     system_prompt: str,
     keep_recent: int,
 ) -> list[dict[str, Any]]:

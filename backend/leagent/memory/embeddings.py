@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Iterable, Protocol, runtime_checkable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from leagent.services.cache.keys import build_scoped_cache_key
 
@@ -67,7 +68,7 @@ class LLMServiceEmbeddingProvider:
 
     def __init__(
         self,
-        llm_service: "LLMService",
+        llm_service: LLMService,
         *,
         cache: CacheService | None = None,
         model: str | None = None,

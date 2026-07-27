@@ -28,7 +28,7 @@ import logging
 import math
 from copy import deepcopy
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -396,7 +396,7 @@ class RetrievalPipeline:
     # -- ranking --------------------------------------------------------
 
     def _rerank(self, candidates: list[RecallEntry]) -> list[RecallEntry]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Timestamp strings repeat across entries (many memories share a
         # creation batch); parse each distinct value once.
         ts_cache: dict[str, datetime | None] = {}
@@ -520,7 +520,7 @@ def _parse_timestamp(raw: str, cache: dict[str, datetime | None]) -> datetime | 
         cache[raw] = None
         return None
     if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp = timestamp.replace(tzinfo=UTC)
     cache[raw] = timestamp
     return timestamp
 

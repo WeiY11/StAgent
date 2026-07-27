@@ -15,20 +15,21 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime, timezone
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlmodel import select
 
+from leagent.db.models.agent_memory import AgentProcedure
 from leagent.memory.lexical_backend import or_text_match, session_dialect
 from leagent.memory.types import MemoryKind, Procedure, RecallEntry
 from leagent.memory.vector import MilvusCollection, MilvusConnectionConfig, VectorWriteResult
-from leagent.db.models.agent_memory import AgentProcedure
 
 if TYPE_CHECKING:
-    from leagent.memory.embeddings import EmbeddingProvider
     from leagent.db.service import DatabaseService
+    from leagent.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ COLLECTION_NAME = "agent_memory_procedures"
 
 def _utc_now() -> datetime:
     """Naive UTC for :class:`~leagent.db.models.base.BaseModel` timestamps."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def build_signature(intent: str, tool_names: Iterable[str]) -> str:
