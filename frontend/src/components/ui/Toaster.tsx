@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { Toast, type ToastVariant } from './Toast';
 import { cn } from '@/lib/utils';
+import { Toast, type ToastVariant } from './Toast';
 
 export interface ToastItem {
   id: string;

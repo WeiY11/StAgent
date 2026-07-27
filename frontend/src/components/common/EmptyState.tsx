@@ -1,8 +1,8 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
 import { Inbox, Search, FileX, FolderOpen, Database, AlertCircle } from 'lucide-react';
-import { Button } from '../ui/Button';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { Button } from '../ui/Button';
 
 type EmptyStateType = 'default' | 'search' | 'file' | 'folder' | 'data' | 'error';
 

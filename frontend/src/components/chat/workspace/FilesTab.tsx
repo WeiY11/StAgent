@@ -22,15 +22,15 @@ import { useChatProjectStore } from '@/stores/chatProjects';
 import { useArtifactStore } from '@/stores/artifact';
 import { useRealtimeFileSync } from '@/hooks/useRealtimeFileSync';
 import { cn, isUuid } from '@/lib/utils';
-import { getFileExtensionIcon } from './artifactIcon';
 import type { ArtifactType } from '@/types/artifact';
 import { UniversalFilePreview } from '@/components/files/UniversalFilePreview';
 import type { Attachment, Message } from '@/types/chat';
 import { normalizeAttachmentList } from '@/types/chat';
 import { collectSessionEditPaths } from '@/lib/sessionProjectEdits';
-import { DocGenerationLivePreview } from './DocGenerationLivePreview';
 import { canvasIframeSandbox, withCanvasPreviewJs } from '@/lib/canvasPreviewJs';
 import type { FolderFileItem } from '@/hooks/useFolders';
+import { getFileExtensionIcon } from './artifactIcon';
+import { DocGenerationLivePreview } from './DocGenerationLivePreview';
 
 const EMPTY_SESSION_MESSAGES: Message[] = [];
 

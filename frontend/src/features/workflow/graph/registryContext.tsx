@@ -1,5 +1,4 @@
 import { createContext, useContext, type ReactNode } from 'react';
-
 import type { NodeDefinition, ObjectInfo } from './objectInfo';
 
 const RegistryContext = createContext<ObjectInfo | null>(null);

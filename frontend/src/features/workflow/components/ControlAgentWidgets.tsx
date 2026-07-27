@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-
 import { AgentModelSelect } from './AgentModelWidgets';
 
 const FIELD =

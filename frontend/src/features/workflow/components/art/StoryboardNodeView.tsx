@@ -8,12 +8,11 @@ import {
 } from '@xyflow/react';
 import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { useNodeDefinition } from '../../graph/registryContext';
 import type { WorkflowNodeData } from '../../graph/serialization';
 import { DEFAULT_SOCKET_COLORS } from '../../graph/socketTypes';
-import { useExecutionOverlay } from '../../store/executionOverlay';
 import { useInboundEdges } from '../../hooks/useInboundEdges';
+import { useExecutionOverlay } from '../../store/executionOverlay';
 import { NodeMediaPreview } from '../NodeMediaPreview';
 import { NodeShell } from './NodeShell';
 
@@ -25,13 +24,16 @@ interface ShotRow {
   fps: number;
 }
 
+const EMPTY_VALUES: Record<string, unknown> = {};
+const EMPTY_SHOT_ORDER: string[] = [];
+
 function ShotNodeViewImpl({ id, data, selected }: NodeProps) {
   const nodeData = data as WorkflowNodeData;
   const def = useNodeDefinition('Art.Shot');
   const { updateNodeData } = useReactFlow();
   const { t } = useTranslation('workflows');
   const runState = useExecutionOverlay((s) => s.nodes[id]);
-  const values = nodeData.values ?? {};
+  const values = nodeData.values ?? EMPTY_VALUES;
   const name = String(values.name ?? '').trim() || t('storyboard.shotDefault', { defaultValue: 'Shot' });
   const duration = Number(values.duration ?? 3);
   const accent = DEFAULT_SOCKET_COLORS.OBJECT;
@@ -140,8 +142,8 @@ function StoryboardNodeViewImpl({ id, data, selected }: NodeProps) {
   const shotEdges = useInboundEdges(id, 'shots');
   const allNodes = useStore((s) => s.nodes);
 
-  const values = nodeData.values ?? {};
-  const shotOrder = (values.shot_order as string[] | undefined) ?? [];
+  const values = nodeData.values ?? EMPTY_VALUES;
+  const shotOrder = (values.shot_order as string[] | undefined) ?? EMPTY_SHOT_ORDER;
   const batchDuration = Number(values.batch_duration ?? 3);
   const batchFps = Number(values.batch_fps ?? 24);
 

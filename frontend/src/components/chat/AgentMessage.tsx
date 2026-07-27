@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   Pin,
 } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import { cn, formatDate } from '@/lib/utils';
 import { redactLargeRawToolArguments } from '@/lib/toolCallArgsDisplay';
 import { isProjectFamilyTool } from '@/lib/projectToolEnvelope';
@@ -24,17 +25,19 @@ import { apiClient } from '@/api/client';
 import { queryClient } from '@/lib/queryClient';
 import { useChatStore } from '@/stores/chat';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
+import { GenUiInline } from '@/components/canvas/GenUiInline';
+import {
+  CanvasGenUiToolCall,
+  isGenerativeCanvasTool,
+} from '@/components/chat/CanvasGenUiToolCall';
+import { ProjectToolCallBlock } from '@/components/chat/ProjectToolCallBlock';
 import { ChatAgentRolePet } from '@/components/chat/ChatAgentRolePet';
 import { PetSpeechBubble } from '@/components/chat/PetSpeechBubble';
-import { TypingIndicator } from './TypingIndicator';
-import { TodoListBlock } from './TodoListBlock';
-import { findLatestTodoAnchorMessageId, messageHasTodoActivity } from './todoAnchorUtils';
-import { ArtifactCard } from './ArtifactCard';
-import { AttachmentCard } from './AttachmentCard';
-import { AssistantInlineMedia } from './AssistantInlineMedia';
-import { Markdown } from './markdown/Markdown';
 import { useArtifactStore } from '@/stores/artifact';
-import type { TFunction } from 'i18next';
+import { useGenUiStore, genUiTreeKey } from '@/stores/genUi';
+import { regenerateAssistantReply } from '@/lib/regenerateAssistantReply';
+import { collectAgentImageArtifacts } from '@/lib/agentImageArtifacts';
+import { selectVisibleMessageAttachments } from '@/lib/chatAttachments';
 import type {
   Attachment,
   Message,
@@ -43,22 +46,17 @@ import type {
   TaskProgressStep,
   ToolCall,
 } from '@/types/chat';
+import { TypingIndicator } from './TypingIndicator';
+import { TodoListBlock } from './TodoListBlock';
+import { findLatestTodoAnchorMessageId, messageHasTodoActivity } from './todoAnchorUtils';
+import { ArtifactCard } from './ArtifactCard';
+import { AttachmentCard } from './AttachmentCard';
+import { AssistantInlineMedia } from './AssistantInlineMedia';
+import { Markdown } from './markdown/Markdown';
 import { ChatWorkflowCard } from './workflow/ChatWorkflowCard';
 import { mergeWorkflowIntoTodos } from './workflow/workflowTodoSync';
 
 const EMPTY_TODO_STEPS: TaskProgressStep[] = [];
-import { GenUiInline } from '@/components/canvas/GenUiInline';
-import {
-  CanvasGenUiToolCall,
-  isGenerativeCanvasTool,
-} from '@/components/chat/CanvasGenUiToolCall';
-import {
-  ProjectToolCallBlock,
-} from '@/components/chat/ProjectToolCallBlock';
-import { useGenUiStore, genUiTreeKey } from '@/stores/genUi';
-import { regenerateAssistantReply } from '@/lib/regenerateAssistantReply';
-import { collectAgentImageArtifacts } from '@/lib/agentImageArtifacts';
-import { selectVisibleMessageAttachments } from '@/lib/chatAttachments';
 
 interface AgentMessageProps {
   message: Message;

@@ -66,6 +66,7 @@ export function GenUiLiveCamera({ node }: { node: GenUiNode }) {
 
     let stream: MediaStream | null = null;
     let cancelled = false;
+    let attachedVideo: HTMLVideoElement | null = null;
     setErr(null);
     setActive(false);
 
@@ -87,6 +88,7 @@ export function GenUiLiveCamera({ node }: { node: GenUiNode }) {
           if (!cancelled) setCameraOn(false);
           return;
         }
+        attachedVideo = el;
         el.srcObject = stream;
         try {
           await el.play();
@@ -121,8 +123,7 @@ export function GenUiLiveCamera({ node }: { node: GenUiNode }) {
       cancelled = true;
       stopTracks(stream);
       streamRef.current = null;
-      const el = videoRef.current;
-      if (el) el.srcObject = null;
+      if (attachedVideo) attachedVideo.srcObject = null;
       setActive(false);
     };
   }, [cameraOn, facing, stopTracks, t]);

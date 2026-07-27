@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import { extractWorkflowEdges } from '@/lib/workflowLayout';
 import { parseStoredFlowDataForChatPreview } from '@/lib/parseFlowDataFromApi';
 import { chatSpecToFlowData } from './chatSpecToFlowData';

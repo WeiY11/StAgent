@@ -57,7 +57,7 @@ const CATEGORY_COLORS: Record<ToolCategory, string> = {
   data: 'bg-peach-100 dark:bg-peach-900/30 text-peach-600 dark:text-peach-400',
   gen: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
   integration: 'bg-mint-100 dark:bg-mint-900/30 text-mint-600 dark:text-mint-400',
-  util: 'bg-gray-100 dark:bg-surface text-gray-600 dark:text-gray-400',
+  util: 'bg-surface-sunken text-muted-foreground',
   canvas: 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
   workflow: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
   code: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
@@ -151,8 +151,8 @@ export default function ToolsPage() {
         {/* Sidebar */}
         <div className="lg:col-span-1">
           <Card className="sticky top-8">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="font-semibold text-gray-900 dark:text-white">
+            <div className="p-4 border-b border-border">
+              <h2 className="font-semibold text-foreground">
                 {t('tools.categories.title')}
               </h2>
             </div>
@@ -175,7 +175,7 @@ export default function ToolsPage() {
                         'w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors',
                         isActive
                           ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          : 'hover:bg-surface-sunken text-foreground/80'
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export default function ToolsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                            <h3 className="font-semibold text-foreground truncate">
                               {labelOf(tool.name)}
                             </h3>
                             <Switch
@@ -241,7 +241,7 @@ export default function ToolsPage() {
                               }}
                             />
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                             {descOf(tool.name, tool.description)}
                           </p>
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -267,10 +267,10 @@ export default function ToolsPage() {
             </div>
           ) : (
             <div className="p-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-surface flex items-center justify-center">
-                <Code className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-sunken flex items-center justify-center">
+                <Code className="w-8 h-8 text-muted-foreground" />
               </div>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-muted-foreground">
                 {search ? t('tools.noSearchResults') : t('admin.tool.empty')}
               </p>
             </div>
@@ -281,10 +281,10 @@ export default function ToolsPage() {
       {/* Tool detail panel */}
       {selectedTool && !isConfigModalOpen && (
         <div className="fixed bottom-8 right-8 left-8 lg:left-auto lg:w-[420px] z-30">
-          <Card variant="elevated" className="shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <Card variant="elevated" className="shadow-lg border border-border">
+            <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2 min-w-0">
-                <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                <h3 className="font-semibold text-foreground truncate">
                   {labelOf(selectedTool.name)}
                 </h3>
                 <Badge variant="default" size="sm" className="font-mono flex-shrink-0">
@@ -296,23 +296,23 @@ export default function ToolsPage() {
               </Button>
             </div>
             <CardContent className="max-h-80 overflow-auto space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 {descOf(selectedTool.name, selectedTool.description)}
               </p>
 
               {/* Metadata grid */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-surface">
-                  <Clock className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">{selectedTool.timeout_sec}s</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-sunken">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{selectedTool.timeout_sec}s</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-surface">
-                  <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">{selectedTool.max_retries} retries</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-sunken">
+                  <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{selectedTool.max_retries} retries</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-surface">
-                  <Cpu className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-sunken">
+                  <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
                     {selectedTool.requires_gpu ? 'GPU' : 'CPU'}
                   </span>
                 </div>
@@ -322,7 +322,7 @@ export default function ToolsPage() {
               {toolDetail?.parameters && Object.keys(toolDetail.parameters).length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {t('tools.schema')}
                     </p>
                     <Button
@@ -354,7 +354,7 @@ export default function ToolsPage() {
         <ModalBody>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                 {t('admin.tool.configJson')}
               </label>
               <Textarea
@@ -390,8 +390,8 @@ function ParametersDisplay({ params }: { params: Record<string, unknown> }) {
 
   if (entries.length === 0) {
     return (
-      <div className="p-3 rounded-lg bg-gray-50 dark:bg-surface">
-        <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-auto whitespace-pre-wrap">
+      <div className="p-3 rounded-lg bg-surface-sunken">
+        <pre className="text-xs text-foreground/80 overflow-auto whitespace-pre-wrap">
           {JSON.stringify(params, null, 2)}
         </pre>
       </div>
@@ -403,13 +403,13 @@ function ParametersDisplay({ params }: { params: Record<string, unknown> }) {
       {entries.map(([name, prop]) => (
         <div
           key={name}
-          className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface"
+          className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface-sunken"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <code className="text-xs font-semibold text-gray-800 dark:text-gray-200">{name}</code>
+              <code className="text-xs font-semibold text-foreground">{name}</code>
               {prop.type && (
-                <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-surface-sunken text-muted-foreground">
                   {prop.type}
                 </span>
               )}
@@ -418,7 +418,7 @@ function ParametersDisplay({ params }: { params: Record<string, unknown> }) {
               )}
             </div>
             {prop.description && (
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
                 {prop.description}
               </p>
             )}

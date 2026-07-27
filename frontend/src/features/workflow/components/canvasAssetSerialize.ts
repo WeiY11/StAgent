@@ -1,5 +1,4 @@
 import type { Node } from '@xyflow/react';
-
 import type { EditorNode } from '../graph/serialization';
 import {
   type CanvasAssetKind,

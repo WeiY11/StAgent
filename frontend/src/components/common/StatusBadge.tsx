@@ -1,6 +1,4 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
-import type { ResponsiveBreakpoint } from '@/components/ui/Button';
 import {
   CheckCircle,
   XCircle,
@@ -14,6 +12,8 @@ import {
   SkipForward,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import type { ResponsiveBreakpoint } from '@/components/ui/Button';
 
 type StatusType =
   | 'pending'

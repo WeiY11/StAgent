@@ -63,8 +63,8 @@ const Modal = ({
       <div className={cn('fixed z-[100] flex items-center justify-center p-4', mainAreaClasses)}>
         <div
           className={cn(
-            'w-full bg-surface rounded-xl shadow-xl',
-            'border border-border',
+            'w-full bg-surface rounded-card shadow-overlay',
+            'border border-border-subtle',
             'slide-in-up max-h-[90vh] overflow-auto',
             sizeMap[size],
             className
@@ -122,7 +122,7 @@ const ModalFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     <div
       ref={ref}
       className={cn(
-        'flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-sunken rounded-b-xl',
+        'flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface-sunken rounded-b-card',
         className
       )}
       {...props}

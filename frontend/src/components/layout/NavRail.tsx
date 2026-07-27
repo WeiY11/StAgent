@@ -1,6 +1,5 @@
 import { memo, useMemo, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -23,16 +22,17 @@ import {
   Radio,
   ScrollText,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
 import { isAdminUser } from '@/lib/authUser';
 import { prefetchRoute } from '@/routes/lazyPages';
 import { useLayoutStore } from '@/stores/layout';
-import { TooltipProvider } from '../ui/Tooltip';
-import { UserMenu } from './UserMenu';
 import { ChatHistoryPanel } from '@/components/chat/ChatHistoryPanel';
 import { LogoStageRail } from '@/components/brand/LogoStage';
 import { PetNest } from '@/components/layout/PetNest';
 import { PetDockWidget } from '@/components/layout/PetDockWidget';
+import { TooltipProvider } from '../ui/Tooltip';
+import { UserMenu } from './UserMenu';
 
 interface NavItem {
   id: string;
@@ -68,6 +68,7 @@ const NavLink = memo(function NavLink({ item, collapsed, active }: NavLinkProps)
       onFocus={() => prefetchRoute(item.href)}
       className={cn(
         'flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/25 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
         active
           ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
           : 'text-muted-foreground hover:bg-surface-sunken dark:hover:bg-surface-elevated hover:text-foreground'
@@ -208,13 +209,13 @@ const NavRail = ({
         className={cn(
           'flex flex-col overflow-hidden',
           'bg-surface',
-          'border border-border',
+          'border border-border-subtle',
           'rounded-2xl',
           isMobile
             ? 'fixed left-2 top-[calc(var(--titlebar-height,0px)_+_10px)] bottom-2 z-50 w-64 max-w-[min(16rem,calc(100vw-1rem))] shadow-2xl ring-1 ring-black/10 dark:ring-white/10'
             : cn(
                 'fixed left-2 top-[calc(var(--titlebar-height,0px)_+_10px)] bottom-2 z-20 transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] [contain:layout_paint] motion-reduce:transition-none',
-                'shadow-soft ring-1 ring-black/[0.06] dark:ring-white/[0.08]',
+                'shadow-card ring-1 ring-black/[0.04] dark:ring-white/[0.06]',
                 railCollapsed ? 'w-16' : 'w-64'
               )
         )}
@@ -257,6 +258,7 @@ const NavRail = ({
                 aria-controls={!railCollapsed && homeActive && chatHistoryOpen ? 'nav-chat-history' : undefined}
                 className={cn(
                   'flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/25 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
                   homeActive
                     ? 'border-primary-200/60 dark:border-primary-800/50 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
                     : 'text-muted-foreground hover:bg-surface-sunken dark:hover:bg-surface-elevated hover:text-foreground',

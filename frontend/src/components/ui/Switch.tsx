@@ -43,9 +43,9 @@ const Switch = forwardRef<HTMLInputElement, SwitchProps>(
             className={cn(
               sizeConfig.track,
               'rounded-full transition-colors duration-200',
-              'bg-gray-300 dark:bg-gray-600',
+              'bg-border',
               'peer-checked:bg-primary-600 dark:peer-checked:bg-primary-500',
-              'peer-focus:ring-2 peer-focus:ring-primary-500/20'
+              'peer-focus:ring-2 peer-focus:ring-primary-500/25'
             )}
           />
           <div
@@ -57,7 +57,7 @@ const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           />
         </div>
         {label && (
-          <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+          <span className="text-sm text-foreground">{label}</span>
         )}
       </label>
     );

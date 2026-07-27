@@ -76,7 +76,7 @@ export function ProjectToolCallBlock({ toolCall, sessionId }: ProjectToolCallBlo
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const name = toolCall.name;
-  const args = toolCall.arguments ?? {};
+  const args = useMemo(() => toolCall.arguments ?? {}, [toolCall.arguments]);
 
   const isCodingProjectRun = name === 'coding_project_run';
   const codingProjectId = isCodingProjectRun
@@ -252,10 +252,10 @@ export function ProjectToolCallBlock({ toolCall, sessionId }: ProjectToolCallBlo
     cpStatus?.status,
     cpStatus?.is_running,
     codingProjectId,
-    stopCp.isPending,
-    runCp.isPending,
-    stopCp.mutateAsync,
-    runCp.mutateAsync,
+    sessionId,
+    registerCodingProjectForSession,
+    stopCp,
+    runCp,
     t,
   ]);
 
@@ -606,7 +606,7 @@ export function ProjectToolCallBlock({ toolCall, sessionId }: ProjectToolCallBlo
         ) : null}
       </div>
     );
-  }, [name, args, toolCall, t, headerPath]);
+  }, [name, args, toolCall, activity, changedFiles, t, headerPath]);
 
   return (
     <div

@@ -38,8 +38,8 @@ export default function PlaygroundPage() {
     >
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <Card>
-          <div className="border-b border-gray-200 p-4 dark:border-gray-700">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          <div className="border-b border-border p-4">
+            <h2 className="text-2xl font-semibold text-foreground">
               {t('playground.flowSelector')}
             </h2>
           </div>
@@ -63,7 +63,7 @@ export default function PlaygroundPage() {
 
             {selectedFlow && (
               <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-surface">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {selectedFlow.description || t('playground.noDescription')}
                 </p>
                 <div className="mt-2 flex items-center gap-2">
@@ -92,7 +92,7 @@ export default function PlaygroundPage() {
         ) : (
           <Card>
             <CardContent>
-              <div className="py-12 text-center text-gray-500 dark:text-gray-400">
+              <div className="py-12 text-center text-muted-foreground">
                 {t('playground.selectFlowFirst')}
               </div>
             </CardContent>

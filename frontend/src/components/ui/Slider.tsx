@@ -140,7 +140,7 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(
         <div
           ref={trackRef}
           className={cn(
-            'relative grow rounded-full bg-gray-200 dark:bg-gray-700',
+            'relative grow rounded-full bg-surface-sunken',
             isHorizontal ? 'h-2 w-full' : 'w-2 h-full'
           )}
           onPointerDown={handlePointerDown}
@@ -166,10 +166,10 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(
             aria-disabled={disabled}
             className={cn(
               'absolute block h-5 w-5 rounded-full',
-              'bg-white dark:bg-gray-100 border-2 border-primary-600 dark:border-primary-500',
+              'bg-white border-2 border-primary-600 dark:border-primary-500',
               'shadow-md transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              'hover:bg-gray-50 dark:hover:bg-gray-200',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:ring-offset-2',
+              'hover:bg-surface-sunken',
               isHorizontal ? '-translate-x-1/2 -translate-y-1/2 top-1/2' : '-translate-x-1/2 translate-y-1/2 left-1/2'
             )}
             style={

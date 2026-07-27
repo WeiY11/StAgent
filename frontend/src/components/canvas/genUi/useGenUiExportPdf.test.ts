@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportGenUiTreeToPdf } from './useGenUiExportPdf';
 import type { GenUiTreeV1 } from '@/types/genUi';
+import { exportGenUiTreeToPdf } from './useGenUiExportPdf';
 
 const tree: GenUiTreeV1 = {
   schemaVersion: '1',

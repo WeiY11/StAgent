@@ -1,9 +1,9 @@
 import { forwardRef, type HTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { Button, PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 import { Select } from '../ui/Select';
-import { useTranslation } from 'react-i18next';
 
 interface PaginatorProps extends HTMLAttributes<HTMLDivElement> {
   currentPage: number;

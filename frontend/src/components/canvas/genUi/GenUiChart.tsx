@@ -28,6 +28,21 @@ const SERIES_FALLBACK = [
   'hsl(347 77% 50%)',
 ];
 
+function readChartCss(_themeVersion: number) {
+  const cs = getComputedStyle(document.documentElement);
+  const g = (n: string) => {
+    const v = cs.getPropertyValue(n).trim();
+    return v ? `rgb(${v})` : undefined;
+  };
+  return {
+    text: g('--color-text') ?? '#171717',
+    textMuted: g('--color-text-secondary') ?? '#5b5b61',
+    border: g('--color-border') ?? '#e8e6e2',
+    surface: g('--color-surface') ?? '#ffffff',
+    primary: g('--color-primary') ?? SERIES_FALLBACK[0],
+  };
+}
+
 function useChartCss() {
   const [ver, setVer] = useState(0);
   useEffect(() => {
@@ -37,20 +52,7 @@ function useChartCss() {
     return () => obs.disconnect();
   }, []);
 
-  return useMemo(() => {
-    const cs = getComputedStyle(document.documentElement);
-    const g = (n: string) => {
-      const v = cs.getPropertyValue(n).trim();
-      return v ? `rgb(${v})` : undefined;
-    };
-    return {
-      text: g('--color-text') ?? '#171717',
-      textMuted: g('--color-text-secondary') ?? '#5b5b61',
-      border: g('--color-border') ?? '#e8e6e2',
-      surface: g('--color-surface') ?? '#ffffff',
-      primary: g('--color-primary') ?? SERIES_FALLBACK[0],
-    };
-  }, [ver]);
+  return useMemo(() => readChartCss(ver), [ver]);
 }
 
 export function GenUiChart({ node }: { node: GenUiNode }) {
@@ -62,23 +64,29 @@ export function GenUiChart({ node }: { node: GenUiNode }) {
   const showGrid = p.showGrid !== false;
   const stacked = Boolean(p.stacked);
 
-  const categories = Array.isArray(p.categories) ? p.categories.map((c) => String(c)) : [];
-  const seriesRaw = Array.isArray(p.series) ? p.series : [];
-  const series = seriesRaw
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const o = item as Record<string, unknown>;
-      const name = String(o.name ?? '');
-      const rawVals = o.values;
-      const values = Array.isArray(rawVals)
-        ? rawVals.map((v) => {
-            const n = typeof v === 'number' ? v : Number(v);
-            return Number.isFinite(n) ? n : 0;
-          })
-        : [];
-      return { name, values };
-    })
-    .filter((x): x is { name: string; values: number[] } => x !== null);
+  const categories = useMemo(
+    () => (Array.isArray(p.categories) ? p.categories.map((c) => String(c)) : []),
+    [p.categories],
+  );
+  const series = useMemo(
+    () =>
+      (Array.isArray(p.series) ? p.series : [])
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const o = item as Record<string, unknown>;
+          const name = String(o.name ?? '');
+          const rawVals = o.values;
+          const values = Array.isArray(rawVals)
+            ? rawVals.map((v) => {
+                const n = typeof v === 'number' ? v : Number(v);
+                return Number.isFinite(n) ? n : 0;
+              })
+            : [];
+          return { name, values };
+        })
+        .filter((x): x is { name: string; values: number[] } => x !== null),
+    [p.series],
+  );
 
   const css = useChartCss();
   const palette = useMemo(() => {

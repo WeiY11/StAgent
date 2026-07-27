@@ -1,8 +1,8 @@
 import { forwardRef, useState, useRef, useEffect, type InputHTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
 import { Search, X, Loader2 } from 'lucide-react';
-import { debounce } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { debounce } from '@/lib/utils';
 
 interface SearchInputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'size' | 'onSubmit'> {

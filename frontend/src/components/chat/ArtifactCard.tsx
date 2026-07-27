@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import { Code, FileText, Table, GitBranch, Image, ExternalLink, Layout, Download } from 'lucide-react';
+import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { cn } from '@/lib/utils';
 import { useArtifactStore } from '@/stores/artifact';
 import type { Artifact, ArtifactType } from '@/types/artifact';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
 
 const ARTIFACT_ICONS: Record<ArtifactType, React.ReactNode> = {
   code: <Code className="w-4 h-4" />,

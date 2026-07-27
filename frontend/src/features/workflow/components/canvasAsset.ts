@@ -1,5 +1,4 @@
 import type { Node } from '@xyflow/react';
-
 import { apiClient } from '@/api/client';
 import type { GenUiMediaItem } from '@/components/canvas/genUi/genUiMedia';
 

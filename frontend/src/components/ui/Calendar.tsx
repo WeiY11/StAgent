@@ -1,8 +1,8 @@
 import { forwardRef, useState, useMemo, type HTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
-import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 
 interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   selected?: Date;
@@ -122,7 +122,7 @@ const Calendar = forwardRef<HTMLDivElement, CalendarProps>(
         ref={ref}
         className={cn(
           'p-3 bg-surface rounded-lg',
-          'border border-gray-200 dark:border-gray-700',
+          'border border-border-subtle',
           className
         )}
         {...props}
@@ -133,14 +133,14 @@ const Calendar = forwardRef<HTMLDivElement, CalendarProps>(
             onClick={goToPreviousMonth}
             className={cn(
               'p-1.5 rounded-lg',
-              'text-gray-600 dark:text-gray-400',
-              'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
+              'text-muted-foreground',
+              'hover:bg-surface-sunken dark:hover:bg-surface-elevated transition-colors'
             )}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+            <span className="text-sm font-semibold text-foreground">
               {monthFormatter.format(viewDate)}
             </span>
             <button
@@ -160,8 +160,8 @@ const Calendar = forwardRef<HTMLDivElement, CalendarProps>(
             onClick={goToNextMonth}
             className={cn(
               'p-1.5 rounded-lg',
-              'text-gray-600 dark:text-gray-400',
-              'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
+              'text-muted-foreground',
+              'hover:bg-surface-sunken dark:hover:bg-surface-elevated transition-colors'
             )}
           >
             <ChevronRight className="w-5 h-5" />
@@ -172,7 +172,7 @@ const Calendar = forwardRef<HTMLDivElement, CalendarProps>(
           {weekDays.map((day, index) => (
             <div
               key={index}
-              className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1"
+              className="text-center text-xs font-medium text-muted-foreground py-1"
             >
               {day}
             </div>
@@ -199,9 +199,9 @@ const Calendar = forwardRef<HTMLDivElement, CalendarProps>(
                   'h-8 w-8 mx-auto flex items-center justify-center rounded-lg text-sm',
                   'transition-colors',
                   isCurrentMonth
-                    ? 'text-gray-900 dark:text-white'
-                    : 'text-gray-400 dark:text-gray-600',
-                  !isDisabled && !isSelected && 'hover:bg-gray-100 dark:hover:bg-gray-800',
+                    ? 'text-foreground'
+                    : 'text-muted-foreground-tertiary',
+                  !isDisabled && !isSelected && 'hover:bg-surface-sunken dark:hover:bg-surface-elevated',
                   isSelected && PRIMARY_SOFT_CTA_CLASSNAME,
                   isTodayDate && !isSelected && 'ring-1 ring-primary-500',
                   isDisabled && 'opacity-50 cursor-not-allowed'

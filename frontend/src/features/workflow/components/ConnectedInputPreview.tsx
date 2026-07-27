@@ -1,16 +1,14 @@
 import { useMemo } from 'react';
 import { useStore } from '@xyflow/react';
-
 import { mediaFromNodeRunState } from '@/components/canvas/genUi/genUiMedia';
 import type { GenUiMediaItem } from '@/components/canvas/genUi/genUiMedia';
-
+import { useExecutionOverlay } from '../store/executionOverlay';
+import type { WorkflowNodeData } from '../graph/serialization';
 import {
   type CanvasAssetNodeData,
   canvasAssetPreview,
   isCanvasAssetNode,
 } from './canvasAsset';
-import { useExecutionOverlay } from '../store/executionOverlay';
-import type { WorkflowNodeData } from '../graph/serialization';
 import { NodeMediaPreview } from './NodeMediaPreview';
 import { CanvasMesh3DPreview } from './CanvasMesh3DPreview';
 import { FileAssetChip } from './CanvasAssetNodeView';

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-
 import { knowledgeFileIdsFromComposerRefs } from '@/lib/knowledgeChatToken';
 
 export type ComposerFileRefKind = 'knowledge' | 'workspace' | 'skill';

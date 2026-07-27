@@ -1,4 +1,5 @@
 import {
+  memo,
   useState,
   useRef,
   useCallback,
@@ -36,6 +37,7 @@ import { formatAgentPathLabel } from '@/lib/agentPathDisplay';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import { MAX_CHAT_UPLOAD_BYTES } from '@/constants/uploads';
 import {
   useAddAuthorizedPath,
   useRemoveAuthorizedPath,
@@ -44,6 +46,7 @@ import {
 import { useSkillsList } from '@/hooks/useSkills';
 import { buildSkillChatToken } from '@/lib/skillChatToken';
 import { matchComposerTriggerToken } from '@/lib/composerTriggerToken';
+import { normalizeLocalFolderPathForGrant } from '@/lib/localFolderPath';
 import { AttachmentStrip } from './composer/AttachmentStrip';
 import { ComposerReferenceStrip } from './composer/ComposerReferenceStrip';
 import { ModelSelector } from './composer/ModelSelector';
@@ -54,8 +57,6 @@ import {
 import { MentionPicker, type MentionItem } from './composer/MentionPicker';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { ContextUsagePopover } from './composer/ContextUsagePopover';
-import { MAX_CHAT_UPLOAD_BYTES } from '@/constants/uploads';
-import { normalizeLocalFolderPathForGrant } from '@/lib/localFolderPath';
 import { LocalFolderBrowser } from './LocalFolderBrowser';
 
 const MAX_FILE_BYTES = MAX_CHAT_UPLOAD_BYTES;
@@ -81,7 +82,7 @@ function getPathDisplayName(path: string, label?: string | null): string {
   return formatAgentPathLabel(path);
 }
 
-export function ChatInput({
+export const ChatInput = memo(function ChatInput({
   onSend,
   onStop,
   className,
@@ -242,7 +243,7 @@ export function ChatInput({
         adjustHeight();
       });
     },
-    [adjustHeight],
+    [adjustHeight, setComposerBody],
   );
 
   /* ─── Picker selection handlers ────────────────────────────── */
@@ -289,7 +290,7 @@ export function ChatInput({
       } else if (cmd.id === 'workspace') toggleWorkspace();
       else if (cmd.id === 'attach') fileInputRef.current?.click();
     },
-    [adjustHeight, closePicker, pushFileRef, t, toggleWorkspace],
+    [adjustHeight, closePicker, pushFileRef, setComposerBody, t, toggleWorkspace],
   );
 
   const handleMentionSelect = useCallback(
@@ -354,7 +355,7 @@ export function ChatInput({
         useArtifactStore.getState().openTab(artId);
       }
     },
-    [adjustHeight, closePicker, insertAtCaret, pushFileRef],
+    [adjustHeight, closePicker, insertAtCaret, pushFileRef, setComposerBody],
   );
 
   /* ─── Send ────────────────────────────────────────────────── */
@@ -420,7 +421,7 @@ export function ChatInput({
           : t('chat.steer.failed', { defaultValue: 'Could not steer the running turn.' }),
       );
     }
-  }, [content, currentSessionId, setError, steer, t]);
+  }, [content, currentSessionId, setComposerBody, setError, steer, t]);
 
   const handleQueue = useCallback(async () => {
     const text = content.trim();
@@ -435,7 +436,7 @@ export function ChatInput({
           : t('chat.steer.queueFailed', { defaultValue: 'Could not queue the message.' }),
       );
     }
-  }, [content, currentSessionId, queueMessage, setError, t]);
+  }, [content, currentSessionId, queueMessage, setComposerBody, setError, t]);
 
   // Auto-dispatch the next queued message when the running turn finishes.
   const prevStreamBusyRef = useRef(streamBusyForThisSession);
@@ -494,7 +495,7 @@ export function ChatInput({
         setComposerFiles((prev) => [...prev, ...accepted]);
       }
     },
-    [setError, t],
+    [setComposerFiles, setError, t],
   );
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1093,4 +1094,4 @@ export function ChatInput({
       </Modal>
     </div>
   );
-}
+});

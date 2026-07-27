@@ -5,15 +5,15 @@ import {
   useMemo,
   useCallback,
 } from 'react';
-import { cn } from '@/lib/utils';
 import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/Skeleton';
 import { EmptyState } from './EmptyState';
-import { useTranslation } from 'react-i18next';
 
 export interface Column<T> {
   id: string;

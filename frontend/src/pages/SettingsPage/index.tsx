@@ -1,8 +1,32 @@
 import { useState, useCallback, memo, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import {
+  Wrench,
+  Clock,
+  Cpu,
+  Package,
+  Zap,
+  Code,
+  Plus,
+  Trash2,
+  Edit2,
+  Play,
+  Pause,
+  Settings2,
+  CheckCircle2,
+  XCircle,
+  Circle,
+  AlertCircle,
+  Key,
+  RefreshCw,
+  Terminal,
+  KeyRound,
+  Mail,
+  Info,
+} from 'lucide-react';
 import { changeAppLanguage } from '@/i18n';
 import { PageShell } from '@/components/layout/PageShell';
-import { useNavigate } from 'react-router-dom';
 import {
   useCronJobs,
   useCronJob,
@@ -15,45 +39,6 @@ import {
   type CronJobInfo,
 } from '@/controllers/API/queries/cron';
 import { useGetFlows } from '@/controllers/API/queries/flows';
-import {
-  Wrench,
-  Clock,
-  Cpu,
-  Package,
-  Globe,
-  FolderOpen,
-  Bot,
-  Zap,
-  Database,
-  Bell,
-  Code,
-  Plus,
-  Trash2,
-  Edit2,
-  Play,
-  Pause,
-  Settings2,
-  CheckCircle2,
-  XCircle,
-  Circle,
-  AlertCircle,
-  Sun,
-  Moon,
-  Monitor,
-  Key,
-  Sparkles,
-  Flame,
-  Star,
-  Minimize2,
-  RefreshCw,
-  Terminal,
-  KeyRound,
-  Mail,
-  Info,
-  Search,
-  ArrowUpCircle,
-  GitBranch,
-} from 'lucide-react';
 import {
   Card,
   CardHeader,
@@ -83,8 +68,6 @@ import {
   useBrandingStore,
   LOGO_BACKDROP_PRESETS,
   BRAND_FONT_PRESETS,
-  type LogoBackdropPreset,
-  type BrandFontPreset,
 } from '@/stores/branding';
 import { fileToBrandingIconDataUrl } from '@/lib/brandingIcon';
 import {
@@ -95,228 +78,35 @@ import {
   useSetDefaultModel,
 } from '@/hooks/useAdmin';
 import { adminApi } from '@/api/admin';
-import type { DeepSeekBalanceResponse } from '@/types/admin';
+import { apiClient, HttpError } from '@/api/client';
+import { SectionHeader } from '@/components/common/SectionHeader';
 import { cn } from '@/lib/utils';
 import { PageLoader } from '@/components/common/PageLoader';
-import { SectionHeader } from '@/components/common/SectionHeader';
-import { apiClient, HttpError } from '@/api/client';
 import { useToast } from '@/components/ui/Toaster';
+import {
+  type SettingsTab,
+  type ExtensionPackRow,
+  type MailStatusApiResponse,
+  type MailEncryptionMode,
+  type TokenStatusApiEntry,
+  type Tool,
+  type DeepSeekBalanceStatus,
+  mailEncryptionFromFlags,
+  formatDeepSeekBalance,
+  TOKEN_ENV_ROWS,
+  CATEGORY_ICONS,
+  MOCK_TOOLS,
+  DEFAULT_BRAND,
+  PROVIDER_BRAND,
+  THEME_OPTIONS,
+  BRANDING_BACKDROP_META,
+  BRAND_FONT_META,
+} from './constants';
+import { SettingRow } from './components/SettingRow';
+import { PythonPackagesTab } from './components/PythonPackagesTab';
 
-/* ── Types ── */
-
-type SettingsTab =
-  | 'general'
-  | 'tools'
-  | 'schedule'
-  | 'models'
-  | 'plugins'
-  | 'tokens'
-  | 'mail'
-  | 'pythonPackages'
-  | 'about';
-
-interface ExtensionPackRow {
-  id: string;
-  name: string;
-  description: string;
-  installed: boolean;
-}
-
-interface PythonPackageRow {
-  name: string;
-  version: string;
-  is_direct?: boolean;
-  latest_version?: string;
-}
-
-interface PythonEnvInfoResponse {
-  python_executable: string;
-  backend_root: string;
-  uses_uv: boolean;
-  project_mode: boolean;
-  has_lockfile: boolean;
-}
-
-type PythonFilterMode = 'all' | 'direct' | 'outdated';
-
-/** GET /settings/mail */
-interface MailStatusApiResponse {
-  host: string;
-  port: number;
-  from_email: string;
-  from_name: string;
-  use_tls: boolean;
-  use_ssl: boolean;
-  username_set: boolean;
-  password_set: boolean;
-}
-
-type MailEncryptionMode = 'starttls' | 'ssl' | 'none';
-
-function mailEncryptionFromFlags(use_tls: boolean, use_ssl: boolean): MailEncryptionMode {
-  if (use_ssl) return 'ssl';
-  if (use_tls) return 'starttls';
-  return 'none';
-}
-
-/** Backend GET /settings/tokens entry */
-interface TokenStatusApiEntry {
-  env_key: string;
-  set: boolean;
-}
-
-const TOKEN_ENV_ROWS: { key: string; labelKey: string }[] = [
-  { key: 'LEAGENT_GITHUB_TOKEN', labelKey: 'settings.tokensGithubWa' },
-  { key: 'GITHUB_TOKEN', labelKey: 'settings.tokensGithub' },
-  { key: 'OPENAI_API_KEY', labelKey: 'settings.tokensOpenai' },
-  { key: 'ANTHROPIC_API_KEY', labelKey: 'settings.tokensAnthropic' },
-  { key: 'DEEPSEEK_API_KEY', labelKey: 'settings.tokensDeepseek' },
-  { key: 'DEEPSEEK_BASE_URL', labelKey: 'settings.tokensDeepseekBaseUrl' },
-  { key: 'DEEPSEEK_MODEL', labelKey: 'settings.tokensDeepseekModel' },
-  { key: 'DEEPSEEK_THINKING_TYPE', labelKey: 'settings.tokensDeepseekThinkingType' },
-  { key: 'DEEPSEEK_REASONING_EFFORT', labelKey: 'settings.tokensDeepseekReasoningEffort' },
-  { key: 'DASHSCOPE_API_KEY', labelKey: 'settings.tokensDashscope' },
-  { key: 'WEB_SEARCH_PROVIDER', labelKey: 'settings.tokensWebSearchProvider' },
-  { key: 'WEB_SEARCH_BING_API_KEY', labelKey: 'settings.tokensWebSearchBing' },
-  { key: 'WEB_SEARCH_SEARXNG_BASE_URL', labelKey: 'settings.tokensWebSearchSearxng' },
-  { key: 'WEB_SEARCH_BRAVE_API_KEY', labelKey: 'settings.tokensWebSearchBrave' },
-  { key: 'WEB_SEARCH_TAVILY_API_KEY', labelKey: 'settings.tokensWebSearchTavily' },
-  { key: 'WEB_SEARCH_EXA_API_KEY', labelKey: 'settings.tokensWebSearchExa' },
-  { key: 'WEB_SEARCH_FIRECRAWL_API_KEY', labelKey: 'settings.tokensWebSearchFirecrawl' },
-  { key: 'WEB_SEARCH_FIRECRAWL_API_URL', labelKey: 'settings.tokensWebSearchFirecrawlUrl' },
-  { key: 'WEB_SEARCH_SERPER_API_KEY', labelKey: 'settings.tokensWebSearchSerper' },
-  { key: 'IMAGE_SEARCH_API_KEY', labelKey: 'settings.tokensImageSearchApiKey' },
-  { key: 'IMAGE_SEARCH_CX', labelKey: 'settings.tokensImageSearchCx' },
-  { key: 'WEB_FETCH_ENABLED', labelKey: 'settings.tokensWebFetchEnabled' },
-  { key: 'WEB_FETCH_CHECK_ROBOTS', labelKey: 'settings.tokensWebFetchRobots' },
-  { key: 'WEB_FETCH_MIN_INTERVAL_MS', labelKey: 'settings.tokensWebFetchInterval' },
-  { key: 'WEB_FETCH_USER_AGENT', labelKey: 'settings.tokensWebFetchUa' },
-  { key: 'WEB_FETCH_CACHE_TTL_MINUTES', labelKey: 'settings.tokensWebFetchCacheTtl' },
-];
-
-interface Tool {
-  id: string;
-  nameKey: string;
-  descriptionKey: string;
-  category: string;
-  enabled: boolean;
-}
-
-/* ── Constants (hoisted to module scope per rerender-memo-with-default-value) ── */
-
-const CATEGORY_ICONS: Record<string, typeof Globe> = {
-  web: Globe,
-  file: FolderOpen,
-  llm: Bot,
-  api: Zap,
-  data: Database,
-  notification: Bell,
-  custom: Code,
-};
-
-const MOCK_TOOLS: Tool[] = [
-  { id: '1', nameKey: 'settings.mockTools.webSearch.name', descriptionKey: 'settings.mockTools.webSearch.description', category: 'web', enabled: true },
-  { id: '2', nameKey: 'settings.mockTools.fileRead.name', descriptionKey: 'settings.mockTools.fileRead.description', category: 'file', enabled: true },
-  { id: '3', nameKey: 'settings.mockTools.gpt4.name', descriptionKey: 'settings.mockTools.gpt4.description', category: 'llm', enabled: true },
-  { id: '4', nameKey: 'settings.mockTools.claude.name', descriptionKey: 'settings.mockTools.claude.description', category: 'llm', enabled: false },
-  { id: '5', nameKey: 'settings.mockTools.apiCall.name', descriptionKey: 'settings.mockTools.apiCall.description', category: 'api', enabled: true },
-  { id: '6', nameKey: 'settings.mockTools.dbQuery.name', descriptionKey: 'settings.mockTools.dbQuery.description', category: 'data', enabled: false },
-];
-
-const DEFAULT_BRAND = { bg: 'bg-gray-100 dark:bg-surface', text: 'text-gray-700 dark:text-gray-300', letter: '?' } as const;
-
-const PROVIDER_BRAND: Record<string, { bg: string; text: string; letter: string }> = {
-  openai: { bg: 'bg-mint-100 dark:bg-mint-900/30', text: 'text-mint-700 dark:text-mint-400', letter: 'O' },
-  anthropic: { bg: 'bg-peach-100 dark:bg-peach-900/30', text: 'text-peach-700 dark:text-peach-400', letter: 'A' },
-  qwen: { bg: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-800 dark:text-sky-400', letter: 'Q' },
-  dashscope: { bg: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-800 dark:text-sky-400', letter: 'D' },
-  deepseek: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', letter: 'DS' },
-  ollama: { bg: 'bg-gray-100 dark:bg-surface', text: 'text-gray-700 dark:text-gray-300', letter: 'L' },
-  custom: { bg: 'bg-gray-100 dark:bg-surface', text: 'text-gray-700 dark:text-gray-300', letter: 'C' },
-  azure: { bg: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-700 dark:text-sky-400', letter: 'Az' },
-};
-
-const THEME_OPTIONS = [
-  { value: 'light' as const, label: 'settings.themeLight', icon: Sun },
-  { value: 'dark' as const, label: 'settings.themeDark', icon: Moon },
-  { value: 'system' as const, label: 'settings.themeSystem', icon: Monitor },
-] as const;
-
-type DeepSeekBalanceStatus =
-  | { state: 'loading' }
-  | { state: 'success'; data: DeepSeekBalanceResponse }
-  | { state: 'error'; error: string };
-
-function formatDeepSeekBalance(data: DeepSeekBalanceResponse): string {
-  const balances = data.balance_infos
-    .map((item) => {
-      const total = item.total_balance || item.topped_up_balance || item.granted_balance;
-      return total ? `${total} ${item.currency}`.trim() : '';
-    })
-    .filter(Boolean);
-
-  return balances.length > 0 ? balances.join(' · ') : '—';
-}
-
-const BRANDING_BACKDROP_META: Record<
-  LogoBackdropPreset,
-  { labelKey: string; icon: typeof Sun }
-> = {
-  auto: { labelKey: 'settings.brandingBackdropAuto', icon: Clock },
-  aurora: { labelKey: 'settings.brandingBackdropAurora', icon: Sparkles },
-  circuit: { labelKey: 'settings.brandingBackdropCircuit', icon: Cpu },
-  ember: { labelKey: 'settings.brandingBackdropEmber', icon: Flame },
-  void: { labelKey: 'settings.brandingBackdropVoid', icon: Star },
-  minimal: { labelKey: 'settings.brandingBackdropMinimal', icon: Minimize2 },
-};
-
-const BRAND_FONT_META: Record<
-  BrandFontPreset,
-  { labelKey: string; sample: string; className: string }
-> = {
-  modern: {
-    labelKey: 'settings.brandFontModern',
-    sample: 'LeAgent',
-    className: 'font-sans tracking-[-0.035em]',
-  },
-  rounded: {
-    labelKey: 'settings.brandFontRounded',
-    sample: 'LeAgent',
-    className: 'font-sans tracking-[-0.025em]',
-  },
-  handwritten: {
-    labelKey: 'settings.brandFontHandwritten',
-    sample: 'LeAgent',
-    className: 'tracking-[-0.015em] [font-family:"Comic_Sans_MS","Bradley_Hand","Segoe_Print",cursive]',
-  },
-  mono: {
-    labelKey: 'settings.brandFontMono',
-    sample: 'LeAgent',
-    className: 'font-mono tracking-[-0.04em]',
-  },
-};
-
-/* ── Sub-components (extracted per rerender-memo to isolate re-renders) ── */
-
-const SettingRow = memo(function SettingRow({
-  label,
-  description,
-  children,
-}: {
-  label: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <p className="font-medium text-gray-900 dark:text-white">{label}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
-      </div>
-      <div className="flex-shrink-0">{children}</div>
-    </div>
-  );
-});
+/* ── Types and constants imported from ./constants.ts ── */
+/* ── Sub-component SettingRow imported from ./components/SettingRow.tsx ── */
 
 /* ── About tab (extracted to keep SettingsPage body manageable) ── */
 
@@ -584,18 +374,7 @@ export default function SettingsPage() {
   const [extensionsLoading, setExtensionsLoading] = useState(false);
   const [extensionBusyId, setExtensionBusyId] = useState<string | null>(null);
 
-  const [pythonEnvInfo, setPythonEnvInfo] = useState<PythonEnvInfoResponse | null>(null);
-  const [pythonPackages, setPythonPackages] = useState<PythonPackageRow[]>([]);
-  const [pythonPackagesLoading, setPythonPackagesLoading] = useState(false);
-  const [pythonInstallSpec, setPythonInstallSpec] = useState('');
-  const [pythonEnvBusyId, setPythonEnvBusyId] = useState<string | null>(null);
-  const [pythonSearch, setPythonSearch] = useState('');
-  const [pythonFilter, setPythonFilter] = useState<PythonFilterMode>('all');
-  const [pythonOutdated, setPythonOutdated] = useState<Record<string, string>>({});
-  const [pythonOutdatedLoading, setPythonOutdatedLoading] = useState(false);
-  const [pythonLogText, setPythonLogText] = useState<string | null>(null);
-  const [pythonTreeText, setPythonTreeText] = useState<string | null>(null);
-  const [pythonConfirmUninstall, setPythonConfirmUninstall] = useState<string | null>(null);
+
 
   const [tokenStatus, setTokenStatus] = useState<Record<string, boolean>>({});
   const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
@@ -930,154 +709,6 @@ export default function SettingsPage() {
     },
     [t, toast]
   );
-
-  const loadPythonEnvironment = useCallback(async () => {
-    setPythonPackagesLoading(true);
-    try {
-      const [infoRes, pkgRes] = await Promise.all([
-        apiClient.get<PythonEnvInfoResponse>('/python-env/info'),
-        apiClient.get<{ packages: PythonPackageRow[] }>('/python-env/packages'),
-      ]);
-      setPythonEnvInfo(infoRes);
-      setPythonPackages(pkgRes.packages);
-    } catch (e) {
-      setPythonEnvInfo(null);
-      setPythonPackages([]);
-      toast({
-        variant: 'error',
-        title: e instanceof Error ? e.message : t('settings.pythonPackagesEmpty'),
-      });
-    } finally {
-      setPythonPackagesLoading(false);
-    }
-  }, [t, toast]);
-
-  useEffect(() => {
-    if (activeTab !== 'pythonPackages') return;
-    void loadPythonEnvironment();
-  }, [activeTab, loadPythonEnvironment]);
-
-  const handlePythonInstall = useCallback(async () => {
-    const spec = pythonInstallSpec.trim();
-    if (!spec) return;
-    setPythonEnvBusyId('install');
-    try {
-      const res = await apiClient.post<{ ok: boolean; log: string }>('/python-env/install', { spec });
-      toast({ variant: 'success', title: t('settings.pythonPackagesInstall') });
-      setPythonInstallSpec('');
-      if (res.log) setPythonLogText(res.log);
-      await loadPythonEnvironment();
-    } catch (e) {
-      toast({
-        variant: 'error',
-        title: e instanceof Error ? e.message : 'Error',
-      });
-    } finally {
-      setPythonEnvBusyId(null);
-    }
-  }, [pythonInstallSpec, loadPythonEnvironment, t, toast]);
-
-  const handlePythonUninstall = useCallback(
-    async (pkgName: string) => {
-      setPythonEnvBusyId(pkgName);
-      setPythonConfirmUninstall(null);
-      try {
-        const res = await apiClient.post<{ ok: boolean; log: string }>('/python-env/uninstall', { package: pkgName });
-        toast({ variant: 'success', title: t('settings.pythonPackagesUninstall') });
-        if (res.log) setPythonLogText(res.log);
-        await loadPythonEnvironment();
-      } catch (e) {
-        toast({
-          variant: 'error',
-          title: e instanceof Error ? e.message : 'Error',
-        });
-      } finally {
-        setPythonEnvBusyId(null);
-      }
-    },
-    [loadPythonEnvironment, t, toast]
-  );
-
-  const handlePythonUpgrade = useCallback(
-    async (pkgName: string) => {
-      setPythonEnvBusyId(`upgrade:${pkgName}`);
-      try {
-        const res = await apiClient.post<{ ok: boolean; log: string }>('/python-env/upgrade', { package: pkgName });
-        toast({ variant: 'success', title: t('settings.pythonPackagesUpgradeSuccess') });
-        if (res.log) setPythonLogText(res.log);
-        setPythonOutdated((prev) => {
-          const next = { ...prev };
-          delete next[pkgName];
-          return next;
-        });
-        await loadPythonEnvironment();
-      } catch (e) {
-        toast({ variant: 'error', title: e instanceof Error ? e.message : 'Error' });
-      } finally {
-        setPythonEnvBusyId(null);
-      }
-    },
-    [loadPythonEnvironment, t, toast]
-  );
-
-  const handleCheckOutdated = useCallback(async () => {
-    setPythonOutdatedLoading(true);
-    try {
-      const res = await apiClient.get<{ packages: Array<{ name: string; latest_version: string }> }>('/python-env/outdated');
-      const map: Record<string, string> = {};
-      for (const pkg of res.packages) {
-        map[pkg.name] = pkg.latest_version;
-      }
-      setPythonOutdated(map);
-      if (res.packages.length === 0) {
-        toast({ variant: 'success', title: t('settings.pythonPackagesNoOutdated') });
-      }
-    } catch (e) {
-      toast({ variant: 'error', title: e instanceof Error ? e.message : 'Error' });
-    } finally {
-      setPythonOutdatedLoading(false);
-    }
-  }, [t, toast]);
-
-  const handlePythonSync = useCallback(async () => {
-    setPythonEnvBusyId('sync');
-    try {
-      const res = await apiClient.post<{ ok: boolean; log: string }>('/python-env/sync');
-      toast({ variant: 'success', title: t('settings.pythonPackagesSyncSuccess') });
-      if (res.log) setPythonLogText(res.log);
-      await loadPythonEnvironment();
-    } catch (e) {
-      toast({ variant: 'error', title: e instanceof Error ? e.message : 'Error' });
-    } finally {
-      setPythonEnvBusyId(null);
-    }
-  }, [loadPythonEnvironment, t, toast]);
-
-  const handlePythonTree = useCallback(async () => {
-    setPythonEnvBusyId('tree');
-    try {
-      const res = await apiClient.get<{ tree: string }>('/python-env/tree');
-      setPythonTreeText(res.tree);
-    } catch (e) {
-      toast({ variant: 'error', title: e instanceof Error ? e.message : 'Error' });
-    } finally {
-      setPythonEnvBusyId(null);
-    }
-  }, [toast]);
-
-  const filteredPythonPackages = useMemo(() => {
-    let list = pythonPackages;
-    if (pythonFilter === 'direct') {
-      list = list.filter((p) => p.is_direct);
-    } else if (pythonFilter === 'outdated') {
-      list = list.filter((p) => p.name in pythonOutdated);
-    }
-    const q = pythonSearch.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => p.name.toLowerCase().includes(q));
-    }
-    return [...list].sort((a, b) => a.name.localeCompare(b.name));
-  }, [pythonPackages, pythonSearch, pythonFilter, pythonOutdated]);
 
   const loadTokenStatus = useCallback(async () => {
     setTokensLoading(true);
@@ -2349,282 +1980,7 @@ export default function SettingsPage() {
           )}
 
           {/* ── Python packages tab ── */}
-          {activeTab === 'pythonPackages' && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('settings.pythonPackagesTitle')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">{t('settings.pythonPackagesDesc')}</p>
-
-                  {/* env info banner */}
-                  {pythonEnvInfo ? (
-                    <div className="rounded-lg border border-border bg-muted/10 p-3 space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                          <Terminal className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                          <span className="font-medium text-foreground/80">{t('settings.pythonPackagesInterpreter')}:</span>
-                          <code className="font-mono text-[11px] break-all">{pythonEnvInfo.python_executable}</code>
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {pythonEnvInfo.project_mode ? (
-                          <Badge variant="default" className="text-[10px] px-1.5 py-0">
-                            {t('settings.pythonPackagesUvProject')}
-                          </Badge>
-                        ) : pythonEnvInfo.uses_uv ? (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {t('settings.pythonPackagesUv')}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">pip</Badge>
-                        )}
-                        {pythonEnvInfo.has_lockfile && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">uv.lock</Badge>
-                        )}
-                        {pythonPackages.length > 0 && (
-                          <span className="text-[11px] text-muted-foreground tabular-nums">
-                            {t('settings.pythonPackagesTotal', { count: pythonPackages.length })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* install bar */}
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="flex-1 min-w-0">
-                      <Input
-                        value={pythonInstallSpec}
-                        onChange={(e) => setPythonInstallSpec(e.target.value)}
-                        placeholder={t('settings.pythonPackagesPlaceholder')}
-                        autoComplete="off"
-                        aria-label={t('settings.pythonPackagesPlaceholder')}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void handlePythonInstall();
-                        }}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 sm:shrink-0">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => void handlePythonInstall()}
-                        disabled={pythonPackagesLoading || pythonEnvBusyId !== null || !pythonInstallSpec.trim()}
-                      >
-                        {pythonEnvBusyId === 'install' ? '…' : t('settings.pythonPackagesInstall')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => void loadPythonEnvironment()}
-                        disabled={pythonPackagesLoading || pythonEnvBusyId !== null}
-                        leftIcon={<RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />}
-                      >
-                        {t('settings.pythonPackagesRefresh')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleCheckOutdated()}
-                        disabled={pythonPackagesLoading || pythonEnvBusyId !== null || pythonOutdatedLoading}
-                        loading={pythonOutdatedLoading}
-                      >
-                        {t('settings.pythonPackagesCheckOutdated')}
-                      </Button>
-                      {pythonEnvInfo?.project_mode && (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handlePythonSync()}
-                            disabled={pythonPackagesLoading || pythonEnvBusyId !== null}
-                            loading={pythonEnvBusyId === 'sync'}
-                          >
-                            {t('settings.pythonPackagesSync')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handlePythonTree()}
-                            disabled={pythonPackagesLoading || pythonEnvBusyId !== null}
-                            leftIcon={<GitBranch className="h-3.5 w-3.5 shrink-0" aria-hidden />}
-                            loading={pythonEnvBusyId === 'tree'}
-                          >
-                            {t('settings.pythonPackagesTree')}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* search + filter bar */}
-                  {!pythonPackagesLoading && pythonPackages.length > 0 && (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <div className="relative flex-1 min-w-0">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                        <Input
-                          value={pythonSearch}
-                          onChange={(e) => setPythonSearch(e.target.value)}
-                          placeholder={t('settings.pythonPackagesSearch')}
-                          className="pl-8 h-8 text-xs"
-                          autoComplete="off"
-                        />
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        {(['all', 'direct', 'outdated'] as const).map((mode) => (
-                          <Button
-                            key={mode}
-                            type="button"
-                            variant={pythonFilter === mode ? 'primary' : 'ghost'}
-                            size="sm"
-                            className="h-8 px-2.5 text-xs"
-                            onClick={() => setPythonFilter(mode)}
-                          >
-                            {mode === 'all'
-                              ? t('settings.pythonPackagesShowAll')
-                              : mode === 'direct'
-                                ? t('settings.pythonPackagesShowDirect')
-                                : t('settings.pythonPackagesShowOutdated')}
-                            {mode === 'outdated' && Object.keys(pythonOutdated).length > 0 && (
-                              <Badge variant="default" className="ml-1 text-[9px] px-1 py-0 min-w-[1.1rem] justify-center">
-                                {Object.keys(pythonOutdated).length}
-                              </Badge>
-                            )}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* package list */}
-                  {pythonPackagesLoading ? (
-                    <div className="flex justify-center py-8">
-                      <PageLoader size="sm" message={t('settings.pythonPackagesLoading')} />
-                    </div>
-                  ) : pythonPackages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('settings.pythonPackagesEmpty')}</p>
-                  ) : (
-                    <ul className="max-h-[min(520px,55vh)] overflow-y-auto rounded-lg border border-border divide-y divide-border bg-muted/15">
-                      {filteredPythonPackages.map((pkg) => {
-                        const outdatedVer = pythonOutdated[pkg.name];
-                        return (
-                          <li
-                            key={pkg.name}
-                            className="group flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors"
-                          >
-                            <div className="min-w-0 flex items-center gap-2">
-                              <span className="truncate text-xs font-medium text-foreground">{pkg.name}</span>
-                              <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-                                {pkg.version}
-                              </span>
-                              {pkg.is_direct && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 opacity-70">
-                                  {t('settings.pythonPackagesDirect')}
-                                </Badge>
-                              )}
-                              {outdatedVer && (
-                                <Badge variant="secondary" className="text-[9px] px-1 py-0 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700">
-                                  {t('settings.pythonPackagesLatest', { version: outdatedVer })}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {outdatedVer && (
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                                  loading={pythonEnvBusyId === `upgrade:${pkg.name}`}
-                                  leftIcon={<ArrowUpCircle className="h-3.5 w-3.5" aria-hidden />}
-                                  aria-label={t('settings.pythonPackagesUpgrade')}
-                                  title={t('settings.pythonPackagesUpgrade')}
-                                  onClick={() => void handlePythonUpgrade(pkg.name)}
-                                  disabled={pythonEnvBusyId !== null}
-                                />
-                              )}
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
-                                loading={pythonEnvBusyId === pkg.name}
-                                leftIcon={<Trash2 className="h-3.5 w-3.5" aria-hidden />}
-                                aria-label={t('settings.pythonPackagesUninstall')}
-                                title={t('settings.pythonPackagesUninstall')}
-                                onClick={() => setPythonConfirmUninstall(pkg.name)}
-                                disabled={pythonEnvBusyId !== null}
-                              />
-                            </div>
-                          </li>
-                        );
-                      })}
-                      {filteredPythonPackages.length === 0 && (
-                        <li className="px-3 py-6 text-center text-xs text-muted-foreground">
-                          {t('settings.pythonPackagesEmpty')}
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* confirm uninstall modal */}
-              <Modal isOpen={pythonConfirmUninstall !== null} onClose={() => setPythonConfirmUninstall(null)} size="sm">
-                <ModalHeader onClose={() => setPythonConfirmUninstall(null)}>
-                  {t('settings.pythonPackagesUninstall')}
-                </ModalHeader>
-                <ModalBody>
-                  <p className="text-sm">
-                    {t('settings.pythonPackagesConfirmUninstall', { name: pythonConfirmUninstall ?? '' })}
-                  </p>
-                </ModalBody>
-                <ModalFooter>
-                  <Button variant="secondary" size="sm" onClick={() => setPythonConfirmUninstall(null)}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => pythonConfirmUninstall && void handlePythonUninstall(pythonConfirmUninstall)}
-                    loading={pythonEnvBusyId === pythonConfirmUninstall}
-                  >
-                    {t('settings.pythonPackagesUninstall')}
-                  </Button>
-                </ModalFooter>
-              </Modal>
-
-              {/* log modal */}
-              <Modal isOpen={pythonLogText !== null} onClose={() => setPythonLogText(null)} size="lg">
-                <ModalHeader onClose={() => setPythonLogText(null)}>
-                  {t('settings.pythonPackagesLog')}
-                </ModalHeader>
-                <ModalBody>
-                  <pre className="max-h-[60vh] overflow-auto rounded-lg bg-muted/30 p-4 text-xs font-mono whitespace-pre-wrap break-all">
-                    {pythonLogText}
-                  </pre>
-                </ModalBody>
-              </Modal>
-
-              {/* dep tree modal */}
-              <Modal isOpen={pythonTreeText !== null} onClose={() => setPythonTreeText(null)} size="lg">
-                <ModalHeader onClose={() => setPythonTreeText(null)}>
-                  {t('settings.pythonPackagesTreeTitle')}
-                </ModalHeader>
-                <ModalBody>
-                  <pre className="max-h-[60vh] overflow-auto rounded-lg bg-muted/30 p-4 text-xs font-mono whitespace-pre-wrap break-all">
-                    {pythonTreeText}
-                  </pre>
-                </ModalBody>
-              </Modal>
-            </>
-          )}
+          {activeTab === 'pythonPackages' && <PythonPackagesTab />}
 
           {/* ── About tab ── */}
           {activeTab === 'about' && <AboutTabContent />}

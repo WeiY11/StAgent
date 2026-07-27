@@ -1,8 +1,6 @@
 import { useTranslation } from 'react-i18next';
-
 import { cn } from '@/lib/utils';
 import type { Attachment } from '@/types/chat';
-
 import type { WorkflowInputSpec } from '../genui/inputsToGenUiTree';
 import { WorkflowFileField } from './WorkflowFileField';
 import { WORKFLOW_FIELD_CLASS, WorkflowInputFieldShell } from './WorkflowInputFieldShell';

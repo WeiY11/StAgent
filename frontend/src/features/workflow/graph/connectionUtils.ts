@@ -1,5 +1,4 @@
 import type { Connection, Node } from '@xyflow/react';
-
 import type { NodeDefinition } from './objectInfo';
 import { typesCompatible } from './socketTypes';
 import type { WorkflowNodeData } from './serialization';

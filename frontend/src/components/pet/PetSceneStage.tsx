@@ -33,6 +33,7 @@ const floorVar: Record<PetSceneSurface, string> = {
   hero: '12px',
   chatEmpty: '10px',
 };
+const EMPTY_PET_SETTINGS: PetSettings = {};
 
 export const PetSceneStage = memo(function PetSceneStage({
   surface,
@@ -44,7 +45,7 @@ export const PetSceneStage = memo(function PetSceneStage({
   dockAriaLabel,
 }: PetSceneStageProps) {
   const { data: dock } = usePetDockPreview();
-  const settings: PetSettings = projectContext?.settings ?? settingsProp ?? dock?.settings ?? {};
+  const settings: PetSettings = projectContext?.settings ?? settingsProp ?? dock?.settings ?? EMPTY_PET_SETTINGS;
   const stageRef = useRef<HTMLDivElement | null>(null);
   const scene = usePetSceneController({ settings, stageRef, surface });
   const preview = usePetAppearancePreview({

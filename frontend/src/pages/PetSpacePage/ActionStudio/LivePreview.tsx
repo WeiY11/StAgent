@@ -36,7 +36,7 @@ export function LivePreview({
   const s = selectedState;
   const inputs = useMemo(
     () => (s ? studioStateToVisualInput(s, behavior) : { behavior, isStreaming: false, happyFlash: false }),
-    [s, behavior, tick],
+    [s, behavior],
   );
   const visual = resolvePetVisual({
     behavior: inputs.behavior,

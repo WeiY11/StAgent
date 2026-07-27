@@ -1,40 +1,8 @@
-import { defineConfig, mergeConfig, type Plugin } from 'vite';
+import path from 'node:path';
+import { defineConfig, mergeConfig } from 'vite';
 import { defineConfig as defineVitestConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import fs from 'node:fs';
-import path from 'node:path';
-
-function obfuscateRouteChunksPlugin(): Plugin {
-  return {
-    name: 'leagent-obfuscate-route-chunks',
-    apply: 'build',
-    async closeBundle() {
-      if (process.env.VITE_SKIP_OBFUSCATION === '1') return;
-      const assetsDir = path.resolve(__dirname, 'dist', 'assets');
-      if (!fs.existsSync(assetsDir)) return;
-      const { default: JavaScriptObfuscator } = await import('javascript-obfuscator');
-      const targets = /ChatView|WorkflowsPage/i;
-      for (const file of fs.readdirSync(assetsDir)) {
-        if (!file.endsWith('.js') || !targets.test(file)) continue;
-        const full = path.join(assetsDir, file);
-        const src = fs.readFileSync(full, 'utf8');
-        const ob = JavaScriptObfuscator.obfuscate(src, {
-          compact: true,
-          controlFlowFlattening: false,
-          deadCodeInjection: false,
-          identifierNamesGenerator: 'hexadecimal',
-          numbersToExpressions: false,
-          simplify: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          transformObjectKeys: true,
-        });
-        fs.writeFileSync(full, ob.getObfuscatedCode(), 'utf8');
-      }
-    },
-  };
-}
 
 export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
@@ -43,7 +11,7 @@ export default defineConfig(({ mode }) => {
   return mergeConfig(
     {
       base: isDesktop ? './' : '/',
-      plugins: [react(), tailwindcss(), ...(isProd ? [obfuscateRouteChunksPlugin()] : [])],
+      plugins: [react(), tailwindcss()],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src'),
@@ -99,6 +67,7 @@ export default defineConfig(({ mode }) => {
               if (id.includes('/katex/')) return 'katex';
               if (id.includes('/highlight.js/') || id.includes('/highlightjs/'))
                 return 'highlightjs';
+              if (id.includes('/three/') || id.includes('/three-')) return 'three';
               if (id.includes('/@xyflow/')) return 'flow';
               if (id.includes('/react-router') || id.includes('/@remix-run/router'))
                 return 'router';
@@ -114,6 +83,26 @@ export default defineConfig(({ mode }) => {
               if (id.includes('/mammoth/')) return 'mammoth';
               if (id.includes('/recharts/') || id.includes('/d3-'))
                 return 'recharts';
+              if (id.includes('/pdfjs-dist/')) return 'pdfjs';
+              if (id.includes('/monaco-editor/')) return 'monaco';
+              if (id.includes('/lucide-react/')) return 'lucide';
+              if (id.includes('/zustand/')) return 'zustand';
+              if (id.includes('/framer-motion/') || id.includes('/motion/'))
+                return 'motion';
+              if (
+                id.includes('/react-markdown/') ||
+                id.includes('/remark-') ||
+                id.includes('/rehype-') ||
+                id.includes('/unified/') ||
+                id.includes('/mdast-') ||
+                id.includes('/hast-') ||
+                id.includes('/micromark')
+              )
+                return 'markdown';
+              if (id.includes('/@xterm/') || id.includes('/xterm/'))
+                return 'xterm';
+              if (id.includes('/dompurify/')) return 'sanitizer';
+              if (id.includes('/dagre/')) return 'flow';
               return undefined;
             },
           },

@@ -2,14 +2,13 @@ import { memo, useCallback, useRef, useState } from 'react';
 import { Handle, NodeResizer, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { Box, FileText, File as FileIcon, Minus, Plus, RotateCcw, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
 import { cn } from '@/lib/utils';
 import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import {
   extractApiFilePreviewId,
   isInvalidApiFilePreviewRef,
 } from '@/components/chat/media/chatMediaUtils';
-
+import { DEFAULT_SOCKET_COLORS } from '../graph/socketTypes';
 import {
   type CanvasAssetNodeData,
   canvasAssetLabel,
@@ -26,7 +25,6 @@ import {
   CanvasMesh3DPreview,
   type CanvasMesh3DPreviewHandle,
 } from './CanvasMesh3DPreview';
-import { DEFAULT_SOCKET_COLORS } from '../graph/socketTypes';
 
 function useAssetImageSrc(previewUrl?: string, fileId?: string): string | undefined {
   const raw = previewUrl || (fileId ? `/api/v1/files/${fileId}/preview` : '');

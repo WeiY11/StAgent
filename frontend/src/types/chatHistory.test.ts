@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { Message } from '@/types/chat';
 import {
   ensureChronologicalMessages,
   normalizeMessageList,
   normalizeToolCallList,
   type MessageResponse,
 } from './chatHistory';
-import type { Message } from '@/types/chat';
 
 describe('chat history normalization', () => {
   it('parses JSON-string tool calls', () => {

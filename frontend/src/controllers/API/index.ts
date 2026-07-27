@@ -26,7 +26,6 @@ export {
 
 // Services
 export {
-  useRequestProcessor,
   createQueryFn,
   createMutationFn,
   type QueryOptions,

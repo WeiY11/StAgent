@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { BaseModal } from '../BaseModal';
 import { Button } from '@/components/ui/Button';
+import { BaseModal } from '../BaseModal';
 
 
 interface SaveChangesModalProps {

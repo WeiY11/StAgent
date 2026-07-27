@@ -84,7 +84,7 @@ interface DropdownMenuTriggerProps extends ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const DropdownMenuTrigger = forwardRef<HTMLButtonElement, DropdownMenuTriggerProps>(
-  ({ children, asChild, onClick, ...props }, ref) => {
+  ({ children, asChild: _asChild, onClick, ...props }, ref) => {
     const { open, onOpenChange, triggerRef } = useDropdownContext();
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -222,7 +222,7 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>
         className={cn(
           'fixed z-[100] min-w-[8rem] overflow-hidden rounded-xl',
           'bg-surface',
-          'border border-gray-200 dark:border-gray-700 shadow-md',
+          'border border-border-subtle shadow-elevated',
           'animate-in fade-in-0 zoom-in-95',
           side === 'top' ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2',
           className
@@ -263,9 +263,9 @@ const DropdownMenuItem = forwardRef<HTMLButtonElement, DropdownMenuItemProps>(
         disabled={disabled}
         className={cn(
           'relative flex w-full cursor-pointer select-none items-center whitespace-nowrap',
-          'px-3 py-2 text-sm text-gray-700 dark:text-gray-300',
-          'hover:bg-gray-100 dark:hover:bg-gray-800',
-          'focus:bg-gray-100 dark:focus:bg-gray-800 focus:outline-none',
+          'px-3 py-2 text-sm text-foreground',
+          'hover:bg-surface-sunken dark:hover:bg-surface-elevated',
+          'focus:bg-surface-sunken dark:focus:bg-surface-elevated focus:outline-none',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           inset && 'pl-8',
           className
@@ -290,7 +290,7 @@ const DropdownMenuLabel = forwardRef<HTMLDivElement, DropdownMenuLabelProps>(
     <div
       ref={ref}
       className={cn(
-        'px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400',
+        'px-3 py-2 text-xs font-semibold text-muted-foreground',
         inset && 'pl-8',
         className
       )}
@@ -308,7 +308,7 @@ const DropdownMenuSeparator = forwardRef<HTMLDivElement, DropdownMenuSeparatorPr
     <div
       ref={ref}
       role="separator"
-      className={cn('my-1 h-px bg-gray-200 dark:bg-gray-700', className)}
+      className={cn('my-1 h-px bg-border', className)}
       {...props}
     />
   )
@@ -320,7 +320,7 @@ interface DropdownMenuShortcutProps extends HTMLAttributes<HTMLSpanElement> {}
 
 const DropdownMenuShortcut = ({ className, ...props }: DropdownMenuShortcutProps) => (
   <span
-    className={cn('ml-auto text-xs tracking-widest text-gray-400 dark:text-gray-500', className)}
+    className={cn('ml-auto text-xs tracking-widest text-muted-foreground-tertiary', className)}
     {...props}
   />
 );

@@ -1,9 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import type { Attachment } from '@/types/chat';
-
 import { WorkflowFileField } from './WorkflowFileField';
 
 const ATTACHMENTS: Attachment[] = [

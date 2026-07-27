@@ -1,5 +1,5 @@
-import type { LogoBackdropPreset } from '@/stores/branding';
 import type { CSSProperties } from 'react';
+import type { LogoBackdropPreset } from '@/stores/branding';
 
 /** Resolved app theme — drives Logo stage gradients for contrast with white mark + title. */
 export type LogoBackdropTheme = 'light' | 'dark';

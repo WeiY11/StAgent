@@ -1,5 +1,4 @@
 import type { GenUiNode, GenUiTreeV1 } from '@/types/genUi';
-
 import type { AssetHistoryEntry } from '@/features/workflow/store/assetHistory';
 
 export type GenUiMediaKind = 'Image' | 'Video' | 'Model3D';

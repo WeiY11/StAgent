@@ -1,9 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { apiClient } from '@/api/client';
+import {
+  runChatWorkflowStep,
+  startChatWorkflowEmbedRun,
+} from '@/components/chat/workflow/chatWorkflowRunActions';
+import { dispatchGenUiAction } from '@/lib/genUiActionBus';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
-
 import { useWorkflowInputRun } from './useWorkflowInputRun';
 
 vi.mock('@/api/client', () => ({
@@ -18,12 +21,6 @@ vi.mock('@/components/chat/workflow/chatWorkflowRunActions', () => ({
 vi.mock('@/lib/genUiActionBus', () => ({
   dispatchGenUiAction: vi.fn(),
 }));
-
-import { dispatchGenUiAction } from '@/lib/genUiActionBus';
-import {
-  runChatWorkflowStep,
-  startChatWorkflowEmbedRun,
-} from '@/components/chat/workflow/chatWorkflowRunActions';
 
 function RunProbe(props: Parameters<typeof useWorkflowInputRun>[0]) {
   const { run } = useWorkflowInputRun(props);

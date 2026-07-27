@@ -4,7 +4,6 @@
  */
 
 import { useGenUiFormsStore } from '@/stores/genUiForms';
-
 import { coerceFormValues, type WorkflowInputSpec } from './inputsToGenUiTree';
 
 const INPUT_TEMPLATE = /\$\{input\.([a-zA-Z_][a-zA-Z0-9_]*)\}/g;

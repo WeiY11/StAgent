@@ -6,11 +6,11 @@ import {
   type HTMLAttributes,
   type DragEvent,
 } from 'react';
-import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { Upload, File, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '../ui/Button';
 import { Progress } from '../ui/Progress';
-import { useTranslation } from 'react-i18next';
 
 interface FileItem {
   id: string;
@@ -30,6 +30,12 @@ interface FileUploaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onDrop
   onRemove?: (fileId: string) => void;
   showFileList?: boolean;
   compact?: boolean;
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 const FileUploader = forwardRef<HTMLDivElement, FileUploaderProps>(
@@ -54,13 +60,7 @@ const FileUploader = forwardRef<HTMLDivElement, FileUploaderProps>(
     const [files, setFiles] = useState<FileItem[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const formatFileSize = (bytes: number) => {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    };
-
-    const validateFile = (file: File): string | null => {
+    const validateFile = useCallback((file: File): string | null => {
       if (maxSize && file.size > maxSize) {
         return t('fileUploader.fileTooLarge', {
           size: formatFileSize(maxSize),
@@ -81,7 +81,7 @@ const FileUploader = forwardRef<HTMLDivElement, FileUploaderProps>(
         }
       }
       return null;
-    };
+    }, [accept, maxSize, t]);
 
     const processFiles = useCallback(
       async (newFiles: FileList | File[]) => {
@@ -138,7 +138,7 @@ const FileUploader = forwardRef<HTMLDivElement, FileUploaderProps>(
           }
         }
       },
-      [files.length, maxFiles, onUpload, t]
+      [files.length, maxFiles, onUpload, t, validateFile]
     );
 
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {

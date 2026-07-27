@@ -5,7 +5,6 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-
 import type { EditorEdge, EditorNode } from './serialization';
 
 interface Snapshot {

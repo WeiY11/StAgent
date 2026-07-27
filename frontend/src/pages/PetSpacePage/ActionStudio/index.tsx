@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PetProject, PetProjectFileRow } from '@/api/petSpace';
-import type { PetSettings } from '@/lib/petSettings';
-import type { PetClipState } from '@/lib/petSettings';
 import { useQueryClient } from '@tanstack/react-query';
+import type { PetProject, PetProjectFileRow } from '@/api/petSpace';
+import type { PetClipState, PetSettings, PetSettingsClipPatch } from '@/lib/petSettings';
 import { cn } from '@/lib/utils';
 import { ACTION_STUDIO_MAIN_COLUMN_HEIGHT_CLASS } from './actionStudioConstants';
 import { ActionGroups } from './ActionGroups';
@@ -17,7 +16,7 @@ type PatchMut = {
   mutate: (vars: {
     projectId: string;
     baseSettings: string | null | undefined;
-    patch: Partial<Omit<PetSettings, 'clips'>> & { clips?: import('@/lib/petSettings').PetSettingsClipPatch };
+    patch: Partial<Omit<PetSettings, 'clips'>> & { clips?: PetSettingsClipPatch };
   }) => void;
 };
 

@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
-import { apiClient, ApiError, StreamEventHandler } from '@/api/client';
-import { URL_KEYS, QUERY_KEYS, CACHE_TIME } from '../../helpers/constants';
+import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { apiClient, type ApiError, type StreamEventHandler } from '@/api/client';
 import type { Message, Attachment } from '@/types/chat';
+import { URL_KEYS, QUERY_KEYS, CACHE_TIME } from '../../helpers/constants';
 
 export interface MessageListParams {
   sessionId: string;

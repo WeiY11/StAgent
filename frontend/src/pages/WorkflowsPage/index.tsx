@@ -12,11 +12,9 @@
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GitBranch, LayoutTemplate } from 'lucide-react';
-
 import { cn } from '@/lib/utils';
 import { PageShell } from '@/components/layout/PageShell';
 import { WorkflowGraphEditor } from '@/features/workflow/WorkflowGraphEditor';
-
 import { WorkflowListView } from './WorkflowListView';
 import { ChatTemplatesView } from './ChatTemplatesView';
 import { WorkflowsHubTabBar } from './WorkflowsHubTabBar';

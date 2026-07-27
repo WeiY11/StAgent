@@ -164,8 +164,11 @@ function disposeObject(obj: THREE.Object3D): void {
 
 export function GenUiThreeJsFrame({ node }: { node: GenUiNode }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const p = (node.props || {}) as Record<string, unknown>;
-  const options = useMemo(() => inferThreeJsSceneOptions(p), [p]);
+  const props = node.props;
+  const options = useMemo(
+    () => inferThreeJsSceneOptions((props || {}) as Record<string, unknown>),
+    [props],
+  );
 
   useEffect(() => {
     const host = hostRef.current;

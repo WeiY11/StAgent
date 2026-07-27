@@ -1,19 +1,17 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
-
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import type { Attachment } from '@/types/chat';
-
-import type { OperationRunTarget } from './WorkflowOperationPanel';
 import { useWorkflowInputRun } from '../hooks/useWorkflowInputRun';
 import {
   type WorkflowInputSpec,
 } from '../genui/inputsToGenUiTree';
 import { inputDefaults } from '../genui/workflowRunForm';
 import { WorkflowInputField } from '../inputs/workflowInputFields';
+import type { OperationRunTarget } from './WorkflowOperationPanel';
 
 const EMPTY_FORM_VALUES: Record<string, unknown> = {};
 

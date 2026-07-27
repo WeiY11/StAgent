@@ -93,7 +93,7 @@ interface TooltipTriggerProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const TooltipTrigger = forwardRef<HTMLDivElement, TooltipTriggerProps>(
-  ({ children, asChild, ...props }, ref) => {
+  ({ children, asChild: _asChild, ...props }, ref) => {
     const { onOpenChange, triggerRef } = useTooltipContext();
 
     return (
@@ -210,9 +210,9 @@ const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
         ref={ref}
         role="tooltip"
         className={cn(
-          'overflow-hidden rounded-md px-3 py-1.5',
+          'overflow-hidden rounded-lg px-3 py-1.5',
           'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900',
-          'text-xs font-medium shadow-md',
+          'text-xs font-medium shadow-elevated',
           'animate-in fade-in-0 zoom-in-95',
           className
         )}

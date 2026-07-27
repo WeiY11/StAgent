@@ -48,7 +48,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
           aria-valuemax={max}
           aria-valuenow={indeterminate ? undefined : value}
           className={cn(
-            'w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700',
+            'w-full overflow-hidden rounded-full bg-surface-sunken',
             sizes[size]
           )}
           {...props}
@@ -63,7 +63,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
           />
         </div>
         {showValue && !indeterminate && (
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
+          <div className="mt-1 text-xs text-muted-foreground text-right">
             {Math.round(percentage)}%
           </div>
         )}
@@ -128,7 +128,7 @@ const CircularProgress = forwardRef<HTMLDivElement, CircularProgressProps>(
           height={size}
         >
           <circle
-            className="stroke-gray-200 dark:stroke-gray-700"
+            className="stroke-border"
             fill="none"
             strokeWidth={strokeWidth}
             r={radius}
@@ -148,7 +148,7 @@ const CircularProgress = forwardRef<HTMLDivElement, CircularProgressProps>(
           />
         </svg>
         {showValue && !indeterminate && (
-          <span className="absolute text-xs font-medium text-gray-700 dark:text-gray-300">
+          <span className="absolute text-xs font-medium text-foreground">
             {Math.round(percentage)}%
           </span>
         )}

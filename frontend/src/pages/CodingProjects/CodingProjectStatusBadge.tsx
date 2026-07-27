@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { CodingProjectStatus } from '@/hooks/useCodingProjects';
+import { type CodingProjectStatus } from '@/hooks/useCodingProjects';
 
 const STATUS_STYLES: Record<CodingProjectStatus, string> = {
   idle:

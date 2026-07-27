@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileCode2 } from 'lucide-react';
+import { ChatTraceInspector } from '@/components/chat/ChatTraceInspector';
+import { useChangeReviews } from '@/hooks/useChangeReviews';
 import { EMPTY_MESSAGE_LIST } from '@/lib/emptyChatMessages';
 import {
   collectAgentSessionEvents,
@@ -14,7 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/stores/chat';
 import { useCodeArtifactStore, type CodeArtifactEntry } from '@/stores/codeArtifact';
-import { useChangeReviews } from '@/hooks/useChangeReviews';
+import { useExecutionSessionStore } from '@/stores/executionSession';
 import { SessionHeader } from './code/SessionHeader';
 import { ChangedFilesRail } from './code/ChangedFilesRail';
 import { ArtifactsRail } from './code/ArtifactsRail';
@@ -23,8 +25,6 @@ import { SessionTerminalDock } from './code/SessionTerminalDock';
 import { RunGroupsView } from './code/RunGroupsView';
 import { ReviewQueueView } from './code/ReviewQueueView';
 import { eventKindMeta } from './code/eventMeta';
-import { ChatTraceInspector } from '@/components/chat/ChatTraceInspector';
-import { useExecutionSessionStore } from '@/stores/executionSession';
 
 const EMPTY_CODE_ARTIFACT_IDS: string[] = [];
 const EMPTY_CODE_ARTIFACTS: CodeArtifactEntry[] = [];

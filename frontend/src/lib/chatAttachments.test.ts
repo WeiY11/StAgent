@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { selectVisibleMessageAttachments } from './chatAttachments';
 import type { Attachment } from '@/types/chat';
+import { selectVisibleMessageAttachments } from './chatAttachments';
 
 function attachment(id: string, name: string): Attachment {
   return { id, name, type: 'text/plain', size: 1 };

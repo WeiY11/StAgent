@@ -7,15 +7,12 @@ import {
   useStore,
   type NodeProps,
 } from '@xyflow/react';
-
-import { cn } from '@/lib/utils';
-
 import {
   mediaFromNodeRunState,
   type GenUiMediaItem,
 } from '@/components/canvas/genUi/genUiMedia';
 import { extractApiFilePreviewId } from '@/components/chat/media/chatMediaUtils';
-
+import { cn } from '@/lib/utils';
 import { useNodeDefinition } from '../graph/registryContext';
 import type { InputSlot } from '../graph/objectInfo';
 import type { WorkflowNodeData } from '../graph/serialization';
@@ -51,6 +48,7 @@ const GENUI_KIND_TO_ARTIFACT: Record<string, ArtifactKind> = {
   Video: 'video',
   Model3D: 'model3d',
 };
+const EMPTY_INPUT_SLOTS: InputSlot[] = [];
 
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v : undefined;
@@ -162,7 +160,7 @@ function StandardTypedNodeView({ id, data, selected }: NodeProps) {
     [id, nodeData.values, updateNodeData],
   );
 
-  const inputs = def?.inputs ?? [];
+  const inputs = def?.inputs ?? EMPTY_INPUT_SLOTS;
   const outputs = def?.outputs ?? [];
 
   // Merge the bare width/height number inputs into one professional size control

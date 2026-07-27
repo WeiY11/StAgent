@@ -36,10 +36,22 @@ class ResizeObserverMock {
 window.ResizeObserver = ResizeObserverMock;
 
 // Mock IntersectionObserver
-class IntersectionObserverMock {
-  constructor() {}
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin = '';
+  readonly scrollMargin = '';
+  readonly thresholds: readonly number[] = [];
+
+  constructor(
+    _callback: IntersectionObserverCallback,
+    _options?: IntersectionObserverInit,
+  ) {}
+
+  disconnect(): void {}
+  observe(_target: Element): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+  unobserve(_target: Element): void {}
 }
-window.IntersectionObserver = IntersectionObserverMock as any;
+window.IntersectionObserver = IntersectionObserverMock;

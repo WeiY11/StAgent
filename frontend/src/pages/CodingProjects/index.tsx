@@ -21,7 +21,7 @@ import {
   SheetContent,
 } from '@/components/ui';
 import {
-  CodingProject,
+  type CodingProject,
   useCodingProjectTemplates,
   useCodingProjects,
   useCreateCodingProject,

@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  Node,
-  Edge,
-  Connection,
+  type Node,
+  type Edge,
+  type Connection,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
-  NodeChange,
-  EdgeChange,
-  XYPosition,
+  type NodeChange,
+  type EdgeChange,
+  type XYPosition,
 } from '@xyflow/react';
 
 export interface FlowNodeData extends Record<string, unknown> {

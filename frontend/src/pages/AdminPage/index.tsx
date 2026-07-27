@@ -5,6 +5,7 @@ import { apiClient } from '@/api/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { PageShell } from '@/components/layout/PageShell';
 import { useAdminStore } from '@/stores/admin';
+import type { SystemDetailedHealth, SystemMetricsPayload, SystemVersionPayload } from '@/types/admin';
 import { ModelProviderConfig } from './components/ModelProviderConfig';
 import { ModelSettings } from './components/ModelSettings';
 import { ImageGenConfig } from './components/ImageGenConfig';
@@ -12,7 +13,6 @@ import { ToolManagement } from './components/ToolManagement';
 import { RuleEditor } from './components/RuleEditor';
 import { TaskMonitor } from './components/TaskMonitor';
 import { AgentTraces } from './components/AgentTraces';
-import type { SystemDetailedHealth, SystemMetricsPayload, SystemVersionPayload } from '@/types/admin';
 
 function formatUptime(sec: number): string {
   const h = Math.floor(sec / 3600);

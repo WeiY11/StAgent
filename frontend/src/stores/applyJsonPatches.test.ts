@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
 import type { GenUiTreeV1 } from '@/types/genUi';
-
 import { applyJsonPatches } from './genUi';
 
 function tree(): GenUiTreeV1 {

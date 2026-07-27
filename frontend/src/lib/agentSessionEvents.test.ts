@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { Message } from '@/types/chat';
 import {
   collectAgentSessionEvents,
   collectTerminalEvents,
   collectTouchedFiles,
   summarizeSessionEvents,
 } from './agentSessionEvents';
-import type { Message } from '@/types/chat';
 
 function assistant(toolCalls: Message['toolCalls']): Message {
   return {

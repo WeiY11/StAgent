@@ -11,7 +11,7 @@ type PatchMut = {
   mutate: (vars: {
     projectId: string;
     baseSettings: string | null | undefined;
-    patch: Partial<Omit<PetSettings, 'clips'>> & { clips?: import('@/lib/petSettings').PetSettingsClipPatch };
+    patch: Partial<Omit<PetSettings, 'clips'>> & { clips?: PetSettingsClipPatch };
   }) => void;
 };
 

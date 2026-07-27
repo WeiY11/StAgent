@@ -10,7 +10,6 @@
  */
 
 import { useShallow } from 'zustand/react/shallow';
-
 import type { WorkflowInputSpec } from '@/features/workflow/genui/inputsToGenUiTree';
 import { useChatStore } from '@/stores/chat';
 import type { Attachment } from '@/types/chat';

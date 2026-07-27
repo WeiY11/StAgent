@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
-
 import {
   nodeHasAsset,
   patchAssetTreeFileRef,
 } from '@/components/canvas/genUi/genUiMedia';
 import type { GenUiTreeV1 } from '@/types/genUi';
 import { openAuthedWebSocket } from '@/lib/authedTransport';
-
 import {
   useExecutionOverlay,
   type NodeRunStatus,

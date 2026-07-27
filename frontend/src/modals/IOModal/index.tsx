@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { BaseModal } from '../BaseModal';
 import { ChatViewWrapper, type ChatMessage } from './ChatViewWrapper';
 import { SessionView, type Session } from './SessionView';
-import { cn } from '@/lib/utils';
 
 interface IOModalProps {
   isOpen: boolean;
@@ -74,7 +74,7 @@ export const IOModal = ({
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
-      } catch (error) {
+      } catch {
         const errorMessage: ChatMessage = {
           id: `msg-${Date.now() + 1}`,
           role: 'system',

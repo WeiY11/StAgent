@@ -24,7 +24,7 @@ const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-gray-200 dark:bg-gray-700',
+          'bg-surface-sunken',
           variants[variant],
           animations[animation],
           className
@@ -98,7 +98,7 @@ const SkeletonCard = forwardRef<HTMLDivElement, SkeletonCardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden',
+          'rounded-xl border border-border-subtle overflow-hidden',
           className
         )}
         {...props}
@@ -109,7 +109,7 @@ const SkeletonCard = forwardRef<HTMLDivElement, SkeletonCardProps>(
           <SkeletonText lines={2} />
         </div>
         {hasFooter && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <div className="px-4 py-3 border-t border-border flex justify-between items-center">
             <Skeleton className="h-8 w-20" />
             <Skeleton className="h-8 w-20" />
           </div>
@@ -130,7 +130,7 @@ const SkeletonTable = forwardRef<HTMLDivElement, SkeletonTableProps>(
   ({ className, rows = 5, columns = 4, ...props }, ref) => {
     return (
       <div ref={ref} className={cn('w-full', className)} {...props}>
-        <div className="border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
+        <div className="border-b border-border pb-2 mb-2">
           <div className="flex gap-4">
             {Array.from({ length: columns }).map((_, index) => (
               <Skeleton key={index} className="h-4 flex-1" />

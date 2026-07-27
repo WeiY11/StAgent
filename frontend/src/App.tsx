@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { useThemeStore } from './stores/theme';
 import { useChatStore } from './stores/chat';
 import { isUuid } from './lib/utils';
@@ -10,6 +9,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { PageLoader } from './components/common/PageLoader';
 import { TechLoadingBackdrop } from './components/common/TechLoadingBackdrop';
 import { ToastProvider, Toaster } from './components/ui/Toaster';
+import { DesktopDragRegion } from './components/layout/DesktopDragRegion';
 import {
   ChatView,
   HomePage,
@@ -52,6 +52,7 @@ function AppSuspenseFallback() {
   const { t } = useTranslation();
   return (
     <TechLoadingBackdrop>
+      <DesktopDragRegion />
       <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-10 py-8 shadow-2xl backdrop-blur-md">
         <PageLoader
           size="lg"

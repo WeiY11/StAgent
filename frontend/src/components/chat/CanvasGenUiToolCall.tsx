@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Check,
@@ -123,7 +123,7 @@ interface CanvasGenUiToolCallProps {
   showGenUiInline?: boolean;
 }
 
-export function CanvasGenUiToolCall({
+export const CanvasGenUiToolCall = memo(function CanvasGenUiToolCall({
   toolCall,
   sessionId,
   messageId,
@@ -460,4 +460,4 @@ export function CanvasGenUiToolCall({
       )}
     </div>
   );
-}
+});

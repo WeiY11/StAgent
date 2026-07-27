@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui';
 import {
   Clock,
   Plus,
@@ -22,6 +21,7 @@ import {
   Zap,
   TrendingUp,
 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui';
 import { PageShell } from '@/components/layout/PageShell';
 import { Button, Input, Select } from '@/components/ui';
 import { StatsCard } from '@/components/common/StatsCard';
@@ -44,13 +44,13 @@ import {
   type CronJobInfo,
   type CreateCronJobInput,
 } from '@/controllers/API/queries/cron';
-import { CronJobModal } from './components/CronJobModal';
-import { ExecutionHistoryDrawer } from './components/ExecutionHistoryDrawer';
 import { useToast } from '@/components/ui/Toaster';
 import {
   buildCronJobUpdatePayload,
   mapCronJobStatusToBadge,
 } from '@/pages/CronPage/cronJobPayload';
+import { CronJobModal } from './components/CronJobModal';
+import { ExecutionHistoryDrawer } from './components/ExecutionHistoryDrawer';
 
 function formatNextRun(iso: string | undefined, t: TFunction): string {
   if (!iso) return '—';

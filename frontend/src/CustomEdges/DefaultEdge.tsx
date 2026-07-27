@@ -2,7 +2,7 @@ import { memo, useCallback, useState } from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
-  EdgeProps,
+  type EdgeProps,
   getBezierPath,
   getSmoothStepPath,
   useReactFlow,

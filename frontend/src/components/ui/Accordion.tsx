@@ -7,8 +7,8 @@ import {
   type HTMLAttributes,
   useCallback,
 } from 'react';
-import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AccordionContextValue {
   value: string | string[];
@@ -107,7 +107,7 @@ const Accordion = forwardRef<HTMLDivElement, AccordionProps & HTMLAttributes<HTM
 
     return (
       <AccordionContext.Provider value={{ value, onValueChange, type, collapsible }}>
-        <div ref={ref} className={cn('divide-y divide-gray-200 dark:divide-gray-700', className)} {...rest}>
+        <div ref={ref} className={cn('divide-y divide-border', className)} {...rest}>
           {children}
         </div>
       </AccordionContext.Provider>
@@ -164,7 +164,7 @@ const AccordionTrigger = forwardRef<HTMLButtonElement, AccordionTriggerProps>(
         onClick={() => onValueChange(value)}
         className={cn(
           'flex w-full items-center justify-between py-4 text-left',
-          'text-sm font-medium text-gray-900 dark:text-white',
+          'text-sm font-medium text-foreground',
           'hover:underline transition-[color,background-color,opacity]',
           '[&[data-state=open]>svg]:rotate-180',
           className
@@ -175,7 +175,7 @@ const AccordionTrigger = forwardRef<HTMLButtonElement, AccordionTriggerProps>(
         {children}
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 text-gray-500 transition-transform duration-200',
+            'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
             isOpen && 'rotate-180'
           )}
         />
@@ -197,7 +197,7 @@ const AccordionContent = forwardRef<HTMLDivElement, AccordionContentProps>(
         ref={ref}
         data-state={isOpen ? 'open' : 'closed'}
         className={cn(
-          'overflow-hidden text-sm text-gray-600 dark:text-gray-400',
+          'overflow-hidden text-sm text-muted-foreground',
           'transition-[max-height,opacity] duration-200',
           isOpen ? 'animate-accordion-down' : 'animate-accordion-up hidden',
           className

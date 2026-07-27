@@ -15,13 +15,13 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select
           ref={ref}
           className={cn(
-            'w-full appearance-none rounded-lg border bg-surface text-foreground transition-colors',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500/20',
-            'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-sunken',
+            'w-full appearance-none rounded-lg border bg-surface text-foreground shadow-xs transition-[color,background-color,border-color,box-shadow]',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500/25',
+            'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-sunken disabled:shadow-none',
             selectSize === 'sm' ? 'py-1.5 pl-3 pr-8 text-xs' : 'px-4 py-2 pr-10 text-sm',
             error
-              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
-              : 'border-border focus:border-primary-500 dark:focus:border-primary-400',
+              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25'
+              : 'border-border hover:border-border/80 focus:border-primary-500 dark:focus:border-primary-400',
             className,
           )}
           {...props}

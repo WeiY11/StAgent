@@ -5,7 +5,6 @@
  */
 import { memo } from 'react';
 import { NodeResizer, type NodeProps, type Node } from '@xyflow/react';
-
 import { cn } from '@/lib/utils';
 
 export interface GroupNodeData extends Record<string, unknown> {
