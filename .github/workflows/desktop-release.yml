@@ -1,5 +1,8 @@
 name: Desktop Release
 
+# Beta-only desktop builds. This path never publishes to PyPI and, via
+# electron-builder `releaseType: prerelease`, only ever produces prerelease
+# GitHub releases. The primary `v*` tag (release.yml) owns stable publication.
 on:
   push:
     tags:
@@ -118,4 +121,4 @@ jobs:
         with:
           name: desktop-${{ matrix.platform }}
           path: desktop/electron/dist-pack/**
-          if-no-files-found: warn
+          if-no-files-found: error

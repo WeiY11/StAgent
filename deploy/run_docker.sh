@@ -15,10 +15,10 @@
 #   logs              Tail service logs
 #   status            Show container status and health summary
 #   shell             Open an interactive shell inside the app container
-#   migrate           Run database migrations (SQLite via run_migrations)
+#   migrate           Run database migrations via packaged Alembic runner
 #   backup            Backup SQLite DB + data dirs to ./backups/
 #   restore           Restore SQLite DB from a .db backup (stops container briefly)
-#   health            Query /health endpoints for all running services
+#   health            Query readiness endpoints for all running services
 #   prune             Remove stopped containers and dangling images
 #
 # Mode flags (combine with up / build / down):
@@ -37,6 +37,7 @@
 #   LEAGENT_SECRET_KEY   *** Required — openssl rand -hex 32 (also used for signed URLs)
 #   LEAGENT_VERSION      Image tag (default: latest)
 #   LEAGENT_HOST_PORT    Host port mapping (default: 8000)
+#   DATABASE_URL         Optional PostgreSQL DSN; default is SQLite in /app/data
 #   DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY — at least one LLM key recommended
 #
 # Examples:
@@ -200,6 +201,26 @@ assert_env_file() {
     fi
 }
 
+database_url() {
+    if [[ -n "${DATABASE_URL:-}" ]]; then
+        printf '%s' "$DATABASE_URL"
+    else
+        printf '%s' "${DB_DATABASE_URL:-}"
+    fi
+}
+
+is_postgres_configured() {
+    local dsn
+    dsn="$(database_url)"
+    [[ "$dsn" == postgres://* || "$dsn" == postgresql://* || "$dsn" == postgresql+* ]]
+}
+
+assert_sqlite_mode() {
+    if is_postgres_configured; then
+        die "$1 supports SQLite volume backups only. Use pg_dump/pg_restore for PostgreSQL."
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Commands
 # -----------------------------------------------------------------------------
@@ -217,13 +238,17 @@ cmd_init() {
             log "Copied .env.example → .env"
         else
             cat > "$ENV_FILE" <<'EOF'
-# LeAgent — Docker .env (SQLite-only stack)
+# LeAgent — Docker .env (SQLite by default; optional PostgreSQL)
 # ==========================================
 # Secret: openssl rand -hex 32
 
 LEAGENT_SECRET_KEY=CHANGE_ME
 LEAGENT_VERSION=latest
 LEAGENT_HOST_PORT=8000
+LEAGENT_WORKERS=1
+
+# Optional PostgreSQL:
+# DATABASE_URL=postgresql+asyncpg://leagent:change-me@postgres.example.com:5432/leagent
 
 DEEPSEEK_API_KEY=
 OPENAI_API_KEY=
@@ -291,7 +316,11 @@ cmd_up() {
         echo -e "  ${CYAN}(dev overlay)${NC} source mounts + uvicorn --reload (see deploy/docker-compose.dev.yml)"
         echo -e "  ${CYAN}MailHog:${NC}   http://localhost:8025  (with --tools)"
     fi
-    echo -e "  ${CYAN}SQLite:${NC}    persisted under Docker volume → /app/data/leagent.db"
+    if is_postgres_configured; then
+        echo -e "  ${CYAN}Database:${NC}  PostgreSQL via DATABASE_URL / DB_DATABASE_URL"
+    else
+        echo -e "  ${CYAN}SQLite:${NC}    persisted under Docker volume → /app/data/leagent.db"
+    fi
     echo ""
     echo -e "  ${YELLOW}Tail logs:${NC}  ./run_docker.sh logs"
     echo -e "  ${YELLOW}Stop:${NC}       ./run_docker.sh down"
@@ -370,6 +399,7 @@ cmd_migrate() {
 cmd_backup() {
     header "Backing up LeAgent (SQLite + data dirs)"
     load_env
+    assert_sqlite_mode "backup"
     mkdir -p "$BACKUP_DIR"
 
     local ts
@@ -398,12 +428,13 @@ cmd_backup() {
 
 # ── restore ───────────────────────────────────────────────────────────────────
 cmd_restore() {
+    load_env
+    assert_sqlite_mode "restore"
     [[ -n "$OPT_BACKUP_FILE" ]] || \
         die "Specify a backup file with --file <path>.  e.g. --file ./backups/leagent-2026-04-14.db"
     [[ -f "$OPT_BACKUP_FILE" ]] || die "Backup file not found: $OPT_BACKUP_FILE"
 
     header "Restoring SQLite database from $OPT_BACKUP_FILE"
-    load_env
     warn "This overwrites /app/data/leagent.db inside the container."
     read -r -p "  Type 'yes' to confirm: " confirm
     [[ "$confirm" == "yes" ]] || { log "Aborted."; exit 0; }
@@ -433,9 +464,11 @@ cmd_health() {
         fi
     }
 
-    _hcheck "LeAgent API" "http://localhost:$port/health"
+    _hcheck "LeAgent API" "http://localhost:$port/api/v1/health/ready"
 
-    if docker exec "$APP_CONTAINER" test -f /app/data/leagent.db 2>/dev/null; then
+    if is_postgres_configured; then
+        ok "PostgreSQL  →  configured via DATABASE_URL / DB_DATABASE_URL"
+    elif docker exec "$APP_CONTAINER" test -f /app/data/leagent.db 2>/dev/null; then
         ok "SQLite  →  /app/data/leagent.db (inside $APP_CONTAINER)"
     else
         warn "SQLite  →  /app/data/leagent.db not found yet (first boot may still be migrating)"

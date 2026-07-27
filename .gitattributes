@@ -1,0 +1,15 @@
+# Normalize line endings so Linux-runtime scripts stay LF regardless of the
+# checkout platform. Without this, a Windows checkout rewrites shell scripts to
+# CRLF; the Docker build then COPYs a `#!/bin/bash\r` shebang and tini fails
+# with "exec /entrypoint.sh: No such file or directory".
+
+# Shell scripts must always use LF (executed inside Linux containers / POSIX).
+*.sh text eol=lf
+
+# Container config consumed by the Linux image.
+deploy/entrypoint.sh text eol=lf
+deploy/supervisord.conf text eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

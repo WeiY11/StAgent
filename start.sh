@@ -632,9 +632,13 @@ start_backend() {
     if [ "$MODE" = "prod" ]; then
         build_frontend
         export LEAGENT_FRONTEND_DIST="$SCRIPT_DIR/frontend/dist"
+        # Default to a single worker (safe for the default SQLite database).
+        # Opt into more workers only via LEAGENT_WORKERS; the launcher validates
+        # it against the configured database backend before binding.
+        PRODUCTION_WORKERS="${LEAGENT_WORKERS:-1}"
         _spawn "Backend (prod)" "monolith" \
             uv run --directory "$BACKEND_DIR" leagent app start \
-                --host "$HOST" --port "$BACKEND_PORT" --workers 4 --production
+                --host "$HOST" --port "$BACKEND_PORT" --workers "$PRODUCTION_WORKERS" --production
     else
         _spawn "Backend (dev)" "monolith" \
             uv run --directory "$BACKEND_DIR" leagent app start \

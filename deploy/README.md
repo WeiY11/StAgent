@@ -1,6 +1,6 @@
 # LeAgent — Docker (minimal)
 
-Single **FastAPI** container with **SQLite** as the only database. No PostgreSQL, Redis, Milvus, or MinIO — matching `backend/leagent/config/settings.py` and the local **`./start.sh`** workflow.
+Single **FastAPI** container with SQLite by default. Set `DATABASE_URL` to use an external PostgreSQL database. Redis, Milvus, and MinIO are not required for the default stack.
 
 ## Prerequisites
 
@@ -67,9 +67,18 @@ Docker here is for **packaged demos**, **CI**, or hosts where you only want one 
 
 ## Migrations
 
-The container entrypoint runs `python -m leagent.scripts.run_migrations` unless `LEAGENT_RUN_MIGRATIONS=false`.
+The container entrypoint runs `python -m leagent.scripts.run_migrations` unless `LEAGENT_RUN_MIGRATIONS=false`. Keep `LEAGENT_MIGRATIONS_REQUIRED=true` in production so startup fails on a failed migration.
+
+SQLite is safe with one worker. If `LEAGENT_WORKERS` is greater than `1`, configure PostgreSQL through `DATABASE_URL` first.
+
+```bash
+DATABASE_URL=postgresql+asyncpg://leagent:password@postgres.example.com:5432/leagent
+LEAGENT_WORKERS=2
+```
 
 ## Backup / restore
+
+`./run_docker.sh backup` and `restore` only cover the SQLite volume. For PostgreSQL, use `pg_dump` / `pg_restore` against the database server.
 
 ```bash
 ./run_docker.sh backup

@@ -111,7 +111,7 @@ Chat step cards compile to linear `WorkflowDocument`s via `leagent.chat_workflow
 
 **Pause / resume.** A unified `PauseToken` (`leagent.runtime.execution_run`) carries either a `checkpoint_id` (agent scope) or a `workflow_execution_id` + `workflow_state_id` (DAG scope), plus a `scope` of `chat_turn` | `workflow` | `task` | `tool_only`. Chat turns resume via `POST /chat/sessions/{id}/resume-checkpoint`; workflows via `POST /workflow/prompts/{id}/resume`.
 
-**Correlation + observability.** Every ingress mints exactly one `ExecutionRun` (`leagent.runtime.execution_factory`); child scopes (workflow steps, sub-agents, tasks) register with `parent_run_id` pointing at the parent turn. Lifecycle signals publish through `EventManager` (`FLOW_*` / `TASK_*` / `AGENT_*`); WebSocket and SSE are transports only, and webhooks subscribe to the bus. OTel spans link via `run_id` / `parent_run_id`. `ExecutionRunRegistry` is an in-process singleton — multi-worker deployments require sticky sessions or a future durable run store.
+**Correlation + observability.** Every ingress mints exactly one `ExecutionRun` (`leagent.runtime.execution_factory`); child scopes (workflow steps, sub-agents, tasks) register with `parent_run_id` pointing at the parent turn. Lifecycle signals publish through `EventManager` (`FLOW_*` / `TASK_*` / `AGENT_*`); WebSocket and SSE are transports only, and webhooks subscribe to the bus. OTel spans link via `run_id` / `parent_run_id`. `ExecutionRunRegistry` is the default in-process implementation of the `RunStore` protocol (`leagent.runtime.run_store`, reached via `get_run_store()`); multi-worker deployments use sticky sessions or install a shared `RunStore` (e.g. `RedisRunStore`) at startup — see `docs/technical/execution-topology.md`.
 
 ### Surface map (where things live)
 
@@ -444,7 +444,7 @@ On first startup, detected API keys are imported into `providers.yaml`, which be
 ## Operational Notes
 
 - **Persistence & backup.** SQLite runs in WAL mode at `LEAGENT_HOME/leagent.db`; a full backup = the database **plus** the on-disk trees under `LEAGENT_HOME` (`working/uploads`, `knowledge/`, `coding-projects/`). New coding-project scaffolds run `git init` when `git` is available.
-- **Scaling.** A single Gunicorn worker is correct for the default SQLite setup. To run multiple workers, move to PostgreSQL (`DATABASE_URL`) and use sticky sessions — the `ExecutionRunRegistry` and in-process event bus are per-process today.
+- **Scaling.** A single Gunicorn worker is correct for the default SQLite setup. To run multiple workers, move to PostgreSQL (`DATABASE_URL`) and either use sticky sessions or install a shared `RunStore` (`RedisRunStore`) at startup — the `ExecutionRunRegistry` and in-process WebSocket fan-out are per-process by default. See `docs/technical/execution-topology.md` for prerequisites and thresholds.
 - **Vector memory.** Episodic / semantic / procedural recall degrades gracefully: with no Milvus configured, writes are no-ops and recall falls back to the lexical backend.
 - **Observability.** Structured logs via structlog; OpenTelemetry spans are emitted when an OTLP endpoint is configured; workflow + quality/refine Prometheus histograms feed procedure memory and provider-ranking stats.
 - **Debugging.** Backend logs under `logs/` (repo root) or `LEAGENT_HOME/logs`; OpenAPI at `/docs`; set `LEAGENT_DEBUG=true` for verbose tracing.

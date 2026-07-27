@@ -28,6 +28,8 @@ MANIFEST
 .venv
 .uv_sync_marker
 .npm_install_marker
+.backend_deps_installed
+.playwright_system_deps_marker
 # Anchor — unanchored `env/` ignores e.g. frontend/src/env
 /env/
 /venv/
@@ -39,6 +41,7 @@ MANIFEST
 .idea/
 .vscode/
 .cursor/
+.qoder/
 *.swp
 *.swo
 *~
@@ -58,7 +61,8 @@ MANIFEST
 .coverage.*
 htmlcov/
 .pytest_cache/
-backend/.pytest_leagent_home/
+# Any sharded/dedicated pytest HOME dirs (e.g. .pytest_leagent_home, .pytest_shardA_home)
+backend/.pytest_*_home/
 nosetests.xml
 coverage.xml
 *.cover
@@ -191,10 +195,25 @@ dmypy.json
 docs/_build/
 /site/
 
+# Installed Electron runtime dropped into the repo root (app installed in-place)
+/LeAgent.exe
+/Uninstall LeAgent.exe
+/*.dll
+/*.pak
+/locales/
+/resources/
+/icudtl.dat
+/snapshot_blob.bin
+/v8_context_snapshot.bin
+/vk_swiftshader_icd.json
+/LICENSE.electron.txt
+/LICENSES.chromium.html
+
 # Desktop / Electron staging & artifacts
 desktop/staging/
 desktop/electron/dist/
 desktop/electron/dist-pack/
+desktop/electron/.electron-dist-win-x64/
 desktop/electron/node_modules/
 desktop/electron/resources/runtime/
 desktop/electron/resources/backend-payload/

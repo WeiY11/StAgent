@@ -235,7 +235,7 @@ Set at least one provider key (env var or **Settings → Environment secrets** i
 | `DEEPSEEK_API_KEY` | DeepSeek provider — auto-aliased as `tier1` (reasoning) / `tier2` (fast) |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DASHSCOPE_API_KEY` | Additional cloud providers |
 | `VLLM_ENDPOINT` / `LLM_OLLAMA_ENDPOINT` | Local / self-hosted OpenAI-compatible inference |
-| `DATABASE_URL` | Switch from SQLite to PostgreSQL |
+| `DATABASE_URL` | Switch from SQLite to PostgreSQL (install the driver with `uv sync --extra postgres`; `DB_DATABASE_URL` is a compatibility alias) |
 | `LEAGENT_DEBUG` | Enable debug logging |
 
 See [`deploy/.env.example`](deploy/.env.example) for the full annotated list.
