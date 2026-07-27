@@ -15,7 +15,9 @@
       "newChat": "新建对话",
       "newChatDesc": "与 AI 助手开始对话",
       "newFlow": "新建工作流",
-      "newFlowDesc": "创建自动化工作流程"
+      "newFlowDesc": "创建自动化工作流程",
+      "dataAnalysis": "数据分析",
+      "dataAnalysisDesc": "上传表格，用对话探索与可视化数据"
     },
     "tips": {
       "title": "快速入门",

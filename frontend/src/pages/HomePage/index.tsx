@@ -6,6 +6,7 @@ import {
   Clock, 
   TrendingUp, 
   ArrowRight,
+  BarChart3,
   LayoutGrid,
   List,
   Play,
@@ -33,6 +34,15 @@ export default function HomePage() {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const quickActions = [
+    {
+      id: 'data-analysis',
+      icon: BarChart3,
+      title: t('home.quickActions.dataAnalysis'),
+      description: t('home.quickActions.dataAnalysisDesc'),
+      color:
+        'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
+      onClick: () => navigate('/chat'),
+    },
     {
       id: 'new-flow',
       icon: GitBranch,
@@ -96,11 +106,9 @@ export default function HomePage() {
     navigate(`/workflows/${flowId}`);
   };
 
-  const handleDeleteFlow = (e: React.MouseEvent, flowId: string) => {
+  const handleDeleteFlow = (e: React.MouseEvent, _flowId: string) => {
     e.stopPropagation();
-    if (window.confirm(t('workflow.confirmDelete'))) {
-      console.log('Delete flow:', flowId);
-    }
+    window.confirm(t('workflow.confirmDelete'));
     setMenuOpenId(null);
   };
 

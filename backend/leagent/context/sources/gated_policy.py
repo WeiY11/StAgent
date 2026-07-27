@@ -298,6 +298,55 @@ class ChartGuideSource(GatedPolicySource):
     )
 
 
+class DataAnalysisGuideSource(GatedPolicySource):
+    """Data-analysis conversation mode guide, loaded for tabular-data turns."""
+
+    id = "data_analysis_guide"
+    priority = 1145
+    policy_names = ("data_analysis_guide",)
+    gate = RelevanceGate(
+        name="data_analysis_guide",
+        hints=(
+            "analyze this data",
+            "analyse this data",
+            "data analysis",
+            "data profiling",
+            "data quality",
+            "exploratory",
+            "eda",
+            "dataset",
+            "dataframe",
+            "pivot",
+            "group by",
+            "groupby",
+            "correlation",
+            "data_profile",
+            "data_clean",
+            "data_aggregate",
+            "data_transform",
+            "sql_query",
+            "csv",
+            "xlsx",
+            "spreadsheet",
+            "数据分析",
+            "分析数据",
+            "分析这个",
+            "分析一下",
+            "数据探索",
+            "数据画像",
+            "数据质量",
+            "数据清洗",
+            "数据集",
+            "透视",
+            "分组统计",
+            "相关性",
+            "表格数据",
+            "电子表格",
+        ),
+        opt_in_keys=("data_analysis_guide", "enable_data_analysis"),
+    )
+
+
 class DocumentFontsSource(GatedPolicySource):
     """Mixed CJK/Latin font guidance, loaded only for document-generation turns."""
 
@@ -490,6 +539,7 @@ class StructuredOutputElicitationSource(GatedPolicySource):
 
 SOURCE_REGISTRY[CanvasGuideSource.id] = CanvasGuideSource
 SOURCE_REGISTRY[ChartGuideSource.id] = ChartGuideSource
+SOURCE_REGISTRY[DataAnalysisGuideSource.id] = DataAnalysisGuideSource
 SOURCE_REGISTRY[DocumentFontsSource.id] = DocumentFontsSource
 SOURCE_REGISTRY[DocumentGenerationSource.id] = DocumentGenerationSource
 SOURCE_REGISTRY[EmailToolSource.id] = EmailToolSource

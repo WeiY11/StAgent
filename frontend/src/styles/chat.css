@@ -1869,6 +1869,19 @@ html.dark .chat-surface .workspace-code-hljs {
   );
 }
 
+.chat-empty-card--data .chat-empty-card__aurora {
+  animation-duration: 13s;
+  animation-delay: -5s;
+  background-image: linear-gradient(
+    124deg,
+    rgb(var(--chat-surface) / 0.84) 0%,
+    rgb(56 189 248 / 0.1) 30%,
+    rgb(var(--chat-accent) / 0.08) 52%,
+    rgb(var(--chat-surface-elevated) / 0.76) 74%,
+    rgb(52 211 153 / 0.08) 100%
+  );
+}
+
 .chat-empty-card--pet .chat-empty-card__aurora {
   animation-duration: 10s;
   animation-delay: -6s;
@@ -1910,6 +1923,11 @@ html.dark .chat-surface .workspace-code-hljs {
 .chat-empty-card--genui .chat-empty-card__shine::after {
   animation-duration: 9.5s;
   animation-delay: -2s;
+}
+
+.chat-empty-card--data .chat-empty-card__shine::after {
+  animation-duration: 10.5s;
+  animation-delay: -3s;
 }
 
 .chat-empty-card--pet .chat-empty-card__shine::after {
