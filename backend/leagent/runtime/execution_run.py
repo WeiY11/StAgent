@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from time import monotonic
+from time import monotonic, time
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -59,6 +59,10 @@ class ExecutionRun:
     pause_token: PauseToken | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     registered_at: float = field(default_factory=monotonic)
+    # Wall-clock creation time. ``registered_at`` uses a process-local monotonic
+    # clock (great for local TTL, meaningless across processes); ``created_at``
+    # is a comparable epoch timestamp used to order runs in a shared store.
+    created_at: float = field(default_factory=time)
 
     @property
     def is_blocked(self) -> bool:
@@ -77,6 +81,70 @@ class ExecutionRun:
         )
         self.pause_token = token
         return token
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialise for a shared (cross-process) run store.
+
+        ``registered_at`` is intentionally omitted: it is a process-local
+        monotonic value and is re-based on reconstruction. ``created_at`` (epoch)
+        is preserved so a peer process can order runs consistently.
+        """
+        return {
+            "run_id": self.run_id,
+            "scope": self.scope.value,
+            "parent_run_id": self.parent_run_id,
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "prompt_id": self.prompt_id,
+            "workflow_execution_id": (
+                str(self.workflow_execution_id) if self.workflow_execution_id else None
+            ),
+            "task_id": self.task_id,
+            "pause_token": self.pause_token.to_dict() if self.pause_token else None,
+            "metadata": dict(self.metadata or {}),
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ExecutionRun:
+        """Reconstruct a run from :meth:`to_dict` output."""
+        pause_raw = data.get("pause_token")
+        pause_token: PauseToken | None = None
+        if pause_raw:
+            pause_token = PauseToken(
+                scope=ExecutionScope(pause_raw["scope"]),
+                reason=pause_raw.get("reason", "awaiting_user_input"),
+                checkpoint_id=pause_raw.get("checkpoint_id"),
+                workflow_execution_id=(
+                    UUID(pause_raw["workflow_execution_id"])
+                    if pause_raw.get("workflow_execution_id")
+                    else None
+                ),
+                workflow_state_id=(
+                    UUID(pause_raw["workflow_state_id"])
+                    if pause_raw.get("workflow_state_id")
+                    else None
+                ),
+                prompt_id=pause_raw.get("prompt_id"),
+                session_id=pause_raw.get("session_id"),
+            )
+        return cls(
+            run_id=data["run_id"],
+            scope=ExecutionScope(data["scope"]),
+            parent_run_id=data.get("parent_run_id"),
+            session_id=data.get("session_id"),
+            user_id=data.get("user_id"),
+            prompt_id=data.get("prompt_id"),
+            workflow_execution_id=(
+                UUID(data["workflow_execution_id"])
+                if data.get("workflow_execution_id")
+                else None
+            ),
+            task_id=data.get("task_id"),
+            pause_token=pause_token,
+            metadata=dict(data.get("metadata") or {}),
+            created_at=data.get("created_at", time()),
+        )
 
 
 __all__ = ["ExecutionScope", "ExecutionRun", "PauseToken"]

@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from leagent.runtime.execution_registry import get_execution_run_registry
 from leagent.runtime.execution_run import ExecutionRun, ExecutionScope
+from leagent.runtime.run_store import get_run_store
 from leagent.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ def begin_execution(
         task_id=task_id,
         metadata=dict(metadata or {}),
     )
-    registered = get_execution_run_registry().register(run)
+    registered = get_run_store().register(run)
     logger.info(
         "execution_run_begin",
         run_id=registered.run_id,
@@ -68,7 +68,7 @@ def begin_execution(
 
 def end_execution(run_id: str) -> None:
     """Remove a run from the in-process registry."""
-    registry = get_execution_run_registry()
+    registry = get_run_store()
     run = registry.get(run_id)
     registry.remove(run_id)
     logger.info(
@@ -96,7 +96,7 @@ def end_execution_unless_blocked(run_id: str) -> bool:
 
     Returns ``True`` when the run was removed, ``False`` when retained.
     """
-    registry = get_execution_run_registry()
+    registry = get_run_store()
     run = registry.get(run_id)
     if run is not None and run.is_blocked:
         logger.info(
