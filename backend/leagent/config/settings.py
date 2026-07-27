@@ -725,6 +725,16 @@ class Settings(BaseSettings):
         ),
         validation_alias=AliasChoices("LEAGENT_SKILLS_ACTIVATE_ALL_ON_START"),
     )
+    skills_interop_discovery_enabled: bool = Field(
+        default=True,
+        description=(
+            "Scan well-known interop skill roots from other agents "
+            "(~/.claude/skills, ~/.cursor/skills, ...) in addition to LeAgent's own "
+            "skills directory. Set LEAGENT_SKILLS_INTEROP_DISCOVERY=0 to skip them "
+            "when those directories are large and slow down startup."
+        ),
+        validation_alias=AliasChoices("LEAGENT_SKILLS_INTEROP_DISCOVERY"),
+    )
     code_execution_workspace_root: str = Field(
         default="",
         validation_alias=AliasChoices("LEAGENT_CODE_EXEC_ROOT"),

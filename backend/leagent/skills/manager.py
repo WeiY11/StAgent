@@ -693,16 +693,22 @@ def get_skills_manager() -> SkillsManager:
     """Return the process-wide SkillsManager singleton."""
     global _default_manager
     if _default_manager is None:
+        include_interop = True
         try:
             from leagent.config.constants import LEAGENT_HOME
             from leagent.config.settings import get_settings
 
-            raw = (get_settings().skills_directory or "").strip()
+            settings = get_settings()
+            include_interop = settings.skills_interop_discovery_enabled
+            raw = (settings.skills_directory or "").strip()
             skills_dir = Path(raw).expanduser().resolve() if raw else LEAGENT_HOME / "skills"
             skills_dir.mkdir(parents=True, exist_ok=True)
         except Exception:  # noqa: BLE001
             skills_dir = None
-        _default_manager = SkillsManager(skills_dir=skills_dir)
+        _default_manager = SkillsManager(
+            skills_dir=skills_dir,
+            include_interop_roots=include_interop,
+        )
     return _default_manager
 
 
