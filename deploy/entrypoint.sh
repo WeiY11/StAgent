@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# LeAgent Entrypoint — SQLite-only container (no external DB / Redis / Milvus)
+# LeAgent Entrypoint — SQLite by default, optional external PostgreSQL.
 # =============================================================================
 
 set -e
@@ -28,6 +28,33 @@ init_directories() {
     log_success "Directories initialized"
 }
 
+database_url() {
+    if [ -n "${DATABASE_URL:-}" ]; then
+        echo "$DATABASE_URL"
+    else
+        echo "${DB_DATABASE_URL:-}"
+    fi
+}
+
+is_postgres_url() {
+    case "$(database_url)" in
+        postgres://*|postgresql://*|postgresql+*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+check_runtime_topology() {
+    if is_postgres_url; then
+        log_info "Database backend: PostgreSQL"
+        return 0
+    fi
+    log_info "Database backend: SQLite"
+    if [ "${LEAGENT_WORKERS:-1}" != "1" ]; then
+        log_error "LEAGENT_WORKERS > 1 requires PostgreSQL DATABASE_URL; SQLite must run with one worker"
+        return 1
+    fi
+}
+
 run_migrations() {
     log_info "Running database migrations..."
     if [ "${LEAGENT_RUN_MIGRATIONS:-true}" = "false" ]; then
@@ -53,7 +80,7 @@ health_check() {
     local max_attempts=60 attempt=1
     log_info "Performing health check..."
     while [ $attempt -le $max_attempts ]; do
-        if curl -sf "http://localhost:${LEAGENT_PORT}/health" > /dev/null 2>&1; then
+        if curl -sf "http://localhost:${LEAGENT_PORT}/api/v1/health/ready" > /dev/null 2>&1; then
             log_success "Health check passed"
             return 0
         fi
@@ -108,14 +135,17 @@ main() {
 
     case "$command" in
         server)
+            check_runtime_topology
             run_migrations
             start_server
             ;;
         server-dev|dev)
+            check_runtime_topology
             run_migrations
             start_server_dev
             ;;
         supervisor)
+            check_runtime_topology
             run_migrations
             start_supervisor
             ;;

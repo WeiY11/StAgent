@@ -303,7 +303,7 @@ function Get-UvExe {
 
 function Test-NodeSupportsVite([string] $NodePath) {
     if (-not $NodePath -or -not (Test-Path $NodePath)) { return $false }
-    $expr = "const [M,m]=process.versions.node.split('.').map(Number); process.stdout.write(String(Number((M === 20 && m >= 19) || (M === 22 && m >= 12) || M > 22))))"
+    $expr = "const [M,m]=process.versions.node.split('.').map(Number); process.stdout.write(String(Number((M === 20 && m >= 19) || (M === 22 && m >= 12) || M > 22)))"
     try {
         $out = & $NodePath -e $expr 2>$null
         return ($out -eq 'true' -or $out -eq '1')
@@ -623,7 +623,11 @@ function Start-BackendService {
         Build-Frontend
         $dist = (Join-Path $ScriptDir 'frontend\dist') -replace '\\', '/'
         $env:LEAGENT_FRONTEND_DIST = $dist
-        $inner = "`"$uvQ`" run --directory `"$bdQ`" leagent app start --host $HostBind --port $BackendPort --workers 4 --production"
+        # Default to a single worker (safe for the default SQLite database).
+        # Opt into more workers only via LEAGENT_WORKERS, which the launcher
+        # validates against the configured database backend before binding.
+        $ProductionWorkers = if ($env:LEAGENT_WORKERS) { [int]$env:LEAGENT_WORKERS } else { 1 }
+        $inner = "`"$uvQ`" run --directory `"$bdQ`" leagent app start --host $HostBind --port $BackendPort --workers $ProductionWorkers --production"
     }
     else {
         $inner = "`"$uvQ`" run --directory `"$bdQ`" leagent app start --host $HostBind --port $BackendPort --reload"

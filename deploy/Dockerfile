@@ -23,31 +23,52 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON=/opt/venv/bin/python
 
-COPY backend/pyproject.toml backend/README.md ./
+ARG UV_VERSION=0.11.6
+RUN pip install --no-cache-dir "uv==$UV_VERSION"
+
+# Layer 1: Install dependencies only (cached unless lock changes).
+COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
+RUN uv sync \
+    --frozen \
+    --no-dev \
+    --no-editable \
+    --no-install-project \
+    --extra ocr \
+    --extra postgres
+
+# Layer 2: Copy source and install the project itself.
 COPY backend/leagent/ leagent/
 COPY backend/alembic.ini ./
+RUN uv sync \
+    --frozen \
+    --no-dev \
+    --no-editable \
+    --extra ocr \
+    --extra postgres
 
-RUN pip install --upgrade pip wheel setuptools && \
-    pip install -e ".[ocr,browser]" || pip install -e ".[ocr]" || pip install -e .
-
+# Browser install must succeed; a failure fails the build (no `|| true`).
 RUN playwright install chromium && \
-    playwright install-deps chromium || true
+    playwright install-deps chromium
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production - Minimal runtime image
 # -----------------------------------------------------------------------------
 FROM python:3.11-slim-bookworm AS production
 
+ARG LEAGENT_VERSION=dev
 LABEL maintainer="Cheng Yuanqi <vixues@gamil.com>" \
-      version="1.1.3" \
+      version="${LEAGENT_VERSION}" \
       description="LeAgent - Intelligent Office Agent Platform"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     PATH="/opt/venv/bin:$PATH" \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
     APP_HOME=/app \
     APP_USER=leagent \
     APP_UID=1000 \
@@ -99,6 +120,7 @@ RUN chown -R $APP_USER:$APP_USER /home/$APP_USER/.cache || true
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/leagent /app/leagent
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/alembic.ini /app/alembic.ini
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/pyproject.toml /app/pyproject.toml
+COPY --chown=$APP_USER:$APP_USER --from=builder /build/uv.lock /app/uv.lock
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/README.md /app/README.md
 
 RUN mkdir -p \
@@ -116,7 +138,7 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f "http://localhost:${LEAGENT_PORT:-8000}/api/v1/health/ready" || exit 1
 
 USER $APP_USER
 
@@ -130,7 +152,9 @@ FROM production AS development
 
 USER root
 
-RUN pip install -e ".[dev]" || true
+ARG UV_VERSION=0.11.6
+RUN pip install --no-cache-dir "uv==$UV_VERSION"
+RUN uv sync --frozen --no-editable --extra dev --extra ocr --extra postgres
 
 USER $APP_USER
 
@@ -146,6 +170,8 @@ FROM production AS ocr
 
 USER root
 
-RUN pip install paddlepaddle paddleocr || true
+ARG UV_VERSION=0.11.6
+RUN pip install --no-cache-dir "uv==$UV_VERSION"
+RUN uv sync --frozen --no-editable --extra ocr --extra paddle --extra postgres
 
 USER $APP_USER

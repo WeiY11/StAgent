@@ -5,195 +5,27 @@ on:
     tags:
       - 'v*'
 
+# One tag grammar (`v*`) and one publication workflow. `desktop-v*` is retained
+# only for beta-only desktop builds (see desktop-release.yml) and never
+# publishes to PyPI.
 permissions:
   contents: write
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # 1. Create the GitHub Release page immediately
-  #    Downstream jobs append artifacts to this same release.
+  # 1. Fail closed if the tag disagrees with the product versions.
   # ─────────────────────────────────────────────────────────────
-  create-release:
-    name: Create GitHub Release
+  validate-version:
+    name: Validate Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Extract version
-        id: version
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate changelog
-        id: changelog
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --latest --strip header
-        env:
-          OUTPUT: CHANGELOG.md
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
-        with:
-          body: ${{ steps.changelog.outputs.content }}
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          generate_release_notes: true
-          files: |
-            scripts/install.sh
-            scripts/install.ps1
-            scripts/install.bat
-
-  # ─────────────────────────────────────────────────────────────
-  # 2a. Desktop installer — Linux (AppImage + .deb, x64)
-  # ─────────────────────────────────────────────────────────────
-  desktop-linux:
-    name: Desktop Installer (Linux)
-    runs-on: ubuntu-latest
-    needs: create-release
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            desktop/electron/package-lock.json
-
-      - name: Install Linux packaging deps
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg fakeroot bc
-
-      - name: Build Linux installers
-        run: bash desktop/scripts/build-linux.sh --version "${{ needs.create-release.outputs.version }}"
-
-      - name: Upload artifacts (CI)
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: desktop-linux
-          path: |
-            desktop/electron/dist-pack/*.AppImage
-            desktop/electron/dist-pack/*.deb
-          if-no-files-found: warn
-
-      - name: Attach installers to Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.create-release.outputs.tag }}
-          files: |
-            desktop/electron/dist-pack/*.AppImage
-            desktop/electron/dist-pack/*.deb
-          fail_on_unmatched_files: false
-
-  # ─────────────────────────────────────────────────────────────
-  # 2b. Desktop installer — macOS (arm64 + x64, .dmg + .zip)
-  # ─────────────────────────────────────────────────────────────
-  desktop-macos:
-    name: Desktop Installer (macOS)
-    runs-on: macos-latest
-    needs: create-release
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            desktop/electron/package-lock.json
-
-      - name: Build macOS installers
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash desktop/scripts/build-mac.sh --version "${{ needs.create-release.outputs.version }}"
-
-      - name: Upload artifacts (CI)
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: desktop-macos
-          path: |
-            desktop/electron/dist-pack/*.dmg
-            desktop/electron/dist-pack/*.zip
-          if-no-files-found: warn
-
-      - name: Attach installers to Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.create-release.outputs.tag }}
-          files: |
-            desktop/electron/dist-pack/*.dmg
-            desktop/electron/dist-pack/*.zip
-          fail_on_unmatched_files: false
-
-  # ─────────────────────────────────────────────────────────────
-  # 2c. Desktop installer — Windows (NSIS .exe, x64)
-  # ─────────────────────────────────────────────────────────────
-  desktop-windows:
-    name: Desktop Installer (Windows)
-    runs-on: windows-latest
-    needs: create-release
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            desktop/electron/package-lock.json
-
-      - name: Build Windows installer
-        shell: pwsh
-        run: |
-          .\desktop\scripts\build-win.ps1 -Version "${{ needs.create-release.outputs.version }}"
-
-      - name: Upload artifacts (CI)
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: desktop-windows
-          path: |
-            desktop/electron/dist-pack/*.exe
-            desktop/electron/dist-pack/*.exe.blockmap
-          if-no-files-found: warn
-
-      - name: Attach installer to Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.create-release.outputs.tag }}
-          files: |
-            desktop/electron/dist-pack/*.exe
-            desktop/electron/dist-pack/*.exe.blockmap
-          fail_on_unmatched_files: false
-
-  # ─────────────────────────────────────────────────────────────
-  # 3. Publish backend wheel to PyPI (Trusted Publishing or API token)
-  # ─────────────────────────────────────────────────────────────
-  publish-pypi:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    needs: create-release
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.3.2
@@ -205,12 +37,425 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if [[ "${TAG}" == *alpha* || "${TAG}" == *beta* || "${TAG}" == *rc* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check product versions match the tag
+        run: uv run python scripts/check_release_versions.py --tag "${GITHUB_REF_NAME}"
+        working-directory: backend
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. Tests gate every downstream artifact.
+  # ─────────────────────────────────────────────────────────────
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: validate-version
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --extra dev
+        working-directory: backend
+      - name: Run tests
+        env:
+          SECRET_KEY: test-secret-key
+        run: uv run python scripts/run_default_tests.py --fail-fast -- -q --durations=40
+        working-directory: backend
+
+  backend-quality:
+    name: Backend Quality Gates
+    runs-on: ubuntu-latest
+    needs: validate-version
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --extra dev
+        working-directory: backend
+      - name: "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
+        run: uv run ruff check leagent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
+        working-directory: backend
+      - name: "Mypy (runtime · sdk · api · config · db · file)"
+        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py leagent/config leagent/db leagent/file
+        working-directory: backend
+      - name: Run fast contracts
+        env:
+          SECRET_KEY: test-secret-key
+        run: >-
+          uv run pytest
+          tests/test_run_store_redis.py
+          tests/test_execution_run_registry_lifecycle.py
+          tests/test_bm25.py
+          tests/test_memory_maintenance_bulk.py
+          tests/workflow/test_execution_list.py
+          tests/test_api_manifest.py
+          tests/test_router.py
+          tests/test_openapi_schema.py
+          tests/test_execution_topology_invariants.py
+          -q
+        working-directory: backend
+
+  postgres-contract:
+    name: PostgreSQL Contract
+    runs-on: ubuntu-latest
+    needs: validate-version
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: leagent
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: leagent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leagent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
+      SECRET_KEY: test-secret-key
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --extra postgres
+        working-directory: backend
+      - run: uv run pytest tests/integration/test_postgres_smoke.py -q --run-live
+        working-directory: backend
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    needs: validate-version
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Lint and type-check
+        run: |
+          npm run lint
+          npm run type-check
+        working-directory: frontend
+      - name: Run tests
+        run: npm run test -- --run
+        working-directory: frontend
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: validate-version
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+      - name: Check bundle budget
+        run: npm run check:bundle
+        working-directory: frontend
+      - name: Verify non-empty CSS in dist
+        run: |
+          set -e
+          test -d frontend/dist
+          count=$(find frontend/dist -type f -name '*.css' ! -empty | wc -l)
+          test "$count" -ge 1
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. Build the backend wheel (immutable artifact, no publish yet).
+  # ─────────────────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: validate-version
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pip-audit
+        run: python -m pip install pip-audit
+      - name: Export Python production requirements
+        run: uv export --frozen --no-hashes --no-dev --no-emit-project --output-file requirements-audit.txt
+        working-directory: backend
+      - name: Audit Python production dependencies
+        run: pip-audit --requirement requirements-audit.txt --desc
+        working-directory: backend
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=critical
+        working-directory: frontend
+
+  docker-smoke:
+    name: Docker Smoke
+    runs-on: ubuntu-latest
+    needs: [backend-quality, backend-tests, postgres-contract, security-scan, frontend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          target: production
+          push: false
+          load: true
+          tags: leagent:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start built image
+        run: |
+          docker run -d --name leagent-smoke \
+            -p 127.0.0.1:18000:8000 \
+            -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
+            -e LEAGENT_SECURITY_ENFORCE_AUTH=false \
+            leagent:test
+      - name: Wait for /health and /api/v1/health/ready
+        run: |
+          set -e
+          for path in /health /api/v1/health/ready; do
+            for i in $(seq 1 60); do
+              if curl -fsS "http://127.0.0.1:18000${path}" >/dev/null; then
+                echo "ok: ${path}"
+                break
+              fi
+              if [ "$i" -eq 60 ]; then
+                echo "timed out waiting for ${path}" >&2
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+      - name: Verify runtime imports inside the image
+        run: |
+          docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
+      - name: Container logs and cleanup
+        if: always()
+        run: |
+          docker logs leagent-smoke || true
+          docker rm -f leagent-smoke || true
+
+  build-wheel:
+    name: Build Wheel
+    runs-on: ubuntu-latest
+    needs: [backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
       - name: Build package
         run: uv build
         working-directory: backend
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheel
+          path: backend/dist/*
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────
+  # 4. Build the three desktop installer sets (no publish yet).
+  # ─────────────────────────────────────────────────────────────
+  desktop-linux:
+    name: Desktop Installer (Linux)
+    runs-on: ubuntu-latest
+    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/electron/package-lock.json
+      - name: Install Linux packaging deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg fakeroot bc
+      - name: Build Linux installers
+        run: bash desktop/scripts/build-linux.sh --version "${{ needs.validate-version.outputs.version }}"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-linux
+          path: |
+            desktop/electron/dist-pack/*.AppImage
+            desktop/electron/dist-pack/*.deb
+          if-no-files-found: error
+
+  desktop-macos:
+    name: Desktop Installer (macOS)
+    runs-on: macos-latest
+    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/electron/package-lock.json
+      - name: Build macOS installers
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash desktop/scripts/build-mac.sh --version "${{ needs.validate-version.outputs.version }}"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-macos
+          path: |
+            desktop/electron/dist-pack/*.dmg
+            desktop/electron/dist-pack/*.zip
+          if-no-files-found: error
+
+  desktop-windows:
+    name: Desktop Installer (Windows)
+    runs-on: windows-latest
+    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/electron/package-lock.json
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          .\desktop\scripts\build-win.ps1 -Version "${{ needs.validate-version.outputs.version }}"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-windows
+          path: |
+            desktop/electron/dist-pack/*.exe
+            desktop/electron/dist-pack/*.exe.blockmap
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────
+  # 5. Only now — after every required artifact exists — publish.
+  #    The GitHub Release page is created as a draft, filled, and
+  #    only flipped public once PyPI publication has also succeeded.
+  # ─────────────────────────────────────────────────────────────
+  publish-release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: [validate-version, build-wheel, desktop-linux, desktop-macos, desktop-windows]
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+
+      - name: Generate changelog
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+
+      - name: Create draft release with all artifacts
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.validate-version.outputs.tag }}
+          body: ${{ steps.changelog.outputs.content }}
+          draft: true
+          prerelease: ${{ needs.validate-version.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/wheel/*
+            dist/desktop-linux/*
+            dist/desktop-macos/*
+            dist/desktop-windows/*
+            scripts/install.sh
+            scripts/install.ps1
+            scripts/install.bat
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: backend/dist
+          packages-dir: dist/wheel
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Flip release to public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ needs.validate-version.outputs.tag }}" --draft=false

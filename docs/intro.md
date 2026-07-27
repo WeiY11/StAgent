@@ -247,7 +247,7 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 - `DEEPSEEK_API_KEY`：DeepSeek 模型密钥；
 - `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DASHSCOPE_API_KEY`：其他云端模型密钥；
 - `VLLM_ENDPOINT`、`LLM_OLLAMA_ENDPOINT`：本地或自托管模型端点；
-- `DATABASE_URL`：将持久化层从 SQLite 切换为 PostgreSQL；
+- `DATABASE_URL`：将持久化层从 SQLite 切换为 PostgreSQL（需先执行 `uv sync --extra postgres` 安装驱动；`DB_DATABASE_URL` 为兼容别名）；
 - `LEAGENT_HOME`：数据库、上传文件、知识库和编码项目等本地状态的根目录；
 - `LEAGENT_DEBUG`：启用详细调试日志。
 

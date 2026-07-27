@@ -1,7 +1,8 @@
 # =============================================================================
-# LeAgent — single-container stack (SQLite only, no Redis / Milvus / Postgres)
-# Matches standalone settings in backend/leagent/config/settings.py.
-# Data: set LEAGENT_HOME=/app/data (default below) so DB + working dirs live on the volume.
+# LeAgent — single-container stack.
+# Default persistence is SQLite under LEAGENT_HOME. Set DATABASE_URL to use an
+# external PostgreSQL database; Redis/Milvus remain optional and are not required.
+# Data: set LEAGENT_HOME=/app/data (default below) so SQLite + working dirs live on the volume.
 # =============================================================================
 # Usage (from repo root or this directory):
 #   docker compose -f deploy/docker-compose.yml up -d --build
@@ -16,6 +17,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       target: ${BUILD_TARGET:-production}
+      args:
+        LEAGENT_VERSION: ${LEAGENT_VERSION:-latest}
     image: leagent:${LEAGENT_VERSION:-latest}
     container_name: leagent-backend
     restart: unless-stopped
@@ -29,6 +32,13 @@ services:
       LEAGENT_ENVIRONMENT: production
       LEAGENT_SECURITY_ENFORCE_AUTH: ${LEAGENT_SECURITY_ENFORCE_AUTH:-true}
       LEAGENT_SECURITY_RATE_LIMIT_ENABLED: ${LEAGENT_SECURITY_RATE_LIMIT_ENABLED:-true}
+      LEAGENT_RUN_MIGRATIONS: ${LEAGENT_RUN_MIGRATIONS:-true}
+      LEAGENT_MIGRATIONS_REQUIRED: ${LEAGENT_MIGRATIONS_REQUIRED:-true}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_DATABASE_URL: ${DB_DATABASE_URL:-}
+      DB_SQLITE_PATH: ${DB_SQLITE_PATH:-}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
       FILES_UPLOAD_DIR: /app/uploads
       LEAGENT_SECRET_KEY: ${LEAGENT_SECRET_KEY:?Set LEAGENT_SECRET_KEY in .env (openssl rand -hex 32)}
       LEAGENT_FILES__SIGNED_URL_SECRET: ${LEAGENT_SECRET_KEY}
@@ -49,7 +59,7 @@ services:
       - leagent-logs:/app/logs
       - leagent-cache:/app/cache
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "curl -f \"http://localhost:$${LEAGENT_PORT:-8000}/api/v1/health/ready\""]
       interval: 30s
       timeout: 10s
       retries: 3
