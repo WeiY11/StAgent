@@ -1,11 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { apiClient } from '@/api/client';
 import { useChatStore } from '@/stores/chat';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import type { Message } from '@/types/chat';
-
 import { ChatWorkflowCard } from './ChatWorkflowCard';
 
 vi.mock('@/api/client', () => ({

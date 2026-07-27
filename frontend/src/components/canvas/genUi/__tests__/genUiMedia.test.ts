@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
+import type { AssetHistoryEntry } from '@/features/workflow/store/assetHistory';
 import {
   buildAssetTreeFromRunState,
   formatAssetHistoryLabel,
@@ -8,7 +8,6 @@ import {
   mediaFromNodeRunState,
   patchAssetTreeFileRef,
 } from '../genUiMedia';
-import type { AssetHistoryEntry } from '@/features/workflow/store/assetHistory';
 
 describe('mediaFromNodeRunState', () => {
   it('prefers per-node metadata.file_id over gen_ui src', () => {

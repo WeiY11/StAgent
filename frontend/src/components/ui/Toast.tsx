@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode, useEffect } from 'react';
-import { cn } from '@/lib/utils';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'warning' | 'info';
 
@@ -42,7 +42,7 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
     if (!open) return null;
 
     const variants = {
-      default: 'bg-surface border-gray-200 dark:border-gray-700',
+      default: 'bg-surface border-border',
       success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
       error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
       warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
@@ -50,7 +50,7 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
     };
 
     const iconColors = {
-      default: 'text-gray-500',
+      default: 'text-muted-foreground',
       success: 'text-green-500',
       error: 'text-red-500',
       warning: 'text-yellow-500',
@@ -70,7 +70,7 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
         ref={ref}
         role="alert"
         className={cn(
-          'pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg border p-4 shadow-lg',
+          'pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg border p-4 shadow-elevated',
           'animate-in slide-in-from-right-full',
           variants[variant],
           className
@@ -80,10 +80,10 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
         {icons[variant]}
         <div className="flex-1 space-y-1">
           {title && (
-            <div className="text-sm font-semibold text-gray-900 dark:text-white">{title}</div>
+            <div className="text-sm font-semibold text-foreground">{title}</div>
           )}
           {description && (
-            <div className="text-sm text-gray-600 dark:text-gray-400">{description}</div>
+            <div className="text-sm text-muted-foreground">{description}</div>
           )}
         </div>
         {action}
@@ -93,8 +93,8 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
             onClick={onClose}
             className={cn(
               'absolute right-2 top-2 p-1 rounded-md',
-              'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
-              'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
+              'text-muted-foreground-tertiary hover:text-foreground',
+              'hover:bg-surface-sunken dark:hover:bg-surface-elevated transition-colors'
             )}
           >
             <X className="w-4 h-4" />
@@ -112,7 +112,7 @@ interface ToastTitleProps extends HTMLAttributes<HTMLDivElement> {}
 const ToastTitle = forwardRef<HTMLDivElement, ToastTitleProps>(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('text-sm font-semibold text-gray-900 dark:text-white', className)}
+    className={cn('text-sm font-semibold text-foreground', className)}
     {...props}
   />
 ));
@@ -125,7 +125,7 @@ const ToastDescription = forwardRef<HTMLDivElement, ToastDescriptionProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('text-sm text-gray-600 dark:text-gray-400', className)}
+      className={cn('text-sm text-muted-foreground', className)}
       {...props}
     />
   )
@@ -142,11 +142,12 @@ const ToastAction = forwardRef<HTMLButtonElement, ToastActionProps>(
     <button
       ref={ref}
       type="button"
+      aria-label={altText}
       className={cn(
         'inline-flex h-8 shrink-0 items-center justify-center rounded-md px-3',
         'text-sm font-medium transition-colors',
-        'bg-transparent border border-gray-200 dark:border-gray-700',
-        'hover:bg-gray-100 dark:hover:bg-gray-800',
+        'bg-transparent border border-border',
+        'hover:bg-surface-sunken dark:hover:bg-surface-elevated',
         'focus:outline-none focus:ring-2 focus:ring-primary-500',
         'disabled:pointer-events-none disabled:opacity-50',
         className
@@ -167,7 +168,7 @@ const ToastClose = forwardRef<HTMLButtonElement, ToastCloseProps>(
       type="button"
       className={cn(
         'absolute right-2 top-2 p-1 rounded-md opacity-70',
-        'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
+        'text-muted-foreground-tertiary hover:text-foreground',
         'hover:opacity-100 transition-opacity',
         className
       )}

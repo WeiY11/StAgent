@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode, type Ref } from 'react';
+import { createContext, lazy, Suspense, useContext, useMemo, useState, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, ArrowUp, Minus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,13 +8,13 @@ import type { GenUiRenderContextValue } from '@/components/canvas/genUi/GenUiRen
 import { GenUiRenderProvider } from '@/components/canvas/genUi/GenUiRenderContext';
 import { GenUiImage } from '@/components/canvas/genUi/GenUiImage';
 import { GenUiVideo } from '@/components/canvas/genUi/GenUiVideo';
-import { GenUiModel3D } from '@/components/canvas/genUi/GenUiModel3D';
+const GenUiModel3D = lazy(() => import('@/components/canvas/genUi/GenUiModel3D').then(m => ({ default: m.GenUiModel3D })));
 import { GenUiLiveCamera } from '@/components/canvas/genUi/GenUiLiveCamera';
 import { GenUiIcon } from '@/components/canvas/genUi/GenUiIcon';
 import { GenUiInlineMarkdown, GenUiMarkdown } from '@/components/canvas/genUi/GenUiMarkdown';
 import { GenUiChart } from '@/components/canvas/genUi/GenUiChart';
 import { GenUiHtmlFrame } from '@/components/canvas/genUi/GenUiHtmlFrame';
-import { GenUiThreeJsFrame } from '@/components/canvas/genUi/GenUiThreeJsFrame';
+const GenUiThreeJsFrame = lazy(() => import('@/components/canvas/genUi/GenUiThreeJsFrame').then(m => ({ default: m.GenUiThreeJsFrame })));
 import { IconGlyph } from '@/components/canvas/genUi/IconGlyph';
 import { SlideDeckPlayer } from '@/components/canvas/genUi/SlideDeckPlayer';
 import {
@@ -569,7 +569,7 @@ function renderNode(node: GenUiNode, depth: number, ctx: GenUiRenderContextValue
       return <GenUiVideo key={node.nodeId} node={node} />;
 
     case 'Model3D':
-      return <GenUiModel3D key={node.nodeId} node={node} />;
+      return <Suspense key={node.nodeId} fallback={null}><GenUiModel3D node={node} /></Suspense>;
 
     case 'LiveCamera':
       return <GenUiLiveCamera key={node.nodeId} node={node} />;
@@ -1081,7 +1081,7 @@ function renderNode(node: GenUiNode, depth: number, ctx: GenUiRenderContextValue
       return <GenUiHtmlFrame key={node.nodeId} node={node} />;
 
     case 'ThreeJsFrame':
-      return <GenUiThreeJsFrame key={node.nodeId} node={node} />;
+      return <Suspense key={node.nodeId} fallback={null}><GenUiThreeJsFrame node={node} /></Suspense>;
 
     case 'JsonDebug':
       return (

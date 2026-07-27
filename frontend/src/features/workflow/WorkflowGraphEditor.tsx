@@ -39,14 +39,11 @@ import {
   AlignHorizontalDistributeCenter,
   AlignVerticalDistributeCenter,
 } from 'lucide-react';
-
 import { apiClient } from '@/api/client';
 import { Button } from '@/components/ui';
 import { PageLoader } from '@/components/common/PageLoader';
 import { cn } from '@/lib/utils';
-
 import { useShortcutsStore, initializeShortcutListener } from '@/stores/shortcutsStore';
-
 import { NodeRegistryProvider } from './graph/registryContext';
 import { useGraphHistory } from './graph/useGraphHistory';
 import {
@@ -329,12 +326,6 @@ function EditorInner({ registry }: { registry: ObjectInfo }) {
     [addCanvasAsset],
   );
 
-  const canvasAssetWireType = useCallback((node: Node | undefined, handleId: string | null): string => {
-    if (!node || node.type !== CANVAS_ASSET_NODE_TYPE) return '*';
-    const data = node.data as CanvasAssetNodeData;
-    return canvasAssetOutputWireType(data.assetKind, handleId);
-  }, []);
-
   const isValidConnection = useCallback<IsValidConnection>(
     (conn) => {
       const connection: Connection = {
@@ -378,7 +369,7 @@ function EditorInner({ registry }: { registry: ObjectInfo }) {
       };
       setEdges((eds) => addEdge(edge, eds));
     },
-    [rf, registry, setEdges, canvasAssetWireType],
+    [rf, registry, setEdges],
   );
 
   // ── Link-drag lifecycle: compat dimming, drop-on-node, link-release search ──

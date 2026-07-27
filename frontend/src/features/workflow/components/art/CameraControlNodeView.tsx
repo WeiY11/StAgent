@@ -1,13 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { useTranslation } from 'react-i18next';
-
-import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import {
   extractApiFilePreviewId,
   isInvalidApiFilePreviewRef,
 } from '@/components/chat/media/chatMediaUtils';
-
+import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import { useNodeDefinition } from '../../graph/registryContext';
 import type { WorkflowNodeData } from '../../graph/serialization';
 import { DEFAULT_SOCKET_COLORS } from '../../graph/socketTypes';
@@ -16,6 +14,8 @@ import { useUpstreamInputPreview } from '../ConnectedInputPreview';
 import { buildQwenViewPrompt, distanceToZoom } from './cameraAngles';
 import { CameraAngleSelects, MultiAngleCameraViewport } from './MultiAngleCameraViewport';
 import { NodeShell } from './NodeShell';
+
+const EMPTY_VALUES: Record<string, unknown> = {};
 
 function usePreviewMediaUrl(descriptor: ReturnType<typeof useUpstreamInputPreview>): string | undefined {
   const raw = descriptor?.kind === 'media' ? descriptor.media?.src : undefined;
@@ -40,7 +40,7 @@ function CameraControlNodeViewImpl({ id, data, selected }: NodeProps) {
   const imageUrl = usePreviewMediaUrl(imagePreview);
   const meshUrl = usePreviewMediaUrl(meshPreview);
 
-  const values = nodeData.values ?? {};
+  const values = nodeData.values ?? EMPTY_VALUES;
   const horizontalAngle = Number(values.horizontal_angle ?? values.azimuth ?? 45);
   const verticalAngle = Number(values.vertical_angle ?? values.elevation ?? 0);
   const zoom = Number(values.zoom ?? distanceToZoom(Number(values.distance ?? 5)));

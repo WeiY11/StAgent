@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { CreateCronJobInput } from '@/controllers/API/queries/cron';
 import {
   buildCronJobCreatePayload,
   buildCronJobUpdatePayload,
@@ -7,7 +8,6 @@ import {
   CRON_I18N_WEBHOOK_URL_REQUIRED,
   mapCronJobStatusToBadge,
 } from './cronJobPayload';
-import type { CreateCronJobInput } from '@/controllers/API/queries/cron';
 
 const baseForm = (): CreateCronJobInput => ({
   name: '  Job  ',

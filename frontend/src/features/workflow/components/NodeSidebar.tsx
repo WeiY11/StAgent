@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
-
 import { cn } from '@/lib/utils';
-
 import type { NodeDefinition, ObjectInfo } from '../graph/objectInfo';
 
 interface NodeSidebarProps {

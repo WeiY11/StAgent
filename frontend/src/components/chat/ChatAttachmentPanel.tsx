@@ -89,9 +89,10 @@ export function ChatAttachmentPanel({
 
   // Revoke all URLs on unmount.
   useEffect(() => {
+    const cache = previewCache.current;
     return () => {
       for (const file of prevFilesRef.current) {
-        const url = previewCache.current.get(file);
+        const url = cache.get(file);
         if (url) URL.revokeObjectURL(url);
       }
     };

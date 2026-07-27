@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
 import type { GenUiNode } from '@/types/genUi';
-
 import {
   coerceFormValues,
   inputsToGenUiTree,

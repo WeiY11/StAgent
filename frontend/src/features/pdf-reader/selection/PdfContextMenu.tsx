@@ -83,13 +83,14 @@ export function PdfContextMenu({
       if (e.key === 'Escape') close();
     };
     const onScroll = () => close();
+    const scrollContainer = containerRef.current;
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
-    containerRef.current?.addEventListener('scroll', onScroll, { passive: true });
+    scrollContainer?.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
-      containerRef.current?.removeEventListener('scroll', onScroll);
+      scrollContainer?.removeEventListener('scroll', onScroll);
     };
   }, [menu, close, containerRef]);
 

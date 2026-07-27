@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-
 import { useImageGenModels, useImageGenPresets } from '@/hooks/useImageGen';
 
 const FIELD =

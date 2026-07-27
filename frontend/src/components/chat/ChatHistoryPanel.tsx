@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { memo, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -36,7 +36,7 @@ interface ChatHistoryPanelProps {
   collapsed?: boolean;
 }
 
-export function ChatHistoryPanel({
+export const ChatHistoryPanel = memo(function ChatHistoryPanel({
   variant = 'rail',
   collapsed = false,
 }: ChatHistoryPanelProps) {
@@ -550,7 +550,7 @@ export function ChatHistoryPanel({
       </div>
     </div>
   );
-}
+});
 
 /* ── Project row ── */
 interface ProjectRowItemProps {

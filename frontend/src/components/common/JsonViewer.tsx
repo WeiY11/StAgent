@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import { ChevronRight, ChevronDown, Copy, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface JsonViewerProps {
   data: unknown;

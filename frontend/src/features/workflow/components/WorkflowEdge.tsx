@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react';
-
 import { isControlFlowEdgeData } from '../graph/connectionUtils';
 
 /**

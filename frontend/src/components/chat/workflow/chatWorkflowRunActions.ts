@@ -12,7 +12,6 @@ import { apiClient } from '@/api/client';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { useChatStore } from '@/stores/chat';
 import { useExecutionSessionStore } from '@/stores/executionSession';
-
 import { syncSessionTodosFromWorkflow } from './workflowTodoSync';
 
 interface StartEmbedResult {

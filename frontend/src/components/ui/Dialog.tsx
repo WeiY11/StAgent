@@ -151,8 +151,8 @@ const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
           <div
             ref={ref}
             className={cn(
-              'relative w-full rounded-xl bg-surface',
-              'border border-border shadow-xl',
+              'relative w-full rounded-card bg-surface',
+              'border border-border-subtle shadow-overlay',
               'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4',
               'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
               'data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-bottom-4',
@@ -219,7 +219,7 @@ const DialogFooter = forwardRef<HTMLDivElement, DialogFooterProps>(({ className,
     className={cn(
       'flex items-center justify-end gap-3 px-6 py-4',
       'border-t border-border',
-      'bg-surface-sunken rounded-b-xl',
+      'bg-surface-sunken rounded-b-card',
       className
     )}
     {...props}

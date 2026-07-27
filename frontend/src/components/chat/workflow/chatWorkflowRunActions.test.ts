@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { Message } from '@/types/chat';
 import { apiClient } from '@/api/client';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { useChatStore } from '@/stores/chat';
-
+import type { Message } from '@/types/chat';
 import { runChatWorkflowStep, startChatWorkflowEmbedRun } from './chatWorkflowRunActions';
 
 vi.mock('@/api/client', () => ({

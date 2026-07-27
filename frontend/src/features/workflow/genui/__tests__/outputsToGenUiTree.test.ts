@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
 import type { GenUiNode, GenUiTreeV1 } from '@/types/genUi';
-
 import { outputsToGenUiTree, type WorkflowOutputSpec } from '../outputsToGenUiTree';
 
 function onlyChild(tree: GenUiTreeV1 | null): GenUiNode {

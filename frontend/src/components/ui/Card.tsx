@@ -9,9 +9,9 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'default', padding = 'md', children, ...props }, ref) => {
     const variants = {
-      default: 'bg-surface border border-border',
-      bordered: 'bg-transparent border-2 border-border',
-      elevated: 'bg-surface shadow-lg',
+      default: 'bg-surface border border-border-subtle shadow-xs',
+      bordered: 'bg-transparent border border-border',
+      elevated: 'bg-surface-elevated border border-border-subtle shadow-elevated',
     };
 
     const paddings = {
@@ -24,7 +24,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         ref={ref}
-        className={cn('rounded-xl', variants[variant], paddings[padding], className)}
+        className={cn('rounded-card', variants[variant], paddings[padding], className)}
         {...props}
       >
         {children}

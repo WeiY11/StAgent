@@ -97,7 +97,7 @@ export default function RulesPage() {
       enabled: rule.enabled,
       tags: rule.tags ?? [],
     });
-    setSelectedRule(rule as any);
+    setSelectedRule(rule);
     setIsEditing(true);
     setEditorOpen(true);
   };
@@ -141,7 +141,7 @@ export default function RulesPage() {
   };
 
   const handleOpenTest = (rule: RuleSetInfo) => {
-    setSelectedRule(rule as any);
+    setSelectedRule(rule);
     setTestResult(null);
     setTestError(null);
     setTestPanelOpen(true);
@@ -219,8 +219,8 @@ export default function RulesPage() {
       <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <Card>
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              <div className="p-4 border-b border-border">
+                <h2 className="text-2xl font-semibold text-foreground">
                   {t('rules.ruleList')}
                 </h2>
               </div>
@@ -230,19 +230,19 @@ export default function RulesPage() {
                     <PageLoader message={t('common.loading')} />
                   </div>
                 ) : filteredRules && filteredRules.length > 0 ? (
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  <div className="divide-y divide-border">
                     {filteredRules.map((rule) => (
                       <div
                         key={rule.id}
                         className={cn(
-                          'p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors',
+                          'p-4 hover:bg-surface-sunken transition-colors',
                           !rule.enabled && 'opacity-60'
                         )}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                              <h3 className="font-semibold text-foreground">
                                 {rule.name}
                               </h3>
                               <Badge variant={rule.enabled ? 'success' : 'default'} size="sm">
@@ -252,7 +252,7 @@ export default function RulesPage() {
                                 {rule.rule_count} {t('rules.rulesCount')}
                               </Badge>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                            <p className="text-sm text-muted-foreground mb-2">
                               {rule.description}
                             </p>
                             {rule.tags.length > 0 && (
@@ -306,8 +306,8 @@ export default function RulesPage() {
 
           <div>
             <Card className="sticky top-8">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="font-semibold text-gray-900 dark:text-white">
+              <div className="p-4 border-b border-border">
+                <h2 className="font-semibold text-foreground">
                   {t('admin.rule.testRule')}
                 </h2>
               </div>
@@ -315,16 +315,16 @@ export default function RulesPage() {
                 {selectedRule ? (
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <p className="text-sm font-medium text-foreground/80 mb-1">
                         {t('rules.testingRule')}
                       </p>
-                      <p className="text-gray-900 dark:text-white font-medium">
+                      <p className="text-foreground font-medium">
                         {selectedRule.name}
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                      <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                         {t('rules.testData')}
                       </label>
                       <Textarea
@@ -374,14 +374,14 @@ export default function RulesPage() {
                             {testResult.passed ? t('admin.rule.testPassed') : t('admin.rule.testFailed')}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <p className="text-xs text-muted-foreground">
                           {testResult.total_rules} {t('rules.rulesEvaluated')} · {testResult.execution_time_ms.toFixed(1)}ms
                         </p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                  <div className="py-8 text-center text-muted-foreground">
                     <Play className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>{t('rules.selectToTest')}</p>
                   </div>
@@ -399,7 +399,7 @@ export default function RulesPage() {
             <div className="space-y-4">
               {!isEditing && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                     ID <span className="text-red-500">*</span>
                   </label>
                   <Input
@@ -412,7 +412,7 @@ export default function RulesPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                   {t('admin.rule.name')} <span className="text-red-500">*</span>
                 </label>
                 <Input
@@ -423,7 +423,7 @@ export default function RulesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                   {t('admin.rule.descriptionLabel')}
                 </label>
                 <Textarea
@@ -435,7 +435,7 @@ export default function RulesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                   {t('rules.tags')}
                 </label>
                 <Input
@@ -450,7 +450,7 @@ export default function RulesPage() {
                   checked={formData.enabled}
                   onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-foreground/80">
                   {t('admin.rule.enableRule')}
                 </span>
               </div>
@@ -479,7 +479,7 @@ export default function RulesPage() {
           <ModalBody>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-foreground/80 mb-1.5">
                   {t('rules.testData')}
                 </label>
                 <Textarea
@@ -511,12 +511,12 @@ export default function RulesPage() {
                     >
                       {evaluateResult.passed ? t('admin.rule.testPassed') : t('admin.rule.testFailed')}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       {evaluateResult.total_rules} {t('rules.rulesEvaluated')} ·{' '}
                       {evaluateResult.execution_time_ms.toFixed(1)} ms
                     </span>
                   </div>
-                  <pre className="text-xs font-mono p-3 rounded-lg bg-gray-50 dark:bg-surface border border-gray-200 dark:border-gray-700 overflow-auto max-h-64 text-gray-800 dark:text-gray-200">
+                  <pre className="text-xs font-mono p-3 rounded-lg bg-surface-sunken border border-border overflow-auto max-h-64 text-foreground/80">
                     {JSON.stringify(evaluateResult, null, 2)}
                   </pre>
                 </div>

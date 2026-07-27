@@ -3,13 +3,6 @@ import { persist } from 'zustand/middleware';
 import i18n from '@/i18n';
 import { apiClient, HttpError } from '@/api/client';
 import { generateId, isUuid } from '@/lib/utils';
-import { useArtifactStore } from './artifact';
-import { useChatDraftStore } from './chatDraft';
-import { useLayoutStore } from './layout';
-import { hydrateSessionCanvasArtifacts } from './artifact';
-import { hydrateGenUiFromMessages, useGenUiStore } from './genUi';
-import { useExecutionSessionStore } from './executionSession';
-import { getChatProjectHeaders, useChatProjectStore } from './chatProjects';
 import {
   ensureChronologicalMessages,
   normalizeMessageList,
@@ -31,24 +24,36 @@ import type {
   TaskProgressStep,
   ToolCall,
 } from '@/types/chat';
+import { useArtifactStore } from './artifact';
+import { useChatDraftStore } from './chatDraft';
+import { useLayoutStore } from './layout';
+import { hydrateSessionCanvasArtifacts } from './artifact';
+import { hydrateGenUiFromMessages, useGenUiStore } from './genUi';
+import { useExecutionSessionStore } from './executionSession';
+import { getChatProjectHeaders, useChatProjectStore } from './chatProjects';
+import {
+  applyTodoStatusUpdate,
+  CHAT_MESSAGES_PAGE_SIZE,
+  dedupeMessagesByIdPreserveOrder,
+  findLatestTodoAnchorMessage,
+  isChatStreamBusyForSession,
+  mapApiTodosToSteps,
+  mapSession,
+  TASK_STATUS_RANK,
+  type MessagePageState,
+  type PaginatedResponse,
+  type SessionResponse,
+  type SessionTodoUiState,
+} from './chatHelpers';
+
+// Re-export helpers used by external consumers.
+export { dedupeMessagesByIdPreserveOrder, isChatStreamBusyForSession } from './chatHelpers';
 
 const CHAT_STORE_BASE = 'leagent-chat';
 registerNamespacedStore(CHAT_STORE_BASE);
-const CHAT_MESSAGES_PAGE_SIZE = 80;
 
 /** Invalidates in-flight GET /messages responses when switching threads quickly. */
 let messagesFetchSeq = 0;
-
-interface MessagePageState {
-  hasOlder: boolean;
-  nextOlderPage: number;
-  isLoadingOlder: boolean;
-}
-
-interface SessionTodoUiState {
-  pinned: boolean;
-  dismissed: boolean;
-}
 
 interface ChatStore {
   sessions: ChatSession[];
@@ -188,86 +193,9 @@ interface ChatStore {
   stopCodingProjectsForSession: (sessionId: string | null | undefined) => Promise<void>;
 }
 
-interface SessionResponse {
-  id: string;
-  name: string;
-  project_id?: string | null;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-  pinned_message_ids?: string[];
-  todos?: Array<{
-    id: string;
-    content: string;
-    status: TaskProgressStep['status'];
-    order?: number;
-  }>;
-}
-
-interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-  has_next: boolean;
-  has_prev: boolean;
-}
-
-const TASK_STATUS_RANK: Record<TaskProgressStep['status'], number> = {
-  pending: 0,
-  in_progress: 1,
-  completed: 2,
-  failed: 2,
-  cancelled: 2,
-};
-
 /** Skip server fetch while the HTTP stream for this session is still active. */
 function shouldSkipFetchMessages(sessionId: string, state: ChatStore): boolean {
   return isChatStreamBusyForSession(sessionId, state);
-}
-
-/** Keeps first occurrence of each message id (chronological merge order preserved). */
-export function dedupeMessagesByIdPreserveOrder(messages: Message[]): Message[] {
-  const seen = new Set<string>();
-  const out: Message[] = [];
-  for (const m of messages) {
-    if (seen.has(m.id)) continue;
-    seen.add(m.id);
-    out.push(m);
-  }
-  return out;
-}
-
-function mapApiTodosToSteps(
-  todos: SessionResponse['todos'],
-): TaskProgressStep[] | undefined {
-  if (!Array.isArray(todos) || todos.length === 0) return undefined;
-  return todos
-    .map((item, index) => ({
-      taskId: String(item.id),
-      label: String(item.content || item.id),
-      status: item.status,
-      order: item.order ?? index,
-    }))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-}
-
-const TODO_WRITE_TOOL_NAMES = new Set([
-  'todo_write',
-  'todo',
-  'todo_create',
-  'update_todo',
-  'create_todo',
-]);
-
-function findLatestTodoAnchorMessage(messages: Message[]): Message | undefined {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (!m || m.role !== 'assistant') continue;
-    if (m.taskProgress?.length) return m;
-    if (m.toolCalls?.some((tc) => TODO_WRITE_TOOL_NAMES.has(tc.name))) return m;
-  }
-  return undefined;
 }
 
 function resolveSessionTodoBaseline(
@@ -277,22 +205,6 @@ function resolveSessionTodoBaseline(
   const fromSession = state.sessions.find((s) => s.id === sessionId)?.todos;
   if (fromSession?.length) return fromSession;
   return findLatestTodoAnchorMessage(state.messages[sessionId] ?? [])?.taskProgress ?? [];
-}
-
-function applyTodoStatusUpdate(
-  todos: TaskProgressStep[],
-  taskId: string,
-  status: TaskProgressStep['status'],
-): TaskProgressStep[] {
-  return todos.map((item) => {
-    if (item.taskId === taskId) {
-      return { ...item, status };
-    }
-    if (status === 'in_progress' && item.status === 'in_progress') {
-      return { ...item, status: 'pending' as const };
-    }
-    return item;
-  });
 }
 
 function syncTodoAnchorMessageProgress(
@@ -311,24 +223,6 @@ function syncTodoAnchorMessageProgress(
       ),
     },
   }));
-}
-
-function mapSession(s: SessionResponse): ChatSession {
-  const pins = s.pinned_message_ids;
-  const base: ChatSession = {
-    id: s.id,
-    title: s.name || i18n.t('chat.defaultSessionName'),
-    createdAt: s.created_at,
-    updatedAt: s.updated_at,
-    messageCount: s.message_count,
-    projectId: s.project_id ?? null,
-    pinnedMessageIds: Array.isArray(pins) ? pins.map(String) : [],
-  };
-  const todos = mapApiTodosToSteps(s.todos);
-  if (todos?.length) {
-    base.todos = todos;
-  }
-  return base;
 }
 
 function projectIdForSession(sessionId: string): string | null {
@@ -1371,18 +1265,3 @@ export const useChatStore = create<ChatStore>()(
     }
   )
 );
-
-/** True when this thread owns the in-flight chat stream (composer should block send). */
-export function isChatStreamBusyForSession(
-  sessionId: string | null | undefined,
-  state: Pick<
-    ChatStore,
-    'activeStreamSessionId' | 'isLoading' | 'isStreaming'
-  >,
-): boolean {
-  if (!sessionId) return false;
-  return (
-    state.activeStreamSessionId === sessionId &&
-    (state.isLoading || state.isStreaming)
-  );
-}

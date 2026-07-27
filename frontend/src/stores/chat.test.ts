@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TFunction } from 'i18next';
 import type { ChatSession, Message } from '@/types/chat';
 import { apiClient } from '@/api/client';
-import { dedupeMessagesByIdPreserveOrder, useChatStore } from './chat';
 import { applyChatStreamEvent } from '@/lib/chatStreamEvents';
+import { dedupeMessagesByIdPreserveOrder, useChatStore } from './chat';
 import { useExecutionSessionStore } from './executionSession';
 
 vi.mock('@/api/client', () => ({

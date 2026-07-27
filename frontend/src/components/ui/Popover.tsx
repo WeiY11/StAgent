@@ -9,6 +9,7 @@ import {
   type HTMLAttributes,
   type ButtonHTMLAttributes,
   type ReactElement,
+  type CSSProperties,
   cloneElement,
   isValidElement,
   useCallback,
@@ -66,7 +67,7 @@ interface PopoverTriggerProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const PopoverTrigger = forwardRef<HTMLButtonElement, PopoverTriggerProps>(
-  ({ children, asChild, onClick, ...props }, ref) => {
+  ({ children, asChild: _asChild, onClick, ...props }, ref) => {
     const { open, onOpenChange, triggerRef } = usePopoverContext();
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -207,6 +208,10 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
       center: side === 'top' || side === 'bottom' ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2',
       end: side === 'top' || side === 'bottom' ? 'right-0' : 'bottom-0',
     };
+    const offsetStyle: CSSProperties =
+      side === 'top' || side === 'bottom'
+        ? { marginTop: sideOffset, marginLeft: alignOffset }
+        : { marginLeft: sideOffset, marginTop: alignOffset };
 
     return (
       <div
@@ -217,15 +222,15 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
         }}
         role="dialog"
         className={cn(
-          'absolute z-50 w-72 rounded-lg p-4',
+          'absolute z-50 w-72 rounded-card p-4',
           'bg-surface',
-          'border border-gray-200 dark:border-gray-700 shadow-lg',
+          'border border-border-subtle shadow-elevated',
           'animate-in fade-in-0 zoom-in-95',
           sideStyles[side],
           alignStyles[align],
           className
         )}
-        style={{ [side === 'top' || side === 'bottom' ? 'marginTop' : 'marginLeft']: sideOffset }}
+        style={offsetStyle}
         {...props}
       >
         {children}

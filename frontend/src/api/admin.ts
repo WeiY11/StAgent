@@ -1,4 +1,3 @@
-import { apiClient } from './client';
 import type {
   ModelProvider,
   ModelProviderFormData,
@@ -39,6 +38,7 @@ import type {
   ImageGenCustomProvider,
   ImageGenCustomProviderUpdate,
 } from '@/types/admin';
+import { apiClient } from './client';
 
 export const adminApi = {
   providers: {

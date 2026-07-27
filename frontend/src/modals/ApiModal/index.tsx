@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BaseModal } from '../BaseModal';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { cn } from '@/lib/utils';
+import { BaseModal } from '../BaseModal';
 
 interface ApiModalProps {
   isOpen: boolean;
@@ -80,12 +80,15 @@ export const ApiModal = ({
   const [activeTab, setActiveTab] = useState<TabType>('python');
   const [copied, setCopied] = useState(false);
 
-  const codeSnippets: Record<TabType, string> = {
-    python: generatePythonCode(endpoint, flowId),
-    javascript: generateJavaScriptCode(endpoint, flowId),
-    curl: generateCurlCode(endpoint, flowId),
-    widget: generateWidgetCode(endpoint, flowId),
-  };
+  const codeSnippets = useMemo<Record<TabType, string>>(
+    () => ({
+      python: generatePythonCode(endpoint, flowId),
+      javascript: generateJavaScriptCode(endpoint, flowId),
+      curl: generateCurlCode(endpoint, flowId),
+      widget: generateWidgetCode(endpoint, flowId),
+    }),
+    [endpoint, flowId],
+  );
 
   const handleCopy = useCallback(async () => {
     try {

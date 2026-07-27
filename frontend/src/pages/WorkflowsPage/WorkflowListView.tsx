@@ -21,7 +21,6 @@ import {
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { WorkflowsHubToolbar } from './WorkflowsHubToolbar';
 import {
   useGetFlows,
   useDeleteFlow,
@@ -30,6 +29,7 @@ import {
 import { useRunFlow } from '@/controllers/API/queries/executions';
 import { useToast } from '@/components/ui/Toaster';
 import type { FlowData } from '@/types/flow';
+import { WorkflowsHubToolbar } from './WorkflowsHubToolbar';
 
 const FLOW_TYPE_LUCIDE: Record<string, LucideIcon> = {
   agent: Bot,
@@ -139,17 +139,17 @@ function FlowCard({ flow, onEdit, onRun, onDuplicate, onDelete }: {
         >
           <TypeIcon className="w-[18px] h-[18px]" strokeWidth={2} />
         </span>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{flow.name}</h3>
+        <h3 className="text-sm font-semibold text-foreground truncate">{flow.name}</h3>
       </div>
       {flow.description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">{flow.description}</p>
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{flow.description}</p>
       )}
 
       {/* Tags */}
       {flow.tags && flow.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
           {(typeof flow.tags === 'string' ? flow.tags.split(',') : flow.tags).slice(0, 3).map((tag: string) => (
-            <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+            <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-muted-foreground">
               {tag.trim()}
             </span>
           ))}
@@ -157,7 +157,7 @@ function FlowCard({ flow, onEdit, onRun, onDuplicate, onDelete }: {
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
             <Activity className="w-3 h-3" />

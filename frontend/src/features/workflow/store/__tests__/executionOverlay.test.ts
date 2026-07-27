@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import { useExecutionOverlay } from '../executionOverlay';
 
 describe('executionOverlay per-node isolation', () => {

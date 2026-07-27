@@ -9,13 +9,16 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, ExternalLink, FileText, GraduationCap } from 'lucide-react';
-import { Button } from '@/components/ui';
 import { getAccessToken } from '@/api/client';
+import { CodeBlock } from '@/components/chat/markdown/CodeBlock';
+import { Markdown } from '@/components/chat/markdown/Markdown';
+import {
+  OfficeOoxmlPreview,
+  type OfficeOoxmlPreviewRoute,
+} from '@/components/files/OfficeOoxmlPreview';
+import { useFilePreviewActions } from '@/components/files/useFilePreviewActions';
+import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
-
-const PdfReader = lazy(() =>
-  import('@/features/pdf-reader/PdfReader').then((m) => ({ default: m.PdfReader })),
-);
 import {
   resolveEffectiveMime,
   isTextLikeMime,
@@ -27,14 +30,11 @@ import {
   hasOfficePreviewExtension,
   getOfficePreviewRoute,
 } from '@/lib/mimeForPreview';
-import {
-  OfficeOoxmlPreview,
-  type OfficeOoxmlPreviewRoute,
-} from '@/components/files/OfficeOoxmlPreview';
 import { parseCsvForPreview } from '@/lib/parseCsvForPreview';
-import { CodeBlock } from '@/components/chat/markdown/CodeBlock';
-import { Markdown } from '@/components/chat/markdown/Markdown';
-import { useFilePreviewActions } from '@/components/files/useFilePreviewActions';
+
+const PdfReader = lazy(() =>
+  import('@/features/pdf-reader/PdfReader').then((m) => ({ default: m.PdfReader })),
+);
 
 /** `fill`: parent supplies height (e.g. Knowledge sidebar); inner area scrolls. */
 export type UniversalFilePreviewLayout = 'default' | 'fill';

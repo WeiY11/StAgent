@@ -5,6 +5,7 @@ import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import { runChatStream, handleChatStreamFailure } from '@/lib/runChatStream';
 import { getComposerModelMode } from '@/stores/chatDraft';
 import { generateId } from '@/lib/utils';
+import type { Message } from '@/types/chat';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -42,7 +43,7 @@ export async function resumeChatCheckpoint(
     role: 'assistant',
     content: '',
     isStreaming: true,
-  } as import('@/types/chat').Message);
+  } as Message);
 
   store.abortActiveStreamUnlessSession(sessionId);
   store.beginChatStreamSession(sessionId);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { collectAgentImageArtifacts } from './agentImageArtifacts';
 import type { Message } from '@/types/chat';
+import { collectAgentImageArtifacts } from './agentImageArtifacts';
 
 describe('collectAgentImageArtifacts', () => {
   it('ignores historical inline base64 code-execution images', () => {

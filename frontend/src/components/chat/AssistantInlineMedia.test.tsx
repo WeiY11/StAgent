@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Attachment } from '@/types/chat';
-
+import { AssistantInlineMedia } from './AssistantInlineMedia';
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_k: string, d?: string) => d ?? _k }),
 }));
@@ -23,8 +23,6 @@ vi.mock('./AttachmentCard', () => ({
     <div data-testid="attachment-card" data-id={attachment.id} />
   ),
 }));
-
-import { AssistantInlineMedia } from './AssistantInlineMedia';
 
 const att = (over: Partial<Attachment>): Attachment => ({
   id: 'a',

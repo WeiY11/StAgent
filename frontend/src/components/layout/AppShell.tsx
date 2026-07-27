@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useLayoutStore } from '@/stores/layout';
 import { useMobile } from '@/hooks/useMobile';
-import { NavRail } from './NavRail';
-import { NAV_RAIL_FLOAT_CLASSES } from './navRailLayout';
-import { WorkPanel } from './WorkPanel';
 import { RoutePlaceholder } from '@/components/common/RoutePlaceholder';
 import { usePrewarmRoutes } from '@/routes/lazyPages';
 import { useDesktop } from '@/hooks/useDesktop';
+import { NavRail } from './NavRail';
+import { NAV_RAIL_FLOAT_CLASSES } from './navRailLayout';
+import { WorkPanel } from './WorkPanel';
 
 const MAIN_CONTENT_ID = 'main-content';
 

@@ -4,9 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
-import { cn } from '@/lib/utils';
-import { CodeBlock } from './CodeBlock';
-import { MermaidDiagram } from './MermaidDiagram';
+import 'katex/dist/katex.min.css';
 import { ChatImage } from '@/components/chat/media/ChatImage';
 import { ChatInlineVideo } from '@/components/chat/media/ChatInlineVideo';
 import { ChatRtspStream } from '@/components/chat/media/ChatRtspStream';
@@ -18,7 +16,10 @@ import {
   rewriteMarkdownDataImages,
 } from '@/components/chat/media/chatMediaUtils';
 import { resolveCodingProjectPreviewHref } from '@/lib/previewUrl';
+import { cn } from '@/lib/utils';
 import type { Attachment } from '@/types/chat';
+import { CodeBlock } from './CodeBlock';
+import { MermaidDiagram } from './MermaidDiagram';
 
 interface MarkdownProps {
   content: string;

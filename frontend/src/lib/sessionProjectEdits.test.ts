@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { collectSessionEditPaths } from './sessionProjectEdits';
 import type { Message } from '@/types/chat';
+import { collectSessionEditPaths } from './sessionProjectEdits';
 
 describe('collectSessionEditPaths', () => {
   it('dedupes paths from project_edit and project_apply_patch', () => {

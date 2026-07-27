@@ -7,7 +7,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Maximize2 } from 'lucide-react';
 import { ReactFlowProvider, ControlButton } from '@xyflow/react';
-
 import { Modal, ModalHeader } from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
 import { WorkflowMiniGraphCore } from '@/features/workflow/components/WorkflowMiniGraphCore';

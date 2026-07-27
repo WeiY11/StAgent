@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import {
   Folder,
   FolderOpen,
@@ -9,6 +8,7 @@ import {
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { FolderTreeNode } from '@/hooks/useFolders';
 

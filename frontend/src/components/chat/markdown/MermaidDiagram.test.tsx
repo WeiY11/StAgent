@@ -1,7 +1,7 @@
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-
+import { MermaidDiagram } from './MermaidDiagram';
 const FAKE_SVG = '<svg data-testid="mermaid-svg"><text>A</text></svg>';
 const SANITIZED_SVG = '<svg data-testid="mermaid-svg"><text>A</text></svg>';
 
@@ -22,8 +22,6 @@ vi.mock('dompurify', () => ({
     sanitize: (...args: unknown[]) => sanitizeMock(...(args as [string])),
   },
 }));
-
-import { MermaidDiagram } from './MermaidDiagram';
 
 const SOURCE = 'graph TD; A-->B';
 

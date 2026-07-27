@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
-
 import i18n from '@/i18n';
 
 /** Ensures semantic palette tokens from `tailwind.config.js` merge like built-in colors (e.g. `bg-surface` vs `bg-background`). */

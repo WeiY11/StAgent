@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Card } from '@/components/ui';
 import {
-  CodingProject,
-  RunResponse,
+  type CodingProject,
+  type RunResponse,
   useCodingProjectLogs,
   useCodingProjectStatus,
   useRunCodingProject,

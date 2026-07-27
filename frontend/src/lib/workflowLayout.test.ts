@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
-
+import type { FlowNode } from '@/stores/flow';
 import {
   buildLayoutedFlow,
   extractWorkflowEdges,
   layoutNodes,
   type EngineNode,
 } from './workflowLayout';
-import type { FlowNode } from '@/stores/flow';
 
 function node(id: string, overrides: Partial<FlowNode> = {}): FlowNode {
   return {

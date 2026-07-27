@@ -20,7 +20,7 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         ref={ref}
         className={cn(
           'relative flex shrink-0 overflow-hidden rounded-full',
-          'bg-gray-100 dark:bg-gray-800',
+          'bg-surface-sunken',
           sizes[size],
           className
         )}
@@ -71,8 +71,8 @@ const AvatarFallback = forwardRef<HTMLDivElement, AvatarFallbackProps>(
         ref={ref}
         className={cn(
           'flex h-full w-full items-center justify-center rounded-full',
-          'bg-gray-200 dark:bg-gray-700',
-          'text-gray-600 dark:text-gray-300 font-medium',
+          'bg-surface-sunken',
+          'text-muted-foreground font-medium',
           className
         )}
         {...props}
@@ -111,8 +111,8 @@ const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
           <div
             className={cn(
               'relative flex shrink-0 items-center justify-center rounded-full',
-              'bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-900',
-              'text-gray-600 dark:text-gray-300 font-medium',
+              'bg-surface-sunken border-2 border-surface dark:border-surface',
+              'text-muted-foreground font-medium',
               sizes[size]
             )}
           >

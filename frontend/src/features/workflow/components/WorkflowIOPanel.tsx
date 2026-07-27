@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
-
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
-
 import type { WorkflowInputSpec } from '../genui/inputsToGenUiTree';
 import type { WorkflowOutputSpec } from '../genui/outputsToGenUiTree';
 

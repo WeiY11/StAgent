@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import {
   X,
   CheckCircle,
@@ -11,6 +10,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { PageLoader } from '@/components/common/PageLoader';
 import type { CronJobExecution } from '@/controllers/API/queries/cron';
 import { useCronJobHistory } from '@/controllers/API/queries/cron';

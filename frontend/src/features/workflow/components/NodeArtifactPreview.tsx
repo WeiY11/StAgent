@@ -1,7 +1,6 @@
 import { type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, FileAudio } from 'lucide-react';
-
 import {
   extractApiFileDownloadId,
   extractApiFilePreviewId,

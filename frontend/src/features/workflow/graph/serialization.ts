@@ -13,15 +13,14 @@
  */
 
 import type { Edge, Node, Viewport } from '@xyflow/react';
-
-import type { NodeDefinition } from './objectInfo';
-import { CONTROL_EDGE_COLOR } from './connectionUtils';
 import { CANVAS_ASSET_NODE_TYPE, canvasAssetSourceHandle, type CanvasAssetNodeData, isCanvasAssetNode } from '../components/canvasAsset';
 import {
   canvasAssetToCanonical,
   canonicalToCanvasAsset,
   canvasAssetKindFromCanonical,
 } from '../components/canvasAssetSerialize';
+import type { NodeDefinition } from './objectInfo';
+import { CONTROL_EDGE_COLOR } from './connectionUtils';
 
 export interface WorkflowNodeData extends Record<string, unknown> {
   /** Backend node id used as `class_type` on serialize. */

@@ -2,7 +2,6 @@ import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, Images, Loader2, MessageCircleQuestion, SquareActivity } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-
 import { GenUiTreeView } from '@/components/canvas/GenUiRegistry';
 import {
   listAssetHistoryTrees,
@@ -10,13 +9,12 @@ import {
 } from '@/components/canvas/genUi/genUiMedia';
 import { AppLogo } from '@/components/brand/AppLogo';
 import { cn } from '@/lib/utils';
-
+import type { Attachment } from '@/types/chat';
 import { blockedToGenUiTree } from '../genui/blockedToGenUiTree';
 import { type WorkflowInputSpec } from '../genui/inputsToGenUiTree';
 import { outputsToGenUiTree, type WorkflowOutputSpec } from '../genui/outputsToGenUiTree';
 import { useExecutionOverlay, type PromptOverlayState } from '../store/executionOverlay';
 import { WorkflowInputPanel } from './WorkflowInputPanel';
-import type { Attachment } from '@/types/chat';
 
 /** Where the generated run form should dispatch its run. */
 export type OperationRunTarget =

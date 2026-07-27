@@ -1,16 +1,16 @@
 import type { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
+import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
 import type { Attachment } from '@/types/chat';
+import { AttachmentCard } from './AttachmentCard';
+import { ChatImage } from './media/ChatImage';
+import { ChatInlineModel3D } from './media/ChatInlineModel3D';
+import { ChatInlineVideo } from './media/ChatInlineVideo';
 import {
   extractApiFileDownloadId,
   extractApiFilePreviewId,
 } from './media/chatMediaUtils';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
-import { ChatImage } from './media/ChatImage';
-import { ChatInlineVideo } from './media/ChatInlineVideo';
-import { ChatInlineModel3D } from './media/ChatInlineModel3D';
-import { AttachmentCard } from './AttachmentCard';
 
 interface AssistantInlineMediaProps {
   media: Attachment[];

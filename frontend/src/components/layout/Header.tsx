@@ -1,7 +1,9 @@
 import { type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Menu, Bell, Sun, Moon, Monitor, Globe } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useThemeStore } from '@/stores/theme';
+import { changeAppLanguage } from '@/i18n';
 import { Button } from '../ui/Button';
 import {
   DropdownMenu,
@@ -11,9 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '../ui/DropdownMenu';
-import { useThemeStore } from '@/stores/theme';
 import { SearchInput } from '../common/SearchInput';
-import { changeAppLanguage } from '@/i18n';
 
 interface HeaderProps {
   title?: string;
@@ -66,7 +66,7 @@ const Header = ({
       className={cn(
         'sticky top-0 z-30 h-16 flex items-center justify-between gap-3 px-4 sm:px-6',
         'bg-surface/80 backdrop-blur-md',
-        'border-b border-border',
+        'border-b border-border-subtle',
         className
       )}
     >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import {
@@ -80,7 +80,7 @@ function WorkflowLiveStatus({ promptId }: { promptId: string }) {
 }
 
 /** Unified execution panel: todos, capability log, workflow status, resume controls. */
-export function ChatExecutionPanel({ sessionId, className }: ChatExecutionPanelProps) {
+export const ChatExecutionPanel = memo(function ChatExecutionPanel({ sessionId, className }: ChatExecutionPanelProps) {
   const { t } = useTranslation();
   const resumeExecution = useExecutionResume(t);
   const [resumeAnswer, setResumeAnswer] = useState('');
@@ -427,4 +427,4 @@ export function ChatExecutionPanel({ sessionId, className }: ChatExecutionPanelP
       </div>
     </div>
   );
-}
+});

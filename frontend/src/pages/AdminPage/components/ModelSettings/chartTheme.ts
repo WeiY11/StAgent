@@ -34,6 +34,10 @@ function isDarkMode(): boolean {
   return document.documentElement.classList.contains('dark');
 }
 
+function getVersionedComputedStyle(_version: number): CSSStyleDeclaration {
+  return getComputedStyle(document.documentElement);
+}
+
 export function useChartTheme() {
   const [ver, setVer] = useState(0);
   useEffect(() => {
@@ -44,7 +48,7 @@ export function useChartTheme() {
   }, []);
 
   return useMemo(() => {
-    const cs = getComputedStyle(document.documentElement);
+    const cs = getVersionedComputedStyle(ver);
     const raw = (name: string) => cs.getPropertyValue(name).trim();
     const rgb = (name: string, fallback: string) => toRgbTriplet(raw(name)) ?? fallback;
 

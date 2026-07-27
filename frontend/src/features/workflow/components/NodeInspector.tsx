@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useReactFlow } from '@xyflow/react';
-
 import { cn } from '@/lib/utils';
-
 import { useNodeDefinition } from '../graph/registryContext';
 import type { WorkflowEditorNode } from '../graph/serialization';
 import { NodeWidget } from './NodeWidget';

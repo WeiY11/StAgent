@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { PageLoader } from '@/components/common/PageLoader';
-import { useTranslation } from 'react-i18next';
 
 export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   const { t } = useTranslation();

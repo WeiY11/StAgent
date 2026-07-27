@@ -5,8 +5,8 @@ import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { parseUserMessageRefs } from '@/lib/parseUserMessageRefs';
 import { useChatStore } from '@/stores/chat';
-import { AttachmentCard } from './AttachmentCard';
 import type { Message } from '@/types/chat';
+import { AttachmentCard } from './AttachmentCard';
 
 interface UserMessageProps {
   message: Message;

@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/auth';
 import { PageLoader } from '@/components/common/PageLoader';
+import { DesktopDragRegion } from '@/components/layout/DesktopDragRegion';
 
 export function AuthGatePage() {
   const { t } = useTranslation();
@@ -27,6 +28,7 @@ export function AuthGatePage() {
   if (isHydratingAuth || authStatus === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+        <DesktopDragRegion />
         <PageLoader message={t('common.meta.starting')} />
       </div>
     );
@@ -73,6 +75,7 @@ export function AuthGatePage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-50 px-4">
+      <DesktopDragRegion />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(14,165,233,0.08),_transparent_55%),radial-gradient(ellipse_at_bottom,_rgba(56,189,248,0.06),_transparent_50%)]"

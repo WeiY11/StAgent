@@ -1,20 +1,19 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
-import { getChatProjectUnlockToken, useChatProjectStore } from '@/stores/chatProjects';
-import { buildComposerSendParams, getComposerModelMode, resetComposerAfterSend } from '@/stores/chatDraft';
-import { generateId } from '@/lib/utils';
 import { GenUiActionBridge } from '@/components/canvas/genUi/GenUiActionBridge';
+import { ChatComposerUserInputGate } from '@/components/chat/ChatComposerUserInputGate';
+import { useAskUserResume } from '@/hooks/useAskUserResume';
+import { handleChatStreamFailure, runChatStream } from '@/lib/runChatStream';
+import { cn, generateId } from '@/lib/utils';
+import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
+import { buildComposerSendParams, getComposerModelMode, resetComposerAfterSend } from '@/stores/chatDraft';
+import { getChatProjectUnlockToken, useChatProjectStore } from '@/stores/chatProjects';
+import type { Message, SendMessageParams } from '@/types/chat';
 import { ChatHeader } from './ChatHeader';
 import { ChatExecutionPanel } from './ChatExecutionPanel';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { ChatTerminalReasonBanner } from './ChatTerminalReasonBanner';
-import { ChatComposerUserInputGate } from '@/components/chat/ChatComposerUserInputGate';
-import type { Message, SendMessageParams } from '@/types/chat';
-import { handleChatStreamFailure, runChatStream } from '@/lib/runChatStream';
-import { useAskUserResume } from '@/hooks/useAskUserResume';
 
 interface ChatPanelProps {
   className?: string;
@@ -43,7 +42,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
   const sendMessage = useCallback(
     async ({ content, attachments, folderId, fileIds, projectFolderId, modelMode }: SendMessageParams) => {
       const store = useChatStore.getState();
-      let sessionId: string = store.currentSessionId ?? await store.createSession();
+      const sessionId: string = store.currentSessionId ?? await store.createSession();
       // Free chats (no session.projectId) must not inherit sidebar currentProjectId —
       // shared folder/workspace is project-membership only. createSession() already
       // stamps projectId when the user is under a project filter.

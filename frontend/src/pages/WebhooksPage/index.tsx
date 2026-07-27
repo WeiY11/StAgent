@@ -361,9 +361,9 @@ export default function WebhooksPage() {
                 <CardContent padding="none" className="flex flex-col flex-1 gap-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white truncate">{w.name}</h3>
+                      <h3 className="font-semibold text-foreground truncate">{w.name}</h3>
                       <p
-                        className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1"
+                        className="text-xs font-mono text-muted-foreground mt-1"
                         title={w.url}
                       >
                         {truncateUrl(w.url)}
@@ -394,18 +394,18 @@ export default function WebhooksPage() {
                     )}
                   </div>
 
-                  <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-surface/40 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                  <div className="rounded-lg border border-border bg-surface-sunken/80 px-3 py-2 text-xs text-foreground/80 space-y-1">
                     <p>{lastDeliveryLabel(w)}</p>
-                    <p className="text-gray-500 dark:text-gray-400">{lastDeliveryStatusLabel(w)}</p>
+                    <p className="text-muted-foreground">{lastDeliveryStatusLabel(w)}</p>
                     {inlineTestById[w.id] && (
-                      <p className="text-primary-600 dark:text-primary-400 font-medium pt-1 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-primary-600 dark:text-primary-400 font-medium pt-1 border-t border-border">
                         {t('webhooks.testResult')}: {inlineTestById[w.id]}
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-sm text-muted-foreground">
                       {t('webhooks.toggleEnable')}
                     </span>
                     <Switch
@@ -454,10 +454,10 @@ export default function WebhooksPage() {
 
         {webhooks.length > 0 && (
           <div className="mt-10">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               {t('webhooks.deliveryLog')}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {t('webhooks.deliveryLogHint')}
             </p>
             <Accordion
@@ -465,14 +465,14 @@ export default function WebhooksPage() {
               collapsible
               value={deliveryOpenId ?? ''}
               onValueChange={(v) => setDeliveryOpenId(v || null)}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-surface/40"
+              className="rounded-xl border border-border bg-surface/40"
             >
               {webhooks.map((w) => (
                 <AccordionItem key={w.id} value={w.id} className="px-4">
                   <AccordionTrigger className="hover:no-underline">
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="font-medium truncate">{w.name}</span>
-                      <span className="text-xs text-gray-500 font-normal truncate max-w-[200px]">
+                      <span className="text-xs text-muted-foreground font-normal truncate max-w-[200px]">
                         {truncateUrl(w.url, 36)}
                       </span>
                     </span>
@@ -489,10 +489,10 @@ export default function WebhooksPage() {
                               {deliveriesData.map((d) => (
                                 <li
                                   key={d.id}
-                                  className="rounded-lg border border-gray-100 dark:border-gray-700 p-3 text-xs"
+                                  className="rounded-lg border border-border p-3 text-xs"
                                 >
                                   <div className="flex flex-wrap gap-2 justify-between">
-                                    <span className="font-mono text-gray-700 dark:text-gray-300">
+                                    <span className="font-mono text-foreground/80">
                                       {d.id}
                                     </span>
                                     <Badge
@@ -505,24 +505,24 @@ export default function WebhooksPage() {
                                     </Badge>
                                   </div>
                                   {d.event && (
-                                    <p className="mt-1 text-gray-600 dark:text-gray-400 font-mono">
+                                    <p className="mt-1 text-muted-foreground font-mono">
                                       {d.event}
                                     </p>
                                   )}
                                   {d.status_code != null && (
-                                    <p className="text-gray-500">
+                                    <p className="text-muted-foreground">
                                       HTTP {d.status_code} · {d.response_time_ms} ms
                                     </p>
                                   )}
                                   {d.error && (
                                     <p className="text-red-600 dark:text-red-400 mt-1">{d.error}</p>
                                   )}
-                                  <p className="text-gray-400 mt-1">{d.created_at}</p>
+                                  <p className="text-muted-foreground mt-1">{d.created_at}</p>
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-muted-foreground">
                               {t('webhooks.noDeliveries')}
                             </p>
                           ))}
@@ -541,7 +541,7 @@ export default function WebhooksPage() {
           </ModalHeader>
           <ModalBody className="space-y-4 max-h-[70vh] overflow-y-auto">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
                 {t('webhooks.fields.name')}
               </label>
               <Input
@@ -550,7 +550,7 @@ export default function WebhooksPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
                 {t('webhooks.fields.url')}
               </label>
               <Input
@@ -560,10 +560,10 @@ export default function WebhooksPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-foreground/80 mb-2">
                 {t('webhooks.fields.events')}
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto rounded-lg border border-border p-3">
                 {WEBHOOK_EVENT_OPTIONS.map((ev) => (
                   <label key={ev} className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
@@ -585,7 +585,7 @@ export default function WebhooksPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
                 {t('webhooks.fields.description')}
               </label>
               <Textarea
@@ -595,7 +595,7 @@ export default function WebhooksPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground/80 mb-1">
                 {t('webhooks.fields.secret')}
               </label>
               <Input
@@ -608,7 +608,7 @@ export default function WebhooksPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
                   {t('webhooks.fields.retryCount')}
                 </label>
                 <Input
@@ -622,7 +622,7 @@ export default function WebhooksPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground/80 mb-1">
                   {t('webhooks.fields.timeoutSeconds')}
                 </label>
                 <Input
@@ -637,7 +637,7 @@ export default function WebhooksPage() {
               </div>
             </div>
             {editingId && detail && (
-              <div className="text-xs text-gray-500 space-y-1 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <div className="text-xs text-muted-foreground space-y-1 border-t border-border pt-3">
                 {(detail as WebhookDetail).last_error && (
                   <p className="text-red-600 dark:text-red-400">
                     {t('webhooks.lastError')}: {(detail as WebhookDetail).last_error}

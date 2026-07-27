@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import { useGenUiFormsStore } from '@/stores/genUiForms';
-
 import type { WorkflowInputSpec } from '../inputsToGenUiTree';
 import {
   collectWorkflowRunInputValues,

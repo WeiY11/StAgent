@@ -8,8 +8,8 @@ import {
   type InputHTMLAttributes,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CommandContextValue {
   search: string;
@@ -35,7 +35,7 @@ interface CommandProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const Command = forwardRef<HTMLDivElement, CommandProps>(
-  ({ className, children, shouldFilter = true, filter, loop = false, ...props }, ref) => {
+  ({ className, children, shouldFilter: _shouldFilter = true, filter: _filter, loop: _loop = false, ...props }, ref) => {
     const [search, setSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -46,7 +46,7 @@ const Command = forwardRef<HTMLDivElement, CommandProps>(
           className={cn(
             'flex flex-col overflow-hidden rounded-lg',
             'bg-surface',
-            'border border-gray-200 dark:border-gray-700',
+            'border border-border-subtle',
             className
           )}
           {...props}
@@ -79,7 +79,7 @@ const CommandDialog = forwardRef<HTMLDivElement, CommandDialogProps>(
           <Command
             ref={ref}
             className={cn(
-              'w-full max-w-lg shadow-xl animate-in fade-in-0 zoom-in-95',
+              'w-full max-w-lg shadow-overlay animate-in fade-in-0 zoom-in-95',
               className
             )}
             {...props}
@@ -102,8 +102,8 @@ const CommandInput = forwardRef<HTMLInputElement, CommandInputProps>(
     const { search, setSearch } = useCommandContext();
 
     return (
-      <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-3">
-        <Search className="mr-2 h-4 w-4 shrink-0 text-gray-400" />
+      <div className="flex items-center border-b border-border px-3">
+        <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground-tertiary" />
         <input
           ref={ref}
           type="text"
@@ -112,8 +112,8 @@ const CommandInput = forwardRef<HTMLInputElement, CommandInputProps>(
           placeholder={placeholder ?? t('command.searchPlaceholder')}
           className={cn(
             'flex h-11 w-full bg-transparent py-3 text-sm outline-none',
-            'text-gray-900 dark:text-white',
-            'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+            'text-foreground',
+            'placeholder:text-muted-foreground-tertiary',
             'disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}
@@ -156,7 +156,7 @@ const CommandEmpty = forwardRef<HTMLDivElement, CommandEmptyProps>(
     return (
       <div
         ref={ref}
-        className={cn('py-6 text-center text-sm text-gray-500 dark:text-gray-400', className)}
+        className={cn('py-6 text-center text-sm text-muted-foreground', className)}
         {...props}
       >
         {children || t('command.noResults')}
@@ -180,7 +180,7 @@ const CommandGroup = forwardRef<HTMLDivElement, CommandGroupProps>(
         {...props}
       >
         {heading && (
-          <div className="px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
             {heading}
           </div>
         )}
@@ -225,9 +225,9 @@ const CommandItem = forwardRef<HTMLDivElement, CommandItemProps>(
         data-disabled={disabled ? '' : undefined}
         className={cn(
           'relative flex cursor-pointer select-none items-center rounded-md px-2 py-1.5',
-          'text-sm text-gray-700 dark:text-gray-300',
-          'hover:bg-gray-100 dark:hover:bg-gray-800',
-          'focus:bg-gray-100 dark:focus:bg-gray-800 outline-none',
+          'text-sm text-foreground',
+          'hover:bg-surface-sunken dark:hover:bg-surface-elevated',
+          'focus:bg-surface-sunken dark:focus:bg-surface-elevated outline-none',
           disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
           className
         )}
@@ -248,7 +248,7 @@ const CommandSeparator = forwardRef<HTMLDivElement, CommandSeparatorProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('my-1 h-px bg-gray-200 dark:bg-gray-700', className)}
+      className={cn('my-1 h-px bg-border', className)}
       {...props}
     />
   )
@@ -260,7 +260,7 @@ interface CommandShortcutProps extends HTMLAttributes<HTMLSpanElement> {}
 
 const CommandShortcut = ({ className, ...props }: CommandShortcutProps) => (
   <span
-    className={cn('ml-auto text-xs tracking-widest text-gray-400 dark:text-gray-500', className)}
+    className={cn('ml-auto text-xs tracking-widest text-muted-foreground-tertiary', className)}
     {...props}
   />
 );

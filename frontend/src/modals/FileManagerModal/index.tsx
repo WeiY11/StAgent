@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BaseModal } from '../BaseModal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
+import { BaseModal } from '../BaseModal';
 
 export interface FileItem {
   id: string;

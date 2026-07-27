@@ -12,7 +12,6 @@ import {
   Square,
   XCircle,
 } from 'lucide-react';
-
 import { PageShell } from '@/components/layout/PageShell';
 import { PageLoader } from '@/components/common/PageLoader';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -93,7 +92,7 @@ function StatusIcon({ status }: { status: TaskStatus }) {
     case 'timeout':
       return <AlertTriangle className="w-4 h-4 text-orange-500" />;
     default:
-      return <Clock className="w-4 h-4 text-gray-400" />;
+      return <Clock className="w-4 h-4 text-muted-foreground" />;
   }
 }
 

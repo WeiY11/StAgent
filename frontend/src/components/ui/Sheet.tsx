@@ -10,8 +10,8 @@ import {
   useEffect,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SheetContextValue {
   open: boolean;
@@ -158,8 +158,8 @@ const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(
         <div
           ref={ref}
           className={cn(
-            'fixed z-[81] bg-surface shadow-xl',
-            'border-gray-200 dark:border-gray-700',
+            'fixed z-[81] bg-surface shadow-overlay',
+            'border-border-subtle',
             sideStyles[side],
             className
           )}
@@ -173,8 +173,8 @@ const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(
               onClick={() => onOpenChange(false)}
               className={cn(
                 'absolute right-4 top-4 p-1 rounded-lg',
-                'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
-                'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
+                'text-muted-foreground-tertiary hover:text-foreground',
+                'hover:bg-surface-sunken dark:hover:bg-surface-elevated transition-colors'
               )}
               aria-label="Close"
             >
@@ -194,7 +194,7 @@ interface SheetHeaderProps extends HTMLAttributes<HTMLDivElement> {}
 const SheetHeader = forwardRef<HTMLDivElement, SheetHeaderProps>(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('flex flex-col space-y-1.5 px-6 py-4 border-b border-gray-200 dark:border-gray-700', className)}
+    className={cn('flex flex-col space-y-1.5 px-6 py-4 border-b border-border', className)}
     {...props}
   />
 ));
@@ -206,7 +206,7 @@ interface SheetTitleProps extends HTMLAttributes<HTMLHeadingElement> {}
 const SheetTitle = forwardRef<HTMLHeadingElement, SheetTitleProps>(({ className, ...props }, ref) => (
   <h2
     ref={ref}
-    className={cn('text-lg font-semibold text-gray-900 dark:text-white', className)}
+    className={cn('text-lg font-semibold text-foreground', className)}
     {...props}
   />
 ));
@@ -219,7 +219,7 @@ const SheetDescription = forwardRef<HTMLParagraphElement, SheetDescriptionProps>
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={cn('text-sm text-gray-500 dark:text-gray-400', className)}
+      className={cn('text-sm text-muted-foreground', className)}
       {...props}
     />
   )
@@ -234,8 +234,8 @@ const SheetFooter = forwardRef<HTMLDivElement, SheetFooterProps>(({ className, .
     ref={ref}
     className={cn(
       'flex items-center justify-end gap-3 px-6 py-4',
-      'border-t border-gray-200 dark:border-gray-700',
-      'bg-gray-50 dark:bg-gray-800/50',
+      'border-t border-border',
+      'bg-surface-sunken',
       className
     )}
     {...props}

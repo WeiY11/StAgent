@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Pin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/stores/chat';
+import type { Message } from '@/types/chat';
+
+const EMPTY_MESSAGES: Message[] = [];
 
 function scrollToMessage(messageId: string) {
   const safe =
@@ -25,7 +28,9 @@ export function ChatPinnedStrip({ className }: { className?: string }) {
 
   const session = currentSessionId ? sessions.find((s) => s.id === currentSessionId) : undefined;
   const pins = session?.pinnedMessageIds ?? [];
-  const messages = currentSessionId ? messagesMap[currentSessionId] ?? [] : [];
+  const messages = currentSessionId
+    ? messagesMap[currentSessionId] ?? EMPTY_MESSAGES
+    : EMPTY_MESSAGES;
 
   const previewFor = useCallback(
     (messageId: string) => {

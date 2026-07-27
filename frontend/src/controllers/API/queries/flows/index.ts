@@ -1,7 +1,9 @@
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
-import { apiClient, ApiError } from '@/api/client';
-import { URL_KEYS, QUERY_KEYS, CACHE_TIME } from '../../helpers/constants';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
+import { apiClient } from '@/api/client';
+import type { ApiError } from '@/api/client';
 import type { FlowData, FlowValidationResult } from '@/types/flow';
+import { URL_KEYS, QUERY_KEYS, CACHE_TIME } from '../../helpers/constants';
 
 export interface FlowListParams {
   page?: number;
@@ -18,6 +20,12 @@ export interface FlowListResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+interface BackendFlowValidationResponse {
+  ok: boolean;
+  output_nodes?: string[];
+  errors?: Record<string, Array<Record<string, unknown>>>;
 }
 
 interface BackendPaginatedFlows {
@@ -171,7 +179,21 @@ export const useValidateFlow = (
   return useQuery<FlowValidationResult, ApiError>({
     queryKey: QUERY_KEYS.FLOW_VALIDATION(flowId),
     queryFn: async () => {
-      return apiClient.get<FlowValidationResult>(URL_KEYS.FLOW_VALIDATE(flowId));
+      const res = await apiClient.get<BackendFlowValidationResponse>(
+        URL_KEYS.FLOW_VALIDATE(flowId),
+      );
+      return {
+        isValid: res.ok,
+        errors: Object.entries(res.errors ?? {}).flatMap(([nodeId, rows]) =>
+          rows.map((row) => ({
+            nodeId: nodeId === '__graph__' ? undefined : nodeId,
+            edgeId: typeof row.edge_id === 'string' ? row.edge_id : undefined,
+            type: 'error' as const,
+            message: String(row.message ?? row.error ?? JSON.stringify(row)),
+          })),
+        ),
+        warnings: [],
+      };
     },
     enabled: !!flowId,
     staleTime: CACHE_TIME.STALE_TIME_SHORT,

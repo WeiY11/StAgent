@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import { formatHttpErrorDetail } from '../formatApiError';
 
 describe('formatHttpErrorDetail', () => {

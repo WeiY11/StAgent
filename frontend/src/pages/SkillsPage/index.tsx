@@ -54,6 +54,7 @@ import { cn } from '@/lib/utils';
 
 const SKILLS_HUB_CATALOG_STORAGE_KEY = 'leagent.skills.hubCatalogRepoUrl';
 const DEFAULT_SKILLS_CATALOG_REPO_URL = 'https://github.com/anthropics/skills';
+const EMPTY_SKILLS: SkillInfo[] = [];
 
 function toHubCatalogParams(p: ParsedGitHubSkillsRepo): SkillHubCatalogParams {
   return {
@@ -515,7 +516,7 @@ export default function SkillsPage() {
     }
   };
 
-  const installedSkills = listData?.skills ?? [];
+  const installedSkills = listData?.skills ?? EMPTY_SKILLS;
   const installedSkillNames = useMemo(
     () => new Set(installedSkills.map((s) => s.name)),
     [installedSkills]

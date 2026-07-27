@@ -5,7 +5,6 @@
  */
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-
 import { cn } from '@/lib/utils';
 
 function RerouteNodeViewInner({ selected }: NodeProps) {

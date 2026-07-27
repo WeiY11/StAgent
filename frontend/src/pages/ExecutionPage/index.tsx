@@ -15,7 +15,6 @@ import {
   Activity,
   ChevronRight,
 } from 'lucide-react';
-
 import { PageShell } from '@/components/layout/PageShell';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { TimelineView, type TimelineItem } from '@/components/common/TimelineView';
@@ -128,7 +127,7 @@ export default function ExecutionPage() {
     status: mapNodeStatus(node.status),
     duration: node.duration_ms ? formatDuration(node.duration_ms) : undefined,
     details: node.output ? (
-      <div className="text-xs font-mono text-gray-600 dark:text-gray-400 truncate">
+      <div className="text-xs font-mono text-muted-foreground truncate">
         {typeof node.output === 'string' ? node.output : JSON.stringify(node.output).slice(0, 80)}
       </div>
     ) : undefined,
@@ -152,8 +151,8 @@ export default function ExecutionPage() {
     return (
       <div className="flex items-center justify-center flex-1">
         <div className="text-center">
-          <XCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600 dark:text-gray-400">{t('execution.notFound')}</p>
+          <XCircle className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-muted-foreground">{t('execution.notFound')}</p>
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mt-4">
             {t('execution.goBack')}
           </Button>
@@ -235,30 +234,30 @@ export default function ExecutionPage() {
             icon: execution.status === 'completed' ? <CheckCircle className="w-5 h-5 text-green-500" /> :
                   execution.status === 'failed' ? <XCircle className="w-5 h-5 text-red-500" /> :
                   execution.status === 'running' ? <Loader2 className="w-5 h-5 text-sky-500 animate-spin" /> :
-                  <Clock className="w-5 h-5 text-gray-400" />,
+                  <Clock className="w-5 h-5 text-muted-foreground" />,
           },
           {
             label: t('execution.metricDuration'),
             value: execution.duration_ms ? formatDuration(execution.duration_ms) : (execution.status === 'running' ? t('execution.runningEllipsis') : t('execution.dash')),
-            icon: <Clock className="w-5 h-5 text-gray-400" />,
+            icon: <Clock className="w-5 h-5 text-muted-foreground" />,
           },
           {
             label: t('execution.metricNodes'),
             value: String(execution.node_count || execution.execution_history?.length || 0),
-            icon: <Activity className="w-5 h-5 text-gray-400" />,
+            icon: <Activity className="w-5 h-5 text-muted-foreground" />,
           },
           {
             label: t('execution.metricStarted'),
             value: execution.started_at ? new Date(execution.started_at).toLocaleTimeString() : t('execution.dash'),
-            icon: <Clock className="w-5 h-5 text-gray-400" />,
+            icon: <Clock className="w-5 h-5 text-muted-foreground" />,
           },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-xl p-4 bg-surface border border-gray-200 dark:border-gray-700">
+          <div key={metric.label} className="rounded-xl p-4 bg-surface border border-border">
             <div className="flex items-center gap-2 mb-1">
               {metric.icon}
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{metric.label}</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{metric.label}</span>
             </div>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white">{metric.value}</p>
+            <p className="text-lg font-semibold text-foreground">{metric.value}</p>
           </div>
         ))}
       </div>

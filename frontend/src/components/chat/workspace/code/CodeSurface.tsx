@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github-dark.css';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { escapeHtml, highlightCode } from '@/lib/highlight';
 import { cn } from '@/lib/utils';
 
 interface CodeSurfaceProps {
@@ -19,21 +18,9 @@ interface CodeSurfaceProps {
   placeholder?: string;
 }
 
-function highlightLine(line: string, language: string): string {
-  const safe = line.length > 0 ? line : ' ';
-  try {
-    if (language && hljs.getLanguage(language)) {
-      return hljs.highlight(safe, { language }).value;
-    }
-    return hljs.highlightAuto(safe).value;
-  } catch {
-    return safe;
-  }
-}
-
 interface LineRowsProps {
   lines: string[];
-  language: string;
+  highlightedLines: string[];
   showLineNumbers: boolean;
   wrap: boolean;
   startNumber?: number;
@@ -42,7 +29,7 @@ interface LineRowsProps {
 
 function LineRows({
   lines,
-  language,
+  highlightedLines,
   showLineNumbers,
   wrap,
   startNumber = 1,
@@ -82,7 +69,9 @@ function LineRows({
             >
               <span
                 className="block w-full min-w-0 bg-transparent !bg-transparent"
-                dangerouslySetInnerHTML={{ __html: highlightLine(line, language) }}
+                dangerouslySetInnerHTML={{
+                  __html: highlightedLines[index] ?? escapeHtml(line || ' '),
+                }}
               />
             </td>
           </tr>
@@ -117,11 +106,37 @@ export function CodeSurface({
   );
   const added = useMemo(() => (diff ? diff.after.split('\n') : []), [diff]);
   const lines = useMemo(() => (code ? code.split('\n') : []), [code]);
+  const [highlightedRemoved, setHighlightedRemoved] = useState<string[]>([]);
+  const [highlightedAdded, setHighlightedAdded] = useState<string[]>([]);
+  const [highlightedLines, setHighlightedLines] = useState<string[]>([]);
 
   useEffect(() => {
     if (!tail || !scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [tail, code, diff?.after]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setHighlightedRemoved(removed.map((line) => escapeHtml(line || ' ')));
+    setHighlightedAdded(added.map((line) => escapeHtml(line || ' ')));
+    setHighlightedLines(lines.map((line) => escapeHtml(line || ' ')));
+
+    void Promise.all([
+      Promise.all(removed.map((line) => highlightCode(line || ' ', language))),
+      Promise.all(added.map((line) => highlightCode(line || ' ', language))),
+      Promise.all(lines.map((line) => highlightCode(line || ' ', language))),
+    ]).then(([nextRemoved, nextAdded, nextLines]) => {
+      if (cancelled) return;
+      setHighlightedRemoved(nextRemoved);
+      setHighlightedAdded(nextAdded);
+      setHighlightedLines(nextLines);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [added, language, lines, removed]);
 
   const isEmpty = diff
     ? removed.length === 0 && added.length === 0
@@ -145,7 +160,7 @@ export function CodeSurface({
               {removed.length > 0 && removed.some((l) => l.length > 0) && (
                 <LineRows
                   lines={removed}
-                  language={language}
+                  highlightedLines={highlightedRemoved}
                   showLineNumbers={showLineNumbers}
                   wrap={wrap}
                   tone="remove"
@@ -153,7 +168,7 @@ export function CodeSurface({
               )}
               <LineRows
                 lines={added}
-                language={language}
+                highlightedLines={highlightedAdded}
                 showLineNumbers={showLineNumbers}
                 wrap={wrap}
                 tone="add"
@@ -162,7 +177,7 @@ export function CodeSurface({
           ) : (
             <LineRows
               lines={lines}
-              language={language}
+              highlightedLines={highlightedLines}
               showLineNumbers={showLineNumbers}
               wrap={wrap}
             />

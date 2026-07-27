@@ -4,8 +4,9 @@ import { cn } from '@/lib/utils';
 import { useDesktop } from '@/hooks/useDesktop';
 import { useThemeStore, resolveTheme } from '@/stores/theme';
 
-const DRAG = '[-webkit-app-region:drag]';
-const NO_DRAG = '[-webkit-app-region:no-drag]';
+// Prefixed + unprefixed: Chromium is phasing out the -webkit- alias.
+const DRAG = '[-webkit-app-region:drag] [app-region:drag]';
+const NO_DRAG = '[-webkit-app-region:no-drag] [app-region:no-drag]';
 
 /** Windows native overlay symbol colors per resolved theme. */
 function overlaySymbolColor(resolved: 'light' | 'dark'): string {

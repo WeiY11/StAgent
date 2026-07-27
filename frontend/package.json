@@ -9,12 +9,13 @@
     "build": "tsc -b && vite build",
     "build:prod": "tsc -b && vite build --mode production",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 320",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
@@ -51,7 +52,6 @@
     "remark-math": "^6.0.0",
     "tailwind-merge": "^3.6.0",
     "three": "^0.185.1",
-    "yaml": "^2.9.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -70,10 +70,10 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.9",
     "@vitest/ui": "^4.1.9",
-    "autoprefixer": "^10.5.0",
     "eslint": "^10.5.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "javascript-obfuscator": "^5.4.3",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.1",

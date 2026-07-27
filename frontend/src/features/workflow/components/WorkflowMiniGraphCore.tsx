@@ -16,7 +16,6 @@ import {
   type Node,
   type NodeTypes,
 } from '@xyflow/react';
-
 import { parseStoredFlowDataForChatPreview } from '@/lib/parseFlowDataFromApi';
 import type { FlowEdge, FlowNode } from '@/stores/flow';
 import { ChatWorkflowMiniNode } from '@/components/chat/workflow/ChatWorkflowMiniNode';

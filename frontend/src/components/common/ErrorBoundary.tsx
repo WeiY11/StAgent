@@ -1,8 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { Button } from '../ui/Button';
 import { cn } from '@/lib/utils';
+import { Button } from '../ui/Button';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

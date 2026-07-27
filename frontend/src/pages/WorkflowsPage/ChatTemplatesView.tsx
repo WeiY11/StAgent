@@ -32,6 +32,8 @@ interface MaterializeResponse {
   templates: { template_id: string; message_id: string }[];
 }
 
+const EMPTY_TEMPLATES: ChatWorkflowTemplateRow[] = [];
+
 const PLAYBOOK_BADGE_CLASS =
   'bg-mint-100 dark:bg-mint-900/30 text-mint-700 dark:text-mint-300';
 const DEMO_BADGE_CLASS =
@@ -122,7 +124,7 @@ export function ChatTemplatesView() {
     },
   });
 
-  const items = templatesQuery.data ?? [];
+  const items = templatesQuery.data ?? EMPTY_TEMPLATES;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

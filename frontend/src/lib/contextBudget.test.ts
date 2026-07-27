@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FALLBACK_CONTEXT_BUDGET_TOKENS, resolveContextBudgetTokens } from './contextBudget';
 import type { ModelProvider } from '@/types/admin';
+import { FALLBACK_CONTEXT_BUDGET_TOKENS, resolveContextBudgetTokens } from './contextBudget';
 
 function providerFixture(provider: Pick<ModelProvider, 'name' | 'type' | 'enabled' | 'models'>): ModelProvider {
   return {

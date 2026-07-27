@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MessageCircleQuestion, Send } from 'lucide-react';
-
 import { Button } from '@/components/ui';
 import { useExecutionResume } from '@/hooks/useExecutionResume';
-
 import { useExecutionOverlay } from '../store/executionOverlay';
 
 /**

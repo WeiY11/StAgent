@@ -1,5 +1,4 @@
 export {
-  useRequestProcessor,
   createQueryFn,
   createMutationFn,
   type QueryOptions,

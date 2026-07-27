@@ -98,7 +98,7 @@ export function ToolManagement() {
       const config = JSON.parse(configJson);
       await updateConfig.mutateAsync({ id: selectedTool.id, config });
       handleCloseConfig();
-    } catch (e) {
+    } catch {
       setConfigError(t('admin.tool.invalidJson'));
     }
   };

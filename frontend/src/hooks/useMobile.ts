@@ -81,12 +81,17 @@ function mobileSnapshotEqual(a: MobileState, b: MobileState): boolean {
 }
 
 export function useMobile(customBreakpoints?: Partial<MobileBreakpoints>): MobileState {
+  const customMobileBreakpoint = customBreakpoints?.mobile;
+  const customTabletBreakpoint = customBreakpoints?.tablet;
+  const customDesktopBreakpoint = customBreakpoints?.desktop;
   const breakpoints = useMemo(
     () => ({
       ...DEFAULT_BREAKPOINTS,
-      ...customBreakpoints,
+      ...(customMobileBreakpoint === undefined ? {} : { mobile: customMobileBreakpoint }),
+      ...(customTabletBreakpoint === undefined ? {} : { tablet: customTabletBreakpoint }),
+      ...(customDesktopBreakpoint === undefined ? {} : { desktop: customDesktopBreakpoint }),
     }),
-    [customBreakpoints?.mobile, customBreakpoints?.tablet, customBreakpoints?.desktop],
+    [customMobileBreakpoint, customTabletBreakpoint, customDesktopBreakpoint],
   );
 
   const getState = useCallback((): MobileState => {

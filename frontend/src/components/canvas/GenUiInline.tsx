@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Code2, Sparkles } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { genUiTreeKey, useGenUiStore } from '@/stores/genUi';
-import { GenUiTreeView } from './GenUiRegistry';
 import { CameraCaptureModal } from '@/components/chat/CameraCaptureModal';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toaster';
@@ -20,6 +19,7 @@ import {
   flushLayout,
   nextDoubleFrame,
 } from '@/components/canvas/genUi/genUiCaptureDom';
+import { GenUiTreeView } from './GenUiRegistry';
 
 /**
  * Renders a streamed generative UI tree in the chat column when the agent

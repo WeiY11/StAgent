@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
-import { apiClient, ApiError } from '@/api/client';
+import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { apiClient, type ApiError } from '@/api/client';
 import { URL_KEYS, QUERY_KEYS, CACHE_TIME } from '../../helpers/constants';
 
 // ---- Types ----

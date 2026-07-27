@@ -153,11 +153,21 @@ export default {
           '100%': { transform: 'rotate(360deg)' },
         },
       },
+      borderRadius: {
+        card: '0.875rem',
+      },
       boxShadow: {
+        /* Refined, layered elevation scale (cool-neutral, low-alpha) */
+        xs: '0 1px 2px 0 rgb(15 23 42 / 0.04)',
+        soft: '0 1px 2px rgb(15 23 42 / 0.04), 0 2px 8px rgb(15 23 42 / 0.05)',
+        card: '0 1px 3px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.03)',
+        elevated:
+          '0 4px 16px -4px rgb(15 23 42 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.08)',
+        overlay:
+          '0 12px 40px -8px rgb(15 23 42 / 0.22), 0 4px 12px -4px rgb(15 23 42 / 0.12)',
         'glow': '0 0 20px rgba(2, 132, 199, 0.24)',
         'glow-lg': '0 0 40px rgba(2, 132, 199, 0.34)',
         'peach': '0 0 20px rgba(251, 146, 60, 0.2)',
-        'soft': '0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03)',
       },
     },
   },

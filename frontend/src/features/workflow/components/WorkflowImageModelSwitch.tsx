@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { ImageIcon } from 'lucide-react';
-
 import { useToast } from '@/components/ui/Toaster';
 import {
   useImageGenPresets,

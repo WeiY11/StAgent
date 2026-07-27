@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Zap, DollarSign, Activity, Layers } from 'lucide-react';
-import { StatCard, formatCompactNumber, formatLatencyMs, formatUsd } from '../shared/adminFormat';
 import type { UsageSummary } from '@/types/admin';
+import { StatCard, formatCompactNumber, formatLatencyMs, formatUsd } from '../shared/adminFormat';
 
 interface ModelUsageOverviewProps {
   usage: UsageSummary | undefined;

@@ -1,9 +1,8 @@
 import { forwardRef, useState, type HTMLAttributes, useEffect, useMemo } from 'react';
-import { cn } from '@/lib/utils';
 import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github-dark.css';
 import { useTranslation } from 'react-i18next';
+import { escapeHtml, highlightCode } from '@/lib/highlight';
+import { cn } from '@/lib/utils';
 
 /** Above this line count, skip per-line highlight table (keeps large files responsive). */
 const PER_LINE_HIGHLIGHT_MAX = 400;
@@ -43,18 +42,35 @@ const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
     const { t } = useTranslation();
     const [copied, setCopied] = useState(false);
     const [collapsed, setCollapsed] = useState(defaultCollapsed);
-    const [highlightedCode, setHighlightedCode] = useState('');
+    const lines = useMemo(() => code.split('\n'), [code]);
+    const lineCount = lines.length;
+    const useTableHighlight =
+      showLineNumbers &&
+      highlightLines.length > 0 &&
+      lineCount <= PER_LINE_HIGHLIGHT_MAX;
+    const [highlightedCode, setHighlightedCode] = useState(() => escapeHtml(code));
+    const [highlightedLines, setHighlightedLines] = useState<string[]>([]);
 
     useEffect(() => {
-      try {
-        const result = language && hljs.getLanguage(language)
-          ? hljs.highlight(code, { language })
-          : hljs.highlightAuto(code);
-        setHighlightedCode(result.value);
-      } catch {
-        setHighlightedCode(code);
+      let cancelled = false;
+      setHighlightedCode(escapeHtml(code));
+      setHighlightedLines([]);
+
+      void highlightCode(code, language).then((html) => {
+        if (!cancelled) setHighlightedCode(html);
+      });
+      if (useTableHighlight) {
+        void Promise.all(lines.map((line) => highlightCode(line || ' ', language))).then(
+          (htmlLines) => {
+            if (!cancelled) setHighlightedLines(htmlLines);
+          },
+        );
       }
-    }, [code, language]);
+
+      return () => {
+        cancelled = true;
+      };
+    }, [code, language, lines, useTableHighlight]);
 
     const handleCopy = async () => {
       try {
@@ -66,13 +82,7 @@ const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
       }
     };
 
-    const lines = useMemo(() => code.split('\n'), [code]);
-    const lineCount = lines.length;
     const displayLanguage = language === 'plaintext' ? 'text' : language;
-    const useTableHighlight =
-      showLineNumbers &&
-      highlightLines.length > 0 &&
-      lineCount <= PER_LINE_HIGHLIGHT_MAX;
     const lineNumberText = useMemo(
       () => (showLineNumbers && !useTableHighlight ? lines.map((_, i) => i + 1).join('\n') : ''),
       [lines, showLineNumbers, useTableHighlight],
@@ -162,12 +172,7 @@ const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
                       {lines.map((line, index) => {
                         const lineNumber = index + 1;
                         const isHighlighted = highlightLines.includes(lineNumber);
-                        let html = line || ' ';
-                        try {
-                          html = hljs.highlight(line || ' ', { language }).value;
-                        } catch {
-                          /* keep plain */
-                        }
+                        const html = highlightedLines[index] ?? escapeHtml(line || ' ');
                         return (
                           <tr
                             key={index}
@@ -210,12 +215,12 @@ const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(
                     <span
                       className="min-w-0 flex-1 overflow-x-auto pl-4"
                       dangerouslySetInnerHTML={{
-                        __html: highlightedCode || code,
+                        __html: highlightedCode,
                       }}
                     />
                   </span>
                 ) : (
-                  <span dangerouslySetInnerHTML={{ __html: highlightedCode || code }} />
+                  <span dangerouslySetInnerHTML={{ __html: highlightedCode }} />
                 )}
               </code>
             </pre>
