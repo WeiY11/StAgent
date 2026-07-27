@@ -144,6 +144,7 @@ echo "==> make-icons.mjs"
 node "$SCRIPT_DIR/make-icons.mjs" || echo "  ⚠ Icon generation failed (non-fatal)"
 
 npm run build
+npm test
 
 export VERSION="$VERSION"
 ARCH_FLAGS=""

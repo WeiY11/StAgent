@@ -71,6 +71,72 @@ function Clear-WinPackOutput {
   Remove-PathWithRetry (Join-Path $distPack "win-unpacked")
 }
 
+# Tracks only the exclusions this script added, so cleanup never removes
+# exclusions the user configured beforehand.
+$script:AddedDefenderExclusions = @()
+
+function Test-IsAdministrator {
+  try {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($id)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  } catch {
+    return $false
+  }
+}
+
+function Get-ElectronBuilderCacheDir {
+  # Mirrors app-builder-lib getCacheDirectory(): ELECTRON_BUILDER_CACHE wins when
+  # it is an absolute path, otherwise Defender-relevant cache lives under LOCALAPPDATA.
+  $override = $env:ELECTRON_BUILDER_CACHE
+  if ($override -and [System.IO.Path]::IsPathRooted($override)) { return $override }
+  if ($env:LOCALAPPDATA) { return (Join-Path $env:LOCALAPPDATA "electron-builder\Cache") }
+  return $null
+}
+
+function Add-WinBuildDefenderExclusions {
+  # Windows Defender real-time scanning transiently locks freshly-extracted
+  # executables, making electron-builder's atomic directory rename fail with EPERM
+  # (both the dist-pack win-unpacked stage and the NSIS/7zip toolset cache stage).
+  # Temporary path exclusions remove the lock at the root. Non-fatal on failure:
+  # the build still runs and relies on rename retries.
+  if (-not (Get-Command Add-MpPreference -ErrorAction SilentlyContinue)) {
+    Write-Warning "Add-MpPreference unavailable (Defender absent or third-party AV); skipping exclusions."
+    return
+  }
+  if (-not (Test-IsAdministrator)) {
+    Write-Warning "Not elevated: skipping Defender exclusions. Run this script as Administrator to avoid EPERM rename stalls."
+    return
+  }
+
+  $paths = @((Join-Path $DesktopElectron "dist-pack"), (Get-ElectronBuilderCacheDir)) | Where-Object { $_ }
+  $existing = @((Get-MpPreference).ExclusionPath)
+  foreach ($p in $paths) {
+    if (-not (Test-Path -LiteralPath $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }
+    if ($existing -contains $p) { continue }  # leave user-configured exclusions untouched
+    try {
+      Add-MpPreference -ExclusionPath $p -ErrorAction Stop
+      $script:AddedDefenderExclusions += $p
+      Write-Host "  + Defender exclusion: $p"
+    } catch {
+      Write-Warning "Failed to add Defender exclusion '$p': $_"
+    }
+  }
+}
+
+function Remove-WinBuildDefenderExclusions {
+  if (-not $script:AddedDefenderExclusions -or $script:AddedDefenderExclusions.Count -eq 0) { return }
+  foreach ($p in $script:AddedDefenderExclusions) {
+    try {
+      Remove-MpPreference -ExclusionPath $p -ErrorAction Stop
+      Write-Host "  - Removed Defender exclusion: $p"
+    } catch {
+      Write-Warning "Failed to remove Defender exclusion '$p': $_  (remove it manually via Windows Security if needed)"
+    }
+  }
+  $script:AddedDefenderExclusions = @()
+}
+
 Write-Host "============================================"
 Write-Host "  LeAgent Desktop — Windows Build"
 Write-Host "  Version : $Version"
@@ -153,6 +219,12 @@ try {
   npm ci
   if ($LASTEXITCODE -ne 0) { throw "npm ci failed in desktop/electron (exit $LASTEXITCODE)" }
 
+  # npm ci restores the pristine app-builder-lib; re-apply the EPERM rename-retry
+  # patch so extraction survives transient antivirus locks even without elevation.
+  Write-Host "`n==> patch-electron-builder.mjs (EPERM rename retry)"
+  node (Join-Path $PSScriptRoot "patch-electron-builder.mjs")
+  if ($LASTEXITCODE -ne 0) { Write-Warning "patch-electron-builder.mjs exited $LASTEXITCODE (non-fatal)" }
+
   Write-Host "`n==> make-icons.mjs"
   $iconScript = Join-Path $PSScriptRoot "make-icons.mjs"
   try {
@@ -164,8 +236,15 @@ try {
   npm run build
   if ($LASTEXITCODE -ne 0) { throw "npm run build (tsc) failed (exit $LASTEXITCODE)" }
 
+  npm test
+  if ($LASTEXITCODE -ne 0) { throw "npm test failed (exit $LASTEXITCODE)" }
+
   $env:VERSION = $Version
   Clear-WinPackOutput
+
+  # Add temporary Defender exclusions for the output + toolset-cache dirs to avoid
+  # transient EPERM rename failures during Electron/NSIS extraction. Removed in finally.
+  Add-WinBuildDefenderExclusions
 
   $maxBuildAttempts = 2
   for ($attempt = 1; $attempt -le $maxBuildAttempts; $attempt++) {
@@ -180,6 +259,7 @@ try {
     Start-Sleep -Seconds 2
   }
 } finally {
+  Remove-WinBuildDefenderExclusions
   Pop-Location
 }
 

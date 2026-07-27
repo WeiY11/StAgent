@@ -15,7 +15,7 @@ desktop/
 │   │   ├── server/              BackendServer (Python subprocess)
 │   │   ├── window/              AppWindow + splash + window state
 │   │   ├── ipc/                 IPC registration modules
-│   │   └── preload.ts           contextBridge → window.leagent
+│   │   └── preload.cts          contextBridge → window.leagent
 │   ├── splash/                  Boot progress UI
 │   ├── maintenance/             Validation / repair UI
 │   └── build/                   NSIS hooks, entitlements, notarize

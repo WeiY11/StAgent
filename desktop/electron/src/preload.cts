@@ -1,3 +1,6 @@
+// Compiled to dist/preload.cjs (CommonJS). Sandboxed preload scripts cannot
+// be ESM, and this package is "type": "module" — the .cts extension keeps the
+// emit CJS so `window.leagent` is actually exposed to the renderer.
 import { contextBridge, ipcRenderer } from 'electron';
 
 type Callback<T = unknown> = (data: T) => void;
