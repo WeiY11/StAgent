@@ -102,6 +102,81 @@ class _MemStore:
         return [_Row(s) for s in self.spans if s.get("trace_id") == trace_id]
 
 
+class _BlockingBatchStore(_MemStore):
+    """Trace store whose first batch stays in-flight until released."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.calls = 0
+
+    async def write_batch(
+        self,
+        *,
+        create: dict[str, Any] | None = None,
+        spans: list[dict[str, Any]] | None = None,
+        closes: list[dict[str, Any]] | None = None,
+        update: dict[str, Any] | None = None,
+    ) -> None:
+        self.calls += 1
+        if self.calls == 1:
+            self.entered.set()
+            await self.release.wait()
+        if create:
+            await self.create_trace(**create)
+        for span in spans or []:
+            await self.append_span(**span)
+        for close in closes or []:
+            await self.close_span(
+                str(close["span_id"]),
+                **{k: v for k, v in close.items() if k != "span_id"},
+            )
+        if update:
+            trace_id = str(update["trace_id"])
+            await self.update_trace(
+                trace_id,
+                **{k: v for k, v in update.items() if k != "trace_id"},
+            )
+
+
+class _FlakyBatchStore(_MemStore):
+    """Trace store whose first batch fails before any row is persisted."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = asyncio.Event()
+        self.calls = 0
+
+    async def write_batch(
+        self,
+        *,
+        create: dict[str, Any] | None = None,
+        spans: list[dict[str, Any]] | None = None,
+        closes: list[dict[str, Any]] | None = None,
+        update: dict[str, Any] | None = None,
+    ) -> None:
+        self.calls += 1
+        if self.calls == 1:
+            self.failed.set()
+            raise RuntimeError("transient trace write failure")
+        if create:
+            await self.create_trace(**create)
+        for span in spans or []:
+            await self.append_span(**span)
+        for close in closes or []:
+            await self.close_span(
+                str(close["span_id"]),
+                **{k: v for k, v in close.items() if k != "span_id"},
+            )
+        if update:
+            trace_id = str(update["trace_id"])
+            await self.update_trace(
+                trace_id,
+                **{k: v for k, v in update.items() if k != "trace_id"},
+            )
+
+
 class _Row:
     def __init__(self, data: dict[str, Any]) -> None:
         self.__dict__.update(data)
@@ -182,6 +257,63 @@ async def test_recorder_maps_tool_and_result_events() -> None:
     assert store.traces["run-1"]["tool_call_count"] >= 1
     assert store.traces["run-1"]["llm_call_count"] >= 1
     assert store.traces["run-1"]["input_tokens"] == 10
+    clear_trace_context()
+
+
+@pytest.mark.asyncio
+async def test_flush_waits_for_inflight_background_flush() -> None:
+    store = _BlockingBatchStore()
+    rec = TraceRecorder(store=store)  # type: ignore[arg-type]
+    clear_trace_context()
+
+    rec.start_trace(run_id="run-flush", session_id="sess-1", agent_name="agent")
+    await asyncio.wait_for(store.entered.wait(), timeout=1)
+    rec.record_llm(
+        provider="demo",
+        model="demo-model",
+        request_model="demo-model",
+        input_tokens=3,
+        output_tokens=4,
+        latency_ms=1.0,
+        run_id="run-flush",
+    )
+
+    flush_task = asyncio.create_task(rec.flush())
+    await asyncio.sleep(0)
+    assert not flush_task.done()
+
+    store.release.set()
+    await asyncio.wait_for(flush_task, timeout=1)
+
+    assert store.traces["run-flush"]["input_tokens"] == 3
+    assert store.traces["run-flush"]["output_tokens"] == 4
+    assert any(span["kind"] == "llm" for span in store.spans)
+    clear_trace_context()
+
+
+@pytest.mark.asyncio
+async def test_failed_background_flush_is_retained_for_retry() -> None:
+    store = _FlakyBatchStore()
+    rec = TraceRecorder(store=store)  # type: ignore[arg-type]
+    clear_trace_context()
+
+    rec.start_trace(run_id="run-retry", session_id="sess-1", agent_name="agent")
+    await asyncio.wait_for(store.failed.wait(), timeout=1)
+    rec.record_llm(
+        provider="demo",
+        model="demo-model",
+        request_model="demo-model",
+        input_tokens=7,
+        output_tokens=8,
+        latency_ms=1.0,
+        run_id="run-retry",
+    )
+    await rec.flush()
+
+    assert "run-retry" in store.traces
+    assert store.traces["run-retry"]["input_tokens"] == 7
+    assert store.traces["run-retry"]["output_tokens"] == 8
+    assert [span["kind"] for span in store.spans] == ["agent", "llm"]
     clear_trace_context()
 
 

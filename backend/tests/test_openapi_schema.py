@@ -9,7 +9,10 @@ stay stable across additive route changes while still catching:
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 def test_openapi_schema_generates(app: FastAPI) -> None:

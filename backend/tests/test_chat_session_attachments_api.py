@@ -12,6 +12,7 @@ import pytest
 from leagent.services.auth.deps import get_current_user_id
 from leagent.services.chat.service import get_chat_service
 from leagent.db.models.message import ChatSession
+from leagent.db.service import get_database_service
 from leagent.services.session.state import SessionAttachment
 
 
@@ -45,6 +46,7 @@ class TestSessionAttachmentsEndpoint:
         mock_chat.get_session = AsyncMock(return_value=None)
         app.dependency_overrides[get_current_user_id] = _user_id
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
+        app.dependency_overrides[get_database_service] = lambda: MagicMock()
         try:
             sid = uuid4()
             resp = await async_client.get(f"/api/v1/chat/sessions/{sid}/attachments")
@@ -91,6 +93,7 @@ class TestSessionAttachmentsEndpoint:
 
         app.dependency_overrides[get_current_user_id] = _user_id
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
+        app.dependency_overrides[get_database_service] = lambda: MagicMock()
         try:
             with patch("leagent.main.get_service_manager", return_value=sm):
                 resp = await async_client.get(f"/api/v1/chat/sessions/{sid}/attachments")

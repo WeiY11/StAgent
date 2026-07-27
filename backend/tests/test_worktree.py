@@ -30,6 +30,19 @@ def _fresh_registry():
     reset_worktree_registry()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_git_discovery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cap git's upward repo discovery at ``tmp_path``.
+
+    Some dev machines keep a git repo at the user's home (dotfiles), which would
+    make pytest's ``tmp_path`` look like it sits *inside* a work tree and break
+    the plain-directory assertions below. Git "will not chdir up into" a ceiling
+    dir, so name ``tmp_path``'s parent (forward slashes so the drive colon isn't
+    mistaken for a list separator on Windows).
+    """
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", tmp_path.parent.as_posix())
+
+
 @pytest.fixture()
 def git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A tiny git repo with one commit; worktrees land under tmp LEAGENT_HOME."""

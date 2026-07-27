@@ -11,12 +11,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, select
 
 import leagent.db.models  # noqa: F401
-from leagent.services.chat.service import ChatService
 from leagent.db.models.agent_memory import AgentEpisode
 from leagent.db.models.canvas import CanvasContentType, CanvasDocument
 from leagent.db.models.file import File, FileStatus, FileType
 from leagent.db.models.message import ChatSession, Message, MessageRole, MessageStatus
-from leagent.services.auth.service import LOCAL_USER_ID
+from leagent.services.chat.service import ChatService
 
 
 @pytest.mark.asyncio

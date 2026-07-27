@@ -182,4 +182,7 @@ class TestMetricsTimer:
         with metrics.tool_execution_timer("slow_tool"):
             time.sleep(0.02)
         elapsed = time.monotonic() - start
-        assert elapsed >= 0.015
+        # Windows' default timer granularity (~15.6ms) can make a 20ms sleep
+        # measure just under 15ms, so assert a looser floor that still proves a
+        # non-trivial wait was recorded.
+        assert elapsed >= 0.01

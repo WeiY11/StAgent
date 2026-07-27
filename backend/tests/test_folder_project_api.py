@@ -55,6 +55,21 @@ def _git(*args: str, cwd: Path) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_git_discovery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cap git's upward repo discovery at ``tmp_path``.
+
+    Some dev machines keep a git repo at the user's home (dotfiles), which
+    would make pytest's ``tmp_path`` look like it sits *inside* a work tree and
+    break the standalone-directory assumptions below. ``GIT_CEILING_DIRECTORIES``
+    stops git from walking above ``tmp_path`` (forward slashes so the drive
+    colon isn't mistaken for a list separator on Windows).
+    """
+    # Git "will not chdir up into" a ceiling dir, so name tmp_path's parent:
+    # from tmp_path git checks tmp_path/.git, then is blocked from ascending.
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", tmp_path.parent.as_posix())
+
+
 @pytest.fixture()
 def git_project(tmp_path: Path) -> Path:
     if not shutil.which("git"):

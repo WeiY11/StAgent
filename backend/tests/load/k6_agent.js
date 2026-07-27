@@ -1,6 +1,7 @@
-// k6 scenario: sustained load on the Agent Runtime's streaming endpoint.
-// Uses HTTP (Gateway SSE/WS) for portability; swap to gRPC with xk6-grpc
-// once the target deploy exposes Agent Runtime gRPC directly.
+// k6 scenario: sustained load on the real chat streaming endpoint.
+// Posts multipart form data to /api/v1/chat/stream (matching the app + the
+// perf_benchmark harness) and treats a 2xx stream without a `data: [DONE]`
+// terminator as a failure.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -26,22 +27,27 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.LEAGENT_BASE_URL || 'http://localhost:8000';
+const BASE_URL = __ENV.LEAGENT_BASE_URL || 'http://localhost:7860';
 const TOKEN = __ENV.LEAGENT_TOKEN || '';
 
 export default function () {
+  // Empty session_id lets the API create an owned session for the caller.
+  const headers = {
+    Accept: 'text/event-stream',
+    ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
+  };
   const res = http.post(
-    `${BASE_URL}/api/v1/chat`,
-    JSON.stringify({ message: 'hello k6', session_id: __VU + '-' + __ITER }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${TOKEN}`,
-      },
-    }
+    `${BASE_URL}/api/v1/chat/stream`,
+    { message: 'hello k6', session_id: '' },
+    { headers }
   );
+  const ok2xx = res.status >= 200 && res.status < 300;
+  const terminated = typeof res.body === 'string' && res.body.includes('data: [DONE]');
   p95.add(res.timings.duration);
-  failures.add(res.status >= 500);
-  check(res, { 'status 2xx': (r) => r.status >= 200 && r.status < 300 });
+  failures.add(!(ok2xx && terminated));
+  check(res, {
+    'status 2xx': () => ok2xx,
+    'stream terminated': () => terminated,
+  });
   sleep(0.1);
 }

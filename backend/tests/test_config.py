@@ -22,7 +22,6 @@ from leagent.config.settings import (
     get_settings,
 )
 
-
 # ===========================================================================
 # get_settings singleton
 # ===========================================================================
@@ -73,6 +72,18 @@ class TestSettingsTopLevel:
     def test_has_workers(self) -> None:
         assert isinstance(get_settings().workers, int)
 
+    def test_skip_startup_migrations_defaults_false(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("LEAGENT_SKIP_STARTUP_MIGRATIONS", raising=False)
+        assert Settings().skip_startup_migrations is False
+
+    def test_skip_startup_migrations_env_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LEAGENT_SKIP_STARTUP_MIGRATIONS", "true")
+        assert Settings().skip_startup_migrations is True
+
     def test_rules_directory(self) -> None:
         assert isinstance(get_settings().rules_directory, str)
 
@@ -110,6 +121,48 @@ class TestDatabaseSettings:
     def test_sync_url_sqlite(self) -> None:
         db = get_settings().database
         assert db.sync_url.startswith("sqlite:///")
+
+    def test_sync_url_strips_aiosqlite_from_explicit_database_url(self) -> None:
+        db = DatabaseSettings(database_url="sqlite+aiosqlite:///C:/tmp/leagent.db")
+        assert db.sync_url == "sqlite:///C:/tmp/leagent.db"
+
+
+class TestDatabaseBackendSelection:
+    def test_documented_database_url_selects_postgresql(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DB_DATABASE_URL", raising=False)
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+        )
+        db = DatabaseSettings()
+        assert db.backend == "postgresql"
+        assert db.is_postgresql is True
+        assert db.is_sqlite is False
+
+    def test_legacy_db_database_url_remains_supported(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setenv(
+            "DB_DATABASE_URL",
+            "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+        )
+        assert DatabaseSettings().backend == "postgresql"
+
+    def test_default_backend_is_sqlite(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("DB_DATABASE_URL", raising=False)
+        db = DatabaseSettings()
+        assert db.backend == "sqlite"
+        assert db.is_sqlite is True
+
+    def test_non_sqlite_driver_requires_database_url(self) -> None:
+        with pytest.raises(ValueError, match="database_url"):
+            DatabaseSettings(driver="postgresql+asyncpg", database_url="")
 
 
 class TestLLMSettings:

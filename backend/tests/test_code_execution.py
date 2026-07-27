@@ -172,6 +172,88 @@ async def test_subprocess_sandbox_reports_image_artifacts_without_inline_base64(
         assert "base64" not in produced
 
 
+@pytest.mark.asyncio
+async def test_subprocess_sandbox_passes_configured_policy_to_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from types import SimpleNamespace
+
+    from leagent.code import sandbox as mod
+    from leagent.code.workspace import Workspace
+
+    captured: dict[str, object] = {}
+
+    class Engine:
+        async def python_sandbox(self, source, **kwargs):  # noqa: ANN001
+            captured["source"] = source
+            captured.update(kwargs)
+            return SimpleNamespace(
+                produced_files=[],
+                status="ok",
+                stdout="",
+                stderr="",
+                metadata={"result": {"ok": True}},
+                error=None,
+                duration_ms=1,
+                returncode=0,
+            )
+
+    monkeypatch.setattr(mod, "get_execution_engine", lambda: Engine())
+
+    sandbox = mod.SubprocessSandbox(
+        python_exe=sys.executable,
+        default_cpu_sec=3.0,
+        default_memory_bytes=123,
+        default_file_bytes=456,
+        default_open_files=17,
+        default_max_processes=19,
+        import_tier="extended",
+        isolation_mode="workspace-write",
+    )
+    workspace = Workspace(root=tmp_path / "workspace", session_id="s1", created_at=time.time())
+
+    res = await sandbox.execute(
+        "result = {'ok': True}",
+        workspace=workspace,
+        timeout_sec=7.0,
+        memory_bytes=789,
+        file_bytes=1011,
+        import_tier="stdlib",
+    )
+
+    assert res.ok is True
+    policy = captured["policy"]
+    assert policy.timeout_sec == 7.0  # type: ignore[attr-defined]
+    assert policy.memory_bytes == 789  # type: ignore[attr-defined]
+    assert policy.file_bytes == 1011  # type: ignore[attr-defined]
+    assert policy.open_files == 17  # type: ignore[attr-defined]
+    assert policy.max_processes == 19  # type: ignore[attr-defined]
+    assert captured["cpu_sec"] == 3.0
+    assert captured["import_tier"] == "stdlib"
+    assert captured["isolation_mode"] == "workspace-write"
+
+
+@pytest.mark.asyncio
+async def test_subprocess_sandbox_stdlib_import_tier_blocks_first_party() -> None:
+    from leagent.code.sandbox import SubprocessSandbox
+    from leagent.code.workspace import WorkspaceManager
+
+    with tempfile.TemporaryDirectory() as root:
+        mgr = WorkspaceManager(root)
+        ws = mgr.get(user_id="u", session_id="test-import-tier")
+        sandbox = SubprocessSandbox(python_exe=sys.executable, import_tier="stdlib")
+
+        res = await sandbox.execute(
+            "import leagent\nresult = {'unexpected': True}\n",
+            workspace=ws,
+            timeout_sec=10.0,
+        )
+
+        assert res.status == "error"
+        assert "not allowed" in (res.error or res.stderr)
+
+
 @pytest.mark.skip(reason="Unrestricted subprocess execution does not enforce workspace read boundaries.")
 @pytest.mark.asyncio
 async def test_subprocess_sandbox_blocks_reads_outside_workspace() -> None:

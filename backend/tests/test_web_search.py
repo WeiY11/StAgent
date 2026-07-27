@@ -107,12 +107,17 @@ def test_hits_look_relevant() -> None:
 
 
 def test_ssrf_allows_public_example() -> None:
-    # example.com is a well-known public name; DNS may fail offline — tolerate resolve errors.
+    # example.com is a well-known public name; the SSRF guard should allow it
+    # when it resolves to a public IP. Some CI/dev networks run a captive or
+    # benchmarking DNS that hands back a non-public address (e.g. RFC 2544
+    # 198.18.0.0/15) or fail to resolve at all — both are environmental, not a
+    # code defect, so tolerate them the same way.
     try:
         out = assert_public_http_url("https://example.com/path")
         assert out.startswith("https://example.com")
     except ValueError as e:
-        if "Cannot resolve" not in str(e):
+        msg = str(e)
+        if "Cannot resolve" not in msg and "non-public" not in msg:
             raise
 
 

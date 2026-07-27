@@ -67,10 +67,10 @@ async def test_todo_write_persists_via_session_manager(monkeypatch: pytest.Monke
     stored: list[SessionTodo] = []
 
     class _FakeSessionManager:
-        async def get_todos(self, sid):  # noqa: ANN001
+        async def get_todos(self, sid, *, user_id=None):  # noqa: ANN001
             return list(stored)
 
-        async def set_todos(self, sid, todos):  # noqa: ANN001
+        async def set_todos(self, sid, todos, *, user_id=None):  # noqa: ANN001
             if todos and isinstance(todos[0], dict):
                 stored.clear()
                 stored.extend(session_todos_from_tool_dicts(todos))
@@ -108,7 +108,7 @@ async def test_todo_read_hydrates_from_session(monkeypatch: pytest.MonkeyPatch) 
     session_id = uuid4()
 
     class _FakeSessionManager:
-        async def get_todos(self, sid):  # noqa: ANN001
+        async def get_todos(self, sid, *, user_id=None):  # noqa: ANN001
             return [SessionTodo(id="x", content="Hydrated", status="completed", order=0)]
 
     class _FakeSM:
@@ -152,3 +152,38 @@ async def test_update_todo_status_demotes_other_in_progress(tmp_path) -> None:
 
     reloaded = await manager.get_todos(session_id)
     assert {t.id: t.status for t in reloaded} == by_id
+
+
+@pytest.mark.asyncio
+async def test_session_todos_reject_non_owner(tmp_path) -> None:
+    from leagent.config.settings import get_settings
+    from leagent.services.session.manager import SessionManager
+
+    settings = get_settings()
+    settings.files.upload_dir = str(tmp_path / "uploads")
+    settings.session.in_memory_lru_size = 4
+
+    session_id = uuid4()
+    owner_id = uuid4()
+    other_id = uuid4()
+    manager = SessionManager(settings, database=None)
+
+    await manager.get_or_create(session_id, user_id=owner_id)
+    await manager.set_todos(
+        session_id,
+        [{"id": "a", "content": "A", "status": "pending"}],
+        user_id=owner_id,
+    )
+
+    with pytest.raises(PermissionError):
+        await manager.get_todos(session_id, user_id=other_id)
+
+    with pytest.raises(PermissionError):
+        await manager.update_todo_status(
+            session_id,
+            "a",
+            "completed",
+            user_id=other_id,
+        )
+
+    assert (await manager.get_todos(session_id, user_id=owner_id))[0].status == "pending"

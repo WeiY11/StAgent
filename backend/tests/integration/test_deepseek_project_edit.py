@@ -9,7 +9,7 @@ Skipped when ``DEEPSEEK_API_KEY`` is unset. Offline coverage lives in
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,6 +18,9 @@ from tests.integration.conftest import (
     requires_live_deepseek,
 )
 from tests.integration.test_edit_repair_offline import _write_calc_project
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = [pytest.mark.integration, pytest.mark.live, requires_live_deepseek]
 
@@ -92,7 +95,8 @@ async def test_live_deepseek_project_edit_add_function(
         f"reason={trace.final_reason}, tools={trace.tool_uses}"
     )
     assert trace.used_tool("project_read")
-    assert trace.used_tool("project_edit")
+    assert trace.used_tool("project_edit") or trace.used_tool("project_multiedit")
+    assert not trace.used_tool("project_write")
 
     text = (calc_project / "calc.py").read_text(encoding="utf-8")
     assert "def add(" in text

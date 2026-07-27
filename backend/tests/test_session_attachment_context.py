@@ -24,14 +24,19 @@ async def test_tool_extra_for_chat_session_includes_normalized_paths(tmp_path: P
         filename = "doc.txt"
         storage_path = resolved_path
 
+    calls = []
+
     class _SM:
-        async def list_attachments(self, _sid):  # noqa: ANN001
+        async def list_attachments(self, _sid, *, user_id=None):  # noqa: ANN001
+            calls.append(user_id)
             return [_Att]
 
-    extra = await tool_extra_for_chat_session(_SM(), uuid4())
+    user_id = uuid4()
+    extra = await tool_extra_for_chat_session(_SM(), uuid4(), user_id=user_id)
     assert extra["attachments"] == [resolved_path]
     assert "attachment_lookup" in extra
     assert extra["attachment_lookup"]["by_id"][str(att_id)] == resolved_path
+    assert calls == [user_id]
 
 
 @pytest.mark.asyncio
@@ -47,7 +52,7 @@ async def test_tool_extra_for_chat_session_merges_extra_paths(tmp_path: Path) ->
     att = SimpleNamespace(id=uuid4(), filename="a.txt", storage_path=ra)
 
     class _SM:
-        async def list_attachments(self, _sid):  # noqa: ANN001
+        async def list_attachments(self, _sid, *, user_id=None):  # noqa: ANN001
             return [att]
 
     extra = await tool_extra_for_chat_session(_SM(), uuid4(), extra_paths=[rb])

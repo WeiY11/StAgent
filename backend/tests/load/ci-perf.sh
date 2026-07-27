@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-HOST="${LEAGENT_HOST:-http://localhost:8000}"
+HOST="${LEAGENT_HOST:-http://localhost:7860}"
 TOKEN="${LEAGENT_TOKEN:-}"
 REPORT_DIR="${REPORT_DIR:-reports}"
 

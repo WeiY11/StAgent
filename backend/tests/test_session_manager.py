@@ -30,6 +30,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 import leagent.db.models  # noqa: F401 - ensure metadata is loaded
 from leagent.config.settings import get_settings
+from leagent.services.cache.service import CacheService
 from leagent.services.session.manager import SessionManager
 from leagent.services.session.state import (
     ATTACHMENT_KIND_DOCUMENT,
@@ -38,7 +39,6 @@ from leagent.services.session.state import (
     SessionState,
 )
 from leagent.services.session.store import TieredSessionStore
-
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -123,6 +123,14 @@ async def manager(settings_for_session, database) -> SessionManager:  # noqa: AN
     return SessionManager(settings_for_session, database=database)
 
 
+@pytest.fixture()
+async def cache_service(settings_for_session) -> CacheService:  # noqa: ANN001
+    cache = CacheService(settings_for_session)
+    await cache.start()
+    yield cache
+    await cache.stop()
+
+
 def _upload(contents: bytes, *, filename: str, content_type: str) -> UploadFile:
     return UploadFile(
         file=io.BytesIO(contents),
@@ -162,6 +170,28 @@ class TestSessionStateSerialisation:
         fp2 = SessionState.fingerprint_system_prompt("you are helpful")
         fp3 = SessionState.fingerprint_system_prompt("you are HELPFUL")
         assert fp1 == fp2 != fp3
+
+
+@pytest.mark.asyncio
+async def test_tiered_session_store_reads_through_shared_cache(
+    settings_for_session,
+    database,
+    cache_service: CacheService,
+) -> None:
+    sid = uuid4()
+    state = SessionState(session_id=sid, user_id=uuid4())
+    state.append_message(SessionMessage(role="user", content="cached hello"))
+    store = TieredSessionStore(settings_for_session, database=database, cache=cache_service)
+
+    await store.save(state)
+    store._lru.drop(sid)
+    store._database = None  # type: ignore[assignment]
+
+    loaded = await store.load(sid)
+
+    assert loaded is not None
+    assert loaded.session_id == sid
+    assert [message.content for message in loaded.messages] == ["cached hello"]
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +268,55 @@ class TestSessionManagerTranscript:
         state = await manager.load(sid)
         assert state is not None
         assert [a.filename for a in state.attachments] == ["notes.txt"]
+
+    async def test_list_attachments_rejects_non_owner(
+        self,
+        manager: SessionManager,
+    ) -> None:
+        sid = uuid4()
+        owner_id = uuid4()
+        other_id = uuid4()
+        await manager.get_or_create(sid, user_id=owner_id)
+
+        async with manager.locked(sid) as state:
+            state.upsert_attachment(
+                SessionAttachment(
+                    id=uuid4(),
+                    session_id=sid,
+                    filename="secret.txt",
+                    storage_path="/tmp/secret.txt",
+                    content_type="text/plain",
+                    kind="text",
+                    size=6,
+                    sha256="0" * 64,
+                )
+            )
+
+        with pytest.raises(PermissionError):
+            await manager.list_attachments(sid, user_id=other_id)
+
+        assert [a.filename for a in await manager.list_attachments(sid, user_id=owner_id)] == [
+            "secret.txt"
+        ]
+
+    async def test_attach_files_rejects_non_owner_before_state_mutation(
+        self,
+        manager: SessionManager,
+    ) -> None:
+        sid = uuid4()
+        owner_id = uuid4()
+        other_id = uuid4()
+        await manager.get_or_create(sid, user_id=owner_id)
+
+        upload = _upload(b"leak", filename="leak.txt", content_type="text/plain")
+
+        with pytest.raises(PermissionError):
+            await manager.attach_files(sid, [upload], user_id=other_id)
+
+        state = await manager.load(sid)
+        assert state is not None
+        assert state.user_id == owner_id
+        assert state.attachments == []
 
     async def test_attachment_manifest_includes_direct_path_guidance(
         self, manager: SessionManager

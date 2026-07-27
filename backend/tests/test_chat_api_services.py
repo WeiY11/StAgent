@@ -434,7 +434,7 @@ class TestCompletionEndpointDelegation:
         )
         mock_db = MagicMock()
 
-        with patch("leagent.api.v1.chat.build_agent_controller", return_value=None):
+        with patch("leagent.api.v1.chat.openai_compat.build_agent_controller", return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await create_chat_completion(req, uid, svc, mock_db)
             assert exc_info.value.status_code == 503

@@ -100,7 +100,7 @@ async def test_default_agent_includes_session_attachments(
     session_id = uuid4()
 
     class _SessionManager:
-        async def list_attachments(self, _session_id):  # noqa: ANN001
+        async def list_attachments(self, _session_id, *, user_id=None):  # noqa: ANN001
             return [
                 SessionAttachment(
                     id=uuid4(),

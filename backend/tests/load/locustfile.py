@@ -1,12 +1,18 @@
-"""Locust profile covering the main HTTP surface of the API Gateway.
+"""Locust profile covering the real HTTP surface of the API.
 
-Run: ``locust -f tests/load/locustfile.py --host=http://localhost:8000``.
+Run: ``locust -f tests/load/locustfile.py --host=http://localhost:7860``.
 
 Environment:
 
 * ``LEAGENT_TOKEN`` — bearer token used for every request. Required.
-* ``LEAGENT_FLOW_ID`` — a flow id to invoke; optional.
-* ``LEAGENT_TOOL`` — a tool name to invoke; default ``echo``.
+* ``LEAGENT_FLOW_ID`` — a saved flow id to run via the DAG engine; optional.
+* ``LEAGENT_PERF_P95_BUDGET_MS`` — p95 latency budget in ms (default 750).
+* ``LEAGENT_PERF_ERROR_BUDGET`` — allowed error fraction (default 0.01).
+
+Only routes that actually exist are exercised: the multipart chat SSE stream,
+the workflow run endpoint (when a flow id is seeded), file upload, and health.
+A 2xx chat response that never emits ``data: [DONE]`` is counted as a failure,
+matching ``scripts/perf_benchmark.py``.
 """
 
 from __future__ import annotations
@@ -19,10 +25,8 @@ from typing import Any
 
 from locust import HttpUser, between, events, task
 
-
 TOKEN = os.getenv("LEAGENT_TOKEN", "")
-FLOW_ID = os.getenv("LEAGENT_FLOW_ID")
-TOOL_NAME = os.getenv("LEAGENT_TOOL", "echo")
+FLOW_ID = os.getenv("LEAGENT_FLOW_ID", "")
 
 
 def _rand(n: int = 16) -> str:
@@ -41,29 +45,23 @@ class LeAgentUser(HttpUser):
 
     # ---- realistic weighted mix ----
     @task(5)
-    def chat(self) -> None:
-        payload: dict[str, Any] = {
-            "message": "hello " + _rand(4),
-            "session_id": _rand(),
-        }
-        with self.client.post("/api/v1/chat", json=payload,
-                               catch_response=True, name="POST /chat") as r:
-            if r.status_code >= 500:
-                r.failure(f"5xx: {r.status_code}")
-
-    @task(2)
-    def flow_execute(self) -> None:
-        if not FLOW_ID:
-            return
-        payload = {"flow_id": FLOW_ID, "inputs": {"text": _rand(8)}}
-        self.client.post("/api/v1/flows/execute", json=payload,
-                          name="POST /flows/execute")
-
-    @task(2)
-    def tool_invoke(self) -> None:
-        payload = {"name": TOOL_NAME, "arguments": {"text": _rand(16)}}
-        self.client.post("/api/v1/tools/invoke", json=payload,
-                          name="POST /tools/invoke")
+    def chat_stream(self) -> None:
+        # Empty session_id lets the API create an owned session for the caller.
+        data = {"message": "hello " + _rand(4), "session_id": ""}
+        with self.client.post(
+            "/api/v1/chat/stream",
+            data=data,
+            headers={"Accept": "text/event-stream"},
+            stream=True,
+            catch_response=True,
+            name="POST /chat/stream",
+        ) as r:
+            if r.status_code >= 400:
+                r.failure(f"http {r.status_code}")
+                return
+            body = r.text
+            if "data: [DONE]" not in body:
+                r.failure("missing_terminal_event")
 
     @task(1)
     def upload(self) -> None:
@@ -74,6 +72,20 @@ class LeAgentUser(HttpUser):
             name="POST /files/upload",
         )
 
+    @task(2)
+    def flow_run(self) -> None:
+        # Only meaningful when a saved flow id is seeded into the environment.
+        if not FLOW_ID:
+            return
+        with self.client.post(
+            f"/api/v1/workflow/flows/{FLOW_ID}/run",
+            json={"inputs": {"text": _rand(8)}},
+            catch_response=True,
+            name="POST /workflow/flows/{id}/run",
+        ) as r:
+            if r.status_code >= 400:
+                r.failure(f"http {r.status_code}")
+
     @task(3)
     def health(self) -> None:
         self.client.get("/health", name="GET /health")
@@ -81,8 +93,8 @@ class LeAgentUser(HttpUser):
 
 # --- CI gate -----------------------------------------------------------------
 
-_P95_BUDGET_MS = 750.0
-_ERROR_BUDGET = 0.01
+_P95_BUDGET_MS = float(os.getenv("LEAGENT_PERF_P95_BUDGET_MS", "750"))
+_ERROR_BUDGET = float(os.getenv("LEAGENT_PERF_ERROR_BUDGET", "0.01"))
 
 
 @events.quitting.add_listener

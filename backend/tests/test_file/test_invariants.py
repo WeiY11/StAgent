@@ -41,7 +41,9 @@ def _blob_path_files() -> list[tuple[Path, str]]:
     """Return (path, relative_str) pairs for blob-layer Python files."""
     out: list[tuple[Path, str]] = []
     for py in _python_files(BACKEND_ROOT):
-        rel = str(py.relative_to(BACKEND_ROOT))
+        # Normalize to POSIX separators so the forward-slash allowlist / skip /
+        # prefix keys below match on Windows too (relative_to yields backslashes).
+        rel = py.relative_to(BACKEND_ROOT).as_posix()
         if any(rel.startswith(p) for p in _TIER_B_PREFIXES):
             continue
         if any(d in rel for d in _EXCLUDED_DIRS):
@@ -78,6 +80,8 @@ class TestINV1_NoDirectWriteInBlobPaths:
         # Durable operational registries with their own file formats.
         "cron/repository.py": "atomic write of the cron jobs registry file",
         "extensions/manager.py": "persists the installed-extensions registry",
+        "harness/report.py": "writes harness episode reports under LEAGENT_HOME reports dir",
+        "tools/data/stock_alert.py": "persists the stock-alert registry JSON under LEAGENT_HOME",
         "mcp/manager.py": "persists the mcp_servers.yaml config file",
         "channels/weixin/store.py": "atomic write of Weixin credential/context-token store",
         # Security control plane: local secret + setup-state files (0600).
@@ -125,7 +129,7 @@ class TestINV1_NoDirectWriteInBlobPaths:
                 continue
             if any(rel.startswith(p) for p in self._INV1_ALLOWED_PREFIXES):
                 continue
-            for i, line in enumerate(py.read_text().splitlines(), 1):
+            for i, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
                 stripped = line.lstrip()
                 if stripped.startswith("#") or stripped.startswith('"""'):
                     continue
@@ -150,7 +154,7 @@ class TestINV5_ProjectNeverImportsFileService:
         violations: list[str] = []
         pattern = re.compile(r"(?:FileService|FileRef|file_service)")
         for py in _python_files(project_dir):
-            for i, line in enumerate(py.read_text().splitlines(), 1):
+            for i, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
                 if line.lstrip().startswith("#"):
                     continue
                 if pattern.search(line):
@@ -178,7 +182,7 @@ class TestINV7_PathContainmentInBlobLayer:
         for py, rel in _blob_path_files():
             if rel in self._SKIP_FILES:
                 continue
-            for i, line in enumerate(py.read_text().splitlines(), 1):
+            for i, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
                 if line.lstrip().startswith("#"):
                     continue
                 if self._CONTAINMENT_PAT.search(line):

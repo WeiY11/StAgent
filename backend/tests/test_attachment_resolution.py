@@ -18,6 +18,7 @@ from leagent.file.attachment_context import (
 @pytest.mark.asyncio
 async def test_resolve_request_attachment_paths_maps_id_and_name(monkeypatch, tmp_path: Path) -> None:
     session_id = uuid4()
+    user_id = uuid4()
     attachment_id = uuid4()
     stored = tmp_path / f"{attachment_id}_budget.xlsx"
     stored.write_text("demo")
@@ -33,8 +34,11 @@ async def test_resolve_request_attachment_paths_maps_id_and_name(monkeypatch, tm
         sha256="abc123",
     )
 
+    calls = []
+
     class _SessionManager:
-        async def list_attachments(self, _sid):
+        async def list_attachments(self, _sid, *, user_id=None):
+            calls.append(user_id)
             return [att]
 
     fake_sm = SimpleNamespace(session_manager=_SessionManager())
@@ -43,10 +47,12 @@ async def test_resolve_request_attachment_paths_maps_id_and_name(monkeypatch, tm
     resolved = await chat_api._resolve_request_attachment_paths(
         session_id,
         [str(attachment_id), "budget.xlsx", "missing.txt"],
+        user_id=user_id,
     )
     assert str(stored.resolve()) in resolved
     # Unknown refs are passed through but normalized only when resolvable.
     assert all(Path(p).is_absolute() for p in resolved)
+    assert calls == [user_id]
 
 
 def test_normalize_attachment_paths_filters_and_dedupes(tmp_path: Path) -> None:
