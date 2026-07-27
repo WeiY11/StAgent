@@ -13,14 +13,18 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, text
+from sqlalchemy import delete, func
+from sqlalchemy import update as sa_update
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.db.models.message import (
-    ChatSession,
-    Message,
-    MessageRole,
+from leagent.db.models.message import ChatSession, Message, MessageRole
+from leagent.db.sqlite_compat import (
+    load_chat_session_by_id,
+    parse_uuid_stored,
+    session_dialect_name,
+    uuid_column_equals,
+    uuid_column_in,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,7 +48,9 @@ async def deduplicate_user_messages(
         "message_counts_updated", "details"}``.
     """
     session_filter = (
-        col(Message.session_id) == session_id if session_id else True
+        uuid_column_equals(db_session, Message.session_id, session_id)
+        if session_id
+        else True
     )
 
     # Find (session_id, content) groups with more than one USER row.
@@ -76,7 +82,7 @@ async def deduplicate_user_messages(
     details: list[dict[str, Any]] = []
 
     for row in dup_groups:
-        sid = row.session_id
+        sid = parse_uuid_stored(str(row.session_id))
         content = row.content
         group_count = row.cnt
 
@@ -84,7 +90,7 @@ async def deduplicate_user_messages(
         ids_query = (
             select(Message.id)
             .where(
-                Message.session_id == sid,
+                uuid_column_equals(db_session, Message.session_id, sid),
                 Message.role == MessageRole.USER,
                 Message.content == content,
             )
@@ -98,7 +104,7 @@ async def deduplicate_user_messages(
 
         if delete_ids and not dry_run:
             await db_session.execute(
-                delete(Message).where(col(Message.id).in_(delete_ids))
+                delete(Message).where(uuid_column_in(db_session, Message.id, delete_ids))
             )
 
         total_deleted += len(delete_ids)
@@ -124,14 +130,15 @@ async def deduplicate_user_messages(
         if dry_run:
             continue
         actual_count_result = await db_session.execute(
-            select(func.count(Message.id)).where(Message.session_id == sid)
+            select(func.count(Message.id)).where(
+                uuid_column_equals(db_session, Message.session_id, sid)
+            )
         )
         actual_count = actual_count_result.scalar_one()
 
-        cs_result = await db_session.execute(
-            select(ChatSession).where(col(ChatSession.id) == sid)
+        chat_session = await load_chat_session_by_id(
+            db_session, sid, owner_user_id=None
         )
-        chat_session = cs_result.scalar_one_or_none()
         if chat_session and chat_session.message_count != actual_count:
             logger.info(
                 "dedup_user_messages: session=%s message_count %d -> %d",
@@ -139,8 +146,15 @@ async def deduplicate_user_messages(
                 chat_session.message_count,
                 actual_count,
             )
-            chat_session.message_count = actual_count
-            db_session.add(chat_session)
+            if session_dialect_name(db_session) == "sqlite":
+                await db_session.execute(
+                    sa_update(ChatSession)
+                    .where(uuid_column_equals(db_session, ChatSession.id, sid))
+                    .values(message_count=actual_count)
+                )
+            else:
+                chat_session.message_count = actual_count
+                db_session.add(chat_session)
             counts_updated += 1
 
     return {

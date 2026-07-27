@@ -6,7 +6,6 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 
-
 _BLOCKED_HOSTS = frozenset(
     {
         "localhost",
@@ -59,7 +58,6 @@ def assert_public_http_url(url: str) -> str:
         if "Refusing" in str(e):
             raise
         # Not an IP literal — resolve DNS.
-        pass
 
     try:
         infos = socket.getaddrinfo(host, None)

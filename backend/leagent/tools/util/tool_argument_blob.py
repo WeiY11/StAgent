@@ -237,7 +237,7 @@ class ToolArgumentBlobStore:
         if not bid:
             return None
         async with cls._lock:
-            for (sid, stored_bid), _rec in cls._blobs.items():
+            for (sid, stored_bid) in cls._blobs.keys():
                 if stored_bid == bid:
                     return sid
         return None

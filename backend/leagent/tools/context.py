@@ -106,7 +106,7 @@ def resolve_subagent_run_identity(
 
 def build_tool_context(
     *,
-    service_manager: "ServiceManager | None" = None,
+    service_manager: ServiceManager | None = None,
     user_id: Any = None,
     session_id: Any = None,
     task_id: Any = None,

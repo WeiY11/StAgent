@@ -22,15 +22,30 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 import structlog
 from sqlmodel import col, select
 
 from leagent.config.settings import Settings
+from leagent.db.models import (
+    CodingProject,
+    CodingProjectRuntimeKind,
+    CodingProjectStatus,
+    Folder,
+)
+from leagent.db.sqlite_compat import (
+    load_entity_by_id,
+    same_user_id,
+    uuid_column_equals,
+)
+from leagent.project.paths import (
+    ProjectPathSafetyError,
+    validate_project_path,
+)
 from leagent.project.ports import PortAllocator
 from leagent.project.preview_tokens import (
     mint_preview_token,
@@ -47,17 +62,6 @@ from leagent.project.templates import (
     copy_template_into,
     list_templates,
     load_template,
-)
-from leagent.db.models import (
-    CodingProject,
-    CodingProjectRuntimeKind,
-    CodingProjectStatus,
-    Folder,
-)
-from leagent.db.sqlite_compat import load_entity_by_id
-from leagent.project.paths import (
-    ProjectPathSafetyError,
-    validate_project_path,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -76,7 +80,7 @@ class CodingProjectQuotaError(RuntimeError):
 
 def _utc_naive_now() -> datetime:
     """Match the rest of the schema which stores naive UTC timestamps."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class CodingProjectManager:
@@ -85,7 +89,7 @@ class CodingProjectManager:
     def __init__(
         self,
         settings: Settings,
-        database: "DatabaseService",
+        database: DatabaseService,
         *,
         ports: PortAllocator | None = None,
         supervisor: DevServerSupervisor | None = None,
@@ -168,9 +172,9 @@ class CodingProjectManager:
         user_id: UUID,
         name: str,
         template: str,
-        folder_id: Optional[UUID] = None,
-        into_path: Optional[str] = None,
-        description: Optional[str] = None,
+        folder_id: UUID | None = None,
+        into_path: str | None = None,
+        description: str | None = None,
     ) -> CodingProject:
         """Create a new coding-project row and copy the template files.
 
@@ -217,7 +221,11 @@ class CodingProjectManager:
                 folder = await load_entity_by_id(
                     session, Folder, folder_uuid, parent_table="folders"
                 )
-                if folder is None or folder.user_id != user_id or folder.is_deleted:
+                if (
+                    folder is None
+                    or folder.is_deleted
+                    or not same_user_id(folder.user_id, user_id)
+                ):
                     raise ProjectPathSafetyError(
                         "Folder not found or not owned by user."
                     )
@@ -254,7 +262,7 @@ class CodingProjectManager:
     async def _allocate_target_dir(
         self,
         user_id: UUID,
-        into_path: Optional[str],
+        into_path: str | None,
     ) -> Path:
         if into_path:
             try:
@@ -356,9 +364,10 @@ class CodingProjectManager:
         if marker is not None and marker.exists():
             return
 
-        from leagent.project.binaries import assert_argv_allowed
         import asyncio
         import subprocess
+
+        from leagent.project.binaries import assert_argv_allowed
 
         argv = tmpl.expand_argv(
             tmpl.install_argv,
@@ -384,7 +393,7 @@ class CodingProjectManager:
                 proc.communicate(),
                 timeout=self._settings.coding_projects.npm_install_timeout_sec,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             raise TimeoutError(
@@ -422,7 +431,11 @@ class CodingProjectManager:
         project_id: UUID,
         user_id: UUID,
     ) -> None:
-        # Always stop first; we keep the on-disk dir intact.
+        # Authorize before touching the live supervisor; a guessed project_id
+        # must not be able to stop another user's dev server.
+        await self._get_for_user(project_id, user_id)
+
+        # Keep the on-disk dir intact, but stop any live process for this row.
         try:
             await self._supervisor.stop(project_id)
         except Exception:  # noqa: BLE001
@@ -436,7 +449,7 @@ class CodingProjectManager:
             project = await load_entity_by_id(
                 session, CodingProject, project_id, parent_table="coding_projects"
             )
-            if project is None or project.user_id != user_id:
+            if project is None or not same_user_id(project.user_id, user_id):
                 raise CodingProjectNotFoundError(str(project_id))
             project.is_deleted = True
             project.deleted_at = _utc_naive_now()
@@ -448,7 +461,7 @@ class CodingProjectManager:
         async with self._db.session() as session:
             stmt = (
                 select(CodingProject)
-                .where(CodingProject.user_id == user_id)
+                .where(uuid_column_equals(session, CodingProject.user_id, user_id))
                 .where(col(CodingProject.is_deleted).is_(False))
                 .order_by(col(CodingProject.created_at).desc())
             )
@@ -471,8 +484,8 @@ class CodingProjectManager:
         async with self._db.session() as session:
             stmt = (
                 select(CodingProject)
-                .where(CodingProject.folder_id == folder_id)
-                .where(CodingProject.user_id == user_id)
+                .where(uuid_column_equals(session, CodingProject.folder_id, folder_id))
+                .where(uuid_column_equals(session, CodingProject.user_id, user_id))
                 .where(col(CodingProject.is_deleted).is_(False))
             )
             result = await session.exec(stmt)
@@ -493,7 +506,7 @@ class CodingProjectManager:
             if (
                 project is None
                 or project.is_deleted
-                or project.user_id != user_id
+                or not same_user_id(project.user_id, user_id)
             ):
                 raise CodingProjectNotFoundError(str(project_id))
             return project
@@ -516,7 +529,7 @@ class CodingProjectManager:
         # Filter to the calling user's running servers.
         async with self._db.session() as session:
             stmt = select(CodingProject).where(
-                CodingProject.user_id == user_id,
+                uuid_column_equals(session, CodingProject.user_id, user_id),
                 col(CodingProject.is_deleted).is_(False),
             )
             result = await session.exec(stmt)
@@ -532,10 +545,10 @@ class CodingProjectManager:
         project_id: UUID,
         status: CodingProjectStatus,
         *,
-        port: Optional[int] = ...,
-        pid: Optional[int] = ...,
-        last_started_at: Optional[datetime] = None,
-        last_stopped_at: Optional[datetime] = None,
+        port: int | None = ...,
+        pid: int | None = ...,
+        last_started_at: datetime | None = None,
+        last_stopped_at: datetime | None = None,
     ) -> None:
         async with self._db.session() as session:
             project = await load_entity_by_id(
@@ -617,7 +630,7 @@ def get_coding_projects_service() -> CodingProjectManager:
 
 async def init_coding_projects_service(
     settings: Settings,
-    database: "DatabaseService",
+    database: DatabaseService,
 ) -> CodingProjectManager:
     """Initialise the process-wide manager singleton."""
     global _coding_projects_service

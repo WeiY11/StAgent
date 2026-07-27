@@ -4,24 +4,29 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import text
 from sqlmodel import col, func, select
 
-from leagent.services.auth.tokens import mint_token, decode_token, TokenError
-
-from leagent.services.auth.signed_url import sign_managed_file_urls_in_html
-from leagent.services.canvas.html_bundle import merge_html_files_to_document
 from leagent.db.models.canvas import CanvasContentType, CanvasDocument
 from leagent.db.models.message import ChatSession
-from leagent.services.gen_ui.schema import validate_ui_tree, ui_tree_from_json_bytes
+from leagent.db.sqlite_compat import (
+    session_dialect_name,
+    sqlite_parent_id_text,
+    uuid_column_equals,
+)
+from leagent.services.auth.signed_url import sign_managed_file_urls_in_html
+from leagent.services.auth.tokens import TokenError, decode_token, mint_token
+from leagent.services.canvas.html_bundle import merge_html_files_to_document
+from leagent.services.gen_ui.schema import validate_ui_tree
 
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
-    from leagent.services.chat.service import ChatService
     from leagent.db.service import DatabaseService
+    from leagent.services.chat.service import ChatService
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +60,7 @@ def mint_preview_token(
     revision: int,
     user_id: UUID,
 ) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(seconds=max(60, settings.canvas.preview_token_ttl_seconds))
     payload = {
         "cid": str(canvas_id),
@@ -272,8 +277,9 @@ def _scrub_full_document(raw: str) -> str:
 
 def _build_nh3_cleaner() -> Any:
     """Create an nh3.Cleaner that preserves class/style/id and SVG primitives."""
-    import nh3
     from copy import deepcopy
+
+    import nh3
 
     tags = set(nh3.ALLOWED_TAGS) | {"style"} | _SVG_TAGS
     # nh3/ammonia forbid the same tag in both `tags` and `clean_content_tags`.
@@ -769,6 +775,21 @@ def build_preview_html(
     return html, "text/html; charset=utf-8"
 
 
+async def _sqlite_canvas_id_text(db: Any, canvas_id: UUID) -> str:
+    """Return the existing SQLite text form for a logical canvas id."""
+    row = (
+        await db.execute(
+            text(
+                "SELECT CAST(canvas_id AS TEXT) FROM canvas_documents "
+                "WHERE lower(replace(CAST(canvas_id AS TEXT), '-', '')) = :plain "
+                "LIMIT 1"
+            ),
+            {"plain": canvas_id.hex.lower()},
+        )
+    ).first()
+    return str(row[0]) if row is not None else canvas_id.hex
+
+
 class CanvasService:
     """Canvas persistence + preview token helpers."""
 
@@ -805,14 +826,28 @@ class CanvasService:
         message_id: UUID | None = None,
         canvas_id: UUID | None = None,
     ) -> dict[str, Any]:
-        await self._assert_session(user_id, session_id)
+        session_row = await self._assert_session(user_id, session_id)
 
         cid = canvas_id or uuid4()
         async with self._db.session() as db:
+            existing_canvas = None
+            if canvas_id is not None:
+                existing_res = await db.execute(
+                    select(CanvasDocument.id)
+                    .where(uuid_column_equals(db, CanvasDocument.canvas_id, cid))
+                    .limit(1),
+                )
+                existing_canvas = existing_res.scalar_one_or_none()
+
             res = await db.execute(
-                select(func.max(CanvasDocument.revision)).where(CanvasDocument.canvas_id == cid),
+                select(func.max(CanvasDocument.revision)).where(
+                    uuid_column_equals(db, CanvasDocument.canvas_id, cid),
+                    uuid_column_equals(db, CanvasDocument.user_id, user_id),
+                ),
             )
             max_rev = res.scalar_one()
+            if canvas_id is not None and existing_canvas is not None and max_rev is None:
+                raise PermissionError("canvas not found or denied")
             next_rev = int(max_rev or 0) + 1
 
             if mode == "embed_url":
@@ -869,26 +904,70 @@ class CanvasService:
                 emb = None
                 ui_json = None
 
-            session_row = await db.get(ChatSession, session_id)
             ws_id = getattr(session_row, "workspace_id", None) if session_row else None
 
-            row = CanvasDocument(
-                id=uuid4(),
-                canvas_id=cid,
-                revision=next_rev,
-                session_id=session_id,
-                user_id=user_id,
-                workspace_id=ws_id,
-                message_id=message_id,
-                title=title[:500],
-                content_type=content_type,
-                html_body=html_body,
-                embed_url=emb,
-                ui_snapshot_json=ui_json,
-            )
-            db.add(row)
-            await db.flush()
-            await db.refresh(row)
+            if session_dialect_name(db) == "sqlite":
+                now = datetime.now(UTC).replace(tzinfo=None)
+                await db.execute(
+                    text(
+                        """
+                        INSERT INTO canvas_documents (
+                            created_at, updated_at, id, canvas_id, revision,
+                            session_id, user_id, workspace_id, message_id, title,
+                            content_type, html_body, embed_url, ui_snapshot_json
+                        )
+                        VALUES (
+                            :now, :now, :id, :canvas_id, :revision,
+                            :session_id, :user_id, :workspace_id, :message_id,
+                            :title, :content_type, :html_body, :embed_url,
+                            :ui_snapshot_json
+                        )
+                        """
+                    ),
+                    {
+                        "now": now,
+                        "id": uuid4().hex,
+                        "canvas_id": await _sqlite_canvas_id_text(db, cid),
+                        "revision": next_rev,
+                        "session_id": await sqlite_parent_id_text(
+                            db, "chat_sessions", session_id
+                        ),
+                        "user_id": await sqlite_parent_id_text(db, "users", user_id),
+                        "workspace_id": (
+                            await sqlite_parent_id_text(db, "workspaces", ws_id)
+                            if ws_id is not None
+                            else None
+                        ),
+                        "message_id": (
+                            await sqlite_parent_id_text(db, "messages", message_id)
+                            if message_id is not None
+                            else None
+                        ),
+                        "title": title[:500],
+                        "content_type": content_type,
+                        "html_body": html_body,
+                        "embed_url": emb,
+                        "ui_snapshot_json": ui_json,
+                    },
+                )
+            else:
+                row = CanvasDocument(
+                    id=uuid4(),
+                    canvas_id=cid,
+                    revision=next_rev,
+                    session_id=session_id,
+                    user_id=user_id,
+                    workspace_id=ws_id,
+                    message_id=message_id,
+                    title=title[:500],
+                    content_type=content_type,
+                    html_body=html_body,
+                    embed_url=emb,
+                    ui_snapshot_json=ui_json,
+                )
+                db.add(row)
+                await db.flush()
+                await db.refresh(row)
 
         token = mint_preview_token(
             self._settings,
@@ -917,8 +996,8 @@ class CanvasService:
         async with self._db.session() as db:
             stmt = (
                 select(CanvasDocument)
-                .where(CanvasDocument.session_id == session_id)
-                .where(CanvasDocument.user_id == user_id)
+                .where(uuid_column_equals(db, CanvasDocument.session_id, session_id))
+                .where(uuid_column_equals(db, CanvasDocument.user_id, user_id))
                 .order_by(col(CanvasDocument.canvas_id).asc(), col(CanvasDocument.revision).desc())
             )
             res = await db.execute(stmt)
@@ -960,8 +1039,8 @@ class CanvasService:
         async with self._db.session() as db:
             stmt = (
                 select(CanvasDocument)
-                .where(CanvasDocument.canvas_id == canvas_id)
-                .where(CanvasDocument.user_id == user_id)
+                .where(uuid_column_equals(db, CanvasDocument.canvas_id, canvas_id))
+                .where(uuid_column_equals(db, CanvasDocument.user_id, user_id))
                 .order_by(col(CanvasDocument.revision).desc())
                 .limit(1)
             )
@@ -977,9 +1056,9 @@ class CanvasService:
     ) -> CanvasDocument | None:
         async with self._db.session() as db:
             stmt = select(CanvasDocument).where(
-                CanvasDocument.canvas_id == canvas_id,
+                uuid_column_equals(db, CanvasDocument.canvas_id, canvas_id),
                 CanvasDocument.revision == revision,
-                CanvasDocument.user_id == user_id,
+                uuid_column_equals(db, CanvasDocument.user_id, user_id),
             )
             res = await db.execute(stmt)
             return res.scalar_one_or_none()
@@ -993,9 +1072,9 @@ class CanvasService:
     ) -> CanvasDocument | None:
         async with self._db.session() as db:
             stmt = select(CanvasDocument).where(
-                CanvasDocument.canvas_id == canvas_id,
+                uuid_column_equals(db, CanvasDocument.canvas_id, canvas_id),
                 CanvasDocument.revision == revision,
-                CanvasDocument.user_id == user_id,
+                uuid_column_equals(db, CanvasDocument.user_id, user_id),
             )
             res = await db.execute(stmt)
             return res.scalar_one_or_none()

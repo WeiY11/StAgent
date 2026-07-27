@@ -7,6 +7,7 @@ and credential management.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any
@@ -278,8 +279,11 @@ class WebLoginTool(BaseTool):
                     os.makedirs(os.path.dirname(session_path), exist_ok=True)
                     state = await browser_context.storage_state()
 
-                    with open(session_path, "w") as f:
-                        json.dump(state, f)
+                    def _write_session() -> None:
+                        with open(session_path, "w") as f:
+                            json.dump(state, f)
+
+                    await asyncio.to_thread(_write_session)
 
                     result["session_file"] = session_path
                     logger.info("Session saved", path=session_path)
@@ -362,21 +366,21 @@ class WebLoginTool(BaseTool):
                 await page.wait_for_selector(value, state="visible", timeout=timeout_ms)
                 return True
 
-            elif verify_type == "url_contains":
+            if verify_type == "url_contains":
                 for _ in range(timeout_ms // 500):
                     if value in page.url:
                         return True
                     await page.wait_for_timeout(500)
                 return False
 
-            elif verify_type == "url_not_contains":
+            if verify_type == "url_not_contains":
                 for _ in range(timeout_ms // 500):
                     if value not in page.url:
                         return True
                     await page.wait_for_timeout(500)
                 return False
 
-            elif verify_type == "text_present":
+            if verify_type == "text_present":
                 locator = page.locator(f"text={value}")
                 await locator.wait_for(state="visible", timeout=timeout_ms)
                 return True

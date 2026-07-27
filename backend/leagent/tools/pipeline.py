@@ -36,8 +36,8 @@ class MiddlewareContext:
     tool_name: str
     parameters: dict[str, Any]
     call_id: str
-    tool_context: "ToolContext"
-    registry: "ToolRegistry"
+    tool_context: ToolContext
+    registry: ToolRegistry
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -47,8 +47,8 @@ class ToolMiddleware(Protocol):
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         ...
 
 
@@ -61,8 +61,8 @@ class PermissionMiddleware:
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         from leagent.tools.base import ToolResult, check_tool_permission
 
         if self._permission_context is None:
@@ -89,8 +89,8 @@ class RateLimitMiddleware:
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         from leagent.tools.base import ToolResult
         from leagent.tools.rate_limit import tool_rate_limit_from_env
 
@@ -110,8 +110,8 @@ class TelemetryMiddleware:
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         from leagent.telemetry.otel import get_tracer
 
         tracer = get_tracer("leagent.tools.executor")
@@ -132,8 +132,8 @@ class CapabilityGuardMiddleware:
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         if self._allowed is None:
             return await next_fn(ctx)
 
@@ -167,8 +167,8 @@ class CircuitBreakerMiddleware:
     async def __call__(
         self,
         ctx: MiddlewareContext,
-        next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         from leagent.tools.base import ToolResult
 
         async with self._lock:
@@ -206,19 +206,19 @@ class MiddlewarePipeline:
     def __init__(self, middlewares: list[ToolMiddleware] | None = None) -> None:
         self._middlewares: list[ToolMiddleware] = list(middlewares or [])
 
-    def add(self, middleware: ToolMiddleware) -> "MiddlewarePipeline":
+    def add(self, middleware: ToolMiddleware) -> MiddlewarePipeline:
         self._middlewares.append(middleware)
         return self
 
-    def prepend(self, middleware: ToolMiddleware) -> "MiddlewarePipeline":
+    def prepend(self, middleware: ToolMiddleware) -> MiddlewarePipeline:
         self._middlewares.insert(0, middleware)
         return self
 
     async def execute(
         self,
         ctx: MiddlewareContext,
-        final: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-    ) -> "ToolResult":
+        final: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+    ) -> ToolResult:
         """Run the middleware chain, ending with ``final``."""
         chain = final
         for mw in reversed(self._middlewares):
@@ -228,9 +228,9 @@ class MiddlewarePipeline:
 
 def _wrap(
     mw: ToolMiddleware,
-    next_fn: "Callable[[MiddlewareContext], Awaitable[ToolResult]]",
-) -> "Callable[[MiddlewareContext], Awaitable[ToolResult]]":
-    async def _call(ctx: MiddlewareContext) -> "ToolResult":
+    next_fn: Callable[[MiddlewareContext], Awaitable[ToolResult]],
+) -> Callable[[MiddlewareContext], Awaitable[ToolResult]]:
+    async def _call(ctx: MiddlewareContext) -> ToolResult:
         return await mw(ctx, next_fn)
     return _call
 

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import structlog
 
-from leagent.prompts.art_playbook import render_art_playbook, should_attach_art_playbook
 from leagent.context.sources import SOURCE_REGISTRY
 from leagent.context.sources.base import ResolveContext
 from leagent.context.types import ContextBlock, ContextScope, RenderTarget
+from leagent.prompts.art_playbook import render_art_playbook, should_attach_art_playbook
 
 logger = structlog.get_logger(__name__)
 

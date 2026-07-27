@@ -156,6 +156,7 @@ class TaskGetTool(BaseTool):
         try:
             from leagent.db import get_database_service
             from leagent.db.models import Task, is_terminal_task_status
+            from leagent.db.sqlite_compat import load_entity_by_id
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
@@ -163,7 +164,12 @@ class TaskGetTool(BaseTool):
             task_id = UUID(params["task_id"])
 
             async with db.session() as session:
-                task = await session.get(Task, task_id)
+                task = await load_entity_by_id(
+                    session,
+                    Task,
+                    task_id,
+                    parent_table="tasks",
+                )
                 if not task:
                     return {"error": f"Task {task_id} not found"}
 
@@ -238,8 +244,10 @@ class TaskListTool(BaseTool):
     async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
         try:
             from sqlmodel import select
+
             from leagent.db import get_database_service
             from leagent.db.models import Task, TaskStatus, TaskType, is_terminal_task_status
+            from leagent.db.sqlite_compat import uuid_column_equals
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
@@ -252,7 +260,13 @@ class TaskListTool(BaseTool):
             async with db.session() as session:
                 query = select(Task)
                 if context.user_id:
-                    query = query.where(Task.user_id == UUID(context.user_id))
+                    query = query.where(
+                        uuid_column_equals(
+                            session,
+                            Task.user_id,
+                            UUID(context.user_id),
+                        )
+                    )
                 if status_filter:
                     query = query.where(Task.status == TaskStatus(status_filter))
                 if type_filter:
@@ -322,14 +336,24 @@ class TaskUpdateTool(BaseTool):
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
         try:
+            from datetime import datetime
+
+            from sqlalchemy import update as sa_update
+
             from leagent.db import get_database_service
             from leagent.db.models import Task, TaskStatus, is_terminal_task_status
+            from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
             db = get_database_service()
             task_id = UUID(params["task_id"])
 
             async with db.session() as session:
-                task = await session.get(Task, task_id)
+                task = await load_entity_by_id(
+                    session,
+                    Task,
+                    task_id,
+                    parent_table="tasks",
+                )
                 if not task:
                     return {"error": f"Task {task_id} not found"}
 
@@ -340,24 +364,28 @@ class TaskUpdateTool(BaseTool):
                         "status": task.status.value,
                     }
 
+                values: dict[str, Any] = {"updated_at": datetime.utcnow()}
                 if "status" in params:
-                    task.status = TaskStatus(params["status"])
+                    values["status"] = TaskStatus(params["status"])
                 if "progress" in params:
-                    task.progress = int(params["progress"])
+                    values["progress"] = int(params["progress"])
                 if "progress_message" in params:
-                    task.progress_message = params["progress_message"]
+                    values["progress_message"] = params["progress_message"]
                 if "output_data" in params:
-                    task.output_data = json.dumps(params["output_data"])
+                    values["output_data"] = json.dumps(params["output_data"])
                 if "error_message" in params:
-                    task.error = params["error_message"]
+                    values["error"] = params["error_message"]
 
-                session.add(task)
-                await session.flush()
+                await session.execute(
+                    sa_update(Task)
+                    .where(uuid_column_equals(session, Task.id, task_id))
+                    .values(**values)
+                )
 
                 return {
                     "task_id": str(task.id),
-                    "status": task.status.value,
-                    "progress": task.progress,
+                    "status": values.get("status", task.status).value,
+                    "progress": int(values.get("progress", task.progress)),
                     "updated": True,
                 }
         except Exception as e:
@@ -460,6 +488,7 @@ class TaskOutputTool(BaseTool):
         try:
             from leagent.db import get_database_service
             from leagent.db.models import Task, is_terminal_task_status
+            from leagent.db.sqlite_compat import load_entity_by_id
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
@@ -469,7 +498,12 @@ class TaskOutputTool(BaseTool):
             output = mgr.read_output(params["task_id"], offset=offset)
 
             async with db.session() as session:
-                task = await session.get(Task, UUID(params["task_id"]))
+                task = await load_entity_by_id(
+                    session,
+                    Task,
+                    UUID(params["task_id"]),
+                    parent_table="tasks",
+                )
                 status = task.status.value if task else "unknown"
                 is_done = is_terminal_task_status(task.status) if task else True
 

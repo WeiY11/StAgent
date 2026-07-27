@@ -11,12 +11,6 @@ from leagent.llm.base import (
     ToolCall,
     ToolDefinition,
 )
-from leagent.llm.registry import (
-    HealthCheckResult,
-    ProviderInfo,
-    ProviderRegistry,
-    create_default_registry,
-)
 from leagent.llm.model_registry import ModelRegistry
 from leagent.llm.model_spec import ModelCapabilities, ModelSpec, ModelTask, ResolvedModel
 from leagent.llm.provider_plugin import (
@@ -24,6 +18,12 @@ from leagent.llm.provider_plugin import (
     get_provider_factory,
     list_provider_types,
     register_provider_type,
+)
+from leagent.llm.registry import (
+    HealthCheckResult,
+    ProviderInfo,
+    ProviderRegistry,
+    create_default_registry,
 )
 from leagent.llm.service import LLMService
 from leagent.llm.streaming import (

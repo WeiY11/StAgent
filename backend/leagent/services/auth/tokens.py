@@ -62,7 +62,7 @@ def decode_token(
     exp = payload.get("exp")
     if exp is not None and exp < time.time():
         raise TokenError("token expired")
-    elif require_exp and exp is None:
+    if require_exp and exp is None:
         raise TokenError("exp claim required")
 
     return payload

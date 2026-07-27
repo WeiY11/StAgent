@@ -22,9 +22,10 @@ import os
 import signal
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import structlog
 
@@ -121,8 +122,8 @@ class SubprocessSandbox:
         self._grace = grace_sec
         self._allow_env = frozenset(_DEFAULT_ALLOWED_ENV | set(allow_env))
         self._extra_import_roots = tuple(extra_import_roots)
-        self._import_tier = import_tier
-        self._isolation_mode = "none"
+        self._import_tier = (import_tier or "unrestricted").strip().lower()
+        self._isolation_mode = (isolation_mode or "none").strip().lower()
 
     def _env(self) -> dict[str, str]:
         env: dict[str, str] = {
@@ -148,6 +149,8 @@ class SubprocessSandbox:
         cpu_sec: float | None = None,
         memory_bytes: int | None = None,
         file_bytes: int | None = None,
+        open_files: int | None = None,
+        max_processes: int | None = None,
         import_tier: str | None = None,
         extra_scan_roots: Iterable[str | os.PathLike[str]] = (),
     ) -> SandboxResult:
@@ -166,6 +169,20 @@ class SubprocessSandbox:
         workspace.ensure()
 
         timeout = float(timeout_sec if timeout_sec is not None else self._default_timeout)
+        cpu_limit = (
+            float(cpu_sec)
+            if cpu_sec is not None
+            else self._default_cpu
+        )
+        memory_limit = _non_negative_limit(memory_bytes, self._default_memory)
+        file_limit = _non_negative_limit(file_bytes, self._default_file_bytes)
+        open_file_limit = _non_negative_limit(open_files, self._default_open_files)
+        process_limit = _non_negative_limit(max_processes, self._default_max_processes)
+        effective_import_tier = (import_tier or self._import_tier).strip().lower()
+        if effective_import_tier not in {"stdlib", "extended", "unrestricted"}:
+            raise ValueError(
+                "import_tier must be one of: stdlib, extended, unrestricted"
+            )
         extra_env: dict[str, str] = {}
         cjk_font = resolve_cjk_regular_path()
         if cjk_font:
@@ -174,10 +191,10 @@ class SubprocessSandbox:
         policy = ExecutionPolicy(
             timeout_sec=timeout,
             max_timeout_sec=timeout,
-            memory_bytes=0,
-            file_bytes=0,
-            open_files=0,
-            max_processes=0,
+            memory_bytes=memory_limit,
+            file_bytes=file_limit,
+            open_files=open_file_limit,
+            max_processes=process_limit,
             env_allowlist=self._allow_env,
             extra_env=extra_env,
             grace_sec=self._grace,
@@ -188,11 +205,12 @@ class SubprocessSandbox:
             workspace=str(workspace.path),
             policy=policy,
             timeout_sec=timeout,
+            cpu_sec=cpu_limit,
             python_exe=self._python,
             globals_in=globals,
-            import_tier="unrestricted",
+            import_tier=effective_import_tier,
             extra_import_roots=self._extra_import_roots,
-            isolation_mode="none",
+            isolation_mode=self._isolation_mode,
             session_id=workspace.session_id,
             extra_scan_roots=scan_roots,
         )
@@ -213,6 +231,14 @@ class SubprocessSandbox:
             stdout_truncated=bool(result.metadata.get("stdout_truncated")),
             stderr_truncated=bool(result.metadata.get("stderr_truncated")),
         )
+
+
+def _non_negative_limit(value: int | None, default: int) -> int:
+    selected = default if value is None else value
+    try:
+        return max(0, int(selected))
+    except (TypeError, ValueError):
+        raise ValueError(f"resource limit must be an integer, got {selected!r}") from None
 
 
 def split_produced_artifacts(

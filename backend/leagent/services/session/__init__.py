@@ -15,12 +15,17 @@ is attached to a single chat session:
   that API handlers and the agent runtime use to read/write session state.
 """
 
-from leagent.services.session.manager import SessionManager
 from leagent.services.session.artifacts import (
     ArtifactRegistrar,
     ProducedPathCandidate,
     RegisteredArtifact,
 )
+from leagent.services.session.context_interface import (
+    CachedSessionContextProvider,
+    DefaultSessionContextProvider,
+    SessionContextProvider,
+)
+from leagent.services.session.manager import SessionManager
 from leagent.services.session.paths import SessionPathRegistry, get_session_path_registry
 from leagent.services.session.state import (
     ATTACHMENT_KIND_DOCUMENT,
@@ -33,11 +38,6 @@ from leagent.services.session.state import (
     SessionUsage,
 )
 from leagent.services.session.store import TieredSessionStore
-from leagent.services.session.context_interface import (
-    CachedSessionContextProvider,
-    DefaultSessionContextProvider,
-    SessionContextProvider,
-)
 
 __all__ = [
     "ATTACHMENT_KIND_DOCUMENT",

@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-def _load_aiosmtplib() -> "aiosmtplib":
+def _load_aiosmtplib() -> aiosmtplib:
     """Import ``aiosmtplib`` lazily so the module loads without the optional dep.
 
     Raises a clear ``RuntimeError`` only when the email tool is actually invoked
@@ -112,7 +112,7 @@ class EmailSendTool(BaseTool):
     def _enforce_path_sandbox(
         self,
         params: dict[str, Any],
-        context: "ToolContext",
+        context: ToolContext,
     ) -> None:
         from leagent.file.sandbox import PathSandbox
 
@@ -278,7 +278,7 @@ class EmailSendTool(BaseTool):
                 "X-MSMail-Priority": "High",
                 "Importance": "High",
             }
-        elif priority == EmailPriority.LOW.value:
+        if priority == EmailPriority.LOW.value:
             return {
                 "X-Priority": "5",
                 "X-MSMail-Priority": "Low",
@@ -463,8 +463,8 @@ class EmailSendTool(BaseTool):
             if plain_body:
                 alt_part.attach(MIMEText(plain_body, "plain", "utf-8"))
             else:
-                from html import unescape
                 import re as regex
+                from html import unescape
 
                 stripped = regex.sub(r"<[^>]+>", "", body)
                 alt_part.attach(MIMEText(unescape(stripped), "plain", "utf-8"))

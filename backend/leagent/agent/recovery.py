@@ -29,7 +29,8 @@ from __future__ import annotations
 import asyncio
 import json
 import random
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -283,7 +284,7 @@ class ErrorRecovery:
     _MAX_RATE_LIMIT_ATTEMPTS: int = 3
     _RATE_LIMIT_DELAYS: tuple[float, ...] = (1.0, 2.0, 5.0)
 
-    def __init__(self, executor: "ToolExecutor") -> None:
+    def __init__(self, executor: ToolExecutor) -> None:
         self.executor = executor
         self._recovery_handlers: dict[str, RecoveryHandler] = {}
 

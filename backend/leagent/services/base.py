@@ -150,11 +150,9 @@ class Service(ABC):
 
     async def _do_start(self) -> None:
         """Override to implement service-specific startup logic."""
-        pass
 
     async def _do_stop(self) -> None:
         """Override to implement service-specific shutdown logic."""
-        pass
 
     async def _do_health_check(self) -> dict[str, Any]:
         """Override to implement service-specific health check logic."""

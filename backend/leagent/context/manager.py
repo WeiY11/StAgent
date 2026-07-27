@@ -35,16 +35,16 @@ from leagent.context.types import (
 from leagent.context.working_set import WorkingSet
 
 if TYPE_CHECKING:
+    from leagent.code.artifacts import SessionArtifactStore
+    from leagent.code.operations import OperationJournal
     from leagent.memory.agent_memory import AgentMemory
     from leagent.memory.working_scratchpad import WorkingScratchpad
-    from leagent.sdk.protocols import RecallProvider
     from leagent.prompts.registry import PromptRegistry
     from leagent.prompts.types import BuiltPrompt
+    from leagent.sdk.protocols import RecallProvider
     from leagent.services.session import SessionManager
     from leagent.skills.manager import SkillsManager
     from leagent.tools.base import ToolPermissionContext
-    from leagent.code.artifacts import SessionArtifactStore
-    from leagent.code.operations import OperationJournal
     from leagent.tools.registry import ToolRegistry
 
 logger = structlog.get_logger(__name__)
@@ -68,13 +68,13 @@ class ContextManager:
         *,
         cwd: str = ".",
         settings: Any | None = None,
-        tools: "ToolRegistry | None" = None,
-        permission_context: "ToolPermissionContext | None" = None,
-        skills_manager: "SkillsManager | None" = None,
-        agent_memory: "AgentMemory | None" = None,
-        session_manager: "SessionManager | None" = None,
-        working_scratchpad: "WorkingScratchpad | None" = None,
-        prompt_registry: "PromptRegistry | None" = None,
+        tools: ToolRegistry | None = None,
+        permission_context: ToolPermissionContext | None = None,
+        skills_manager: SkillsManager | None = None,
+        agent_memory: AgentMemory | None = None,
+        session_manager: SessionManager | None = None,
+        working_scratchpad: WorkingScratchpad | None = None,
+        prompt_registry: PromptRegistry | None = None,
         session_id: UUID | None = None,
         user_id: UUID | None = None,
         agent_id: str = "default",
@@ -84,8 +84,8 @@ class ContextManager:
         file_state: FileState | None = None,
         working_set: WorkingSet | None = None,
         artifact_tracker: ArtifactErrorTracker | None = None,
-        artifact_store: "SessionArtifactStore | None" = None,
-        operation_journal: "OperationJournal | None" = None,
+        artifact_store: SessionArtifactStore | None = None,
+        operation_journal: OperationJournal | None = None,
     ) -> None:
         self.cwd = cwd
         self._settings = settings
@@ -143,7 +143,7 @@ class ContextManager:
         workflow_hint: str = "",
         template_vars: dict[str, Any] | None = None,
         playbook_ids: list[str] | None = None,
-        recall_handle: "RecallProvider | None" = None,
+        recall_handle: RecallProvider | None = None,
         project_roots: list[str] | None = None,
         budget_max_chars: int | None = None,
     ) -> TurnContext:
@@ -349,7 +349,7 @@ class ContextManager:
 
         # Build + start background recall from the bound memory store, mirroring
         # what QueryEngine does on the agent hot path.
-        recall_handle: "RecallProvider | None" = None
+        recall_handle: RecallProvider | None = None
         if self.agent_memory is not None and request.query.strip():
             from leagent.memory.agent_memory import RecallHandle
 

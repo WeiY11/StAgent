@@ -164,11 +164,15 @@ async def tool_extra_for_chat_session(
     session_manager: Any,
     session_id: UUID,
     *,
+    user_id: UUID | None = None,
     extra_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     """Load session attachments and build tool ``extra`` for that chat session."""
     try:
-        session_attachments = await session_manager.list_attachments(session_id)
+        session_attachments = await session_manager.list_attachments(
+            session_id,
+            user_id=user_id,
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning("session_attachments_load_failed", error=str(exc))
         return {}

@@ -36,7 +36,7 @@ class ShellTaskHandler:
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         argv = _extract_argv(params)
         if not argv:
@@ -84,7 +84,7 @@ class ShellTaskHandler:
                 proc.terminate()
                 try:
                     await asyncio.wait_for(proc.wait(), timeout=5)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     proc.kill()
                     await proc.wait()
         finally:
@@ -98,7 +98,7 @@ class ShellTaskHandler:
             raise RuntimeError(f"Shell command exited with code {rc}")
         return {"exit_code": rc, "argv": argv}
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         return None
 
 

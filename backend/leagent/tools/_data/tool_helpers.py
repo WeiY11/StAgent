@@ -117,7 +117,7 @@ def extend_input_schema(
 
 def resolve_input(
     params: dict[str, Any],
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     data_key: str = "data",
     artifact_key: str = "artifact",
@@ -144,7 +144,7 @@ def resolve_input(
 
 def build_result(
     records: list[dict[str, Any]],
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     op_name: str,
     extra: dict[str, Any] | None = None,

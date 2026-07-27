@@ -24,8 +24,7 @@ from leagent.cli.utils import (
     prompt_confirm,
     status_badge,
 )
-from leagent.config.constants import LOG_DIR, LEAGENT_HOME
-
+from leagent.config.constants import LEAGENT_HOME, LOG_DIR
 
 PID_FILE = LEAGENT_HOME / "leagent.pid"
 DAEMON_LOG = LOG_DIR / "daemon.log"
@@ -42,10 +41,9 @@ def _get_pid() -> int | None:
 
         if _is_process_running(pid):
             return pid
-        else:
-            PID_FILE.unlink(missing_ok=True)
-            return None
-    except (ValueError, IOError):
+        PID_FILE.unlink(missing_ok=True)
+        return None
+    except (OSError, ValueError):
         return None
 
 
@@ -250,7 +248,7 @@ def daemon_stop(force: bool, timeout: int) -> None:
         else:
             os.kill(pid, signal.SIGTERM)
 
-            for i in range(timeout):
+            for _i in range(timeout):
                 time.sleep(1)
                 if not _is_process_running(pid):
                     print_success("Daemon stopped gracefully.")

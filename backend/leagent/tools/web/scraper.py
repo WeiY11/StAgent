@@ -259,8 +259,7 @@ class WebScraperTool(BaseTool):
                 data = await extract_element(element)
                 results.append(data)
             return results
-        else:
-            return await extract_element(locator.first)
+        return await extract_element(locator.first)
 
     async def _scroll_to_bottom(self, page, max_scrolls: int = 10) -> None:
         """Scroll to the bottom of the page for infinite scroll pages.

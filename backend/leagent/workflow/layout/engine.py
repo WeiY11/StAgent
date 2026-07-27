@@ -27,9 +27,8 @@ whatever UI payload it wants.
 from __future__ import annotations
 
 from collections import defaultdict, deque
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
-
 
 Direction = str  # "LR" or "TB"
 
@@ -74,7 +73,7 @@ def _assign_ranks(
     are skipped so cyclic control structures like ``wait -> process``
     don't flatten the layout into one giant column.
     """
-    rank: dict[str, int] = {nid: 0 for nid in node_ids}
+    rank: dict[str, int] = dict.fromkeys(node_ids, 0)
     if not node_ids:
         return rank
 
@@ -85,7 +84,7 @@ def _assign_ranks(
     if not roots:
         # Fall back to nodes with no predecessors.
         pred_count: dict[str, int] = defaultdict(int)
-        for src, targets in succ.items():
+        for targets in succ.values():
             for tgt in targets:
                 pred_count[tgt] += 1
         roots = [nid for nid in node_ids if pred_count[nid] == 0]

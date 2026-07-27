@@ -52,7 +52,7 @@ def find_closest_lines(
     # Multi-line needle: sliding window over haystack.
     window = len(needle_lines)
     scored_multi: list[tuple[float, int]] = []
-    for start in range(0, max(1, len(hay_lines) - window + 1)):
+    for start in range(max(1, len(hay_lines) - window + 1)):
         chunk = "\n".join(hay_lines[start : start + window])
         ratio = SequenceMatcher(None, needle, chunk).ratio()
         if ratio >= threshold:

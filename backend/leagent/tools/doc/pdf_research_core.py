@@ -202,7 +202,7 @@ def _figure_bbox(page, number: str, kind: str) -> list[float] | None:
         return None
 
     caption: list[float] | None = None
-    for i, w in enumerate(words):
+    for _i, w in enumerate(words):
         token = str(w[4]).lower().strip(".:")
         if token not in {"figure", "fig", "table"}:
             continue

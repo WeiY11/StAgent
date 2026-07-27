@@ -63,7 +63,7 @@ class WorkflowDocument:
     control: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "WorkflowDocument":
+    def from_dict(cls, raw: dict[str, Any]) -> WorkflowDocument:
         _assert_canonical(raw)
         return cls(
             id=str(raw.get("id", "") or ""),

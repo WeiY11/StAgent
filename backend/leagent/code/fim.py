@@ -321,8 +321,8 @@ class DeepSeekFimTool(BaseTool):
         infill_text: str, model: str, buffer_id: str, context: ToolContext,
     ) -> None:
         try:
-            from leagent.code.pipeline import get_pipeline
             from leagent.code.artifacts import ArtifactKind
+            from leagent.code.pipeline import get_pipeline
 
             pipeline = get_pipeline(context)
             if pipeline is None:

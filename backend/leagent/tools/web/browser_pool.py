@@ -13,9 +13,10 @@ from __future__ import annotations
 import asyncio
 import atexit
 import importlib
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import structlog
 

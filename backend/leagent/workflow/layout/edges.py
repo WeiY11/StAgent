@@ -17,9 +17,9 @@ re-derive edges client-side.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
-
+from typing import Any
 
 EdgeKind = str  # one of: next, error, condition, else, branch, sequence, action, reject
 
@@ -35,7 +35,7 @@ class LayoutEdge:
     # Stable identity so two calls on the same document return equal results.
     id: str = field(default="")
 
-    def with_id(self) -> "LayoutEdge":
+    def with_id(self) -> LayoutEdge:
         if self.id:
             return self
         token = self.label or self.kind

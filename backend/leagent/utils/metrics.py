@@ -414,7 +414,7 @@ class LeAgentMetrics:
             **extra,
         })
 
-    def tool_execution_timer(self, tool_name: str) -> "MetricsTimer":
+    def tool_execution_timer(self, tool_name: str) -> MetricsTimer:
         """Context manager for timing tool execution.
         
         Usage:
@@ -433,7 +433,7 @@ class LeAgentMetrics:
         provider: str,
         model: str,
         tier: str = "default",
-    ) -> "MetricsTimer":
+    ) -> MetricsTimer:
         """Context manager for timing LLM requests.
         
         Usage:
@@ -447,7 +447,7 @@ class LeAgentMetrics:
             labels={"provider": provider, "model": model, "tier": tier},
         )
 
-    def agent_task_timer(self, task_type: str = "default") -> "MetricsTimer":
+    def agent_task_timer(self, task_type: str = "default") -> MetricsTimer:
         """Context manager for timing agent tasks.
         
         Usage:
@@ -461,7 +461,7 @@ class LeAgentMetrics:
             labels={"task_type": task_type},
         )
 
-    def workflow_execution_timer(self, workflow_name: str) -> "MetricsTimer":
+    def workflow_execution_timer(self, workflow_name: str) -> MetricsTimer:
         """Context manager for timing workflow execution."""
         return MetricsTimer(
             histogram=self.workflow_execution_duration_seconds,
@@ -678,7 +678,7 @@ class MetricsTimer:
         """Set the status label for this timer."""
         self._status = status
 
-    def __enter__(self) -> "MetricsTimer":
+    def __enter__(self) -> MetricsTimer:
         self._start_time = time.perf_counter()
         return self
 
@@ -695,7 +695,7 @@ class MetricsTimer:
             counter_labels = {**self._labels, "status": self._status}
             self._counter.labels(**counter_labels).inc()
 
-    async def __aenter__(self) -> "MetricsTimer":
+    async def __aenter__(self) -> MetricsTimer:
         return self.__enter__()
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -718,7 +718,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: "ASGIApp",
+        app: ASGIApp,
         metrics: LeAgentMetrics | None = None,
         exclude_paths: set[str] | None = None,
     ) -> None:

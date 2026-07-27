@@ -23,6 +23,15 @@ from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 logger = structlog.get_logger(__name__)
 
 
+def _context_user_uuid(context: ToolContext) -> UUID | None:
+    if not context.user_id:
+        return None
+    try:
+        return UUID(str(context.user_id))
+    except (TypeError, ValueError):
+        return None
+
+
 async def _hydrate_todos_from_session(context: ToolContext) -> list[dict[str, Any]]:
     """Load session todos into ``context.extra`` when empty."""
     cached = context.extra.get("todos")
@@ -36,7 +45,10 @@ async def _hydrate_todos_from_session(context: ToolContext) -> list[dict[str, An
         sm = get_service_manager()
         if sm.session_manager is None:
             return []
-        todos = await sm.session_manager.get_todos(UUID(context.session_id))
+        todos = await sm.session_manager.get_todos(
+            UUID(context.session_id),
+            user_id=_context_user_uuid(context),
+        )
         as_dicts = session_todos_to_tool_dicts(todos)
         context.extra["todos"] = as_dicts
         return as_dicts
@@ -58,7 +70,11 @@ async def _persist_todos(context: ToolContext, items: list[dict[str, Any]]) -> l
 
         sm = get_service_manager()
         if sm.session_manager is not None:
-            await sm.session_manager.set_todos(UUID(context.session_id), normalised)
+            await sm.session_manager.set_todos(
+                UUID(context.session_id),
+                normalised,
+                user_id=_context_user_uuid(context),
+            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("todo_persist_failed", session=context.session_id, error=str(exc))
     return as_dicts

@@ -13,6 +13,7 @@ payloads were upgraded once via
 
 from __future__ import annotations
 
+from .contract import Contract, default_check_lazy_status, default_fingerprint_inputs
 from .hidden import Hidden, HiddenHolder
 from .loader import WorkflowDocument, WorkflowLoaderError, load
 from .media import MediaRef, to_gen_ui_tree
@@ -20,14 +21,13 @@ from .node_output import NodeOutput
 from .schema import Schema
 from .schema_bridge import json_schema_to_inputs
 from .serializer import export, graph_hash, save, to_json, to_yaml
-from .contract import Contract, default_check_lazy_status, default_fingerprint_inputs
 from .types import (
     IO,
+    WILDCARD_TYPE,
     Input,
     InputBase,
     OutputBase,
     WidgetInput,
-    WILDCARD_TYPE,
     all_socket_colors,
     socket_color,
     types_compatible,

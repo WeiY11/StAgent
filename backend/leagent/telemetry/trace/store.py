@@ -473,7 +473,12 @@ class TraceStore:
             result = await session.exec(stmt)
             return list(result.all())
 
-    async def stats_by_model(self, *, days: int = 30) -> list[dict[str, Any]]:
+    async def stats_by_model(
+        self,
+        *,
+        days: int = 30,
+        user_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         db = self._resolve_db()
         since = _utcnow() - timedelta(days=max(1, days))
         async with db.session() as session:
@@ -504,6 +509,8 @@ class TraceStore:
                 .group_by(AgentTrace.model)
                 .order_by(func.count().desc())
             )
+            if user_id:
+                stmt = stmt.where(AgentTrace.user_id == user_id)
             result = await session.exec(stmt)
             rows = result.all()
 
@@ -532,25 +539,39 @@ class TraceStore:
         # Approximate p50/p95 from per-model latency lists (second query).
         for item in out:
             item["p50_latency_ms"] = await self._percentile_latency(
-                item["model"], since, 0.50
+                item["model"],
+                since,
+                0.50,
+                user_id=user_id,
             )
             item["p95_latency_ms"] = await self._percentile_latency(
-                item["model"], since, 0.95
+                item["model"],
+                since,
+                0.95,
+                user_id=user_id,
             )
         return out
 
     async def _percentile_latency(
-        self, model: str, since: datetime, pct: float
+        self,
+        model: str,
+        since: datetime,
+        pct: float,
+        *,
+        user_id: str | None = None,
     ) -> float:
         db = self._resolve_db()
         async with db.session() as session:
-            result = await session.exec(
+            stmt = (
                 select(AgentTrace.latency_ms)
                 .where(AgentTrace.started_at >= since)
                 .where(AgentTrace.model == ("" if model == "(unknown)" else model))
                 .where(AgentTrace.latency_ms > 0)
                 .order_by(col(AgentTrace.latency_ms).asc())
             )
+            if user_id:
+                stmt = stmt.where(AgentTrace.user_id == user_id)
+            result = await session.exec(stmt)
             values = [float(v) for v in result.all() if v is not None]
         if not values:
             return 0.0
@@ -616,16 +637,22 @@ class TraceStore:
             session.add(row)
 
     async def list_experiments(
-        self, *, limit: int = 50, offset: int = 0
+        self,
+        *,
+        created_by: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[AgentTraceExperiment]:
         db = self._resolve_db()
         async with db.session() as session:
-            result = await session.exec(
+            stmt = (
                 select(AgentTraceExperiment)
                 .order_by(col(AgentTraceExperiment.created_at).desc())
-                .offset(max(0, offset))
-                .limit(max(1, min(limit, 200)))
             )
+            if created_by:
+                stmt = stmt.where(AgentTraceExperiment.created_by == created_by)
+            stmt = stmt.offset(max(0, offset)).limit(max(1, min(limit, 200)))
+            result = await session.exec(stmt)
             return list(result.all())
 
 

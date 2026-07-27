@@ -74,9 +74,9 @@ class ConditionExpression(BaseModel):
 
         if self.operator == ConditionOperator.AND:
             return all(c.evaluate(context) for c in self.conditions)
-        elif self.operator == ConditionOperator.OR:
+        if self.operator == ConditionOperator.OR:
             return any(c.evaluate(context) for c in self.conditions)
-        elif self.operator == ConditionOperator.NOT:
+        if self.operator == ConditionOperator.NOT:
             return not self.conditions[0].evaluate(context) if self.conditions else False
         return False
 

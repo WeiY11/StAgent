@@ -47,7 +47,7 @@ class DistributedConnectionManager:
         pass
 
     async def aclose(self) -> None:
-        for session_id, conns in list(self._connections.items()):
+        for _session_id, conns in list(self._connections.items()):
             for ws in conns:
                 try:
                     await ws.close()

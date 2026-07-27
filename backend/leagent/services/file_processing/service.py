@@ -140,8 +140,8 @@ class FileProcessingService:
         return None
 
     async def _run_handler(self, handler_name: str, path: Path) -> dict[str, Any]:
-        from leagent.tools.registry import get_registry
         from leagent.tools.base import ToolContext
+        from leagent.tools.registry import get_registry
 
         registry = get_registry()
         tool = registry.get(handler_name)
@@ -187,10 +187,11 @@ class FileProcessingService:
         original_name: str | None = None,
     ) -> dict[str, Any]:
         """Process a file and update the database File record."""
-        from uuid import UUID
         from datetime import datetime
-        from leagent.services.service_manager import get_service_manager
+        from uuid import UUID
+
         from leagent.db.models.file import FileStatus
+        from leagent.services.service_manager import get_service_manager
 
         result = await self.process_file(file_path, mime_type, original_name)
 
@@ -200,8 +201,9 @@ class FileProcessingService:
 
         try:
             from sqlalchemy import text
+
             from leagent.db.models.file import File
-            from leagent.db.sqlite_compat import sqlite_parent_id_text
+            from leagent.db.sqlite_compat import load_entity_by_id, sqlite_parent_id_text
 
             async with sm.db.session() as session:
                 bind = session.get_bind()
@@ -211,7 +213,7 @@ class FileProcessingService:
                     id_txt = await sqlite_parent_id_text(session, "files", logical)
                     now = datetime.utcnow()
                     if result.get("extracted_text"):
-                        st = FileStatus.PROCESSED.name
+                        st = FileStatus.PROCESSED.value
                         await session.execute(
                             text(
                                 "UPDATE files SET extracted_text=:xt, status=:st, updated_at=:u "
@@ -230,7 +232,7 @@ class FileProcessingService:
                                 "UPDATE files SET status=:st, updated_at=:u "
                                 "WHERE CAST(id AS TEXT) = :id"
                             ),
-                            {"st": FileStatus.FAILED.name, "u": now, "id": id_txt},
+                            {"st": FileStatus.FAILED.value, "u": now, "id": id_txt},
                         )
                     else:
                         await session.execute(
@@ -238,10 +240,15 @@ class FileProcessingService:
                                 "UPDATE files SET status=:st, updated_at=:u "
                                 "WHERE CAST(id AS TEXT) = :id"
                             ),
-                            {"st": FileStatus.PROCESSED.name, "u": now, "id": id_txt},
+                            {"st": FileStatus.PROCESSED.value, "u": now, "id": id_txt},
                         )
                 else:
-                    f = await session.get(File, logical)
+                    f = await load_entity_by_id(
+                        session,
+                        File,
+                        logical,
+                        parent_table="files",
+                    )
                     if f:
                         if result.get("extracted_text"):
                             f.extracted_text = result["extracted_text"]
@@ -278,17 +285,27 @@ class FileProcessingService:
             logical_id = UUID(file_id)
             user_id: UUID | None = None
             from leagent.db.models.file import File
+            from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
             summary = summarize_extracted_text(extracted)
 
             async with sm.db.session() as session:
-                row = await session.get(File, logical_id)
+                row = await load_entity_by_id(
+                    session,
+                    File,
+                    logical_id,
+                    parent_table="files",
+                )
                 if row is None:
                     return
                 user_id = row.user_id
-                row.is_indexed = True
-                row.summary = summary
-                session.add(row)
+                from sqlalchemy import update as sa_update
+
+                await session.execute(
+                    sa_update(File)
+                    .where(uuid_column_equals(session, File.id, logical_id))
+                    .values(is_indexed=True, summary=summary)
+                )
 
             chunks = chunk_text(extracted)
             await sm.db.repositories.document_chunks.replace_for_file(

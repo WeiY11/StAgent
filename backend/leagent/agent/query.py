@@ -23,8 +23,9 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 from leagent.agent.deps import ModelStreamEvent, QueryDeps
 from leagent.agent.state import AutoCompactTrackingState, QueryState
@@ -190,7 +191,7 @@ def _prepare_canvas_length_salvage(
     )
 
 
-def _length_recovery_token_override(params: "QueryParams") -> int:
+def _length_recovery_token_override(params: QueryParams) -> int:
     return min(
         65_536,
         max(16_384, (params.max_output_tokens or 4096) * 4),
@@ -198,10 +199,10 @@ def _length_recovery_token_override(params: "QueryParams") -> int:
 
 
 def _build_length_recovery_state(
-    state: "QueryState",
-    params: "QueryParams",
+    state: QueryState,
+    params: QueryParams,
     tool_calls: list[dict[str, Any]],
-) -> "QueryState":
+) -> QueryState:
     """Build a recovery ``QueryState`` after output-length truncation."""
     recovery_attempt = state.max_output_tokens_recovery_count + 1
     recovery_messages = list(state.messages)
@@ -226,7 +227,7 @@ def _build_length_recovery_state(
 
 def _length_recovery_log_extra(
     *,
-    state: "QueryState",
+    state: QueryState,
     tool_calls: list[dict[str, Any]],
     assistant_text: str,
     executed_vs_regenerated: str,
@@ -537,7 +538,7 @@ class QueryParams:
 
     messages: list[dict[str, Any]]
     system_prompt: str
-    tool_use_context: "ToolUseContext"
+    tool_use_context: ToolUseContext
     deps: QueryDeps
 
     tools_schema: list[dict[str, Any]] | None = None
@@ -1136,7 +1137,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
 # ---------------------------------------------------------------------------
 
 
-def _drain_steer_messages(ctx: "ToolUseContext") -> list[SteerMessage]:
+def _drain_steer_messages(ctx: ToolUseContext) -> list[SteerMessage]:
     """Collect pending steer messages for this session (may be empty)."""
     session_id = getattr(ctx, "session_id", None)
     if session_id is None:
@@ -1164,7 +1165,7 @@ def _drain_steer_messages(ctx: "ToolUseContext") -> list[SteerMessage]:
 async def _auto_review_resolved(
     pending: Any,
     args: dict[str, Any],
-    ctx: "ToolUseContext",
+    ctx: ToolUseContext,
 ) -> bool:
     """Triage a pending approval with the auto-review reviewer.
 
@@ -1224,7 +1225,7 @@ async def _auto_review_resolved(
 
 async def _approval_pause_terminal(
     tool_calls: list[dict[str, Any]],
-    ctx: "ToolUseContext",
+    ctx: ToolUseContext,
     *,
     turn_count: int,
     usage: dict[str, Any],
@@ -1316,7 +1317,7 @@ def _tool_envelope_from_base(base: Any) -> dict[str, Any]:
 
 async def _dispatch_tools(
     tool_calls: list[dict[str, Any]],
-    ctx: "ToolUseContext",
+    ctx: ToolUseContext,
 ) -> list[ToolResultMessage]:
     """Run the LLM's requested tool calls through the executor.
 

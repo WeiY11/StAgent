@@ -60,9 +60,9 @@ def init_cmd(force: bool, non_interactive: bool, defaults: bool, home: str | Non
     from leagent.config.constants import (
         ALL_DIRS,
         CONFIG_PATH,
+        LEAGENT_HOME,
         PROVIDERS_PATH,
         SECRET_DIR,
-        LEAGENT_HOME,
     )
 
     leagent_home = Path(home) if home else LEAGENT_HOME
@@ -224,8 +224,10 @@ def _create_env_example(env_path: Path, force: bool) -> None:
 LEAGENT_HOST=0.0.0.0
 LEAGENT_PORT=7860
 
-# Number of worker processes (default: auto-detect based on CPU cores)
-# LEAGENT_WORKERS=4
+# Number of worker processes (default: 1).
+# Keep 1 for the default SQLite database (single writer). Only raise this after
+# switching to PostgreSQL via DATABASE_URL; SQLite + workers>1 fails at startup.
+# LEAGENT_WORKERS=1
 
 # Log level (debug, info, warning, error, critical)
 LEAGENT_LOG_LEVEL=info

@@ -7,9 +7,9 @@ card formatting support.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
-import base64
 import os
 import time
 from datetime import datetime

@@ -222,7 +222,7 @@ async def _run_subprocess(cmd: list[str], cwd: Path, timeout_s: int) -> dict[str
 
     try:
         stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         try:
             stdout_b, stderr_b = await proc.communicate()

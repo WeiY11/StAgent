@@ -8,7 +8,8 @@ for the ``/object_info`` endpoint. All mutations take a reentrant lock.
 from __future__ import annotations
 
 import threading
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import structlog
 

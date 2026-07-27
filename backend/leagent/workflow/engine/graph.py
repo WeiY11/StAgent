@@ -16,11 +16,11 @@ do not contribute dependencies.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 from .errors import BlockedError, DependencyCycleError
-
 
 LinkRef = tuple[str, int]  # (upstream_node_id, slot)
 
@@ -100,7 +100,7 @@ class TopologicalSort:
         if node is None:
             return []
         links: list[LinkRef] = []
-        for _, value in (node.get("inputs") or {}).items():
+        for value in (node.get("inputs") or {}).values():
             if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
                 links.append((value[0], int(value[1])))
                 continue
@@ -151,6 +151,10 @@ class ExecutionState:
     skipped: set[str] = field(default_factory=set)
     blocked: dict[str, set[str]] = field(default_factory=dict)  # node_id -> tags
     strong_links: dict[str, set[str]] = field(default_factory=dict)  # downstream -> upstream ids
+    #: Inverse of ``strong_links`` (upstream -> direct downstream ids). Lets the
+    #: scheduler answer "who depends on this node" in O(1) instead of scanning
+    #: every strong_links entry on each completion / prune / reopen.
+    dependents: dict[str, set[str]] = field(default_factory=dict)
     cache_links: dict[str, set[str]] = field(default_factory=dict)
     #: (src, dst) edges deactivated by branch selection. A pruned edge does
     #: not promote ``dst`` when ``src`` completes — this prevents a data
@@ -186,6 +190,11 @@ class ExecutionList:
     # Graph construction
     # ------------------------------------------------------------------
 
+    def _link(self, downstream: str, upstream: str) -> None:
+        """Record a strong (data) edge both forward and in the reverse index."""
+        self.state.strong_links.setdefault(downstream, set()).add(upstream)
+        self.state.dependents.setdefault(upstream, set()).add(downstream)
+
     def add_node(self, seed_id: str) -> None:
         """Walk upstream dependencies and register them as ready when possible."""
         stack = [seed_id]
@@ -202,7 +211,7 @@ class ExecutionList:
             # ready (its own deps haven't been discovered yet).
             for up_id, _slot in self.topo.upstream_of(nid):
                 if self.prompt.get(up_id) is not None:
-                    self.state.strong_links.setdefault(nid, set()).add(up_id)
+                    self._link(nid, up_id)
                     if up_id not in seen:
                         stack.append(up_id)
             if nid not in self.state.completed and nid not in self.state.in_progress:
@@ -210,7 +219,7 @@ class ExecutionList:
                     self.state.ready.add(nid)
 
     def add_strong_link(self, upstream: str, slot: int, downstream: str) -> None:
-        self.state.strong_links.setdefault(downstream, set()).add(upstream)
+        self._link(downstream, upstream)
         if upstream not in self.state.completed:
             self.state.ready.discard(downstream)
         self.add_node(upstream)
@@ -295,8 +304,8 @@ class ExecutionList:
             for succ in self.topo.successors_of(nid):
                 if succ in self.state.completed or succ in self.state.skipped:
                     stack.append(succ)
-            for down, ups in self.state.strong_links.items():
-                if nid in ups and (down in self.state.completed or down in self.state.skipped):
+            for down in self.state.dependents.get(nid, ()):
+                if down in self.state.completed or down in self.state.skipped:
                     stack.append(down)
         self.add_node(node_id)
 
@@ -307,7 +316,7 @@ class ExecutionList:
             nid = stack.pop()
             if nid in self.state.completed or nid in self.state.skipped:
                 continue
-            if any(nid in ups for ups in self.state.strong_links.values()):
+            if self.state.dependents.get(nid):
                 continue
             self.state.skipped.add(nid)
             self.state.ready.discard(nid)
@@ -383,14 +392,17 @@ class ExecutionList:
         self.state.in_progress.discard(node_id)
         self.state.completed.add(node_id)
         # Promote downstream nodes whose strong-link deps are now satisfied.
-        # Skip promotion across a pruned edge so a data link crossing a
-        # control branch cannot prematurely activate a gated node.
-        for down, ups in list(self.state.strong_links.items()):
-            if node_id in ups and down not in self.state.completed and down not in self.state.skipped:
-                if (node_id, down) in self.state.pruned_edges:
-                    continue
-                if not self._remaining_deps(down):
-                    self.state.ready.add(down)
+        # Only direct dependents of ``node_id`` (via the reverse index) need be
+        # considered — no full scan of strong_links. Skip promotion across a
+        # pruned edge so a data link crossing a control branch cannot
+        # prematurely activate a gated node.
+        for down in list(self.state.dependents.get(node_id, ())):
+            if down in self.state.completed or down in self.state.skipped:
+                continue
+            if (node_id, down) in self.state.pruned_edges:
+                continue
+            if not self._remaining_deps(down):
+                self.state.ready.add(down)
         self._unblocked.set()
 
     def fail_node_execution(self, node_id: str) -> None:

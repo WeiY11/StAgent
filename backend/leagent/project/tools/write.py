@@ -20,12 +20,12 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     resolve_content,
     resolve_in_project,
     select_project_root,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 
@@ -227,8 +227,8 @@ class ProjectWriteTool(BaseTool):
     ) -> Any:
         """Create a CodeArtifact via the pipeline; returns the artifact or None."""
         try:
-            from leagent.code.pipeline import get_pipeline
             from leagent.code.artifacts import ArtifactKind
+            from leagent.code.pipeline import get_pipeline
 
             pipeline = get_pipeline(context)
             if pipeline is None:

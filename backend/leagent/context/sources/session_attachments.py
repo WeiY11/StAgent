@@ -10,7 +10,7 @@ from __future__ import annotations
 import structlog
 
 from leagent.context.sources import SOURCE_REGISTRY
-from leagent.context.sources.base import ContextSource, ResolveContext
+from leagent.context.sources.base import ResolveContext
 from leagent.context.types import ContextBlock, ContextScope, RenderTarget
 
 logger = structlog.get_logger(__name__)
@@ -34,7 +34,10 @@ class SessionAttachmentsSource:
             if ctx.session_manager is None or ctx.session_id is None:
                 return None
 
-            attachments = await ctx.session_manager.list_attachments(ctx.session_id)
+            attachments = await ctx.session_manager.list_attachments(
+                ctx.session_id,
+                user_id=ctx.user_id,
+            )
             if not attachments:
                 return None
 

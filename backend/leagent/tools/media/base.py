@@ -199,7 +199,14 @@ async def _session_taken_filenames(context: ToolContext) -> set[str]:
         if session_manager is None:
             return taken
         sid = session_id if isinstance(session_id, UUID) else UUID(str(session_id))
-        for att in await session_manager.list_attachments(sid):
+        uid = (
+            context.user_id
+            if isinstance(context.user_id, UUID)
+            else UUID(str(context.user_id))
+            if context.user_id
+            else None
+        )
+        for att in await session_manager.list_attachments(sid, user_id=uid):
             name = getattr(att, "filename", None) or getattr(att, "name", None)
             if name:
                 taken.add(str(name))

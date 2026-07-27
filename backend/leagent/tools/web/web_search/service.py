@@ -11,13 +11,13 @@ import structlog
 
 from leagent.config.settings import WebSearchSettings
 from leagent.tools.web.web_search.cache import get_search_cache
-from leagent.tools.web.web_search.providers import build_default_providers
 from leagent.tools.web.web_search.protocol import (
     AUTO_PROVIDER_PREFERENCE,
     DEFAULT_SEARCH_FLOOR,
     SearchHit,
     WebSearchProvider,
 )
+from leagent.tools.web.web_search.providers import build_default_providers
 
 logger = structlog.get_logger(__name__)
 

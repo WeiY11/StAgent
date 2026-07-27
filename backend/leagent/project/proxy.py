@@ -34,8 +34,8 @@ Implementation notes:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable, Mapping
 from http import HTTPStatus
-from typing import Iterable, Mapping
 from urllib.parse import urlsplit
 
 import structlog
@@ -195,7 +195,7 @@ async def forward_http(
             ),
             timeout=timeout,
         )
-    except (OSError, asyncio.TimeoutError, ValueError) as exc:
+    except (TimeoutError, OSError, ValueError) as exc:
         logger.warning(
             "coding_projects_proxy_upstream_error",
             target=target_url,

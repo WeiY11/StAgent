@@ -66,7 +66,7 @@ class GenerationRequest:
     @classmethod
     def from_params(
         cls, *, kind: str, prompt: str, provider: str | None = None, **params: Any
-    ) -> "GenerationRequest":
+    ) -> GenerationRequest:
         """Build a request from the loose ``generate(**params)`` call shape."""
         return cls(
             kind=kind,
@@ -95,7 +95,7 @@ class GenerationOutput:
     error: str | None = None
 
     @classmethod
-    def failure(cls, kind: str, error: str, **kw: Any) -> "GenerationOutput":
+    def failure(cls, kind: str, error: str, **kw: Any) -> GenerationOutput:
         return cls(success=False, kind=kind, error=error, **kw)
 
 

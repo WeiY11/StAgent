@@ -36,14 +36,14 @@ class AgentTaskHandler:
     name = "agent_task_handler"
     task_type: TaskType = TaskType.AGENT
 
-    def __init__(self, *, service_manager: "ServiceManager | None" = None) -> None:
+    def __init__(self, *, service_manager: ServiceManager | None = None) -> None:
         self._sm = service_manager
 
     async def spawn(
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         from leagent.config.settings import get_settings
         from leagent.sdk import AgentDefinition, AgentRuntime, MemoryPolicy
@@ -236,7 +236,7 @@ class AgentTaskHandler:
         finally:
             end_execution(exec_run.run_id)
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         # Abort propagation is handled by ``TaskManager.kill_task`` which
         # sets the context abort event; nothing extra to do here.
         return None
@@ -288,7 +288,7 @@ def _progress_message(msg_type: str, tool_calls: int) -> str:
 
 
 async def _update_task_progress(
-    session: "AsyncSession",
+    session: AsyncSession,
     task_id: Any,
     *,
     progress: int,

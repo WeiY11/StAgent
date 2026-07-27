@@ -16,8 +16,9 @@ The manager is the single entry point used by the rest of the app
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
@@ -27,8 +28,8 @@ from leagent.skills.base import (
     SkillSource,
     SkillStatus,
 )
-from leagent.skills.github_monorepo_catalog import GitHubCatalogOverride
 from leagent.skills.discovery import DiscoveryRoot, collect_discovery_roots
+from leagent.skills.github_monorepo_catalog import GitHubCatalogOverride
 from leagent.skills.loader import SkillLoader
 
 logger = structlog.get_logger(__name__)
@@ -286,8 +287,8 @@ class SkillsManager:
     async def update_skill_file(self, name: str, content: str) -> Skill:
         """Write SKILL.md for *name* after validation and reload the skill."""
         from leagent.skills.loader import (
-            SkillLoadError,
             SkillLoader,
+            SkillLoadError,
             SkillValidationError,
         )
 

@@ -66,7 +66,7 @@ class CurrentNodeContext:
         self._node_id = node_id
         self._token: contextvars.Token[str | None] | None = None
 
-    def __enter__(self) -> "CurrentNodeContext":
+    def __enter__(self) -> CurrentNodeContext:
         self._token = _current_node.set(self._node_id)
         return self
 

@@ -6,18 +6,19 @@ Provides JSON file-based and PostgreSQL-backed implementations.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 from uuid import UUID
 
 import structlog
 
-from .base import CronExecution, CronHeartbeat, CronJob, CronExecutionStatus
+from .base import CronExecution, CronExecutionStatus, CronHeartbeat, CronJob
 
 if TYPE_CHECKING:
     from leagent.db.service import DatabaseService
@@ -29,6 +30,10 @@ CURRENT_SCHEMA_VERSION = 1
 
 class JobRepository(Protocol):
     """Protocol for job repository implementations."""
+
+    async def initialize(self) -> None:
+        """Initialize the repository backend."""
+        ...
 
     async def save(self, job: CronJob) -> None:
         """Save a job."""
@@ -105,10 +110,8 @@ class JsonJobRepository:
         """Close the repository, saving any pending changes."""
         if self._auto_save_task:
             self._auto_save_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._auto_save_task
-            except asyncio.CancelledError:
-                pass
 
         if self._dirty:
             await self._save()
@@ -314,7 +317,7 @@ class JsonJobRepository:
     def _read_file(self) -> dict[str, Any]:
         """Read and parse the JSON file (blocking)."""
         with open(self.file_path, encoding="utf-8") as f:
-            return json.load(f)
+            return cast("dict[str, Any]", json.load(f))
 
     async def _save(self) -> None:
         """Save data to the JSON file atomically."""
@@ -539,7 +542,7 @@ class DatabaseJobRepository:
     application's relational database for durability and queryability.
     """
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def initialize(self) -> None:
@@ -547,7 +550,6 @@ class DatabaseJobRepository:
 
     async def save(self, job: CronJob) -> None:
         """Upsert a cron job to the database."""
-        from sqlmodel import select
         from leagent.db.models.cron import CronJobModel
 
         async with self._db.session() as session:
@@ -590,6 +592,7 @@ class DatabaseJobRepository:
     async def load_all(self) -> list[CronJob]:
         """Load all cron jobs from the database."""
         from sqlmodel import select
+
         from leagent.db.models.cron import CronJobModel
 
         async with self._db.session() as session:
@@ -625,6 +628,7 @@ class DatabaseJobRepository:
     ) -> list[CronExecution]:
         """Get execution history for a job."""
         from sqlmodel import col, select
+
         from leagent.db.models.cron import CronExecutionModel
 
         async with self._db.session() as session:

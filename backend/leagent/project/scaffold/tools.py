@@ -9,7 +9,6 @@ from uuid import UUID
 import structlog
 
 from leagent.agent.runtime_profile import resolve_runtime_budget
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     MAX_TEXT_FILE_BYTES,
     ProjectPathError,
@@ -17,6 +16,7 @@ from leagent.project.fs import (
     read_text_with_detection,
     resolve_in_project,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 

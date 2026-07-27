@@ -17,7 +17,6 @@ from typing import Any
 import structlog
 
 from leagent.workflow.io import IO, Hidden, HiddenHolder, NodeOutput, Schema
-
 from leagent.workflow.nodes.base import WorkflowNode
 
 logger = structlog.get_logger(__name__)

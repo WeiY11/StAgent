@@ -32,7 +32,6 @@ from leagent.cli.utils import (
 )
 from leagent.config.constants import JOBS_PATH, LOG_DIR
 
-
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _server_available() -> bool:

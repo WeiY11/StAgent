@@ -10,17 +10,13 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from leagent.agent.deps import QueryDeps, production_deps
-from leagent.agent.tool_use_context import ToolUseContext
-from leagent.code.artifacts import CodeArtifactRegistry, SessionArtifactStore
-from leagent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
-from leagent.code.pipeline import _CONTEXT_ARTIFACT_STORE_KEY, _CONTEXT_REGISTRY_KEY
 from leagent.agent.query import (
     AssistantMessage,
     QueryParams,
@@ -28,11 +24,15 @@ from leagent.agent.query import (
     ToolResultMessage,
     query,
 )
-from leagent.context.sources.gated_policy import resolve_canvas_intent_max_output_tokens
-from leagent.prompts.playbooks import playbook_ids_from_context
+from leagent.agent.tool_use_context import ToolUseContext
 from leagent.agent.transitions import Terminal, TerminalReason
+from leagent.code.artifacts import CodeArtifactRegistry, SessionArtifactStore
+from leagent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
+from leagent.code.pipeline import _CONTEXT_ARTIFACT_STORE_KEY, _CONTEXT_REGISTRY_KEY
 from leagent.context import ContextManager, FileState
+from leagent.context.sources.gated_policy import resolve_canvas_intent_max_output_tokens
 from leagent.prompts import PromptBuilder, get_prompt_builder
+from leagent.prompts.playbooks import playbook_ids_from_context
 from leagent.services.session.artifacts import (
     ArtifactRegistrar,
     attachment_dicts,
@@ -79,11 +79,11 @@ class SDKMessage:
 @dataclass
 class QueryEngineConfig:
     cwd: str = "."
-    llm: "LLMService | None" = None
-    tools: "ToolRegistry | None" = None
-    executor: "ToolExecutor | None" = None
-    agent_memory: "AgentMemory | None" = None
-    hooks: "HookManager | None" = None
+    llm: LLMService | None = None
+    tools: ToolRegistry | None = None
+    executor: ToolExecutor | None = None
+    agent_memory: AgentMemory | None = None
+    hooks: HookManager | None = None
     deps: QueryDeps | None = None
 
     system_prompt: str = ""
@@ -111,13 +111,13 @@ class QueryEngineConfig:
     prompt_variant: str = "default_agent"
     prompt_template_variant: str = "default"
     context_recipe: str | None = None
-    prompt_builder: "PromptBuilder | None" = None
-    session_manager: "SessionManager | None" = None
-    working_scratchpad: "WorkingScratchpad | None" = None
-    permission_context: "ToolPermissionContext | None" = None
-    skills_manager: "SkillsManager | None" = None
+    prompt_builder: PromptBuilder | None = None
+    session_manager: SessionManager | None = None
+    working_scratchpad: WorkingScratchpad | None = None
+    permission_context: ToolPermissionContext | None = None
+    skills_manager: SkillsManager | None = None
 
-    context_settings: "ContextSettings | None" = None
+    context_settings: ContextSettings | None = None
     recall_limit: int | None = None
     memory_formation: bool = True
 
@@ -149,7 +149,7 @@ _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
 }
 
 
-def _model_aware_compact_params(config: "QueryEngineConfig") -> dict[str, int]:
+def _model_aware_compact_params(config: QueryEngineConfig) -> dict[str, int]:
     """Derive autocompact / microcompact parameters from the active model."""
     model_name = config.model_name or ""
     ctx_window = 0
@@ -208,7 +208,7 @@ class QueryEngine:
         self._prompt_builder: PromptBuilder = (
             config.prompt_builder or get_prompt_builder()
         )
-        self._last_built_prompt: "BuiltPrompt | None" = None
+        self._last_built_prompt: BuiltPrompt | None = None
         self._artifact_registrar = ArtifactRegistrar(config.session_manager)
         self._ingested_produced_paths: set[str] = set()
         self._artifact_store = SessionArtifactStore()
@@ -315,16 +315,16 @@ class QueryEngine:
                 break
 
         query_stripped = (query_text or "").strip()
-        recall_handle: "RecallHandle | None" = None
+        recall_handle: RecallHandle | None = None
         if self.config.agent_memory is not None and (query_stripped or recall_anchor_text):
             from leagent.memory.agent_memory import RecallHandle
             recall_handle = RecallHandle(self.config.agent_memory)
-            recall_kwargs: dict[str, Any] = dict(
-                recall_anchor=recall_anchor_text if not query_stripped else None,
-                user_id=self.config.user_id,
-                session_id=self.session_id,
-                file_state=self._context.file_state,
-            )
+            recall_kwargs: dict[str, Any] = {
+                "recall_anchor": recall_anchor_text if not query_stripped else None,
+                "user_id": self.config.user_id,
+                "session_id": self.session_id,
+                "file_state": self._context.file_state,
+            }
             if self.config.recall_limit is not None:
                 recall_kwargs["limit"] = self.config.recall_limit
             recall_handle.start(query_stripped, **recall_kwargs)
@@ -942,9 +942,9 @@ class QueryEngine:
         self,
         *,
         system_prompt: str | None = None,
-        tools: "ToolRegistry | None" = None,
+        tools: ToolRegistry | None = None,
         prompt_variant: str | None = None,
-        executor: "ToolExecutor | None" = None,
+        executor: ToolExecutor | None = None,
     ) -> QueryEngine:
         child_cfg = QueryEngineConfig(
             cwd=self.config.cwd,

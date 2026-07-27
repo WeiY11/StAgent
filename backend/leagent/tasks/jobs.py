@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from leagent.db.models.task import Task, TaskStatus, TaskType
+from leagent.db.sqlite_compat import load_entity_by_id
 
 if TYPE_CHECKING:
     from leagent.db.service import DatabaseService
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 async def enqueue_file_processing(
-    db: "DatabaseService",
+    db: DatabaseService,
     *,
     file_id: str,
     storage_path: str,
@@ -93,7 +94,7 @@ async def _fallback_inline(payload: dict[str, Any]) -> str | None:
     return None
 
 
-async def recover_pending_jobs(db: "DatabaseService") -> int:
+async def recover_pending_jobs(db: DatabaseService) -> int:
     """Re-enqueue durable jobs left non-terminal by a previous process.
 
     Tasks stuck in ``PENDING``/``QUEUED``/``RUNNING`` after a crash/restart are
@@ -110,7 +111,9 @@ async def recover_pending_jobs(db: "DatabaseService") -> int:
 
     recovered = 0
     stale_states = [TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RUNNING]
-    recoverable_types = [TaskType.IMPORT]
+    recoverable_types = _registered_recoverable_task_types(tm)
+    if not recoverable_types:
+        return 0
 
     try:
         async with db.session() as session:
@@ -124,6 +127,8 @@ async def recover_pending_jobs(db: "DatabaseService") -> int:
         return 0
 
     for task in rows:
+        if tm.is_running(str(task.id)):
+            continue
         if tm.get_handler(task.task_type) is None:
             continue
         import json
@@ -134,12 +139,14 @@ async def recover_pending_jobs(db: "DatabaseService") -> int:
             params = {}
         try:
             async with db.session() as session:
-                fresh = await session.get(Task, task.id)
+                fresh = await load_entity_by_id(
+                    session,
+                    Task,
+                    task.id,
+                    parent_table="tasks",
+                )
                 if fresh is None:
                     continue
-                fresh.status = TaskStatus.QUEUED
-                session.add(fresh)
-                await session.flush()
                 await tm.start_task(session, fresh, params=params)
             recovered += 1
         except Exception as exc:  # noqa: BLE001
@@ -148,3 +155,20 @@ async def recover_pending_jobs(db: "DatabaseService") -> int:
     if recovered:
         logger.info("Recovered %d pending background job(s)", recovered)
     return recovered
+
+
+def _registered_recoverable_task_types(tm: Any) -> list[TaskType]:
+    """Return task types that can be recovered by the active TaskManager."""
+    seen: set[TaskType] = set()
+    out: list[TaskType] = []
+    for handler in tm.get_all_handlers():
+        raw = getattr(handler, "task_type", None)
+        try:
+            task_type = raw if isinstance(raw, TaskType) else TaskType(str(raw))
+        except (TypeError, ValueError):
+            continue
+        if task_type in seen:
+            continue
+        seen.add(task_type)
+        out.append(task_type)
+    return out

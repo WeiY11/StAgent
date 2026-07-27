@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Annotated, Any, Optional
-from uuid import UUID, uuid4
+from typing import Annotated, Any
+from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlmodel import col, func, select
+from sqlalchemy import update as sa_update
+from sqlmodel import col, select
 
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import (
     Flow,
@@ -27,8 +26,15 @@ from leagent.db.models import (
     FlowStatus,
     FlowType,
 )
+from leagent.db.models.base import utc_now
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import CurrentUserId
+from leagent.services.auth.deps import principal_from_request_state
 
-from ..io.loader import WorkflowLoaderError, load as load_document
+from ..io.loader import WorkflowLoaderError
+from ..io.loader import load as load_document
+from .flow_permissions import can_access_flow, require_flow_access
 from .schemas import (
     FlowDuplicateResponse,
     WorkflowExecutionDetail,
@@ -36,7 +42,7 @@ from .schemas import (
 )
 
 
-def _canonicalize(data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+def _canonicalize(data: dict[str, Any] | None) -> dict[str, Any] | None:
     """Validate incoming flow data against the canonical document shape.
 
     The editor saves canonical documents (``nodes`` dict + ``control`` +
@@ -71,36 +77,36 @@ flows_router = APIRouter(tags=["workflow-flows"])
 
 class FlowCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    icon: Optional[str] = Field(default="🤖", max_length=50)
-    icon_bg_color: Optional[str] = Field(default=None, max_length=20)
+    description: str | None = Field(default=None, max_length=2000)
+    icon: str | None = Field(default="🤖", max_length=50)
+    icon_bg_color: str | None = Field(default=None, max_length=20)
     status: FlowStatus = Field(default=FlowStatus.DRAFT)
     flow_type: FlowType = Field(default=FlowType.AGENT)
     is_public: bool = Field(default=False)
-    tags: Optional[str] = Field(default=None, max_length=500)
-    data: Optional[dict[str, Any]] = None
-    settings: Optional[dict[str, Any]] = None
-    folder_id: Optional[UUID] = None
+    tags: str | None = Field(default=None, max_length=500)
+    data: dict[str, Any] | None = None
+    settings: dict[str, Any] | None = None
+    folder_id: UUID | None = None
 
 
 class FlowUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    icon: Optional[str] = Field(default=None, max_length=50)
-    icon_bg_color: Optional[str] = Field(default=None, max_length=20)
-    status: Optional[FlowStatus] = None
-    flow_type: Optional[FlowType] = None
-    is_public: Optional[bool] = None
-    tags: Optional[str] = Field(default=None, max_length=500)
-    data: Optional[dict[str, Any]] = None
-    settings: Optional[dict[str, Any]] = None
-    folder_id: Optional[UUID] = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    icon: str | None = Field(default=None, max_length=50)
+    icon_bg_color: str | None = Field(default=None, max_length=20)
+    status: FlowStatus | None = None
+    flow_type: FlowType | None = None
+    is_public: bool | None = None
+    tags: str | None = Field(default=None, max_length=500)
+    data: dict[str, Any] | None = None
+    settings: dict[str, Any] | None = None
+    folder_id: UUID | None = None
 
 
 class RecentFlowItem(BaseModel):
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     status: str
     nodeCount: int
     createdAt: str
@@ -129,6 +135,41 @@ def _get_workflow_service() -> Any:
 def _node_count(flow: Flow) -> int:
     if not flow.data:
         return 0
+
+
+async def _load_flow(session: Any, flow_id: UUID) -> Flow | None:
+    return await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
+
+
+async def _update_flow_row(
+    session: Any,
+    flow_id: UUID,
+    flow: Flow,
+    values: dict[str, Any],
+) -> Flow:
+    """Update a flow by UUID-compatible predicate; fake unit sessions mutate in place."""
+    execute = getattr(session, "execute", None)
+    if callable(execute):
+        await session.execute(
+            sa_update(Flow)
+            .where(uuid_column_equals(session, Flow.id, flow_id))
+            .values(**values)
+        )
+        reloaded = await _load_flow(session, flow_id)
+        return reloaded or flow
+
+    for key, value in values.items():
+        setattr(flow, key, value)
+    add = getattr(session, "add", None)
+    if callable(add):
+        add(flow)
+    flush = getattr(session, "flush", None)
+    if callable(flush):
+        await flush()
+    refresh = getattr(session, "refresh", None)
+    if callable(refresh):
+        await refresh(flow)
+    return flow
     try:
         doc = json.loads(flow.data)
         nodes = doc.get("nodes") if isinstance(doc, dict) else None
@@ -176,27 +217,26 @@ async def create_flow(
 
 @flows_router.get("/flows", response_model=PaginatedResponse[FlowRead])
 async def list_flows(
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    status_: Optional[FlowStatus] = Query(default=None, alias="status"),
-    flow_type: Optional[FlowType] = Query(default=None),
-    folder_id: Optional[UUID] = Query(default=None),
-    is_public: Optional[bool] = Query(default=None),
-    search: Optional[str] = Query(default=None, max_length=100),
+    status_: FlowStatus | None = Query(default=None, alias="status"),
+    flow_type: FlowType | None = Query(default=None),
+    folder_id: UUID | None = Query(default=None),
+    is_public: bool | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
 ) -> PaginatedResponse[FlowRead]:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        query = select(Flow).where(
-            (Flow.user_id == user_id) | (Flow.is_public == True),  # noqa: E712
-            Flow.is_deleted == False,  # noqa: E712
-        )
+        query = select(Flow).where(Flow.is_deleted == False)  # noqa: E712
         if status_ is not None:
             query = query.where(Flow.status == status_)
         if flow_type is not None:
             query = query.where(Flow.flow_type == flow_type)
         if folder_id is not None:
-            query = query.where(Flow.folder_id == folder_id)
+            query = query.where(uuid_column_equals(session, Flow.folder_id, folder_id))
         if is_public is not None:
             query = query.where(Flow.is_public == is_public)
         if search:
@@ -205,12 +245,15 @@ async def list_flows(
                 | (Flow.description.ilike(f"%{search}%"))
             )
 
-        count_query = select(func.count()).select_from(query.subquery())
-        total = (await session.exec(count_query)).one()
-
         query = query.order_by(col(Flow.updated_at).desc())
-        query = query.offset((page - 1) * page_size).limit(page_size)
-        flows = list((await session.exec(query)).all())
+        visible_flows = [
+            flow
+            for flow in (await session.exec(query)).all()
+            if can_access_flow(flow, principal, "view")
+        ]
+        total = len(visible_flows)
+        start = (page - 1) * page_size
+        flows = visible_flows[start : start + page_size]
 
         return PaginatedResponse[FlowRead](
             items=[FlowRead.model_validate(f) for f in flows],
@@ -224,21 +267,25 @@ async def list_flows(
 
 @flows_router.get("/flows/recent", response_model=list[RecentFlowItem])
 async def get_recent_flows(
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     limit: int = Query(default=10, ge=1, le=50),
 ) -> list[RecentFlowItem]:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
         query = (
             select(Flow)
             .where(
-                (Flow.user_id == user_id) | (Flow.is_public == True),  # noqa: E712
                 Flow.is_deleted == False,  # noqa: E712
             )
             .order_by(col(Flow.updated_at).desc())
-            .limit(limit)
         )
-        flows = list((await session.exec(query)).all())
+        flows = [
+            flow
+            for flow in (await session.exec(query)).all()
+            if can_access_flow(flow, principal, "view")
+        ][:limit]
 
     return [
         RecentFlowItem(
@@ -257,31 +304,34 @@ async def get_recent_flows(
 @flows_router.get("/flows/{flow_id}", response_model=FlowRead)
 async def get_flow(
     flow_id: UUID,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowRead:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await _load_flow(session, flow_id)
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id and not flow.is_public:
-            raise HTTPException(status_code=403, detail="Access denied to this flow")
+        require_flow_access(flow, principal, "view")
         return FlowRead.model_validate(flow)
 
 
+@flows_router.patch("/flows/{flow_id}", response_model=FlowRead)
 @flows_router.put("/flows/{flow_id}", response_model=FlowRead)
 async def update_flow(
     flow_id: UUID,
     data: FlowUpdateRequest,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowRead:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await _load_flow(session, flow_id)
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this flow")
+        require_flow_access(flow, principal, "edit")
 
         update_data = data.model_dump(exclude_unset=True)
         if "data" in update_data:
@@ -294,34 +344,33 @@ async def update_flow(
                 json.dumps(update_data["settings"]) if update_data["settings"] else None
             )
 
-        for field, value in update_data.items():
-            setattr(flow, field, value)
-
-        flow.version += 1
-        flow.updated_at = datetime.utcnow()
-        session.add(flow)
-        await session.flush()
-        await session.refresh(flow)
-        return FlowRead.model_validate(flow)
+        update_data["version"] = (flow.version or 0) + 1
+        update_data["updated_at"] = utc_now()
+        updated = await _update_flow_row(session, flow_id, flow, update_data)
+        return FlowRead.model_validate(updated)
 
 
 @flows_router.delete("/flows/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flow(
     flow_id: UUID,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> None:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await _load_flow(session, flow_id)
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this flow")
+        require_flow_access(flow, principal, "delete")
 
-        flow.is_deleted = True
-        flow.deleted_at = datetime.utcnow()
-        flow.updated_at = datetime.utcnow()
-        session.add(flow)
+        now = utc_now()
+        await _update_flow_row(
+            session,
+            flow_id,
+            flow,
+            {"is_deleted": True, "deleted_at": now, "updated_at": now},
+        )
 
 
 @flows_router.post(
@@ -331,15 +380,16 @@ async def delete_flow(
 )
 async def duplicate_flow(
     flow_id: UUID,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowDuplicateResponse:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await _load_flow(session, flow_id)
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id and not flow.is_public:
-            raise HTTPException(status_code=403, detail="Access denied to this flow")
+        require_flow_access(flow, principal, "view")
 
         clone = Flow(
             name=f"{flow.name} (copy)",
@@ -441,7 +491,7 @@ async def resume_execution(
     execution_id: UUID,
     flow_id: UUID,
     user_id: CurrentUserId,
-    resume_data: Optional[dict[str, Any]] = None,
+    resume_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     service = _get_workflow_service()
     record = await service.get_execution(execution_id)
@@ -456,7 +506,7 @@ async def resume_execution(
     return {"execution_id": str(execution_id), "status": result.status.value}
 
 
-def _opt_dt(value: Any) -> Optional[datetime]:
+def _opt_dt(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):

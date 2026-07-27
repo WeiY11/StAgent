@@ -144,11 +144,11 @@ class TaskPlanner:
 
     def __init__(
         self,
-        llm: "LLMService",
-        tools: "ToolRegistry | None" = None,
+        llm: LLMService,
+        tools: ToolRegistry | None = None,
         *,
-        agent_memory: "AgentMemory | None" = None,
-        rule_engine: "RuleEngine | None" = None,
+        agent_memory: AgentMemory | None = None,
+        rule_engine: RuleEngine | None = None,
     ) -> None:
         self.llm = llm
         self.tools = tools

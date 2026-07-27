@@ -29,7 +29,7 @@ from leagent.cli.utils import (
     status_badge,
     truncate_text,
 )
-from leagent.config.constants import OUTPUT_DIR, LEAGENT_HOME
+from leagent.config.constants import LEAGENT_HOME, OUTPUT_DIR
 
 
 @click.group(name="chats")

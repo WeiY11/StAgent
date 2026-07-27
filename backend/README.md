@@ -12,7 +12,7 @@ FastAPI application.
 
 ## Desktop & thin install
 
-- Default database is **SQLite** under `LEAGENT_HOME/leagent.db` (or `DB_SQLITE_PATH`). Use `DB_DRIVER=postgresql+asyncpg` (and related `DB_*` fields) for Postgres.
+- Default database is **SQLite** under `LEAGENT_HOME/leagent.db` (or `DB_SQLITE_PATH`), no extra dependency, `workers=1`. Set `DATABASE_URL=postgresql+asyncpg://...` with `uv sync --extra postgres` for PostgreSQL.
 - Heavy stacks ship as **optional extras**: `leagent[browser]`, `leagent[office]`, `leagent[rag]`, `leagent[ocr]`, `leagent[paddle]` (legacy OCR). Admins can also install packs from **Settings → Plugins** (`/api/v1/extensions`).
 - After editing `pyproject.toml`, run `uv lock` to refresh `uv.lock`.
 
@@ -259,7 +259,7 @@ Cross-cutting observability utilities live in [`leagent/telemetry/`](leagent/tel
 
 Optional (for advanced features):
 
-- **PostgreSQL 15+** — use `DB_DRIVER=postgresql+asyncpg` for production-grade persistence
+- **PostgreSQL 15+** — set `DATABASE_URL=postgresql+asyncpg://...` and install the driver with `uv sync --extra postgres` for production-grade persistence (`DB_DATABASE_URL` remains a compatibility alias)
 - **Milvus 2.4+** — required for vector-backed agent memory (episodic/semantic/procedural recall)
 - **MinIO** (or any S3-compatible store) — for object storage
 - NVIDIA GPU + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) for local vLLM inference
@@ -302,7 +302,7 @@ Key variables:
 |---|---|
 | `LEAGENT_SECRET_KEY` | **Required.** JWT / signing secret. Generate with `openssl rand -hex 32`. |
 | `DB_SQLITE_PATH` | SQLite file path (defaults to `~/.leagent/leagent.db`). |
-| `DATABASE_URL` | SQLAlchemy async DSN for PostgreSQL, e.g. `postgresql+asyncpg://user:pass@localhost:5432/leagent`. |
+| `DATABASE_URL` | Canonical SQLAlchemy async DSN to switch to PostgreSQL, e.g. `postgresql+asyncpg://user:pass@localhost:5432/leagent`. Requires the `postgres` extra (`uv sync --extra postgres`). `DB_DATABASE_URL` is a backward-compatible alias. |
 | `DEEPSEEK_API_KEY` | DeepSeek provider key (auto-aliases tier1 → v4-pro, tier2 → v4-flash). |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | Other LLM provider keys. |
 | `LLM_TIER1_API_KEY` / `LLM_TIER1_ENDPOINT` | Explicit primary (reasoning) tier. |
@@ -416,12 +416,16 @@ under `LEAGENT_HOME`.
 ## Testing
 
 ```bash
-# Full suite
+# Local default suite, progress-visible batches (non-live by default)
 cd backend
-pytest
+uv run python scripts/run_default_tests.py
 
-# Using uv
-uv run pytest tests/ -v
+# CI-style default suite with combined coverage
+uv run python scripts/run_default_tests.py --fail-fast --cov --cov-fail-under 60 --cov-report-xml coverage.xml -- -q --durations=40
+
+# List or run one batch
+uv run python scripts/run_default_tests.py --list
+uv run python scripts/run_default_tests.py --batch top_chat
 
 # Single module / single test
 pytest tests/test_query_engine.py
@@ -432,6 +436,9 @@ pytest -k "rule and not slow"
 
 # Coverage
 pytest --cov=leagent --cov-report=term-missing --cov-report=html
+
+# Optional live LLM tests are explicit opt-in
+uv run pytest tests/integration/test_deepseek_project_edit.py -m live
 ```
 
 Pytest is configured in `pyproject.toml`:

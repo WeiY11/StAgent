@@ -73,7 +73,7 @@ async def register_tool_artifact(
             session_manager = None
 
     if session_manager is not None:
-        return await session_manager.promote_tool_output(
+        promoted: dict[str, Any] | None = await session_manager.promote_tool_output(
             session_uuid,
             user_uuid,
             data=data,
@@ -82,6 +82,7 @@ async def register_tool_artifact(
             origin_ref=origin_ref,
             source_tool_path=source_tool_path,
         )
+        return promoted
 
     # No session context: persist as a managed blob without attachment wiring.
     return await _register_without_session(

@@ -104,7 +104,7 @@ class OutputEnvelope:
 
 def load_records(
     value: Any,
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     max_rows: int | None = None,
 ) -> list[dict[str, Any]]:
@@ -142,7 +142,7 @@ def load_records(
 
 def load_dataframe(
     value: Any,
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     max_rows: int | None = None,
 ) -> Any:
@@ -156,7 +156,7 @@ def load_dataframe(
     return pd.DataFrame(records)
 
 
-def _read_artifact(ref: ArtifactRef, context: "ToolContext | None") -> list[dict[str, Any]]:
+def _read_artifact(ref: ArtifactRef, context: ToolContext | None) -> list[dict[str, Any]]:
     scheme, location = _split_uri(ref.uri)
     if scheme in ("", "file"):
         return _read_local(Path(location), ref.kind)
@@ -214,7 +214,7 @@ def _read_local(path: Path, kind: str) -> list[dict[str, Any]]:
 def _read_minio(
     location: str,
     kind: str,
-    context: "ToolContext | None",
+    context: ToolContext | None,
 ) -> list[dict[str, Any]]:
     file_store = getattr(context, "file_store", None) if context else None
     if file_store is None:
@@ -231,7 +231,7 @@ def _read_minio(
 
 
 def _read_memory(
-    handle: str, context: "ToolContext | None",
+    handle: str, context: ToolContext | None,
 ) -> list[dict[str, Any]]:
     if context is None:
         raise RuntimeError("memory:// artifact requires a ToolContext")
@@ -273,7 +273,7 @@ def _parse_bytes_as_records(
 
 def emit_records(
     records: list[dict[str, Any]],
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     op_name: str = "data",
     preview_rows: int = DEFAULT_PREVIEW_ROWS,
@@ -327,7 +327,7 @@ def emit_records(
 
 def emit_dataframe(
     df: Any,
-    context: "ToolContext | None" = None,
+    context: ToolContext | None = None,
     *,
     op_name: str = "data",
     preview_rows: int = DEFAULT_PREVIEW_ROWS,
@@ -355,7 +355,7 @@ def emit_dataframe(
 
 def _spill_records(
     records: list[dict[str, Any]],
-    context: "ToolContext | None",
+    context: ToolContext | None,
     *,
     op_name: str,
     size_bytes: int,

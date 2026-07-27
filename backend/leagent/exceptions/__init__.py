@@ -9,10 +9,10 @@ from leagent.exceptions.auth import (
 )
 from leagent.exceptions.base import (
     ConfigurationError,
+    LeAgentError,
     ResourceConflictError,
     ResourceNotFoundError,
     ValidationError,
-    LeAgentError,
 )
 from leagent.exceptions.llm import (
     LLMRateLimitError,

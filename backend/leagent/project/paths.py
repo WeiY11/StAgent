@@ -21,15 +21,14 @@ processes) live in :mod:`leagent.services.coding_projects.binaries`.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 from uuid import UUID
 
 import structlog
 
-from leagent.file.primitives import is_path_inside
-
 from leagent.config.settings import get_settings
+from leagent.file.primitives import is_path_inside
 
 logger = structlog.get_logger(__name__)
 

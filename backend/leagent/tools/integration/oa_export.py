@@ -297,23 +297,23 @@ class OAExportTool(BaseTool):
         try:
             if transform_type == "string":
                 return str(value)
-            elif transform_type == "integer":
+            if transform_type == "integer":
                 return int(float(value))
-            elif transform_type == "float":
+            if transform_type == "float":
                 return float(value)
-            elif transform_type == "boolean":
+            if transform_type == "boolean":
                 if isinstance(value, bool):
                     return value
                 return str(value).lower() in ("true", "1", "yes", "是")
-            elif transform_type == "date":
+            if transform_type == "date":
                 if isinstance(value, datetime):
                     return value.strftime(fmt or "%Y-%m-%d")
                 return value
-            elif transform_type == "datetime":
+            if transform_type == "datetime":
                 if isinstance(value, datetime):
                     return value.strftime(fmt or "%Y-%m-%d %H:%M:%S")
                 return value
-            elif transform_type == "json":
+            if transform_type == "json":
                 import json
 
                 return json.dumps(value, ensure_ascii=False)
@@ -335,7 +335,7 @@ class OAExportTool(BaseTool):
         if export_format == ExportFormat.JSON.value:
             return record
 
-        elif export_format == ExportFormat.XML.value:
+        if export_format == ExportFormat.XML.value:
             xml_parts = ["<record>"]
             for key, value in record.items():
                 if value is None:
@@ -346,10 +346,10 @@ class OAExportTool(BaseTool):
             xml_parts.append("</record>")
             return "".join(xml_parts)
 
-        elif export_format == ExportFormat.FORM_DATA.value:
+        if export_format == ExportFormat.FORM_DATA.value:
             return {k: str(v) if v is not None else "" for k, v in record.items()}
 
-        elif export_format == ExportFormat.CSV.value:
+        if export_format == ExportFormat.CSV.value:
             import csv
             import io
 

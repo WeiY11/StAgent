@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
 
 from leagent.config.settings import Settings
-from leagent.services.auth.tokens import mint_token, decode_token, TokenError
+from leagent.services.auth.tokens import TokenError, decode_token, mint_token
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def mint_rtsp_mjpeg_token(
         ttl_seconds = settings.rtsp_stream.token_ttl_seconds
     ttl_seconds = max(60, int(ttl_seconds))
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(seconds=ttl_seconds)
     payload: dict[str, Any] = {
         "sub": str(user_id),

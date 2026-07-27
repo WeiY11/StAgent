@@ -228,28 +228,27 @@ class DocClassifierTool(BaseTool):
         if method == "rules":
             return self._classify_with_rules(text, confidence_threshold)
 
-        elif method == "llm":
+        if method == "llm":
             return await self._classify_with_llm(text, categories, context)
 
-        else:
-            rules_result = self._classify_with_rules(text, confidence_threshold)
+        rules_result = self._classify_with_rules(text, confidence_threshold)
 
-            if rules_result["confidence"] >= confidence_threshold:
-                rules_result["method_used"] = "rules"
-                return rules_result
+        if rules_result["confidence"] >= confidence_threshold:
+            rules_result["method_used"] = "rules"
+            return rules_result
 
-            if context.llm is None:
-                rules_result["warning"] = (
-                    "Rule-based confidence below threshold and no LLM available. "
-                    "Using best rule-based guess."
-                )
-                rules_result["method_used"] = "rules (fallback)"
-                return rules_result
+        if context.llm is None:
+            rules_result["warning"] = (
+                "Rule-based confidence below threshold and no LLM available. "
+                "Using best rule-based guess."
+            )
+            rules_result["method_used"] = "rules (fallback)"
+            return rules_result
 
-            llm_result = await self._classify_with_llm(text, categories, context)
-            llm_result["rules_suggestion"] = rules_result["category"]
-            llm_result["rules_confidence"] = rules_result["confidence"]
-            return llm_result
+        llm_result = await self._classify_with_llm(text, categories, context)
+        llm_result["rules_suggestion"] = rules_result["category"]
+        llm_result["rules_confidence"] = rules_result["confidence"]
+        return llm_result
 
     def _classify_with_rules(self, text: str, threshold: float) -> dict[str, Any]:
         """Classify document using rule-based pattern matching.
@@ -261,7 +260,7 @@ class DocClassifierTool(BaseTool):
         Returns:
             Classification result with category and confidence.
         """
-        scores: dict[str, float] = {cat: 0.0 for cat in RULE_PATTERNS}
+        scores: dict[str, float] = dict.fromkeys(RULE_PATTERNS, 0.0)
         matches: dict[str, list[str]] = {cat: [] for cat in RULE_PATTERNS}
 
         for category, patterns in RULE_PATTERNS.items():

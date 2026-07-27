@@ -10,9 +10,9 @@ from leagent.utils.crypto import (
 )
 from leagent.utils.logging import setup_logging
 from leagent.utils.metrics import (
+    LeAgentMetrics,
     MetricsMiddleware,
     MetricsTimer,
-    LeAgentMetrics,
     get_metrics,
     reset_metrics,
     track_metrics,

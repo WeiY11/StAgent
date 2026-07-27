@@ -9,11 +9,10 @@ from __future__ import annotations
 
 from leagent.workflow.nodes.base import WorkflowNode
 
-from .control_agent import ControlAgentNode
-from .script_agent import ScriptAgentNode
 from .asset_export import AssetExportNode
 from .coding_agent import CodingAgentNode
 from .condition import ConditionNode
+from .control_agent import ControlAgentNode
 from .end import EndNode
 from .error_handler import ErrorHandlerNode
 from .human_review import HumanReviewNode
@@ -25,6 +24,7 @@ from .parallel import ParallelNode
 from .preview import PreviewNode
 from .quality_gate import QualityGateNode
 from .script import ScriptNode
+from .script_agent import ScriptAgentNode
 from .start import StartNode
 from .subworkflow import SubworkflowNode
 from .tool_call import ToolCallNode

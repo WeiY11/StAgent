@@ -14,12 +14,12 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     IgnoreMatcher,
     select_project_root,
     walk_project,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 

@@ -580,7 +580,7 @@ class CodeExecutionTool(BaseTool):
         self,
         params: dict[str, Any],
         context: ToolContext,
-    ) -> tuple[str, "CodeArtifact | None"] | tuple[dict[str, Any], None]:
+    ) -> tuple[str, CodeArtifact | None] | tuple[dict[str, Any], None]:
         """Phase 1: resolve source text, validate syntax, create artifact.
 
         Returns ``(source, artifact)`` on success, or
@@ -697,7 +697,7 @@ class CodeExecutionTool(BaseTool):
     async def _phase_execute(
         self,
         source: str,
-        artifact: "CodeArtifact | None",
+        artifact: CodeArtifact | None,
         params: dict[str, Any],
         context: ToolContext,
     ) -> dict[str, Any]:
@@ -824,10 +824,10 @@ class CodeExecutionTool(BaseTool):
             logger.warning("code_execution_quota_exceeded", error=str(exc))
 
         from leagent.services.session.artifacts import (
+            _scan_image_preview_urls,
             ingest_previewable_produced_files,
             strip_base64_from_text,
             strip_inline_base64_payloads,
-            _scan_image_preview_urls,
         )
 
         persisted_file = self._persist_source(source, context)
@@ -978,9 +978,9 @@ class CodeExecutionTool(BaseTool):
     async def _prepare_artifact(
         source: str,
         params: dict[str, Any],
-        context: "ToolContext",
+        context: ToolContext,
         skip_syntax: bool,
-    ) -> "CodeArtifact | None":
+    ) -> CodeArtifact | None:
         """Build a CodeArtifact via the pipeline if available."""
         from leagent.code.pipeline import get_pipeline
 

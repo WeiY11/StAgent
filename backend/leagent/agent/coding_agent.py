@@ -39,8 +39,8 @@ Public surface
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Awaitable, Callable, Iterable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import structlog
@@ -143,7 +143,7 @@ def build_coding_agent_registry(
 
 def build_coding_agent_engine(
     *,
-    llm: "LLMService",
+    llm: LLMService,
     tools: ToolRegistry,
     project_path: str,
     cwd: str | None = None,
@@ -151,9 +151,9 @@ def build_coding_agent_engine(
     append_system_prompt: str = "",
     prompt_variant: str = "coding_agent",
     allowed_tools: Iterable[str] = DEFAULT_CODING_AGENT_TOOLS,
-    agent_memory: "AgentMemory | None" = None,
+    agent_memory: AgentMemory | None = None,
     hooks: Any = None,
-    service_manager: "ServiceManager | None" = None,
+    service_manager: ServiceManager | None = None,
     max_turns: int = 40,
     max_tool_calls_per_turn: int = 8,
     temperature: float | None = 0.2,
@@ -163,7 +163,7 @@ def build_coding_agent_engine(
     workflow_node_id: str | None = None,
     extra_tool_context: dict[str, Any] | None = None,
     deps: Any = None,
-) -> "QueryEngine":
+) -> QueryEngine:
     """Return a :class:`QueryEngine` configured as a coding sub-agent.
 
     The most important parameter is ``project_path`` — an absolute
@@ -262,10 +262,10 @@ class CodingAgentTool(BaseTool):
 
     def __init__(
         self,
-        parent_controller: "AgentController | None" = None,
+        parent_controller: AgentController | None = None,
         *,
-        parent_engine: "QueryEngine | None" = None,
-        parent_provider: Callable[[], "AgentController | None"] | None = None,
+        parent_engine: QueryEngine | None = None,
+        parent_provider: Callable[[], AgentController | None] | None = None,
         allowed_tools: Iterable[str] = DEFAULT_CODING_AGENT_TOOLS,
         max_turns: int = 40,
     ) -> None:
@@ -452,8 +452,8 @@ class CodingAgentTool(BaseTool):
 
 async def _run_coding_agent(
     *,
-    parent_controller: "AgentController | None",
-    parent_engine: "QueryEngine | None",
+    parent_controller: AgentController | None,
+    parent_engine: QueryEngine | None,
     prompt: str,
     project_path: str,
     allowed_tools: Iterable[str],

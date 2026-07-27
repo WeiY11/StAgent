@@ -263,7 +263,7 @@ def _assess_pdf(path: Path) -> ArtifactQualityResult:
         try:
             from pypdf import PdfReader
         except ImportError:
-            from PyPDF2 import PdfReader  # type: ignore[import-not-found]
+            from PyPDF2 import PdfReader
         reader = PdfReader(str(path))
         pages = len(reader.pages)
         if pages < 1:
@@ -356,9 +356,9 @@ def apply_quality_to_tool_payload(
                     }
                 )
     for key in ("output_path", "file_path", "path"):
-        raw = data.get(key)
-        if isinstance(raw, str) and raw.strip():
-            checked.append({"storage_path": raw, "filename": Path(raw).name})
+        raw_path = data.get(key)
+        if isinstance(raw_path, str) and raw_path.strip():
+            checked.append({"storage_path": raw_path, "filename": Path(raw_path).name})
 
     passed, failures = annotate_attachments_quality(checked)
     # Mirror onto produced_files when we annotated matching paths.
@@ -375,20 +375,20 @@ def apply_quality_to_tool_payload(
             if not isinstance(entry, dict):
                 continue
             for key in ("source_path", "file_path", "path"):
-                raw = entry.get(key)
-                if not isinstance(raw, str):
+                entry_path = entry.get(key)
+                if not isinstance(entry_path, str):
                     continue
                 try:
-                    resolved = str(Path(raw).expanduser().resolve())
+                    resolved = str(Path(entry_path).expanduser().resolve())
                 except OSError:
-                    resolved = raw
-                att = by_path.get(resolved)
-                if att is None:
+                    resolved = entry_path
+                matched = by_path.get(resolved)
+                if matched is None:
                     continue
-                if "quality_passed" in att:
-                    entry["quality_passed"] = att["quality_passed"]
-                if att.get("quality_error"):
-                    entry["quality_error"] = att["quality_error"]
+                if "quality_passed" in matched:
+                    entry["quality_passed"] = matched["quality_passed"]
+                if matched.get("quality_error"):
+                    entry["quality_error"] = matched["quality_error"]
                 break
 
     data["quality_passed"] = passed

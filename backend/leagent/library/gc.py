@@ -31,7 +31,7 @@ DEFAULT_GRACE_HOURS = 168  # 7 days
 
 
 async def run_file_gc(
-    db: "DatabaseService",
+    db: DatabaseService,
     *,
     grace_hours: int = DEFAULT_GRACE_HOURS,
     dry_run: bool = False,
@@ -100,7 +100,7 @@ async def run_file_gc(
     }
 
 
-async def _storage_path_is_exclusive(db: "DatabaseService", storage_path: str) -> bool:
+async def _storage_path_is_exclusive(db: DatabaseService, storage_path: str) -> bool:
     """True when no live row still references *storage_path*."""
     from leagent.db.models.file import File
 

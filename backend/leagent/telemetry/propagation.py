@@ -8,7 +8,8 @@ context so a single logical operation shows up as one trace in Jaeger/Tempo.
 from __future__ import annotations
 
 import contextlib
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 
 def current_traceparent() -> str | None:

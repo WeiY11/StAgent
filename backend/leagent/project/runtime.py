@@ -27,9 +27,9 @@ import subprocess
 import sys
 import time
 from collections import deque
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import AsyncIterator, Mapping
 from uuid import UUID
 
 import structlog
@@ -308,7 +308,7 @@ class DevServerSupervisor:
             await asyncio.wait_for(ready_event.wait(), timeout=deadline)
             slot.server.ready = True
             return slot.server
-        except asyncio.TimeoutError as exc:
+        except TimeoutError as exc:
             await self.stop(project_id)
             raise StartTimeoutError(
                 f"Dev server did not match ready_regex within {deadline:.0f}s"
@@ -386,11 +386,11 @@ class DevServerSupervisor:
 
         try:
             await asyncio.wait_for(process.wait(), timeout=graceful_timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await self._kill_process_tree(process)
             try:
                 await asyncio.wait_for(process.wait(), timeout=graceful_timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     "coding_projects_supervisor_kill_failed",
                     project_id=str(project_id),
@@ -432,7 +432,7 @@ class DevServerSupervisor:
                 )
                 try:
                     await asyncio.wait_for(taskkill.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
             else:
                 try:

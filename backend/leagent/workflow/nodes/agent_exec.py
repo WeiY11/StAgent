@@ -30,8 +30,9 @@ and the auto-generated ``Agent.<name>`` nodes route through
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 from uuid import UUID
 
 import structlog

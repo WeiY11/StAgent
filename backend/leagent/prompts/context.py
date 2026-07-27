@@ -40,7 +40,7 @@ class PromptContext:
     agent_id: str = "default"
     recall_limit: int = 5
 
-    context_manager: "ContextManager | None" = None
+    context_manager: ContextManager | None = None
 
     # Retained for callers that haven't migrated to ContextManager yet.
     tools: Any = None

@@ -13,7 +13,12 @@ Public surface:
 
 from __future__ import annotations
 
-from .cache_provider import CacheProvider, NullCacheProvider
+from .cache_provider import (
+    WORKFLOW_NODE_OUTPUT_CACHE_NAMESPACE,
+    CacheProvider,
+    CacheServiceWorkflowProvider,
+    NullCacheProvider,
+)
 from .caching import (
     BaseCache,
     BasicCache,
@@ -55,6 +60,7 @@ __all__ = [
     "BaseCache",
     "BasicCache",
     "BlockedError",
+    "CacheServiceWorkflowProvider",
     "CacheEntry",
     "CacheKeySet",
     "CacheKeySetID",
@@ -85,6 +91,7 @@ __all__ = [
     "WorkflowCacheScope",
     "WorkflowEngineError",
     "WorkflowExecutor",
+    "WORKFLOW_NODE_OUTPUT_CACHE_NAMESPACE",
     "build_cache_set",
     "hash_signature",
     "immediate_node_signature",

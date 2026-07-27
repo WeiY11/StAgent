@@ -28,7 +28,8 @@ the server's new tools).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -210,7 +211,7 @@ def register_default_tools(
 
 def register_script_agent_tool(
     registry: ToolRegistry,
-    parent: "AgentController | None" = None,
+    parent: AgentController | None = None,
     *,
     parent_provider: Any = None,
     name_override: str | None = None,
@@ -242,7 +243,7 @@ def register_script_agent_tool(
 
 def register_coding_agent_tool(
     registry: ToolRegistry,
-    parent: "AgentController | None" = None,
+    parent: AgentController | None = None,
     *,
     parent_engine: Any = None,
     parent_provider: Any = None,
@@ -279,7 +280,7 @@ def register_coding_agent_tool(
 
 def register_subagent_tool(
     registry: ToolRegistry,
-    parent: "AgentController | None" = None,
+    parent: AgentController | None = None,
     *,
     parent_engine: Any = None,
     parent_provider: Any = None,
@@ -319,7 +320,7 @@ def register_subagent_tool(
 
 async def register_workflow_tool_nodes(
     tool_registry: ToolRegistry,
-    node_registry: "NodeRegistry | None" = None,
+    node_registry: NodeRegistry | None = None,
     *,
     custom_dirs: Iterable[str] = (),
 ) -> dict[str, list[str]]:
@@ -344,7 +345,7 @@ async def register_workflow_tool_nodes(
 async def bootstrap_tools(
     *,
     tool_registry: ToolRegistry | None = None,
-    node_registry: "NodeRegistry | None" = None,
+    node_registry: NodeRegistry | None = None,
     extras: Iterable[tuple[str, str]] = (),
     register_nodes: bool = True,
     run_discovery: bool = True,

@@ -12,7 +12,6 @@ Upgraded to align with the reference architecture patterns:
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from collections import OrderedDict
 from collections.abc import AsyncIterator  # noqa: TC003
 from contextlib import suppress
@@ -48,7 +47,6 @@ from leagent.agent.query import (
     drop_orphan_tool_messages,
     inject_missing_tool_result_stubs,
 )
-
 from leagent.agent.transitions import TerminalReason
 from leagent.exceptions.base import LeAgentError
 from leagent.file.attachment_context import build_tool_extra_for_attachment_paths
@@ -911,7 +909,8 @@ class AgentController:
         if self.session_manager is not None:
             try:
                 session_attachments = await self.session_manager.list_attachments(
-                    context.session_id
+                    context.session_id,
+                    user_id=context.user_id,
                 )
                 session_attachment_paths = [
                     att.storage_path for att in session_attachments if att.storage_path
@@ -980,7 +979,10 @@ class AgentController:
 
         if self.session_manager is not None:
             try:
-                session_todos = await self.session_manager.get_todos(context.session_id)
+                session_todos = await self.session_manager.get_todos(
+                    context.session_id,
+                    user_id=context.user_id,
+                )
                 if session_todos:
                     tool_extra["todos"] = self.session_manager.todos_as_tool_dicts(
                         session_todos

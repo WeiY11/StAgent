@@ -690,20 +690,19 @@ class ExternalApiTool(BaseTool):
         def convert_value(key: str, value: Any) -> str:
             if value is None:
                 return f"<{key}/>"
-            elif isinstance(value, dict):
+            if isinstance(value, dict):
                 inner = "".join(convert_value(k, v) for k, v in value.items())
                 return f"<{key}>{inner}</{key}>"
-            elif isinstance(value, list):
+            if isinstance(value, list):
                 items = "".join(convert_value("item", item) for item in value)
                 return f"<{key}>{items}</{key}>"
-            else:
-                escaped = (
-                    str(value)
-                    .replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                )
-                return f"<{key}>{escaped}</{key}>"
+            escaped = (
+                str(value)
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+            )
+            return f"<{key}>{escaped}</{key}>"
 
         for key, value in data.items():
             xml_parts.append(convert_value(key, value))

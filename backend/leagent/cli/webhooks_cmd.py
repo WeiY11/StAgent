@@ -22,7 +22,6 @@ from leagent.cli.utils import (
     truncate_text,
 )
 
-
 WEBHOOK_EVENTS = [
     "task.created",
     "task.completed",

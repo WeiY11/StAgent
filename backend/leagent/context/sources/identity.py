@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 import structlog
@@ -55,7 +55,7 @@ class IdentitySource:
 
             variables: dict[str, Any] = {
                 "agent_name": ctx.agent_id,
-                "current_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "current_date": datetime.now(UTC).strftime("%Y-%m-%d"),
                 **ctx.template_vars,
             }
             body = _substitute(source, variables)

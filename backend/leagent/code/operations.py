@@ -22,7 +22,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ---------------------------------------------------------------------------
 # Operation envelopes — one per tool family
 # ---------------------------------------------------------------------------

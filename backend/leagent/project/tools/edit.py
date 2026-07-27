@@ -23,7 +23,6 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     StrReplaceError,
     perform_str_replace,
@@ -32,6 +31,7 @@ from leagent.project.fs import (
     select_project_root,
     str_replace_result_dict,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 
@@ -201,8 +201,8 @@ class ProjectEditTool(BaseTool):
         context: ToolContext,
     ) -> None:
         try:
-            from leagent.code.pipeline import get_pipeline
             from leagent.code.artifacts import ArtifactKind
+            from leagent.code.pipeline import get_pipeline
 
             pipeline = get_pipeline(context)
             if pipeline is None:

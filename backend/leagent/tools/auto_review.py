@@ -91,7 +91,7 @@ def parse_auto_review_response(content: str | None) -> tuple[AutoReviewDecision,
     return "escalate", f"unknown reviewer decision {decision!r}"
 
 
-def _review_user_prompt(pending: "PendingApproval", params: dict[str, Any]) -> str:
+def _review_user_prompt(pending: PendingApproval, params: dict[str, Any]) -> str:
     try:
         params_blob = json.dumps(params, ensure_ascii=False, default=str)[:4000]
     except Exception:  # noqa: BLE001
@@ -106,7 +106,7 @@ def _review_user_prompt(pending: "PendingApproval", params: dict[str, Any]) -> s
 
 
 async def auto_review_decision(
-    pending: "PendingApproval",
+    pending: PendingApproval,
     params: dict[str, Any],
     *,
     service_manager: Any | None = None,

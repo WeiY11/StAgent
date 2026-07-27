@@ -30,7 +30,7 @@ class SessionContextProvider(Protocol):
         *,
         limit: int | None = None,
         offset: int = 0,
-    ) -> list["SessionMessage"]:
+    ) -> list[SessionMessage]:
         """Retrieve messages, most recent last."""
         ...
 
@@ -38,7 +38,7 @@ class SessionContextProvider(Protocol):
         """Return the compacted history summary, if available."""
         ...
 
-    async def get_attachments(self, session_id: UUID) -> list["SessionAttachment"]:
+    async def get_attachments(self, session_id: UUID) -> list[SessionAttachment]:
         """Return all file attachments for the session."""
         ...
 
@@ -50,7 +50,7 @@ class SessionContextProvider(Protocol):
         """Return session metadata (pins, authorized roots, etc.)."""
         ...
 
-    async def get_state(self, session_id: UUID) -> "SessionState | None":
+    async def get_state(self, session_id: UUID) -> SessionState | None:
         """Return the full session state (for backward compat)."""
         ...
 
@@ -72,7 +72,7 @@ class DefaultSessionContextProvider:
         *,
         limit: int | None = None,
         offset: int = 0,
-    ) -> list["SessionMessage"]:
+    ) -> list[SessionMessage]:
         state = await self._sm.load(session_id)
         if state is None:
             return []
@@ -92,7 +92,7 @@ class DefaultSessionContextProvider:
                 return msg.content
         return None
 
-    async def get_attachments(self, session_id: UUID) -> list["SessionAttachment"]:
+    async def get_attachments(self, session_id: UUID) -> list[SessionAttachment]:
         state = await self._sm.load(session_id)
         if state is None:
             return []
@@ -113,7 +113,7 @@ class DefaultSessionContextProvider:
             return {}
         return dict(state.metadata)
 
-    async def get_state(self, session_id: UUID) -> "SessionState | None":
+    async def get_state(self, session_id: UUID) -> SessionState | None:
         return await self._sm.load(session_id)
 
 
@@ -140,7 +140,7 @@ class CachedSessionContextProvider:
         *,
         limit: int | None = None,
         offset: int = 0,
-    ) -> list["SessionMessage"]:
+    ) -> list[SessionMessage]:
         state = await self._load_state(session_id)
         if state is None:
             return []
@@ -160,7 +160,7 @@ class CachedSessionContextProvider:
                 return msg.content
         return None
 
-    async def get_attachments(self, session_id: UUID) -> list["SessionAttachment"]:
+    async def get_attachments(self, session_id: UUID) -> list[SessionAttachment]:
         state = await self._load_state(session_id)
         if state is None:
             return []
@@ -178,7 +178,7 @@ class CachedSessionContextProvider:
             return {}
         return dict(state.metadata)
 
-    async def get_state(self, session_id: UUID) -> "SessionState | None":
+    async def get_state(self, session_id: UUID) -> SessionState | None:
         return await self._load_state(session_id)
 
     def invalidate(self, session_id: UUID | None = None) -> None:

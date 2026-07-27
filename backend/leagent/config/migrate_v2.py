@@ -224,8 +224,10 @@ def migrate_providers_yaml(
     default_provider = str(raw.get("default_provider") or "").strip()
     default_model = str(raw.get("default_model") or "").strip()
 
-    routing = raw.get("routing") if isinstance(raw.get("routing"), dict) else {}
-    existing_tasks = routing.get("tasks") if isinstance(routing.get("tasks"), dict) else {}
+    _raw_routing = raw.get("routing")
+    routing: dict[str, Any] = _raw_routing if isinstance(_raw_routing, dict) else {}
+    _raw_tasks = routing.get("tasks")
+    existing_tasks: dict[str, Any] = _raw_tasks if isinstance(_raw_tasks, dict) else {}
 
     providers_out: list[dict[str, Any]] = []
     tier_tasks: dict[str, dict[str, str]] = {}

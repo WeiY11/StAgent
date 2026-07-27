@@ -17,10 +17,9 @@ from __future__ import annotations
 
 import mimetypes
 import os
+from collections.abc import Iterable
 from enum import Enum
 from pathlib import Path
-from typing import Iterable
-
 
 # ── Constants ────────────────────────────────────────────────────────
 

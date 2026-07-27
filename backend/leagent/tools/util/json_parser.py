@@ -281,7 +281,7 @@ class JsonParserTool(SyncTool):
                 if inner == "*":
                     if isinstance(current, list):
                         return current
-                    elif isinstance(current, dict):
+                    if isinstance(current, dict):
                         return list(current.values())
                 elif ":" in inner:
                     if isinstance(current, list):
@@ -522,16 +522,15 @@ class JsonParserTool(SyncTool):
 
         if strategy == "replace":
             return {"data": data2}
-        elif strategy == "shallow":
+        if strategy == "shallow":
             if isinstance(data1, dict) and isinstance(data2, dict):
                 return {"data": {**data1, **data2}}
             return {"data": data2}
-        elif strategy == "concat_arrays":
+        if strategy == "concat_arrays":
             result = self._deep_merge(data1, data2, concat_arrays=True)
             return {"data": result}
-        else:
-            result = self._deep_merge(data1, data2)
-            return {"data": result}
+        result = self._deep_merge(data1, data2)
+        return {"data": result}
 
     def _deep_merge(self, obj1: Any, obj2: Any, concat_arrays: bool = False) -> Any:
         """Deep merge two objects."""
@@ -543,7 +542,7 @@ class JsonParserTool(SyncTool):
                 else:
                     result[key] = value
             return result
-        elif isinstance(obj1, list) and isinstance(obj2, list) and concat_arrays:
+        if isinstance(obj1, list) and isinstance(obj2, list) and concat_arrays:
             return obj1 + obj2
         return obj2
 

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from leagent.utils.logging import get_logger
+from typing import TYPE_CHECKING, Any
 
 from leagent.llm.generation.adapter import provider_result_to_output
 from leagent.llm.generation.base import GenerationOutput
 from leagent.llm.generation.config import get_image_gen_config
 from leagent.llm.generation.providers.openai import OpenAIImageGenProvider
+from leagent.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from leagent.llm.generation.backends.dashscope_image import DashScopeImageBackend
 
 logger = get_logger(__name__)
 
@@ -58,7 +60,7 @@ class OpenAIImageBackend:
 class ImageProviderBackend:
     """Deprecated factory — use :class:`OpenAIImageBackend` / :class:`DashScopeImageBackend`."""
 
-    def __new__(cls, name: str) -> OpenAIImageBackend | "DashScopeImageBackend":
+    def __new__(cls, name: str) -> OpenAIImageBackend | DashScopeImageBackend:
         if name == "openai":
             return OpenAIImageBackend()
         if name in ("dashscope", "qwen"):

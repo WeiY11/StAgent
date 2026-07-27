@@ -40,7 +40,7 @@ class InMemoryPromptQueue(PromptQueue):
                     return None
                 try:
                     await asyncio.wait_for(self._cond.wait(), timeout=remaining)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     return None
             _, _, _, item = heapq.heappop(self._heap)
             self._index.pop(item.prompt_id, None)

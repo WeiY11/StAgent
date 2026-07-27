@@ -5,16 +5,15 @@ Standalone single-node configuration — SQLite-only, no external services.
 
 from __future__ import annotations
 
-import leagent.config.env_bootstrap  # noqa: F401 — load ~/.leagent/.env early
-
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field, model_validator
-
-from leagent.config.constants import MAX_UPLOAD_SIZE_BYTES
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+import leagent.config.env_bootstrap  # noqa: F401 — load ~/.leagent/.env early
+from leagent.config.constants import MAX_UPLOAD_SIZE_BYTES
 
 LogFormat = Literal["json", "console", "auto"]
 RuntimeProfile = Literal["standard", "coding_long", "coding_extended"]
@@ -35,12 +34,21 @@ CANVAS_PREVIEW_CSP_LOCAL: str = (
 
 
 class DatabaseSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="DB_")
+    model_config = SettingsConfigDict(env_prefix="DB_", populate_by_name=True)
 
     driver: str = "sqlite+aiosqlite"
     sqlite_path: str = ""
     echo: bool = False
-    database_url: str = ""
+    # ``DATABASE_URL`` is the canonical, documented switch to PostgreSQL;
+    # ``DB_DATABASE_URL`` remains a backward-compatible alias.
+    database_url: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "database_url",
+            "DB_DATABASE_URL",
+            "DATABASE_URL",
+        ),
+    )
     pool_size: int = 5
     max_overflow: int = 10
     # When true, a failed Alembic migration at startup aborts boot instead of
@@ -50,8 +58,29 @@ class DatabaseSettings(BaseSettings):
     fail_fast_migrations: bool = False
 
     @property
+    def backend(self) -> Literal["sqlite", "postgresql", "other"]:
+        """Normalized database backend derived from url/driver scheme."""
+        raw = (self.database_url or self.driver or "").strip().lower()
+        scheme = raw.split(":", 1)[0].split("+", 1)[0]
+        if scheme == "sqlite":
+            return "sqlite"
+        if scheme in {"postgres", "postgresql"}:
+            return "postgresql"
+        return "other"
+
+    @property
+    def is_sqlite(self) -> bool:
+        return self.backend == "sqlite"
+
+    @property
     def is_postgresql(self) -> bool:
-        return bool(self.database_url and "postgresql" in self.database_url)
+        return self.backend == "postgresql"
+
+    @model_validator(mode="after")
+    def validate_database_target(self) -> DatabaseSettings:
+        if not self.database_url and not self.driver.lower().startswith("sqlite"):
+            raise ValueError("database_url is required for non-SQLite drivers")
+        return self
 
     def _sqlite_file_path(self) -> str:
         from leagent.config.constants import LEAGENT_HOME
@@ -77,7 +106,11 @@ class DatabaseSettings(BaseSettings):
     @property
     def sync_url(self) -> str:
         if self.database_url:
-            return self.database_url.replace("+asyncpg", "").replace("+aiopg", "")
+            return (
+                self.database_url.replace("+asyncpg", "")
+                .replace("+aiopg", "")
+                .replace("+aiosqlite", "")
+            )
         path = self._resolved_sqlite_path().as_posix()
         return f"sqlite:///{path}"
 
@@ -497,6 +530,7 @@ class CacheSettings(BaseSettings):
             "files": 1800,
             "chat": 900,
             "memory": 1800,
+            "workflow_node_output": 900,
             "webhooks": 600,
             "variables": 1800,
         }
@@ -506,7 +540,7 @@ class CacheSettings(BaseSettings):
     warm_on_start: bool = False
 
     @model_validator(mode="after")
-    def validate_cache_capacity(self) -> "CacheSettings":
+    def validate_cache_capacity(self) -> CacheSettings:
         if self.max_items < self.shard_count:
             raise ValueError("cache max_items must be >= shard_count")
         return self
@@ -587,6 +621,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 7860
     workers: int = 1
+    skip_startup_migrations: bool = False
     #: HMAC signing secret for session JWTs / signed URLs (also ``LEAGENT_SECRET_KEY``).
     secret_key: str = Field(
         default="",
@@ -606,7 +641,7 @@ class Settings(BaseSettings):
     rtsp_stream: RtspStreamSettings = Field(default_factory=RtspStreamSettings)
     coding_projects: CodingProjectsSettings = Field(default_factory=CodingProjectsSettings)
     prompt: PromptSettings = Field(default_factory=PromptSettings)
-    context: "ContextSettings" = Field(default_factory=ContextSettings)
+    context: ContextSettings = Field(default_factory=ContextSettings)
     workflow: WorkflowEngineSettings = Field(default_factory=WorkflowEngineSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)

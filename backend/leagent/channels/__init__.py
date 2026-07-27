@@ -16,9 +16,9 @@ from .base import (
     ProcessHandler,
 )
 from .manager import (
-    ChannelManager,
     CHANNEL_QUEUE_MAXSIZE,
     CONSUMER_WORKERS_PER_CHANNEL,
+    ChannelManager,
 )
 from .registry import (
     BUILTIN_CHANNEL_KEYS,
@@ -30,10 +30,10 @@ from .registry import (
     register_channel,
 )
 from .renderer import (
+    CHANNEL_STYLES,
     MessageRenderer,
     RenderFormat,
     RenderStyle,
-    CHANNEL_STYLES,
     markdown_to_plain,
     normalize_dingtalk_markdown,
     normalize_feishu_markdown,

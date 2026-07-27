@@ -72,7 +72,7 @@ def _extract_personality_document(settings_raw: str | None) -> str | None:
 
 
 async def get_active_pet_personality(
-    db: "DatabaseService | None", user_id: "UUID | str | None"
+    db: DatabaseService | None, user_id: UUID | str | None
 ) -> str | None:
     """Return the personality document for the user's most-recent pet project.
 
@@ -158,8 +158,8 @@ def build_pet_personality_addendum(personality: str | None) -> str:
 
 async def apply_pet_personality_to_agent(
     agent: object | None,
-    db: "DatabaseService | None",
-    user_id: "UUID | str | None",
+    db: DatabaseService | None,
+    user_id: UUID | str | None,
 ) -> None:
     """Best-effort: load personality and append it to ``agent.config.extra_system_prompt``.
 

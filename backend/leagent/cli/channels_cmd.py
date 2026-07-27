@@ -20,7 +20,6 @@ from leagent.cli.utils import (
 )
 from leagent.config.config import Config, load_config, save_config
 
-
 CHANNEL_DESCRIPTIONS = {
     "web": "Web UI interface",
     "api": "REST API endpoint",

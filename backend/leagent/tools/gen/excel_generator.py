@@ -622,7 +622,7 @@ class ExcelGeneratorTool(SyncTool):
             if formula1 and not formula1.startswith('"'):
                 formula1 = f'"{formula1}"'
             return DataValidation(type="list", formula1=formula1, allow_blank=True)
-        elif dv_type in ("whole", "decimal"):
+        if dv_type in ("whole", "decimal"):
             operator = dv_def.get("operator", "between")
             f1 = dv_def.get("formula1")
             f2 = dv_def.get("formula2")

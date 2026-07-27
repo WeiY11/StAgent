@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     IgnoreMatcher,
     read_text_with_detection,
@@ -21,6 +20,7 @@ from leagent.project.fs import (
     select_project_root,
     walk_project,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 if TYPE_CHECKING:
     from pathlib import Path

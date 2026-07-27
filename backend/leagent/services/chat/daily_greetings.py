@@ -12,8 +12,7 @@ import hashlib
 import json
 import logging
 import re
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime, timezone
 from typing import TYPE_CHECKING
 
 from leagent.exceptions.llm import LLMServiceError
@@ -56,7 +55,7 @@ Rules:
 
 
 def _utc_day() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now(UTC).date().isoformat()
 
 
 def normalize_greeting_locale(locale: str | None) -> str:

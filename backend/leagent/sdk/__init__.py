@@ -26,10 +26,39 @@ Quick start::
         print(event.type, event.data)
 """
 
+# ── Definition / Builder / Registry (re-exported from runtime) ──────────
+from leagent.runtime.builder import AgentBuilder
+from leagent.runtime.context import RuntimeContext
+from leagent.runtime.definition import (
+    AgentDefinition,
+    MemoryPolicy,
+    ModelPolicy,
+    ToolPolicy,
+)
+from leagent.runtime.registry import (
+    AgentRegistry,
+    get_agent_registry,
+    load_agents_from_yaml,
+    register_builtin_agents,
+    reset_agent_registry,
+)
+
+# ── Runtime facade (re-exported from runtime) ───────────────────────────
+from leagent.runtime.runtime import AgentRuntime, get_delegation_runtime
 from leagent.sdk._version import __version__
 
 # ── Events & Results ────────────────────────────────────────────────────
 from leagent.sdk.events import AgentEvent, AgentEventType, AgentResult
+
+# ── Kernel ───────────────────────────────────────────────────────────────
+from leagent.sdk.kernel.checkpoint import (
+    InMemoryCheckpointStore,
+    SQLCheckpointStore,
+    build_checkpoint_store,
+    create_checkpoint,
+)
+from leagent.sdk.kernel.loop import run_loop
+from leagent.sdk.kernel.state import RunState
 
 # ── Protocols ───────────────────────────────────────────────────────────
 from leagent.sdk.protocols import (
@@ -49,38 +78,8 @@ from leagent.sdk.protocols import (
     ToolContext,
 )
 
-# ── Definition / Builder / Registry (re-exported from runtime) ──────────
-from leagent.runtime.builder import AgentBuilder
-from leagent.runtime.context import RuntimeContext
-from leagent.runtime.definition import (
-    AgentDefinition,
-    MemoryPolicy,
-    ModelPolicy,
-    ToolPolicy,
-)
-from leagent.runtime.registry import (
-    AgentRegistry,
-    get_agent_registry,
-    load_agents_from_yaml,
-    register_builtin_agents,
-    reset_agent_registry,
-)
-
 # ── Session ──────────────────────────────────────────────────────────────
 from leagent.sdk.session import AgentSession, ContextInspector, MemoryInspector
-
-# ── Kernel ───────────────────────────────────────────────────────────────
-from leagent.sdk.kernel.checkpoint import (
-    InMemoryCheckpointStore,
-    SQLCheckpointStore,
-    build_checkpoint_store,
-    create_checkpoint,
-)
-from leagent.sdk.kernel.loop import run_loop
-from leagent.sdk.kernel.state import RunState
-
-# ── Runtime facade (re-exported from runtime) ───────────────────────────
-from leagent.runtime.runtime import AgentRuntime, get_delegation_runtime
 
 __all__ = [
     # version

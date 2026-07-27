@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field
 
 
 class FlowRunRequest(BaseModel):
-    input_data: Optional[dict[str, Any]] = Field(default=None)
+    input_data: dict[str, Any] | None = Field(default=None)
     priority: int = Field(default=5, ge=0, le=10, description="0=highest, 10=lowest")
     trigger_type: str = "manual"
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
     extra_data: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -22,20 +22,20 @@ class FlowRunResponse(BaseModel):
     prompt_id: str
     flow_id: UUID
     status: str = "queued"
-    queue_position: Optional[int] = None
+    queue_position: int | None = None
     message: str = "Workflow execution queued"
 
 
 class WorkflowExecutionSummary(BaseModel):
     id: UUID
-    flow_id: Optional[UUID]
+    flow_id: UUID | None
     status: str
     trigger_type: str
     node_count: int = 0
     duration_ms: int = 0
-    error: Optional[str] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    error: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     created_at: datetime
 
 
@@ -43,7 +43,7 @@ class WorkflowExecutionDetail(WorkflowExecutionSummary):
     inputs: dict[str, Any] = Field(default_factory=dict)
     outputs: dict[str, Any] = Field(default_factory=dict)
     execution_history: list[dict[str, Any]] = Field(default_factory=list)
-    current_node: Optional[str] = None
+    current_node: str | None = None
 
 
 class FlowValidateRequest(BaseModel):
@@ -63,9 +63,9 @@ class FlowExportResponse(BaseModel):
 
 
 class FlowImportRequest(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
     document: dict[str, Any]
-    folder_id: Optional[UUID] = None
+    folder_id: UUID | None = None
 
 
 class FlowImportResponse(BaseModel):
@@ -82,7 +82,7 @@ class FlowDuplicateResponse(BaseModel):
 class FlowBuildRequest(BaseModel):
     """``build`` compiles a document into a validated graph hash without running it."""
 
-    data: Optional[dict[str, Any]] = None
+    data: dict[str, Any] | None = None
 
 
 class FlowBuildResponse(BaseModel):
@@ -105,7 +105,7 @@ class NodeReloadResponse(BaseModel):
 class ExecutionStatusEvent(BaseModel):
     type: str
     prompt_id: str
-    node_id: Optional[str] = None
+    node_id: str | None = None
     data: dict[str, Any] = Field(default_factory=dict)
 
 

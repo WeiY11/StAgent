@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -215,7 +215,7 @@ class ExtensionManager:
         installed[pack.id] = {
             "installed": True,
             "version": "latest",
-            "installed_at": datetime.now(timezone.utc).isoformat(),
+            "installed_at": datetime.now(UTC).isoformat(),
         }
         _save_installed(installed)
         full_log = "\n".join(log_parts)

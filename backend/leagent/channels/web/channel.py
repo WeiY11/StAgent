@@ -152,7 +152,7 @@ class SSEStream:
 
                 yield f"event: {event_type}\ndata: {event_data}\n\n"
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
             except asyncio.CancelledError:
                 break

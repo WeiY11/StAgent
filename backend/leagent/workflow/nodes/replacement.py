@@ -9,9 +9,9 @@ so authors of old workflow JSON don't have to migrate manually.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
-
+from typing import Any, Optional
 
 InputTransform = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -21,7 +21,7 @@ class NodeReplacement:
     old_class: str
     new_class: str
     reason: str = ""
-    input_transform: Optional[InputTransform] = None
+    input_transform: InputTransform | None = None
     applies_to_users: tuple[str, ...] = field(default_factory=tuple)
 
     def applies_to(self, user_id: str | None) -> bool:

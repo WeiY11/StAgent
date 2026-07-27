@@ -7,8 +7,8 @@ from typing import Any
 from urllib.parse import urlencode
 
 from leagent.tools.web.polite_http import polite_get
-from leagent.tools.web.web_search.providers.ddg_html import search_duckduckgo_html
 from leagent.tools.web.web_search.protocol import SearchHit
+from leagent.tools.web.web_search.providers.ddg_html import search_duckduckgo_html
 
 
 class DuckDuckGoLiteProvider:

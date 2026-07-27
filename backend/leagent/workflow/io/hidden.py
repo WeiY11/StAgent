@@ -61,7 +61,7 @@ class HiddenHolder:
     def resolve(self, key: Hidden) -> Any:
         return getattr(self, key.value, None)
 
-    def with_unique_id(self, unique_id: str) -> "HiddenHolder":
+    def with_unique_id(self, unique_id: str) -> HiddenHolder:
         """Return a shallow copy with a new ``unique_id`` (per-node scope)."""
         return HiddenHolder(
             unique_id=unique_id,

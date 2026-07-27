@@ -101,7 +101,9 @@ def discover_models() -> list[str]:
     if root.is_dir():
         for path in sorted(root.rglob("*")):
             if path.suffix.lower() in _CHECKPOINT_SUFFIXES and path.is_file():
-                found.append(str(path.relative_to(root)))
+                # POSIX separators so ids are stable across OSes (matches the
+                # forward-slash hub default; backslashes on Windows break lookup).
+                found.append(path.relative_to(root).as_posix())
     fallback = default_model()
     if fallback and fallback not in found:
         found.append(fallback)
@@ -115,7 +117,7 @@ def discover_loras() -> list[str]:
     if root.is_dir():
         for path in sorted(root.rglob("*.safetensors")):
             if path.is_file():
-                found.append(str(path.relative_to(root)))
+                found.append(path.relative_to(root).as_posix())
     return found
 
 

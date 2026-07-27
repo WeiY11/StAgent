@@ -15,7 +15,7 @@ import hashlib
 import logging
 import mimetypes
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
@@ -23,11 +23,10 @@ from uuid import UUID, uuid4
 
 from leagent.file.primitives import FileScope, sanitize_filename
 from leagent.file.storage.backend import StorageBackend
-from leagent.file.storage.local import LocalStorageBackend
 
 if TYPE_CHECKING:
-    from leagent.services.cache.service import CacheService
     from leagent.db.service import DatabaseService
+    from leagent.services.cache.service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class FileRef:
     origin_type: str | None = None
     origin_ref: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -225,8 +224,8 @@ class FileService:
             storage_key=storage_key,
             backend_name=backend_key,
             content_type=content_type,
-            size=store_meta.get("size", file_size),
-            checksum=store_meta.get("checksum", checksum),
+            size=int(store_meta.get("size", file_size)),  # type: ignore[call-overload]
+            checksum=str(store_meta.get("checksum", checksum)),
             user_id=user_id,
             session_id=session_id,
             scope=scope,
@@ -264,11 +263,13 @@ class FileService:
 
         if self._cache is not None:
             try:
-                cached = await self._cache.get(f"fileref:{file_id}", namespace="files")
+                cached: dict[str, Any] | None = await self._cache.get(
+                    f"fileref:{file_id}", namespace="files"
+                )
                 if cached and isinstance(cached, dict):
-                    ref = self._dict_to_ref(cached)
-                    self._refs[file_id] = ref
-                    return ref
+                    cached_ref = self._dict_to_ref(cached)
+                    self._refs[file_id] = cached_ref
+                    return cached_ref
             except Exception:
                 pass
 
@@ -324,9 +325,9 @@ class FileService:
         category: str | None = None,
     ) -> int:
         """Remove expired files matching the criteria."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         removed = 0
-        for fid, ref in list(self._refs.items()):
+        for _fid, ref in list(self._refs.items()):
             if category and ref.category != category:
                 continue
             age_hours = (now - ref.created_at).total_seconds() / 3600
@@ -376,11 +377,12 @@ class FileService:
             from sqlmodel import select
 
             from leagent.db.models.file import File
+            from leagent.db.sqlite_compat import uuid_column_equals
 
             async with self._database.session() as db:
                 stmt = (
                     select(File.storage_path)
-                    .where(File.user_id == user_id)
+                    .where(uuid_column_equals(db, File.user_id, user_id))
                     .where(File.checksum == checksum)
                     .where(File.size == size)
                     .where(File.is_deleted == False)  # noqa: E712
@@ -399,7 +401,6 @@ class FileService:
         if self._database is None:
             return
         try:
-            from leagent.file.primitives import classify_file_kind
             from leagent.db.models.file import (
                 File,
                 FileStatus,
@@ -407,6 +408,7 @@ class FileService:
                 InboxState,
                 LibraryScope,
             )
+            from leagent.file.primitives import classify_file_kind
 
             kind = classify_file_kind(ref.filename, ref.content_type)
             kind_to_file_type = {

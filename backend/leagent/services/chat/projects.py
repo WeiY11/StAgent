@@ -181,7 +181,7 @@ class ChatProjectService:
                               ON lower(replace(CAST(s.project_id AS TEXT), '-', ''))
                                = lower(replace(CAST(p.id AS TEXT), '-', ''))
                              AND s.is_active = 1
-                            WHERE CAST(p.user_id AS TEXT) = :uid
+                            WHERE lower(replace(CAST(p.user_id AS TEXT), '-', '')) = :uid_plain
                               AND p.is_deleted = 0
                             GROUP BY p.id, p.user_id, p.workspace_id, p.folder_id, p.name, p.description,
                                      p.design_context, p.settings, p.password_hash,
@@ -189,7 +189,7 @@ class ChatProjectService:
                             ORDER BY p.updated_at DESC
                             """
                         ),
-                        {"uid": u_txt},
+                        {"uid_plain": u_txt.replace("-", "").lower()},
                     )
                 ).mappings().all()
                 out: list[ChatProjectReadModel] = []
@@ -311,9 +311,56 @@ class ChatProjectService:
                 password_hash=hash_password(password) if password else None,
                 folder_id=folder.id,
             )
-            db.add(project)
-            await db.flush()
-            await db.refresh(project)
+            if session_dialect_name(db) == "sqlite":
+                await db.execute(
+                    text(
+                        """
+                        INSERT INTO chat_projects (
+                            is_deleted, deleted_at, created_at, updated_at,
+                            id, user_id, workspace_id, folder_id, name,
+                            description, design_context, settings, password_hash
+                        )
+                        VALUES (
+                            :is_deleted, :deleted_at, :created_at, :updated_at,
+                            :id, :user_id, :workspace_id, :folder_id, :name,
+                            :description, :design_context, :settings, :password_hash
+                        )
+                        """
+                    ),
+                    {
+                        "is_deleted": bool(project.is_deleted),
+                        "deleted_at": project.deleted_at,
+                        "created_at": project.created_at,
+                        "updated_at": project.updated_at,
+                        "id": project.id.hex,
+                        "user_id": await sqlite_parent_id_text(db, "users", user_id),
+                        "workspace_id": (
+                            await sqlite_parent_id_text(
+                                db, "workspaces", project.workspace_id
+                            )
+                            if project.workspace_id is not None
+                            else None
+                        ),
+                        "folder_id": await sqlite_parent_id_text(
+                            db, "folders", folder.id
+                        ),
+                        "name": project.name,
+                        "description": project.description,
+                        "design_context": project.design_context,
+                        "settings": project.settings,
+                        "password_hash": project.password_hash,
+                    },
+                )
+                loaded = await load_entity_by_id(
+                    db, ChatProject, project_id, parent_table="chat_projects"
+                )
+                if loaded is None:
+                    raise RuntimeError("Inserted chat project could not be reloaded")
+                project = loaded
+            else:
+                db.add(project)
+                await db.flush()
+                await db.refresh(project)
         ensure_chat_project_files_root(project.id)
         return project
 
@@ -340,6 +387,69 @@ class ChatProjectService:
             )
             if project is None or project.is_deleted or not same_user_id(project.user_id, user_id):
                 return None
+            if session_dialect_name(db) == "sqlite":
+                now = utc_now()
+                if name is not None and project.folder_id is not None:
+                    folder = await load_entity_by_id(
+                        db, Folder, project.folder_id, parent_table="folders"
+                    )
+                    if (
+                        folder is not None
+                        and not folder.is_deleted
+                        and same_user_id(folder.user_id, user_id)
+                    ):
+                        await db.execute(
+                            text(
+                                """
+                                UPDATE folders
+                                SET name = :name, updated_at = :updated_at
+                                WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :folder_id
+                                """
+                            ),
+                            {
+                                "name": name,
+                                "updated_at": now,
+                                "folder_id": str(folder.id).replace("-", "").lower(),
+                            },
+                        )
+                values: dict[str, object] = {
+                    "updated_at": now,
+                    "project_id": str(project_id).replace("-", "").lower(),
+                }
+                set_parts = ["updated_at = :updated_at"]
+                if name is not None:
+                    values["name"] = name
+                    set_parts.append("name = :name")
+                if description is not None:
+                    values["description"] = description
+                    set_parts.append("description = :description")
+                if design_context is not None:
+                    values["design_context"] = design_context
+                    set_parts.append("design_context = :design_context")
+                if settings is not None:
+                    values["settings"] = settings
+                    set_parts.append("settings = :settings")
+                if clear_password:
+                    values["password_hash"] = None
+                    set_parts.append("password_hash = :password_hash")
+                elif password:
+                    values["password_hash"] = hash_password(password)
+                    set_parts.append("password_hash = :password_hash")
+                await db.execute(
+                    text(
+                        f"""
+                        UPDATE chat_projects
+                        SET {", ".join(set_parts)}
+                        WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :project_id
+                        """
+                    ),
+                    values,
+                )
+                db.expunge(project)
+                updated = await load_entity_by_id(
+                    db, ChatProject, project_id, parent_table="chat_projects"
+                )
+                return updated
             if name is not None:
                 project.name = name
                 if project.folder_id is not None:
@@ -383,11 +493,23 @@ class ChatProjectService:
             await soft_delete_project_folder(
                 db, folder_id=project.folder_id, user_id=user_id
             )
-            project.is_deleted = True
-            project.deleted_at = utc_now()
-            project.updated_at = project.deleted_at
-            db.add(project)
             if session_dialect_name(db) == "sqlite":
+                deleted_at = utc_now()
+                await db.execute(
+                    text(
+                        """
+                        UPDATE chat_projects
+                        SET is_deleted = 1,
+                            deleted_at = :deleted_at,
+                            updated_at = :deleted_at
+                        WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :project_id
+                        """
+                    ),
+                    {
+                        "deleted_at": deleted_at,
+                        "project_id": str(project_id).replace("-", "").lower(),
+                    },
+                )
                 p_txt = await sqlite_parent_id_text(db, "chat_projects", project_id)
                 await db.execute(
                     text(
@@ -405,6 +527,10 @@ class ChatProjectService:
                     .where(ChatSession.project_id == project_id)
                     .values(project_id=None)
                 )
+                project.is_deleted = True
+                project.deleted_at = utc_now()
+                project.updated_at = project.deleted_at
+                db.add(project)
             return True
 
     async def verify_project_password(

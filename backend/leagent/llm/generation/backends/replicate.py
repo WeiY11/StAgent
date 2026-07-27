@@ -5,11 +5,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from leagent.utils.logging import get_logger
-
 from leagent.llm.generation.backends._utils import parse_size
 from leagent.llm.generation.base import GenerationOutput
 from leagent.llm.generation.config import get_image_gen_config
+from leagent.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

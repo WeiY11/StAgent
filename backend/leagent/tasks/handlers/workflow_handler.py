@@ -26,14 +26,14 @@ class WorkflowTaskHandler:
     name = "workflow_task_handler"
     task_type: TaskType = TaskType.WORKFLOW
 
-    def __init__(self, *, service_manager: "ServiceManager") -> None:
+    def __init__(self, *, service_manager: ServiceManager) -> None:
         self._sm = service_manager
 
     async def spawn(
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         wf_service = getattr(self._sm, "workflow_service", None)
         if wf_service is None:
@@ -108,7 +108,7 @@ class WorkflowTaskHandler:
         finally:
             end_execution(exec_run.run_id)
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         return None
 
 

@@ -34,7 +34,6 @@ from leagent.cli.utils import (
     print_warning,
 )
 
-
 # ── Slash-command registry ──────────────────────────────────────────
 
 SLASH_COMMANDS: dict[str, str] = {

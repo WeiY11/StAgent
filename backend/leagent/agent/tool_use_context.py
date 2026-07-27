@@ -25,11 +25,11 @@ class ToolUseContext:
     """Runtime context threaded through ``query()`` and tool calls."""
 
     abort_event: asyncio.Event
-    tools: "ToolRegistry"
-    executor: "ToolExecutor"
-    file_state_cache: "FileState"
-    recall_handle: "RecallProvider | None" = None
-    hooks: "HookManager | None" = None
+    tools: ToolRegistry
+    executor: ToolExecutor
+    file_state_cache: FileState
+    recall_handle: RecallProvider | None = None
+    hooks: HookManager | None = None
 
     session_id: UUID | None = None
     user_id: UUID | None = None

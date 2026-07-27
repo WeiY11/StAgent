@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from leagent.skills.base import SkillSource
-from leagent.skills.loader import SkillLoadError, SkillLoader, SkillValidationError
+from leagent.skills.loader import SkillLoader, SkillLoadError, SkillValidationError
 
 __all__ = [
     "SkillPackageError",

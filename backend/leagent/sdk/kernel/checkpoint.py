@@ -78,7 +78,7 @@ class SQLCheckpointStore:
         )
 
     @staticmethod
-    def _row_to_checkpoint(row: "AgentCheckpoint") -> Checkpoint:
+    def _row_to_checkpoint(row: AgentCheckpoint) -> Checkpoint:
         try:
             payload = json.loads(row.payload or "{}")
         except (json.JSONDecodeError, ValueError):

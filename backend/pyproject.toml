@@ -60,6 +60,8 @@ dependencies = [
     "reportlab>=4.2.0",
     # Default scientific + student/office stack (shared with code_execution).
     "scipy>=1.11.0",
+    # Financial data (A-share market + global) for stock tools.
+    "akshare>=1.14.0",
     "sympy>=1.12",
     "seaborn>=0.13.0",
     "openpyxl>=3.1.0",
@@ -100,6 +102,11 @@ office = [
     "pandasql>=0.7.3",
     "kaleido>=0.2.0",
 ]
+# PostgreSQL async driver. SQLite is the zero-config default; install this extra
+# (`uv sync --extra postgres`) to run against PostgreSQL via ``DATABASE_URL``.
+postgres = [
+    "asyncpg>=0.30.0",
+]
 paddle = [
     "paddleocr",
     "paddlepaddle",
@@ -118,12 +125,14 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
+    "pytest-xdist>=3.5.0",
     "httpx",
     "playwright>=1.49.0",
     # Align with ``[office]`` stacks needed by ``tests/test_doc_tools.py`` (PyMuPDF / Excel).
     "pymupdf>=1.25.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    "types-PyYAML>=6.0.12",
     "cython>=3.0.0",
 ]
 
@@ -142,17 +151,21 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "N",   # pep8-naming
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "PERF", # perflint — performance anti-patterns
+    "C4",   # flake8-comprehensions
+    "PIE",  # misc lints
+    "RET",  # flake8-return
 ]
-ignore = ["E501", "B008"]
+ignore = ["E501", "B008", "RET504"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["leagent"]
@@ -168,12 +181,14 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-p no:launch_testing -p no:launch_ros -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::pytest.PytestUnhandledThreadExceptionWarning"
+addopts = "-p no:launch_testing -p no:launch_ros"
 filterwarnings = [
+    # Duplicate OpenAPI operation IDs silently shadow routes — fail loudly.
+    "error:.*Duplicate Operation ID.*:UserWarning",
+    # An unawaited coroutine is a real bug (fire-and-forget without scheduling).
+    "error:coroutine .* was never awaited:RuntimeWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
     "ignore::DeprecationWarning",
-    # Async subprocess / aiosqlite threads after loop teardown (harmless).
-    "ignore::pytest.PytestUnraisableExceptionWarning",
-    "ignore::pytest.PytestUnhandledThreadExceptionWarning",
 ]
 markers = [
     "integration: end-to-end tests across agent loop and tools (offline by default)",

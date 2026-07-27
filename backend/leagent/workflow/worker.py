@@ -22,8 +22,9 @@ from __future__ import annotations
 import asyncio
 import signal
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import structlog
 
@@ -99,7 +100,7 @@ class WorkflowWorker:
             remaining = max(0.0, deadline - time.monotonic())
             try:
                 await asyncio.wait_for(task, timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 task.cancel()
 
     def _install_signal_handlers(self) -> None:
@@ -221,8 +222,11 @@ class WorkflowWorker:
 def make_db_flow_loader(db_service: Any) -> FlowLoader:
     async def _loader(flow_id: str) -> WorkflowDocument | None:
         import json
+
         from sqlmodel import select
+
         from leagent.db.models.flow import Flow
+        from leagent.db.sqlite_compat import load_entity_by_id
         try:
             from uuid import UUID
             flow_uuid = UUID(flow_id)
@@ -230,7 +234,12 @@ def make_db_flow_loader(db_service: Any) -> FlowLoader:
             flow_uuid = None
         async with db_service.session() as session:
             if flow_uuid is not None:
-                flow = await session.get(Flow, flow_uuid)
+                flow = await load_entity_by_id(
+                    session,
+                    Flow,
+                    flow_uuid,
+                    parent_table="flows",
+                )
             else:
                 result = await session.exec(select(Flow).where(Flow.name == flow_id,
                                                                Flow.is_deleted == False))

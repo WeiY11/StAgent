@@ -64,7 +64,7 @@ class QueryState:
     """
 
     messages: list[dict[str, Any]]
-    tool_use_context: "ToolUseContext"
+    tool_use_context: ToolUseContext
     auto_compact_tracking: AutoCompactTrackingState | None = None
     max_output_tokens_recovery_count: int = 0
     has_attempted_reactive_compact: bool = False

@@ -21,7 +21,6 @@ import structlog
 
 from leagent.workflow.io import IO, Hidden, HiddenHolder, MediaRef, NodeOutput, Schema
 from leagent.workflow.io.media import to_gen_ui_tree
-
 from leagent.workflow.nodes.base import WorkflowNode
 
 logger = structlog.get_logger(__name__)
