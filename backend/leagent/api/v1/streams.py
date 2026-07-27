@@ -6,15 +6,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from leagent.services.auth.tokens import TokenError
 from pydantic import BaseModel, Field
 
 from leagent.config.settings import Settings, get_settings
 from leagent.services.auth import CurrentUserId
+from leagent.services.auth.tokens import TokenError
 from leagent.services.rtsp_proxy import (
+    claims_to_byte_stream,
     decode_rtsp_mjpeg_token,
     mint_rtsp_mjpeg_token,
-    claims_to_byte_stream,
 )
 
 router = APIRouter()

@@ -8,10 +8,11 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import col, select
 
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import Task, TaskStatus
 from leagent.db.models.workflow_execution import WorkflowExecution
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
 
@@ -63,7 +64,7 @@ async def get_activities(
         # Task activities
         task_query = (
             select(Task)
-            .where(Task.user_id == user_id)
+            .where(uuid_column_equals(session, Task.user_id, user_id))
             .order_by(col(Task.updated_at).desc())
             .limit(limit)
         )
@@ -106,7 +107,7 @@ async def get_activities(
         # Workflow execution activities
         wf_query = (
             select(WorkflowExecution)
-            .where(WorkflowExecution.user_id == user_id)
+            .where(uuid_column_equals(session, WorkflowExecution.user_id, user_id))
             .order_by(col(WorkflowExecution.updated_at).desc())
             .limit(limit)
         )
@@ -140,7 +141,7 @@ async def get_activities(
             if wf.flow_id:
                 from leagent.db.models import Flow
 
-                flow = await session.get(Flow, wf.flow_id)
+                flow = await load_entity_by_id(session, Flow, wf.flow_id, parent_table="flows")
                 if flow:
                     flow_name = flow.name
 

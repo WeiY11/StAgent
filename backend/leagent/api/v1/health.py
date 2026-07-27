@@ -8,12 +8,13 @@ Admin-gated: ``/detailed``, ``/version``, ``/metrics`` — use
 
 from __future__ import annotations
 
+import contextlib
 import platform
 import time
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status
 from prometheus_client import REGISTRY
 from pydantic import BaseModel, Field
 
@@ -21,7 +22,9 @@ from leagent import __version__ as leagent_version
 from leagent.api.deps import get_service_manager
 from leagent.config.settings import get_settings
 from leagent.services.auth import PermissionChecker
-from leagent.services.service_manager import ServiceManager
+from leagent.services.service_manager import (
+    ServiceManager,  # noqa: TC001 - FastAPI needs runtime annotation resolution.
+)
 from leagent.utils.metrics import get_metrics
 
 router = APIRouter()
@@ -123,10 +126,8 @@ def _prune_for_components(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _registry_numeric_snapshot() -> dict[str, Any]:
     out: dict[str, Any] = {"uptime_seconds": _uptime_seconds()}
-    try:
+    with contextlib.suppress(Exception):
         get_metrics()  # ensure LeAgent metrics singleton is initialised
-    except Exception:  # noqa: BLE001
-        pass
     try:
         for family in REGISTRY.collect():
             if family.name == "leagent_http_request_total":
@@ -198,17 +199,29 @@ async def detailed_health_check(
 
 @router.get("/ready", response_model=ReadinessStatus)
 async def readiness_check(
+    response: Response,
     sm: Annotated[ServiceManager, Depends(get_service_manager)],
 ) -> ReadinessStatus:
     """Kubernetes readiness probe (public)."""
+    database_ready = False
+    if sm.db is not None:
+        try:
+            database_ready = await sm.db.health_check()
+        except Exception:  # noqa: BLE001 - readiness must fail closed.
+            database_ready = False
     checks: dict[str, bool] = {
-        "database": sm.db is not None,
+        "database": database_ready,
         "cache": sm.cache is not None,
         "services_started": sm.is_started,
-        "migrations": sm.db is not None,
+        "migrations": database_ready,
     }
-    # Primary signal: startup completed. Individual checks are informational (optional subsystems).
-    return ReadinessStatus(ready=sm.is_started, checks=checks)
+    # Primary signal: startup completed and the durable database is reachable.
+    # Other subsystems are informational because optional components can be
+    # deliberately disabled in local mode.
+    ready = sm.is_started and database_ready
+    if not ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return ReadinessStatus(ready=ready, checks=checks)
 
 
 @router.get("/live", response_model=LivenessStatus)

@@ -11,25 +11,20 @@ import re
 import tempfile
 import zipfile
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import text
+from sqlalchemy import update as sa_update
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
 
 from leagent.config.constants import MAX_UPLOAD_SIZE_BYTES
 from leagent.config.settings import get_settings
-from leagent.file.primitives import classify_file_kind, sanitize_filename
-from leagent.services.auth import (
-    CurrentUserId,
-    OptionalUserId,
-    SignedUrlError,
-    verify_signed_token,
-)
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import (
     File as FileModel,
@@ -41,13 +36,23 @@ from leagent.db.models import (
     InboxState,
     LibraryScope,
 )
+from leagent.db.models.folder import Folder
 from leagent.db.sqlite_compat import (
     file_model_from_sqlite_row,
+    load_entity_by_id,
     same_user_id,
     sqlite_parent_id_text,
+    uuid_column_equals,
+)
+from leagent.db.sqlite_compat import session_dialect_name as _session_dialect_name
+from leagent.file.primitives import classify_file_kind, sanitize_filename
+from leagent.services.auth import (
+    CurrentUserId,
+    OptionalUserId,
+    SignedUrlError,
+    verify_signed_token,
 )
 from leagent.tasks.jobs import enqueue_file_processing
-from leagent.db.sqlite_compat import session_dialect_name as _session_dialect_name
 
 _logger = logging.getLogger(__name__)
 
@@ -130,6 +135,10 @@ def resolve_pet_space_upload_mime_type(
     if filename:
         guessed, _ = mimetypes.guess_type(filename)
         if guessed:
+            # Windows' registry-backed mimetypes maps ``.svg`` to the non-canonical
+            # ``image/svg`` (no ``+xml``); normalise so downstream checks match POSIX.
+            if guessed == "image/svg":
+                return "image/svg+xml"
             return guessed
     if len(content) >= 6 and content[:6] in (b"GIF87a", b"GIF89a"):
         return "image/gif"
@@ -171,9 +180,29 @@ def _sanitize_bundle_download_filename(raw: str | None) -> str:
     return base[:180]
 
 
+def _sanitize_bundle_arcname(raw: str | None, file_id: UUID) -> str:
+    """Return a safe single-segment member name for the generated ZIP."""
+    fallback = f"file-{file_id}"
+    base = os.path.basename((raw or "").replace("\\", "/")).strip()
+    safe = sanitize_filename(base, default=fallback, max_length=180).strip("._")
+    return safe or fallback
+
+
 def _unlink_quiet(path: str) -> None:
     with contextlib.suppress(OSError):
         os.unlink(path)
+
+
+async def _load_owned_folder_for_file_write(
+    session: AsyncSession,
+    folder_id: UUID,
+    user_id: UUID,
+) -> Folder:
+    """Load a writable folder and verify it belongs to ``user_id``."""
+    folder = await load_entity_by_id(session, Folder, folder_id, parent_table="folders")
+    if folder is None or folder.is_deleted or not same_user_id(folder.user_id, user_id):
+        raise ValueError("Folder not found or access denied")
+    return folder
 
 
 class FileUploadResponse(BaseModel):
@@ -183,7 +212,7 @@ class FileUploadResponse(BaseModel):
     name: str
     original_name: str
     file_type: FileType
-    mime_type: Optional[str]
+    mime_type: str | None
     size: int
     checksum: str
 
@@ -201,10 +230,10 @@ class FileSearchResult(BaseModel):
     file_name: str
     file_type: FileType
     score: float
-    snippet: Optional[str] = None
-    chunk_id: Optional[UUID] = None
-    start_offset: Optional[int] = None
-    end_offset: Optional[int] = None
+    snippet: str | None = None
+    chunk_id: UUID | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 class FileSearchResponse(BaseModel):
@@ -273,6 +302,10 @@ async def persist_uploaded_file(
             f"File too large ({file_size} bytes). Maximum is {MAX_FILE_SIZE // (1024 * 1024)}MB"
         )
 
+    if folder_id is not None:
+        async with db.session() as session:
+            await _load_owned_folder_for_file_write(session, folder_id, user_id)
+
     ref = await _store_blob(
         content,
         filename=upload.filename,
@@ -290,6 +323,10 @@ async def persist_uploaded_file(
     file_type = get_file_type(upload.content_type, upload.filename)
 
     async with db.session() as session:
+        folder: Folder | None = None
+        if folder_id is not None:
+            folder = await _load_owned_folder_for_file_write(session, folder_id, user_id)
+
         db_file = FileModel(
             id=file_id,
             session_id=session_id,
@@ -311,17 +348,10 @@ async def persist_uploaded_file(
         await session.flush()
         await session.refresh(db_file)
 
-        if folder_id is not None:
-            from leagent.db.models.folder import Folder
-            from leagent.db.sqlite_compat import load_entity_by_id
-
-            folder = await load_entity_by_id(
-                session, Folder, folder_id, parent_table="folders"
-            )
-            if folder is not None and not folder.is_deleted:
-                folder.file_count = int(folder.file_count or 0) + 1
-                session.add(folder)
-                await session.flush()
+        if folder is not None:
+            folder.file_count = int(folder.file_count or 0) + 1
+            session.add(folder)
+            await session.flush()
 
     await enqueue_file_processing(
         db,
@@ -341,7 +371,7 @@ async def persist_pet_space_file(
     user_id: UUID,
     db: DatabaseService,
     *,
-    workspace_id: Optional[UUID],
+    workspace_id: UUID | None,
 ) -> FileModel:
     """Save an upload to disk + DB for Pet Space (no chat session).
 
@@ -483,9 +513,9 @@ async def upload_file(
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     file: UploadFile = File(...),
-    session_id: Optional[UUID] = Form(default=None),
-    folder_id: Optional[UUID] = Form(default=None),
-    library_scope: Optional[str] = Form(default=None),
+    session_id: UUID | None = Form(default=None),
+    folder_id: UUID | None = Form(default=None),
+    library_scope: str | None = Form(default=None),
 ) -> FileUploadResponse:
     """Upload a file to the unified catalog.
 
@@ -553,7 +583,7 @@ async def search_files(
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     query: str = Query(..., min_length=1, max_length=1000),
-    library_scope: Optional[str] = Query(default=None),
+    library_scope: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> FileSearchResponse:
     """Search the user's catalog by filename and indexed document chunks."""
@@ -579,13 +609,20 @@ async def search_files(
         library_scope=scope_filter.value if scope_filter else None,
     )
     for hit in chunk_hits:
-        seen_files.add(hit.file_id)
         file_type = FileType.OTHER
         async with db.session() as session:
-            f = await session.get(FileModel, hit.file_id)
-            if f is None or f.is_deleted:
+            f = await load_entity_by_id(
+                session,
+                FileModel,
+                hit.file_id,
+                parent_table="files",
+            )
+            if f is None or f.is_deleted or not same_user_id(f.user_id, user_id):
+                continue
+            if scope_filter is not None and f.library_scope != scope_filter:
                 continue
             file_type = f.file_type
+        seen_files.add(hit.file_id)
         hits.append(
             FileSearchResult(
                 file_id=hit.file_id,
@@ -603,7 +640,7 @@ async def search_files(
     if remaining > 0:
         async with db.session() as session:
             name_q = select(FileModel).where(
-                FileModel.user_id == user_id,
+                uuid_column_equals(session, FileModel.user_id, user_id),
                 FileModel.is_deleted == False,  # noqa: E712
                 or_(
                     FileModel.name.ilike(f"%{query}%"),  # type: ignore[attr-defined]
@@ -640,18 +677,18 @@ async def rename_file(
     """Rename a catalog file (display name only; storage key unchanged)."""
     safe = sanitize_filename(body.name)
     async with db.session() as session:
-        file = await session.get(FileModel, file_id)
+        file = await load_entity_by_id(session, FileModel, file_id, parent_table="files")
         if file is None or file.is_deleted:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-        if file.user_id != user_id:
+        if not same_user_id(file.user_id, user_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-        file.name = safe
-        file.original_name = safe
-        file.updated_at = datetime.utcnow()
-        session.add(file)
-        await session.flush()
-        await session.refresh(file)
-        return FileRead.model_validate(file)
+        await session.execute(
+            sa_update(FileModel)
+            .where(uuid_column_equals(session, FileModel.id, file_id))
+            .values(name=safe, original_name=safe, updated_at=datetime.utcnow())
+        )
+        updated = await load_entity_by_id(session, FileModel, file_id, parent_table="files")
+        return FileRead.model_validate(updated or file)
 
 
 @router.post("/bundle/download")
@@ -709,7 +746,7 @@ async def download_file_bundle(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"File missing on storage: {f.id}",
                     )
-                arc = f.original_name or f.name
+                arc = _sanitize_bundle_arcname(f.original_name or f.name, f.id)
                 base, ext = os.path.splitext(arc)
                 candidate = arc
                 n = 1
@@ -974,7 +1011,7 @@ async def delete_file(
                 detail="File not found",
             )
 
-        if file.user_id != user_id:
+        if not same_user_id(file.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this file",
@@ -1022,7 +1059,7 @@ async def get_file_info(
                 detail="File not found",
             )
 
-        if file.user_id != user_id:
+        if not same_user_id(file.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this file",

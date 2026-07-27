@@ -12,9 +12,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import Flow, FlowStatus, FlowType
+from leagent.services.auth import CurrentUserId
 from leagent.workflow.layout import layout_document
 from leagent.workflow.template_service import TemplateService, get_template_service
 
@@ -72,9 +72,9 @@ class TemplateDetail(BaseModel):
 
 
 class ApplyTemplateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    folder_id: Optional[UUID] = None
+    name: str | None = None
+    description: str | None = None
+    folder_id: UUID | None = None
 
 
 class ApplyTemplateResponse(BaseModel):
@@ -91,8 +91,8 @@ class ApplyTemplateResponse(BaseModel):
 @router.get("", response_model=TemplateListResponse)
 async def list_templates(
     _user: CurrentUserId,
-    category: Optional[str] = Query(None, description="Filter by category"),
-    search: Optional[str] = Query(None, description="Search by name or description"),
+    category: str | None = Query(None, description="Filter by category"),
+    search: str | None = Query(None, description="Search by name or description"),
     svc: TemplateService = Depends(get_template_service),
 ):
     """List all workflow templates, optionally filtered by category."""

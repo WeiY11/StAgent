@@ -30,10 +30,10 @@ router = APIRouter()
 
 
 def _github_catalog_override_or_none(
-    gh_owner: Optional[str],
-    gh_repo: Optional[str],
-    gh_ref: Optional[str],
-    gh_skills_path: Optional[str],
+    gh_owner: str | None,
+    gh_repo: str | None,
+    gh_ref: str | None,
+    gh_skills_path: str | None,
 ) -> GitHubCatalogOverride | None:
     owner = (gh_owner or "").strip()
     repo = (gh_repo or "").strip()
@@ -95,15 +95,15 @@ class SkillDetail(BaseModel):
     status: str
     is_active: bool
     tags: list[str] = Field(default_factory=list)
-    author: Optional[str] = None
-    license: Optional[str] = None
-    compatibility: Optional[str] = None
+    author: str | None = None
+    license: str | None = None
+    compatibility: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     allowed_tools: list[str] = Field(default_factory=list)
     resources: list[SkillResourceInfo] = Field(default_factory=list)
     scripts: list[SkillScriptInfo] = Field(default_factory=list)
     config: dict[str, Any] = Field(default_factory=dict)
-    error: Optional[str] = None
+    error: str | None = None
     is_editable: bool = False
 
 
@@ -135,7 +135,7 @@ class SkillFileUpdateRequest(BaseModel):
 
 class SkillInstallFromUrlRequest(BaseModel):
     url: str = Field(min_length=8, max_length=2048)
-    sha256: Optional[str] = Field(default=None, max_length=64)
+    sha256: str | None = Field(default=None, max_length=64)
 
 
 class SkillResourceResponse(BaseModel):
@@ -144,8 +144,8 @@ class SkillResourceResponse(BaseModel):
     encoding: str
     size: int
     truncated: bool = False
-    content: Optional[str] = None
-    content_base64: Optional[str] = None
+    content: str | None = None
+    content_base64: str | None = None
 
 
 class SkillScriptRunRequest(BaseModel):
@@ -216,10 +216,10 @@ def _detail_from_skill(skill: Any, manager: SkillsManager) -> SkillDetail:
 async def list_skills(
     user_id: CurrentUserId,
     manager: Annotated[SkillsManager, Depends(get_manager)],
-    category: Optional[str] = Query(default=None, max_length=50),
-    tag: Optional[str] = Query(default=None, max_length=50),
+    category: str | None = Query(default=None, max_length=50),
+    tag: str | None = Query(default=None, max_length=50),
     active_only: bool = Query(default=False),
-    search: Optional[str] = Query(default=None, max_length=100),
+    search: str | None = Query(default=None, max_length=100),
 ) -> SkillListResponse:
     """List all discovered skills."""
     if category:
@@ -355,7 +355,7 @@ async def activate_skill(
     skill_name: str,
     user_id: CurrentUserId,
     manager: Annotated[SkillsManager, Depends(get_manager)],
-    data: Optional[SkillActivateRequest] = None,
+    data: SkillActivateRequest | None = None,
 ) -> SkillDetail:
     try:
         config = data.config if data else None
@@ -400,8 +400,8 @@ async def read_resource(
     max_bytes: int = Query(default=200_000, ge=512, le=500_000),
 ) -> SkillResourceResponse:
     """Read a bundled resource file from a skill."""
-    from leagent.tools.skills.resource import _read_resource_payload
     from leagent.skills.loader import is_path_inside
+    from leagent.tools.skills.resource import _read_resource_payload
 
     skill = manager.get_skill(skill_name)
     if not skill:
@@ -471,13 +471,13 @@ async def search_hub(
     user_id: CurrentUserId,
     manager: Annotated[SkillsManager, Depends(get_manager)],
     query: str = Query(default="", max_length=100),
-    category: Optional[str] = Query(default=None, max_length=50),
+    category: str | None = Query(default=None, max_length=50),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
-    gh_owner: Optional[str] = Query(default=None, max_length=200),
-    gh_repo: Optional[str] = Query(default=None, max_length=200),
-    gh_ref: Optional[str] = Query(default=None, max_length=200),
-    gh_skills_path: Optional[str] = Query(default=None, max_length=500),
+    gh_owner: str | None = Query(default=None, max_length=200),
+    gh_repo: str | None = Query(default=None, max_length=200),
+    gh_ref: str | None = Query(default=None, max_length=200),
+    gh_skills_path: str | None = Query(default=None, max_length=500),
 ) -> SkillHubSearchResponse:
     gh_override = _github_catalog_override_or_none(gh_owner, gh_repo, gh_ref, gh_skills_path)
     entries = await manager.search_hub(
@@ -498,10 +498,10 @@ async def install_from_hub(
     skill_name: str,
     user_id: CurrentUserId,
     manager: Annotated[SkillsManager, Depends(get_manager)],
-    gh_owner: Optional[str] = Query(default=None, max_length=200),
-    gh_repo: Optional[str] = Query(default=None, max_length=200),
-    gh_ref: Optional[str] = Query(default=None, max_length=200),
-    gh_skills_path: Optional[str] = Query(default=None, max_length=500),
+    gh_owner: str | None = Query(default=None, max_length=200),
+    gh_repo: str | None = Query(default=None, max_length=200),
+    gh_ref: str | None = Query(default=None, max_length=200),
+    gh_skills_path: str | None = Query(default=None, max_length=500),
 ) -> dict[str, Any]:
     gh_override = _github_catalog_override_or_none(gh_owner, gh_repo, gh_ref, gh_skills_path)
     try:

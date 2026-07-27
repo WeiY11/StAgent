@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
+from leagent.api.v1.chat_deps import ChatSvc
 from leagent.services.auth import CurrentUserId
 from leagent.telemetry.trace.export import build_span_tree, export_trace_jsonl
 from leagent.telemetry.trace.models import loads_json, new_experiment_id
@@ -22,16 +23,16 @@ router = APIRouter()
 
 class TraceSummary(BaseModel):
     trace_id: str
-    parent_trace_id: Optional[str] = None
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
+    parent_trace_id: str | None = None
+    session_id: str | None = None
+    user_id: str | None = None
     scope: str = "chat_turn"
     agent_name: str = ""
     model: str = ""
     status: str = "running"
-    terminal_reason: Optional[str] = None
-    started_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
+    terminal_reason: str | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     latency_ms: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -40,29 +41,29 @@ class TraceSummary(BaseModel):
     total_cost_usd: float = 0.0
     tool_call_count: int = 0
     llm_call_count: int = 0
-    experiment_id: Optional[str] = None
-    prompt_hash: Optional[str] = None
+    experiment_id: str | None = None
+    prompt_hash: str | None = None
     tags: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     scores: Any = None
-    root_span_id: Optional[str] = None
+    root_span_id: str | None = None
 
 
 class TraceSpanRead(BaseModel):
     span_id: str
-    parent_span_id: Optional[str] = None
+    parent_span_id: str | None = None
     trace_id: str
     seq: int = 0
     kind: str = "event"
     name: str = ""
     status: str = "ok"
-    started_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
     latency_ms: float = 0.0
     attrs: Any = None
-    input_preview: Optional[str] = None
-    output_preview: Optional[str] = None
-    payload_ref: Optional[str] = None
+    input_preview: str | None = None
+    output_preview: str | None = None
+    payload_ref: str | None = None
 
 
 class TraceDetail(BaseModel):
@@ -93,7 +94,7 @@ class ExperimentCreate(BaseModel):
     name: str = ""
     prompt: str
     model_ids: list[str] = Field(min_length=1)
-    session_id: Optional[str] = None
+    session_id: str | None = None
     agent_name: str = "default_agent"
 
 
@@ -101,12 +102,12 @@ class ExperimentRead(BaseModel):
     experiment_id: str
     name: str = ""
     prompt: str = ""
-    session_id: Optional[str] = None
+    session_id: str | None = None
     model_ids: list[str] = Field(default_factory=list)
-    created_by: Optional[str] = None
+    created_by: str | None = None
     status: str = "pending"
-    error: Optional[str] = None
-    created_at: Optional[datetime] = None
+    error: str | None = None
+    created_at: datetime | None = None
     traces: list[TraceSummary] = Field(default_factory=list)
 
 
@@ -159,20 +160,68 @@ def _span(row: Any) -> TraceSpanRead:
     )
 
 
+def _same_user(left: object, right: object) -> bool:
+    return bool(left) and str(left) == str(right)
+
+
+async def _load_trace_for_user(trace_id: str, user_id: UUID) -> Any:
+    store = get_trace_store()
+    row = await store.get_trace(trace_id)
+    if row is None or not _same_user(row.user_id, user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found")
+    return row
+
+
+async def _load_experiment_for_user(experiment_id: str, user_id: UUID) -> Any:
+    store = get_trace_store()
+    row = await store.get_experiment(experiment_id)
+    if row is None or not _same_user(row.created_by, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Experiment not found",
+        )
+    return row
+
+
+async def _validate_experiment_session(
+    session_id: str | None,
+    *,
+    user_id: UUID,
+    chat_svc: ChatSvc,
+) -> str | None:
+    if not session_id:
+        return None
+    try:
+        sid = UUID(str(session_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session_id",
+        ) from exc
+    session = await chat_svc.get_session(sid, user_id=user_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+    return str(sid)
+
+
 @router.get("", response_model=list[TraceSummary])
 async def list_traces(
     user_id: CurrentUserId,
-    session_id: Optional[str] = None,
-    model: Optional[str] = None,
-    status_filter: Optional[str] = Query(default=None, alias="status"),
-    experiment_id: Optional[str] = None,
-    has_error: Optional[bool] = None,
+    session_id: str | None = None,
+    model: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    experiment_id: str | None = None,
+    has_error: bool | None = None,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[TraceSummary]:
     store = get_trace_store()
     rows = await store.list_traces(
         session_id=session_id,
+        user_id=str(user_id),
         model=model,
         status=status_filter,
         experiment_id=experiment_id,
@@ -189,7 +238,7 @@ async def stats_by_model(
     days: int = Query(default=30, ge=1, le=365),
 ) -> list[ModelTraceStats]:
     store = get_trace_store()
-    rows = await store.stats_by_model(days=days)
+    rows = await store.stats_by_model(days=days, user_id=str(user_id))
     return [ModelTraceStats(**row) for row in rows]
 
 
@@ -200,10 +249,18 @@ async def list_experiments(
     offset: int = Query(default=0, ge=0),
 ) -> list[ExperimentRead]:
     store = get_trace_store()
-    rows = await store.list_experiments(limit=limit, offset=offset)
+    rows = await store.list_experiments(
+        created_by=str(user_id),
+        limit=limit,
+        offset=offset,
+    )
     out: list[ExperimentRead] = []
     for row in rows:
-        traces = await store.list_traces(experiment_id=row.experiment_id, limit=50)
+        traces = await store.list_traces(
+            experiment_id=row.experiment_id,
+            user_id=str(user_id),
+            limit=50,
+        )
         out.append(
             ExperimentRead(
                 experiment_id=row.experiment_id,
@@ -225,6 +282,7 @@ async def list_experiments(
 async def create_experiment(
     body: ExperimentCreate,
     user_id: CurrentUserId,
+    chat_svc: ChatSvc,
 ) -> ExperimentRead:
     if not body.prompt.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="prompt required")
@@ -232,12 +290,17 @@ async def create_experiment(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="model_ids required")
     store = get_trace_store()
     eid = new_experiment_id()
+    session_id = await _validate_experiment_session(
+        body.session_id,
+        user_id=user_id,
+        chat_svc=chat_svc,
+    )
     row = await store.create_experiment(
         experiment_id=eid,
         name=body.name or f"compare-{eid[:8]}",
         prompt=body.prompt,
         model_ids=list(body.model_ids),
-        session_id=body.session_id,
+        session_id=session_id,
         created_by=str(user_id) if user_id else None,
     )
     return ExperimentRead(
@@ -257,10 +320,12 @@ async def create_experiment(
 @router.get("/experiments/{experiment_id}", response_model=ExperimentRead)
 async def get_experiment(experiment_id: str, user_id: CurrentUserId) -> ExperimentRead:
     store = get_trace_store()
-    row = await store.get_experiment(experiment_id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found")
-    traces = await store.list_traces(experiment_id=experiment_id, limit=100)
+    row = await _load_experiment_for_user(experiment_id, user_id)
+    traces = await store.list_traces(
+        experiment_id=experiment_id,
+        user_id=str(user_id),
+        limit=100,
+    )
     return ExperimentRead(
         experiment_id=row.experiment_id,
         name=row.name,
@@ -279,13 +344,12 @@ async def get_experiment(experiment_id: str, user_id: CurrentUserId) -> Experime
 async def run_experiment(
     experiment_id: str,
     user_id: CurrentUserId,
+    chat_svc: ChatSvc,
     agent_name: str = Query(default="default_agent"),
 ) -> ExperimentRead:
     """Run the experiment prompt once per configured model."""
     store = get_trace_store()
-    row = await store.get_experiment(experiment_id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found")
+    row = await _load_experiment_for_user(experiment_id, user_id)
     model_ids = loads_json(row.model_ids, default=[]) or []
     if not model_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="no models configured")
@@ -302,10 +366,12 @@ async def run_experiment(
         runtime = AgentRuntime.from_service_manager(sm)
         session_uuid: UUID | None = None
         if row.session_id:
-            try:
-                session_uuid = UUID(str(row.session_id))
-            except Exception:
-                session_uuid = None
+            validated_session = await _validate_experiment_session(
+                row.session_id,
+                user_id=user_id,
+                chat_svc=chat_svc,
+            )
+            session_uuid = UUID(validated_session) if validated_session else None
 
         for model_id in model_ids:
             try:
@@ -358,9 +424,7 @@ async def run_experiment(
 @router.get("/{trace_id}", response_model=TraceDetail)
 async def get_trace(trace_id: str, user_id: CurrentUserId) -> TraceDetail:
     store = get_trace_store()
-    row = await store.get_trace(trace_id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found")
+    row = await _load_trace_for_user(trace_id, user_id)
     spans = await store.list_spans(trace_id)
     return TraceDetail(
         trace=_summary(row),
@@ -372,17 +436,17 @@ async def get_trace(trace_id: str, user_id: CurrentUserId) -> TraceDetail:
 @router.get("/{trace_id}/spans", response_model=list[TraceSpanRead])
 async def list_trace_spans(trace_id: str, user_id: CurrentUserId) -> list[TraceSpanRead]:
     store = get_trace_store()
-    row = await store.get_trace(trace_id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found")
+    await _load_trace_for_user(trace_id, user_id)
     spans = await store.list_spans(trace_id)
     return [_span(s) for s in spans]
 
 
 @router.get("/{trace_id}/export")
 async def export_trace(trace_id: str, user_id: CurrentUserId) -> Response:
+    store = get_trace_store()
+    await _load_trace_for_user(trace_id, user_id)
     try:
-        body = await export_trace_jsonl(trace_id)
+        body = await export_trace_jsonl(trace_id, store=store)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trace not found") from None
     return Response(

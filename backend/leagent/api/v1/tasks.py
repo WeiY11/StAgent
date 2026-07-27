@@ -10,28 +10,32 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
-from leagent.db.sqlite_compat import load_entity_by_id
 from leagent.db.models import (
     File,
     FileRead,
     Task,
-    TaskCreate,
     TaskPriority,
     TaskRead,
     TaskStatus,
     TaskType,
     is_terminal_task_status,
 )
+from leagent.db.sqlite_compat import (
+    load_entity_by_id,
+    same_user_id,
+    uuid_column_equals,
+    uuid_column_in,
+)
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
 
@@ -42,11 +46,11 @@ class TaskCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     task_type: TaskType = Field(default=TaskType.AGENT)
     priority: TaskPriority = Field(default=TaskPriority.NORMAL)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    flow_id: Optional[UUID] = None
-    session_id: Optional[UUID] = None
-    input_data: Optional[dict[str, Any]] = None
-    scheduled_at: Optional[datetime] = None
+    description: str | None = Field(default=None, max_length=2000)
+    flow_id: UUID | None = None
+    session_id: UUID | None = None
+    input_data: dict[str, Any] | None = None
+    scheduled_at: datetime | None = None
     timeout_seconds: int = Field(default=300, ge=1, le=86400)
 
 
@@ -54,17 +58,17 @@ class AgentRunRequest(BaseModel):
     """Create a long-running agent task from a chat/coding request."""
 
     message: str = Field(..., min_length=1)
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
     name: str = Field(default="Coding agent run", min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    description: str | None = Field(default=None, max_length=2000)
     runtime_profile: str = Field(default="coding_long")
     prompt_variant: str = Field(default="coding_agent")
     project_roots: list[str] = Field(default_factory=list)
     authorized_roots: list[str] = Field(default_factory=list)
-    max_turns: Optional[int] = Field(default=None, ge=1)
-    max_tool_calls_per_turn: Optional[int] = Field(default=None, ge=1)
+    max_turns: int | None = Field(default=None, ge=1)
+    max_tool_calls_per_turn: int | None = Field(default=None, ge=1)
     priority: TaskPriority = Field(default=TaskPriority.HIGH)
-    timeout_seconds: Optional[int] = Field(default=None, ge=1, le=86400)
+    timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
 
 
 class AgentRunResponse(BaseModel):
@@ -82,10 +86,10 @@ class TaskListParams(BaseModel):
 
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
-    status: Optional[TaskStatus] = None
-    task_type: Optional[TaskType] = None
-    priority: Optional[TaskPriority] = None
-    flow_id: Optional[UUID] = None
+    status: TaskStatus | None = None
+    task_type: TaskType | None = None
+    priority: TaskPriority | None = None
+    flow_id: UUID | None = None
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
@@ -219,11 +223,11 @@ async def list_tasks(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    status: Optional[TaskStatus] = Query(default=None),
-    task_type: Optional[TaskType] = Query(default=None),
-    priority: Optional[TaskPriority] = Query(default=None),
-    flow_id: Optional[UUID] = Query(default=None),
-    search: Optional[str] = Query(default=None, max_length=100),
+    status: TaskStatus | None = Query(default=None),
+    task_type: TaskType | None = Query(default=None),
+    priority: TaskPriority | None = Query(default=None),
+    flow_id: UUID | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
 ) -> PaginatedResponse[TaskRead]:
     """List tasks for the current user with pagination and filters.
 
@@ -249,7 +253,7 @@ async def list_tasks(
         # ---- Real tasks ----
         skip_tasks = task_type == TaskType.WORKFLOW
         if not skip_tasks:
-            query = select(Task).where(Task.user_id == user_id)
+            query = select(Task).where(uuid_column_equals(session, Task.user_id, user_id))
             if status is not None:
                 query = query.where(Task.status == status)
             if task_type is not None:
@@ -257,7 +261,7 @@ async def list_tasks(
             if priority is not None:
                 query = query.where(Task.priority == priority)
             if flow_id is not None:
-                query = query.where(Task.flow_id == flow_id)
+                query = query.where(uuid_column_equals(session, Task.flow_id, flow_id))
             if search:
                 query = query.where(Task.name.ilike(f"%{search}%"))
 
@@ -275,13 +279,15 @@ async def list_tasks(
 
         # ---- Workflow executions (surfaced as virtual task rows) ----
         wf_query = select(WorkflowExecution).where(
-            WorkflowExecution.user_id == user_id,
+            uuid_column_equals(session, WorkflowExecution.user_id, user_id),
         )
         if status is not None:
             wf_status_str = status.value
             wf_query = wf_query.where(WorkflowExecution.status == wf_status_str)
         if flow_id is not None:
-            wf_query = wf_query.where(WorkflowExecution.flow_id == flow_id)
+            wf_query = wf_query.where(
+                uuid_column_equals(session, WorkflowExecution.flow_id, flow_id)
+            )
 
         # Resolve flow names for search / display
         flow_name_cache: dict[UUID, str] = {}
@@ -293,7 +299,7 @@ async def list_tasks(
                 return flow_name_cache[fid]
             from leagent.db.models import Flow
 
-            flow = await session.get(Flow, fid)
+            flow = await load_entity_by_id(session, Flow, fid, parent_table="flows")
             name = flow.name if flow else "Workflow"
             flow_name_cache[fid] = name
             return name
@@ -374,7 +380,7 @@ async def get_task(
                 detail="Task not found",
             )
 
-        if task.user_id != user_id:
+        if not same_user_id(task.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this task",
@@ -401,7 +407,7 @@ async def cancel_task(
                 detail="Task not found",
             )
 
-        if task.user_id != user_id:
+        if not same_user_id(task.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this task",
@@ -448,7 +454,7 @@ async def kill_task(
                 detail="Task not found",
             )
 
-        if task.user_id != user_id:
+        if not same_user_id(task.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this task",
@@ -509,7 +515,7 @@ async def get_task_output(
                 detail="Task not found",
             )
 
-        if task.user_id != user_id:
+        if not same_user_id(task.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this task",
@@ -545,7 +551,7 @@ async def get_task_files(
                 detail="Task not found",
             )
 
-        if task.user_id != user_id:
+        if not same_user_id(task.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this task",
@@ -556,15 +562,29 @@ async def get_task_files(
 
         try:
             output = json.loads(task.output_data)
-            file_ids = output.get("files", [])
+            raw_file_ids = output.get("files", [])
         except json.JSONDecodeError:
             return []
 
+        if not isinstance(raw_file_ids, list):
+            return []
+        file_ids: list[UUID] = []
+        for raw_id in raw_file_ids:
+            try:
+                file_ids.append(raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id)))
+            except (TypeError, ValueError, AttributeError):
+                continue
+        file_ids = list(dict.fromkeys(file_ids))
         if not file_ids:
             return []
 
-        query = select(File).where(File.id.in_(file_ids))
+        query = select(File).where(
+            uuid_column_in(session, File.id, file_ids),
+            uuid_column_equals(session, File.user_id, user_id),
+            File.is_deleted == False,  # noqa: E712
+        )
         result = await session.exec(query)
         files = list(result.all())
 
-        return [FileRead.model_validate(f) for f in files]
+        by_id = {f.id: f for f in files}
+        return [FileRead.model_validate(by_id[fid]) for fid in file_ids if fid in by_id]

@@ -56,7 +56,7 @@ class WebhookInfo(BaseModel):
     enabled: bool
     delivery_count: int = 0
     failure_count: int = 0
-    last_delivery_at: Optional[datetime] = None
+    last_delivery_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -66,19 +66,19 @@ class WebhookDetail(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     url: str
     events: list[WebhookEvent]
     status: WebhookStatus
     enabled: bool
-    secret: Optional[str] = None
+    secret: str | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     retry_count: int = 3
     timeout_seconds: int = 30
     delivery_count: int = 0
     failure_count: int = 0
-    last_delivery_at: Optional[datetime] = None
-    last_error: Optional[str] = None
+    last_delivery_at: datetime | None = None
+    last_error: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -87,10 +87,10 @@ class WebhookCreateRequest(BaseModel):
     """Request schema for creating a webhook."""
 
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
     url: str = Field(..., max_length=500)
     events: list[WebhookEvent] = Field(..., min_length=1)
-    secret: Optional[str] = Field(default=None, max_length=200)
+    secret: str | None = Field(default=None, max_length=200)
     headers: dict[str, str] = Field(default_factory=dict)
     retry_count: int = Field(default=3, ge=0, le=10)
     timeout_seconds: int = Field(default=30, ge=5, le=120)
@@ -100,15 +100,15 @@ class WebhookCreateRequest(BaseModel):
 class WebhookUpdateRequest(BaseModel):
     """Request schema for updating a webhook."""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    description: Optional[str] = Field(default=None, max_length=500)
-    url: Optional[str] = Field(default=None, max_length=500)
-    events: Optional[list[WebhookEvent]] = None
-    secret: Optional[str] = Field(default=None, max_length=200)
-    headers: Optional[dict[str, str]] = None
-    retry_count: Optional[int] = Field(default=None, ge=0, le=10)
-    timeout_seconds: Optional[int] = Field(default=None, ge=5, le=120)
-    enabled: Optional[bool] = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    url: str | None = Field(default=None, max_length=500)
+    events: list[WebhookEvent] | None = None
+    secret: str | None = Field(default=None, max_length=200)
+    headers: dict[str, str] | None = None
+    retry_count: int | None = Field(default=None, ge=0, le=10)
+    timeout_seconds: int | None = Field(default=None, ge=5, le=120)
+    enabled: bool | None = None
 
 
 class WebhookListResponse(BaseModel):
@@ -123,9 +123,9 @@ class WebhookTestResponse(BaseModel):
 
     webhook_id: UUID
     success: bool
-    status_code: Optional[int] = None
+    status_code: int | None = None
     response_time_ms: int
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class WebhookDeliveryLog(BaseModel):
@@ -135,18 +135,18 @@ class WebhookDeliveryLog(BaseModel):
     webhook_id: UUID
     event: WebhookEvent
     payload: dict[str, Any]
-    status_code: Optional[int]
+    status_code: int | None
     success: bool
     response_time_ms: int
-    error: Optional[str] = None
+    error: str | None = None
     created_at: datetime
 
 
 @router.get("", response_model=WebhookListResponse)
 async def list_webhooks(
     user_id: CurrentUserId,
-    status: Optional[WebhookStatus] = Query(default=None),
-    event: Optional[WebhookEvent] = Query(default=None),
+    status: WebhookStatus | None = Query(default=None),
+    event: WebhookEvent | None = Query(default=None),
 ) -> WebhookListResponse:
     """List all webhook subscriptions for the current user."""
     webhooks = []

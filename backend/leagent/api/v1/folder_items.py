@@ -3,30 +3,49 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Optional
-from uuid import UUID, uuid4
+from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
-from leagent.db.sqlite_compat import load_entity_by_id
 from leagent.db.models.file import File
 from leagent.db.models.folder import Folder
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
 
 
 def _assert_folder_owner(folder: Folder, user_id: UUID) -> None:
-    if folder.user_id != user_id:
+    if not same_user_id(folder.user_id, user_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to folder")
 
 
 def _assert_file_owner(file: File, user_id: UUID) -> None:
-    if file.user_id != user_id:
+    if not same_user_id(file.user_id, user_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to file")
+
+
+async def _decrement_owned_folder_count(
+    session: AsyncSession,
+    folder_id: UUID | None,
+    user_id: UUID,
+) -> None:
+    if folder_id is None:
+        return
+    folder = await load_entity_by_id(session, Folder, folder_id, parent_table="folders")
+    if (
+        folder is not None
+        and not folder.is_deleted
+        and same_user_id(folder.user_id, user_id)
+        and folder.file_count > 0
+    ):
+        folder.file_count -= 1
+        session.add(folder)
 
 
 class FolderItemResponse(BaseModel):
@@ -35,7 +54,7 @@ class FolderItemResponse(BaseModel):
     file_name: str
     file_type: str
     size: int
-    mime_type: Optional[str] = None
+    mime_type: str | None = None
 
 
 class AddItemRequest(BaseModel):
@@ -66,8 +85,8 @@ async def list_folder_items(
 
         stmt = (
             select(File)
-            .where(File.folder_id == folder_id)
-            .where(File.user_id == user_id)
+            .where(uuid_column_equals(session, File.folder_id, folder_id))
+            .where(uuid_column_equals(session, File.user_id, user_id))
             .where(File.is_deleted == False)  # noqa: E712
         )
         result = await session.exec(stmt)
@@ -104,11 +123,24 @@ async def add_item_to_folder(
             raise HTTPException(status_code=404, detail="File not found")
         _assert_file_owner(f, user_id)
 
+        old_folder_id = f.folder_id
+        if old_folder_id is not None and same_user_id(old_folder_id, data.folder_id):
+            return FolderItemResponse(
+                file_id=f.id,
+                folder_id=data.folder_id,
+                file_name=f.original_name,
+                file_type=f.file_type.value,
+                size=f.size,
+                mime_type=f.mime_type,
+            )
+
         f.folder_id = data.folder_id
         f.updated_at = datetime.utcnow()
         session.add(f)
 
-        folder.file_count = folder.file_count + 1
+        await _decrement_owned_folder_count(session, old_folder_id, user_id)
+
+        folder.file_count = int(folder.file_count or 0) + 1
         session.add(folder)
 
         return FolderItemResponse(
@@ -174,15 +206,16 @@ async def move_item(
         f.updated_at = datetime.utcnow()
         session.add(f)
 
-        if old_folder_id:
-            old_folder = await load_entity_by_id(session, Folder, old_folder_id, parent_table="folders")
-            if old_folder and not old_folder.is_deleted:
-                _assert_folder_owner(old_folder, user_id)
-            if old_folder and old_folder.file_count > 0:
-                old_folder.file_count -= 1
-                session.add(old_folder)
+        if old_folder_id is not None and same_user_id(old_folder_id, data.to_folder_id):
+            return {
+                "file_id": str(file_id),
+                "from_folder_id": str(old_folder_id),
+                "to_folder_id": str(data.to_folder_id),
+            }
 
-        target.file_count += 1
+        await _decrement_owned_folder_count(session, old_folder_id, user_id)
+
+        target.file_count = int(target.file_count or 0) + 1
         session.add(target)
 
         return {

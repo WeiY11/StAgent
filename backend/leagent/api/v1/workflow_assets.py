@@ -18,9 +18,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlmodel import select
 
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models.file import File as FileModel
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
 
@@ -55,7 +56,7 @@ async def list_workflow_assets(
     async with db.session() as session:
         result = await session.exec(
             select(FileModel)
-            .where(FileModel.user_id == user_id)
+            .where(uuid_column_equals(session, FileModel.user_id, user_id))
             .where(FileModel.session_id.is_(None))
             .where(FileModel.is_deleted == False)  # noqa: E712
             .where(FileModel.file_metadata.like(f"%{_WORKFLOW_LIBRARY_TAG}%"))
@@ -102,8 +103,8 @@ async def upload_workflow_asset(
 
     # Tag as workflow library for listing.
     async with db.session() as session:
-        row = await session.get(FileModel, db_file.id)
-        if row is not None and row.user_id == user_id:
+        row = await load_entity_by_id(session, FileModel, db_file.id, parent_table="files")
+        if row is not None and same_user_id(row.user_id, user_id):
             meta: dict[str, Any] = {}
             try:
                 if row.file_metadata:

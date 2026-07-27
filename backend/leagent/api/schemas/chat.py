@@ -106,7 +106,7 @@ class SendMessageRequest(BaseModel):
     attachments: list[str] | None = None
 
     @model_validator(mode="after")
-    def require_text_or_attachments(self) -> "SendMessageRequest":
+    def require_text_or_attachments(self) -> SendMessageRequest:
         text = (self.content or "").strip()
         has_att = bool(self.attachments)
         if not text and not has_att:

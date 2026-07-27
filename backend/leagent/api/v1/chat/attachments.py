@@ -121,6 +121,8 @@ async def attach_chat_files(
 async def resolve_request_attachment_paths(
     session_id: UUID,
     attachment_refs: list[str] | None,
+    *,
+    user_id: UUID | None = None,
 ) -> list[str]:
     """Resolve mixed attachment refs (id / path / name) to concrete storage paths."""
     if not attachment_refs:
@@ -137,7 +139,10 @@ async def resolve_request_attachment_paths(
         return dedupe_resolved_paths(attachment_refs)
 
     try:
-        session_attachments = await sm.session_manager.list_attachments(session_id)
+        session_attachments = await sm.session_manager.list_attachments(
+            session_id,
+            user_id=user_id,
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning("resolve_request_attachment_paths_failed: %s", exc)
         return dedupe_resolved_paths(attachment_refs)

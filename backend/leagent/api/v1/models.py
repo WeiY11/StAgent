@@ -6,8 +6,8 @@ a default-model endpoint, connection testing, and preset discovery.
 
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Optional
 
@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlmodel import func, select
 
+from leagent.db import DatabaseService, get_database_service
+from leagent.db.models import LLMRequestLog, Message
 from leagent.llm.provider_config import (
     DefaultModelConfig,
     ProviderConfig,
@@ -23,8 +25,6 @@ from leagent.llm.provider_config import (
     get_provider_config_service,
 )
 from leagent.services.auth import CurrentUserId
-from leagent.db import DatabaseService, get_database_service
-from leagent.db.models import LLMRequestLog, Message
 
 _logger = logging.getLogger(__name__)
 
@@ -92,22 +92,22 @@ class ProviderResponse(BaseModel):
 class ProviderCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     type: str = Field(default="openai")
-    api_key: Optional[str] = Field(default=None, max_length=500)
-    base_url: Optional[str] = Field(default=None, max_length=500)
-    models: Optional[list[dict[str, Any]]] = None
+    api_key: str | None = Field(default=None, max_length=500)
+    base_url: str | None = Field(default=None, max_length=500)
+    models: list[dict[str, Any]] | None = None
     enabled: bool = True
     timeout: int = Field(default=120, ge=1, le=600)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProviderUpdateRequest(BaseModel):
-    type: Optional[str] = None
-    api_key: Optional[str] = Field(default=None, max_length=500)
-    base_url: Optional[str] = Field(default=None, max_length=500)
-    models: Optional[list[dict[str, Any]]] = None
-    enabled: Optional[bool] = None
-    timeout: Optional[int] = Field(default=None, ge=1, le=600)
-    metadata: Optional[dict[str, Any]] = None
+    type: str | None = None
+    api_key: str | None = Field(default=None, max_length=500)
+    base_url: str | None = Field(default=None, max_length=500)
+    models: list[dict[str, Any]] | None = None
+    enabled: bool | None = None
+    timeout: int | None = Field(default=None, ge=1, le=600)
+    metadata: dict[str, Any] | None = None
 
 
 class DefaultModelRequest(BaseModel):
@@ -127,8 +127,8 @@ class TestResult(BaseModel):
     latency_ms: float = 0.0
     ttfb_ms: float = 0.0
     status: str = "unknown"
-    error: Optional[str] = None
-    error_category: Optional[str] = None
+    error: str | None = None
+    error_category: str | None = None
 
 
 class DeepSeekBalanceInfo(BaseModel):
@@ -187,7 +187,7 @@ class ModelUsageRow(BaseModel):
     total_tokens: int = 0
     avg_latency_ms: float = 0.0
     total_cost_usd: float = 0.0
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
 
 
 class DiscoveredModel(BaseModel):
@@ -231,7 +231,7 @@ class RequestLogRow(BaseModel):
     latency_ms: float = 0.0
     ttfb_ms: float = 0.0
     status_code: int = 200
-    error: Optional[str] = None
+    error: str | None = None
     is_streaming: bool = False
     created_at: datetime
 
@@ -273,9 +273,9 @@ class ProviderHealthEntry(BaseModel):
     latency_ms: float = 0.0
     ttfb_ms: float = 0.0
     status: str = "unknown"
-    error: Optional[str] = None
-    error_category: Optional[str] = None
-    last_checked: Optional[float] = None
+    error: str | None = None
+    error_category: str | None = None
+    last_checked: float | None = None
     circuit: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -562,6 +562,7 @@ async def get_deepseek_provider_balance(
         )
 
     from httpx import AsyncClient, HTTPError, HTTPStatusError
+
     from leagent.llm.providers.deepseek import DeepSeekProvider
     from leagent.llm.providers.deepseek_utils import check_balance
 

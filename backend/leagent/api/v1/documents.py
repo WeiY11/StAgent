@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -12,13 +12,9 @@ from sqlalchemy import or_
 from sqlmodel import col, func, select
 
 from leagent.config.settings import get_settings
-from leagent.file.primitives import classify_file_kind
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import (
     ChatSession,
-    File as FileModel,
     FileRead,
     FileStatus,
     FileType,
@@ -27,17 +23,24 @@ from leagent.db.models import (
     PetProject,
     PetProjectFile,
 )
+from leagent.db.models import (
+    File as FileModel,
+)
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
+from leagent.file.primitives import classify_file_kind
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
 
 
-def _pet_project_library_file_ids_subquery(user_id: UUID):
+def _pet_project_library_file_ids_subquery(session: Any, user_id: UUID):
     """File IDs linked to Pet Space projects — excluded from knowledge document lists."""
     return (
         select(PetProjectFile.file_id)
         .join(PetProject, PetProjectFile.pet_project_id == PetProject.id)
         .where(
-            PetProject.user_id == user_id,
+            uuid_column_equals(session, PetProject.user_id, user_id),
             PetProject.is_deleted == False,  # noqa: E712
         )
     )
@@ -108,7 +111,7 @@ class DocumentUploadResponse(BaseModel):
     name: str
     original_name: str
     file_type: FileType
-    mime_type: Optional[str]
+    mime_type: str | None
     size: int
     status: FileStatus
 
@@ -117,8 +120,8 @@ class DocumentSearchRequest(BaseModel):
     """Request schema for document search."""
 
     query: str = Field(..., min_length=1, max_length=1000)
-    file_types: Optional[list[FileType]] = None
-    folder_id: Optional[UUID] = None
+    file_types: list[FileType] | None = None
+    folder_id: UUID | None = None
     limit: int = Field(default=10, ge=1, le=100)
 
 
@@ -129,10 +132,10 @@ class DocumentSearchResult(BaseModel):
     name: str
     file_type: FileType
     score: float
-    snippet: Optional[str] = None
-    chunk_id: Optional[UUID] = None
-    start_offset: Optional[int] = None
-    end_offset: Optional[int] = None
+    snippet: str | None = None
+    chunk_id: UUID | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 class DocumentSearchResponse(BaseModel):
@@ -147,7 +150,7 @@ class PromoteToKnowledgeRequest(BaseModel):
     """Copy session/workspace files into the system knowledge store."""
 
     file_ids: list[UUID] = Field(..., min_length=1, max_length=MAX_PROMOTE_FILES)
-    session_id: Optional[UUID] = Field(
+    session_id: UUID | None = Field(
         default=None,
         description="Optional chat session id for provenance stamping.",
     )
@@ -178,8 +181,8 @@ async def upload_document(
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     file: UploadFile = File(...),
-    session_id: Optional[UUID] = Form(default=None),
-    folder_id: Optional[UUID] = Form(default=None),
+    session_id: UUID | None = Form(default=None),
+    folder_id: UUID | None = Form(default=None),
     process_ocr: bool = Form(default=True),
     index_for_search: bool = Form(default=True),
 ) -> DocumentUploadResponse:
@@ -200,10 +203,20 @@ async def upload_document(
             detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
+    from leagent.api.v1.files import _load_owned_folder_for_file_write, _store_blob
+
+    if folder_id is not None:
+        try:
+            async with db.session() as session:
+                await _load_owned_folder_for_file_write(session, folder_id, user_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
     content = await file.read()
     file_size = len(content)
-
-    from leagent.api.v1.files import _store_blob
 
     ref = await _store_blob(
         content,
@@ -223,6 +236,16 @@ async def upload_document(
     file_type = get_file_type(file.content_type, file.filename)
 
     async with db.session() as session:
+        folder = None
+        if folder_id is not None:
+            try:
+                folder = await _load_owned_folder_for_file_write(session, folder_id, user_id)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                ) from exc
+
         db_file = FileModel(
             id=file_id,
             session_id=session_id,
@@ -242,6 +265,9 @@ async def upload_document(
             is_indexed=index_for_search,
         )
         session.add(db_file)
+        if folder is not None:
+            folder.file_count = int(folder.file_count or 0) + 1
+            session.add(folder)
         await session.flush()
         await session.refresh(db_file)
 
@@ -288,8 +314,13 @@ async def promote_to_knowledge(
 
     async with db.session() as session:
         if body.session_id is not None:
-            cs = await session.get(ChatSession, body.session_id)
-            if cs is None or cs.user_id != user_id:
+            cs = await load_entity_by_id(
+                session,
+                ChatSession,
+                body.session_id,
+                parent_table="chat_sessions",
+            )
+            if cs is None or not same_user_id(cs.user_id, user_id):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid session_id for the current user",
@@ -297,13 +328,18 @@ async def promote_to_knowledge(
 
     for raw_id in body.file_ids:
         async with db.session() as session:
-            src = await session.get(FileModel, raw_id)
+            src = await load_entity_by_id(
+                session,
+                FileModel,
+                raw_id,
+                parent_table="files",
+            )
             if src is None or src.is_deleted:
                 skipped.append(
                     SkippedPromoteFile(id=raw_id, reason="not_found")
                 )
                 continue
-            if src.user_id != user_id:
+            if not same_user_id(src.user_id, user_id):
                 skipped.append(
                     SkippedPromoteFile(id=raw_id, reason="forbidden")
                 )
@@ -327,7 +363,21 @@ async def promote_to_knowledge(
             with open(src.storage_path, "rb") as rf:
                 content = rf.read()
 
-            from leagent.api.v1.files import _store_blob
+            from leagent.api.v1.files import _load_owned_folder_for_file_write, _store_blob
+
+            folder = None
+            folder_id = None
+            if src.folder_id is not None:
+                try:
+                    folder = await _load_owned_folder_for_file_write(
+                        session,
+                        src.folder_id,
+                        user_id,
+                    )
+                    folder_id = src.folder_id
+                except ValueError:
+                    folder = None
+                    folder_id = None
 
             ref = await _store_blob(
                 content,
@@ -355,7 +405,7 @@ async def promote_to_knowledge(
                 size=len(content),
                 status=FileStatus.UPLOADED,
                 user_id=user_id,
-                folder_id=src.folder_id,
+                folder_id=folder_id,
                 storage_path=storage_path,
                 checksum=checksum,
                 library_scope=LibraryScope.KNOWLEDGE,
@@ -365,6 +415,9 @@ async def promote_to_knowledge(
                 is_indexed=True,
             )
             session.add(db_new)
+            if folder is not None:
+                folder.file_count = int(folder.file_count or 0) + 1
+                session.add(folder)
             await session.flush()
             await session.refresh(db_new)
 
@@ -398,20 +451,20 @@ async def list_documents(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    file_type: Optional[FileType] = Query(default=None),
-    status: Optional[FileStatus] = Query(default=None),
-    folder_id: Optional[UUID] = Query(default=None),
+    file_type: FileType | None = Query(default=None),
+    status: FileStatus | None = Query(default=None),
+    folder_id: UUID | None = Query(default=None),
     unfiled: bool = Query(
         default=False,
         description="When true and folder_id is omitted, return only documents with folder_id IS NULL.",
     ),
-    search: Optional[str] = Query(default=None, max_length=100),
+    search: str | None = Query(default=None, max_length=100),
 ) -> PaginatedResponse[FileRead]:
     """List documents for the current user with pagination and filters."""
     async with db.session() as session:
-        pet_lib = _pet_project_library_file_ids_subquery(user_id)
+        pet_lib = _pet_project_library_file_ids_subquery(session, user_id)
         query = select(FileModel).where(
-            FileModel.user_id == user_id,
+            uuid_column_equals(session, FileModel.user_id, user_id),
             FileModel.is_deleted == False,
             FileModel.library_scope == LibraryScope.KNOWLEDGE,
             ~FileModel.id.in_(pet_lib),
@@ -422,7 +475,7 @@ async def list_documents(
         if status is not None:
             query = query.where(FileModel.status == status)
         if folder_id is not None:
-            query = query.where(FileModel.folder_id == folder_id)
+            query = query.where(uuid_column_equals(session, FileModel.folder_id, folder_id))
         elif unfiled:
             query = query.where(FileModel.folder_id == None)  # noqa: E711
         if search:
@@ -453,8 +506,8 @@ async def search_documents(
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     query: str = Query(..., min_length=1, max_length=1000),
-    file_types: Optional[str] = Query(default=None, description="Comma-separated file types"),
-    folder_id: Optional[UUID] = Query(default=None),
+    file_types: str | None = Query(default=None, description="Comma-separated file types"),
+    folder_id: UUID | None = Query(default=None),
     limit: int = Query(default=10, ge=1, le=100),
 ) -> DocumentSearchResponse:
     """BM25/lexical search across knowledge document chunks."""
@@ -473,12 +526,19 @@ async def search_documents(
     for hit in chunk_hits:
         file_type = FileType.OTHER
         async with db.session() as session:
-            f = await session.get(FileModel, hit.file_id)
-            if f is None or f.is_deleted:
+            f = await load_entity_by_id(
+                session,
+                FileModel,
+                hit.file_id,
+                parent_table="files",
+            )
+            if f is None or f.is_deleted or not same_user_id(f.user_id, user_id):
+                continue
+            if f.library_scope != LibraryScope.KNOWLEDGE:
                 continue
             if type_filter and f.file_type not in type_filter:
                 continue
-            if folder_id is not None and f.folder_id != folder_id:
+            if folder_id is not None and not same_user_id(f.folder_id, folder_id):
                 continue
             file_type = f.file_type
         search_results.append(
