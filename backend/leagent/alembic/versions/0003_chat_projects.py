@@ -5,17 +5,18 @@ Revises: 0002_workflow_state_snapshots
 Create Date: 2026-06-23
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import inspect
 import sqlmodel
+from alembic import op
+from sqlalchemy import inspect
 
 revision: str = "0003_chat_projects"
-down_revision: Union[str, None] = "0002_workflow_state_snapshots"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0002_workflow_state_snapshots"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

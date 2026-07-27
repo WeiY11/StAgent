@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class Repositories:
     """Lazy accessor bundling all per-domain repositories for a database."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
         self._files: DbFileRepository | None = None
         self._document_chunks: DbDocumentChunkRepository | None = None

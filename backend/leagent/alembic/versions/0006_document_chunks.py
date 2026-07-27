@@ -9,16 +9,17 @@ index (``document_chunks_fts``) with sync triggers provides BM25 ranking and
 snippets; PostgreSQL deployments rely on the lexical fallback instead.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0006_document_chunks"
-down_revision: Union[str, None] = "0005_library_layer"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0005_library_layer"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

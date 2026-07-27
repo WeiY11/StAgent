@@ -25,15 +25,17 @@ logger = logging.getLogger(__name__)
 
 def _sqlite_connect_pragma(dbapi_conn: object, _: object) -> None:
     """Apply SQLite pragmas on each new DBAPI connection."""
-    cursor = dbapi_conn.cursor()  # type: ignore[union-attr]
+    cursor = dbapi_conn.cursor()  # type: ignore[attr-defined]
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA cache_size=-64000")  # 64MB page cache
+    cursor.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
     cursor.close()
 
 
-def make_async_engine(db_cfg: "DatabaseSettings") -> AsyncEngine:
+def make_async_engine(db_cfg: DatabaseSettings) -> AsyncEngine:
     """Build the async engine for *db_cfg*.
 
     Args:

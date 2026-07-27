@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from sqlmodel import select
+from sqlalchemy import update as sa_update
+from sqlmodel import col, select
 
+from leagent.db.models.base import utc_now
 from leagent.db.models.file import File
+from leagent.db.sqlite_compat import (
+    load_entity_by_id,
+    same_user_id,
+    uuid_column_equals,
+    uuid_column_in,
+)
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.engine import CursorResult
+
     from leagent.db.service import DatabaseService
 
 
@@ -43,17 +53,17 @@ class FileRepository(Protocol):
 class DbFileRepository:
     """``DatabaseService``-backed :class:`FileRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def get(self, file_id: UUID) -> File | None:
         async with self._db.session() as session:
-            return await session.get(File, file_id)
+            return await load_entity_by_id(session, File, file_id, parent_table="files")
 
     async def get_for_user(self, file_id: UUID, user_id: UUID) -> File | None:
         async with self._db.session() as session:
-            row = await session.get(File, file_id)
-            if row is None or row.is_deleted or row.user_id != user_id:
+            row = await load_entity_by_id(session, File, file_id, parent_table="files")
+            if row is None or row.is_deleted or not same_user_id(row.user_id, user_id):
                 return None
             return row
 
@@ -61,9 +71,9 @@ class DbFileRepository:
         async with self._db.session() as session:
             result = await session.exec(
                 select(File)
-                .where(File.session_id == session_id)
-                .where(File.is_deleted == False)  # noqa: E712
-                .order_by(File.created_at)
+                .where(uuid_column_equals(session, File.session_id, session_id))
+                .where(col(File.is_deleted).is_(False))
+                .order_by(col(File.created_at))
             )
             return list(result.all())
 
@@ -75,18 +85,24 @@ class DbFileRepository:
         async with self._db.session() as session:
             result = await session.exec(
                 select(File)
-                .where(File.id.in_(file_ids))  # type: ignore[attr-defined]
-                .where(File.user_id == user_id)
-                .where(File.is_deleted == False)  # noqa: E712
+                .where(uuid_column_in(session, File.id, file_ids))
+                .where(uuid_column_equals(session, File.user_id, user_id))
+                .where(col(File.is_deleted).is_(False))
             )
             return list(result.all())
 
     async def soft_delete(self, file_id: UUID, user_id: UUID) -> bool:
         async with self._db.session() as session:
-            row = await session.get(File, file_id)
-            if row is None or row.is_deleted or row.user_id != user_id:
-                return False
-            row.is_deleted = True
-            row.deleted_at = datetime.now(UTC)
-            session.add(row)
-            return True
+            now = utc_now()
+            result = await session.execute(
+                sa_update(File)
+                .where(uuid_column_equals(session, File.id, file_id))
+                .where(uuid_column_equals(session, File.user_id, user_id))
+                .where(col(File.is_deleted).is_(False))
+                .values(
+                    is_deleted=True,
+                    deleted_at=now,
+                    updated_at=now,
+                )
+            )
+            return bool(cast("CursorResult[Any]", result).rowcount)

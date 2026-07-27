@@ -14,13 +14,12 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
 
 
-def run_sync_migrations(connection: "Connection") -> None:
+def run_sync_migrations(connection: Connection) -> None:
     """Run ``alembic upgrade head`` on an existing sync SQLAlchemy connection."""
     from alembic import command
 
-    from leagent.config.settings import get_settings
-
     from leagent.alembic.runtime_config import load_alembic_config
+    from leagent.config.settings import get_settings
 
     settings = get_settings()
     cfg = load_alembic_config(sqlalchemy_url=settings.database.sync_url)

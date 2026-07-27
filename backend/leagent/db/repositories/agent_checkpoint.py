@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from leagent.db.models.agent_checkpoint import AgentCheckpoint
 
@@ -44,7 +44,7 @@ class CheckpointRepository(Protocol):
 class DbCheckpointRepository:
     """``DatabaseService``-backed :class:`CheckpointRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def upsert(
@@ -98,7 +98,7 @@ class DbCheckpointRepository:
             result = await session.exec(
                 select(AgentCheckpoint)
                 .where(AgentCheckpoint.session_id == session_id)
-                .order_by(AgentCheckpoint.created_at.desc())
+                .order_by(col(AgentCheckpoint.created_at).desc())
             )
             return list(result.all())
 

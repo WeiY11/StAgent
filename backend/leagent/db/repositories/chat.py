@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from leagent.db.models.message import ChatSession, Message
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
 
 if TYPE_CHECKING:
     from leagent.db.service import DatabaseService
@@ -42,19 +43,29 @@ class ChatRepository(Protocol):
 class DbChatRepository:
     """``DatabaseService``-backed :class:`ChatRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def get_session(self, session_id: UUID) -> ChatSession | None:
         async with self._db.session() as session:
-            return await session.get(ChatSession, session_id)
+            return await load_entity_by_id(
+                session,
+                ChatSession,
+                session_id,
+                parent_table="chat_sessions",
+            )
 
     async def get_session_for_user(
         self, session_id: UUID, user_id: UUID
     ) -> ChatSession | None:
         async with self._db.session() as session:
-            row = await session.get(ChatSession, session_id)
-            if row is None or row.user_id != user_id:
+            row = await load_entity_by_id(
+                session,
+                ChatSession,
+                session_id,
+                parent_table="chat_sessions",
+            )
+            if row is None or not same_user_id(row.user_id, user_id):
                 return None
             return row
 
@@ -64,9 +75,9 @@ class DbChatRepository:
         async with self._db.session() as session:
             result = await session.exec(
                 select(ChatSession)
-                .where(ChatSession.user_id == user_id)
+                .where(uuid_column_equals(session, ChatSession.user_id, user_id))
                 .where(ChatSession.is_active == True)  # noqa: E712
-                .order_by(ChatSession.last_message_at.desc())
+                .order_by(col(ChatSession.last_message_at).desc())
                 .offset(offset)
                 .limit(limit)
             )
@@ -78,8 +89,8 @@ class DbChatRepository:
         async with self._db.session() as session:
             result = await session.exec(
                 select(Message)
-                .where(Message.session_id == session_id)
-                .order_by(Message.created_at, Message.id)
+                .where(uuid_column_equals(session, Message.session_id, session_id))
+                .order_by(col(Message.created_at), col(Message.id))
                 .limit(limit)
             )
             return list(result.all())

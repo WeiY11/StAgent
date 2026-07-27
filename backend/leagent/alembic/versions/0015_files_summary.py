@@ -8,16 +8,17 @@ Extractive document summaries are written after chunk indexing so
 ``knowledge_search`` catalog/read can advertise KB docs without LLM cost.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0015_files_summary"
-down_revision: Union[str, None] = "0014_agent_traces_nullable_json"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0014_agent_traces_nullable_json"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

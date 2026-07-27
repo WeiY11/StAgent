@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from sqlmodel import select
+from sqlalchemy import update as sa_update
+from sqlmodel import col, select
 
 from leagent.db.models.task import Task, TaskStatus
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.engine import CursorResult
+
     from leagent.db.service import DatabaseService
 
 
@@ -38,21 +43,21 @@ class TaskRepository(Protocol):
 class DbTaskRepository:
     """``DatabaseService``-backed :class:`TaskRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def get(self, task_id: UUID) -> Task | None:
         async with self._db.session() as session:
-            return await session.get(Task, task_id)
+            return await load_entity_by_id(session, Task, task_id, parent_table="tasks")
 
     async def list_for_user(
         self, user_id: UUID, *, status: TaskStatus | None = None, limit: int = 100
     ) -> list[Task]:
         async with self._db.session() as session:
-            stmt = select(Task).where(Task.user_id == user_id)
+            stmt = select(Task).where(uuid_column_equals(session, Task.user_id, user_id))
             if status is not None:
                 stmt = stmt.where(Task.status == status)
-            stmt = stmt.order_by(Task.created_at.desc()).limit(limit)
+            stmt = stmt.order_by(col(Task.created_at).desc()).limit(limit)
             result = await session.exec(stmt)
             return list(result.all())
 
@@ -65,9 +70,9 @@ class DbTaskRepository:
 
     async def update_status(self, task_id: UUID, status: TaskStatus) -> bool:
         async with self._db.session() as session:
-            row = await session.get(Task, task_id)
-            if row is None:
-                return False
-            row.status = status
-            session.add(row)
-            return True
+            result = await session.execute(
+                sa_update(Task)
+                .where(uuid_column_equals(session, Task.id, task_id))
+                .values(status=status)
+            )
+            return bool(cast("CursorResult[Any]", result).rowcount)

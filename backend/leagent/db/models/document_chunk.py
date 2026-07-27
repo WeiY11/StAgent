@@ -24,7 +24,7 @@ class DocumentChunk(BaseModel, table=True):
     __tablename__ = "document_chunks"
 
     file_id: UUID = Field(foreign_key="files.id", index=True)
-    user_id: Optional[UUID] = Field(default=None, index=True)
+    user_id: UUID | None = Field(default=None, index=True)
     seq: int = Field(default=0)
     start_offset: int = Field(default=0)
     end_offset: int = Field(default=0)

@@ -43,31 +43,31 @@ class AgentEpisode(BaseModel, table=True):
     __tablename__ = "agent_episodes"
 
     session_id: UUID = Field(foreign_key="chat_sessions.id", index=True, nullable=False)
-    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
-    flow_id: Optional[UUID] = Field(default=None, foreign_key="flows.id", index=True)
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
+    flow_id: UUID | None = Field(default=None, foreign_key="flows.id", index=True)
 
     # The distilled text; short (<~1 KB) by convention.
     summary: str = Field(sa_column=Column(Text, nullable=False))
     # Full transcript snapshot for reference / auditing; may be large.
-    transcript: Optional[str] = Field(default=None, sa_column=Column(Text))
+    transcript: str | None = Field(default=None, sa_column=Column(Text))
 
     # Structured tags for lexical filtering (intent, topic, artefacts…).
-    tags: Optional[str] = Field(default=None, sa_column=Column(Text))  # JSON
+    tags: str | None = Field(default=None, sa_column=Column(Text))  # JSON
 
     # Milvus vector reference (collection row id). ``None`` means the vector
     # write failed — the row is still usable by the lexical fallback.
-    vector_id: Optional[str] = Field(default=None, max_length=128, index=True)
-    embedding_model: Optional[str] = Field(default=None, max_length=100)
+    vector_id: str | None = Field(default=None, max_length=128, index=True)
+    embedding_model: str | None = Field(default=None, max_length=100)
 
     # Quality signal for recency+quality ranking.
     importance: float = Field(default=0.0, nullable=False)
     # Token count of the summary, used when budgeting recall into a prompt.
-    token_count: Optional[int] = Field(default=None)
+    token_count: int | None = Field(default=None)
     # Recall counters — incremented by ``RetrievalPipeline`` to inform
     # ``importance`` over time.
     recall_count: int = Field(default=0, nullable=False)
-    last_recalled_at: Optional[datetime] = Field(default=None)
+    last_recalled_at: datetime | None = Field(default=None)
 
 
 class AgentFact(BaseModel, table=True):
@@ -89,7 +89,7 @@ class AgentFact(BaseModel, table=True):
     )
 
     user_id: UUID = Field(foreign_key="users.id", index=True, nullable=False)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
 
     # Stable, application-defined slug (e.g. "preferences.units",
     # "contact.default_email"). Human-readable by convention.
@@ -102,10 +102,10 @@ class AgentFact(BaseModel, table=True):
     confidence: float = Field(default=0.8, nullable=False)
     # Free-form source label (e.g. "user_stated", "inferred",
     # "tool:calendar_sync").
-    source: Optional[str] = Field(default=None, max_length=100)
+    source: str | None = Field(default=None, max_length=100)
 
-    vector_id: Optional[str] = Field(default=None, max_length=128, index=True)
-    embedding_model: Optional[str] = Field(default=None, max_length=100)
+    vector_id: str | None = Field(default=None, max_length=128, index=True)
+    embedding_model: str | None = Field(default=None, max_length=100)
 
 
 class AgentProcedure(BaseModel, table=True):
@@ -128,8 +128,8 @@ class AgentProcedure(BaseModel, table=True):
         ),
     )
 
-    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
 
     # Human-readable label for debugging and LLM rendering.
     name: str = Field(max_length=200, nullable=False)
@@ -143,13 +143,13 @@ class AgentProcedure(BaseModel, table=True):
     success_count: int = Field(default=0, nullable=False)
     # Short task-output snippet from hooks (up to ~200 chars today); use Text
     # so future summaries are not capped by an arbitrary VARCHAR limit.
-    last_outcome: Optional[str] = Field(default=None, sa_column=Column(Text))
-    last_error: Optional[str] = Field(default=None, sa_column=Column(Text))
-    last_duration_ms: Optional[int] = Field(default=None)
-    last_run_at: Optional[datetime] = Field(default=None)
+    last_outcome: str | None = Field(default=None, sa_column=Column(Text))
+    last_error: str | None = Field(default=None, sa_column=Column(Text))
+    last_duration_ms: int | None = Field(default=None)
+    last_run_at: datetime | None = Field(default=None)
 
-    vector_id: Optional[str] = Field(default=None, max_length=128, index=True)
-    embedding_model: Optional[str] = Field(default=None, max_length=100)
+    vector_id: str | None = Field(default=None, max_length=128, index=True)
+    embedding_model: str | None = Field(default=None, max_length=100)
 
 
 # Explicit ORM-only SQLModel classes. SQLModel auto-registers them with the

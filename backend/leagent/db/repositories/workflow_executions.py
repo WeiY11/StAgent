@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from leagent.db.models.workflow_execution import WorkflowExecution
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
 if TYPE_CHECKING:
     from leagent.db.service import DatabaseService
@@ -40,12 +41,17 @@ class WorkflowExecutionRepository(Protocol):
 class DbWorkflowExecutionRepository:
     """``DatabaseService``-backed :class:`WorkflowExecutionRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def get(self, execution_id: UUID) -> WorkflowExecution | None:
         async with self._db.session() as session:
-            return await session.get(WorkflowExecution, execution_id)
+            return await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
 
     async def list_for_flow(
         self, flow_id: UUID, *, limit: int = 50
@@ -53,8 +59,8 @@ class DbWorkflowExecutionRepository:
         async with self._db.session() as session:
             result = await session.exec(
                 select(WorkflowExecution)
-                .where(WorkflowExecution.flow_id == flow_id)
-                .order_by(WorkflowExecution.created_at.desc())
+                .where(uuid_column_equals(session, WorkflowExecution.flow_id, flow_id))
+                .order_by(col(WorkflowExecution.created_at).desc())
                 .limit(limit)
             )
             return list(result.all())
@@ -63,10 +69,12 @@ class DbWorkflowExecutionRepository:
         self, user_id: UUID, *, status: str | None = None, limit: int = 50
     ) -> list[WorkflowExecution]:
         async with self._db.session() as session:
-            stmt = select(WorkflowExecution).where(WorkflowExecution.user_id == user_id)
+            stmt = select(WorkflowExecution).where(
+                uuid_column_equals(session, WorkflowExecution.user_id, user_id)
+            )
             if status is not None:
                 stmt = stmt.where(WorkflowExecution.status == status)
-            stmt = stmt.order_by(WorkflowExecution.created_at.desc()).limit(limit)
+            stmt = stmt.order_by(col(WorkflowExecution.created_at).desc()).limit(limit)
             result = await session.exec(stmt)
             return list(result.all())
 

@@ -15,13 +15,12 @@ import secrets
 import string
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlmodel import Column, Field, SQLModel, Text
 
-from leagent.db.models.base import BaseModel
-
+from leagent.db.models.base import BaseModel, enum_value_column
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -222,10 +221,19 @@ class TaskBase(SQLModel):
     """Base task fields."""
 
     name: str = Field(max_length=200)
-    task_type: TaskType = Field(default=TaskType.AGENT)
-    status: TaskStatus = Field(default=TaskStatus.PENDING)
-    priority: TaskPriority = Field(default=TaskPriority.NORMAL)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    task_type: TaskType = Field(
+        default=TaskType.AGENT,
+        sa_column=enum_value_column(TaskType),
+    )
+    status: TaskStatus = Field(
+        default=TaskStatus.PENDING,
+        sa_column=enum_value_column(TaskStatus),
+    )
+    priority: TaskPriority = Field(
+        default=TaskPriority.NORMAL,
+        sa_column=enum_value_column(TaskPriority),
+    )
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class Task(TaskBase, BaseModel, table=True):
@@ -234,47 +242,47 @@ class Task(TaskBase, BaseModel, table=True):
     __tablename__ = "tasks"
 
     # Association
-    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
-    flow_id: Optional[UUID] = Field(default=None, foreign_key="flows.id", index=True)
-    session_id: Optional[UUID] = Field(default=None, index=True)
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
+    flow_id: UUID | None = Field(default=None, foreign_key="flows.id", index=True)
+    session_id: UUID | None = Field(default=None, index=True)
 
     # Input/output data (JSON)
-    input_data: Optional[str] = Field(default=None, sa_column=Column(Text))
-    output_data: Optional[str] = Field(default=None, sa_column=Column(Text))
+    input_data: str | None = Field(default=None, sa_column=Column(Text))
+    output_data: str | None = Field(default=None, sa_column=Column(Text))
 
     # Execution details
-    started_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
-    duration_ms: Optional[int] = Field(default=None)
+    started_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    duration_ms: int | None = Field(default=None)
 
     # Progress tracking (0-100)
     progress: int = Field(default=0)
-    progress_message: Optional[str] = Field(default=None, max_length=500)
+    progress_message: str | None = Field(default=None, max_length=500)
 
     # Error handling
-    error: Optional[str] = Field(default=None, sa_column=Column(Text))
+    error: str | None = Field(default=None, sa_column=Column(Text))
     retry_count: int = Field(default=0)
     max_retries: int = Field(default=3)
-    last_retry_at: Optional[datetime] = Field(default=None)
+    last_retry_at: datetime | None = Field(default=None)
 
     # Scheduling
-    scheduled_at: Optional[datetime] = Field(default=None)
+    scheduled_at: datetime | None = Field(default=None)
     timeout_seconds: int = Field(default=300)
 
     # Resource tracking
-    model_used: Optional[str] = Field(default=None, max_length=100)
-    tokens_used: Optional[int] = Field(default=None)
-    cost: Optional[float] = Field(default=None)
+    model_used: str | None = Field(default=None, max_length=100)
+    tokens_used: int | None = Field(default=None)
+    cost: float | None = Field(default=None)
 
     # Execution context (JSON)
-    context: Optional[str] = Field(default=None, sa_column=Column(Text))
+    context: str | None = Field(default=None, sa_column=Column(Text))
 
     # Parent task for hierarchical execution
-    parent_id: Optional[UUID] = Field(default=None, foreign_key="tasks.id")
+    parent_id: UUID | None = Field(default=None, foreign_key="tasks.id")
 
     # Output file for streaming logs (mirrors reference outputFile)
-    output_file: Optional[str] = Field(default=None, max_length=500)
+    output_file: str | None = Field(default=None, max_length=500)
     output_offset: int = Field(default=0)
 
     # Notification flag (mirrors reference notified)
@@ -287,38 +295,38 @@ class Task(TaskBase, BaseModel, table=True):
 class TaskCreate(TaskBase):
     """Schema for creating a task."""
 
-    flow_id: Optional[UUID] = None
-    session_id: Optional[UUID] = None
-    input_data: Optional[str] = None
-    scheduled_at: Optional[datetime] = None
+    flow_id: UUID | None = None
+    session_id: UUID | None = None
+    input_data: str | None = None
+    scheduled_at: datetime | None = None
     timeout_seconds: int = 300
 
 
 class TaskUpdate(SQLModel):
     """Schema for updating a task."""
 
-    status: Optional[TaskStatus] = None
-    progress: Optional[int] = None
-    progress_message: Optional[str] = None
-    output_data: Optional[str] = None
-    error: Optional[str] = None
+    status: TaskStatus | None = None
+    progress: int | None = None
+    progress_message: str | None = None
+    output_data: str | None = None
+    error: str | None = None
 
 
 class TaskRead(TaskBase):
     """Schema for reading a task."""
 
     id: UUID
-    user_id: Optional[UUID]
-    flow_id: Optional[UUID]
-    session_id: Optional[UUID]
+    user_id: UUID | None
+    flow_id: UUID | None
+    session_id: UUID | None
     progress: int
-    progress_message: Optional[str]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    duration_ms: Optional[int]
-    error: Optional[str]
-    output_file: Optional[str]
+    progress_message: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_ms: int | None
+    error: str | None
+    output_file: str | None
     notified: bool
-    parent_id: Optional[UUID]
+    parent_id: UUID | None
     created_at: datetime
     updated_at: datetime

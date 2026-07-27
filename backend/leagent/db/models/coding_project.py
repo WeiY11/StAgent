@@ -16,12 +16,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
-from leagent.db.models.base import BaseModel, SoftDeleteMixin
+from leagent.db.models.base import BaseModel, SoftDeleteMixin, enum_value_column
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -47,10 +47,11 @@ class CodingProjectStatus(str, Enum):
 
 class CodingProjectBase(SQLModel):
     name: str = Field(max_length=200)
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
     template: str = Field(max_length=64)
     runtime_kind: CodingProjectRuntimeKind = Field(
-        default=CodingProjectRuntimeKind.FRONTEND
+        default=CodingProjectRuntimeKind.FRONTEND,
+        sa_column=enum_value_column(CodingProjectRuntimeKind),
     )
 
 
@@ -59,10 +60,10 @@ class CodingProject(CodingProjectBase, BaseModel, SoftDeleteMixin, table=True):
 
     __tablename__ = "coding_projects"
 
-    user_id: Optional[UUID] = Field(
+    user_id: UUID | None = Field(
         default=None, foreign_key="users.id", index=True
     )
-    folder_id: Optional[UUID] = Field(
+    folder_id: UUID | None = Field(
         default=None, foreign_key="folders.id", index=True
     )
 
@@ -73,45 +74,46 @@ class CodingProject(CodingProjectBase, BaseModel, SoftDeleteMixin, table=True):
 
     #: Latest port the supervisor bound the dev server to. ``None``
     #: when the project has never run.
-    port: Optional[int] = Field(default=None)
+    port: int | None = Field(default=None)
     #: Latest supervised PID; cleared on stop.
-    pid: Optional[int] = Field(default=None)
+    pid: int | None = Field(default=None)
 
     status: CodingProjectStatus = Field(
-        default=CodingProjectStatus.IDLE, index=True
+        default=CodingProjectStatus.IDLE,
+        sa_column=enum_value_column(CodingProjectStatus, index=True),
     )
-    last_started_at: Optional[datetime] = Field(default=None)
-    last_stopped_at: Optional[datetime] = Field(default=None)
+    last_started_at: datetime | None = Field(default=None)
+    last_stopped_at: datetime | None = Field(default=None)
 
     #: Free-form supervisor-side state that doesn't deserve its own
     #: column (e.g. the install marker file path, ready regex used).
-    install_marker: Optional[str] = Field(default=None, max_length=255)
+    install_marker: str | None = Field(default=None, max_length=255)
 
 
 class CodingProjectCreate(SQLModel):
     name: str = Field(max_length=200)
     template: str = Field(max_length=64)
-    description: Optional[str] = Field(default=None, max_length=500)
-    folder_id: Optional[UUID] = None
+    description: str | None = Field(default=None, max_length=500)
+    folder_id: UUID | None = None
     #: Optional caller-supplied absolute path. When omitted the manager
     #: scaffolds into ``CODING_PROJECTS_ROOT/<uuid>`` and creates a
     #: matching :class:`Folder` row in project-mode.
-    into_path: Optional[str] = Field(default=None, max_length=1024)
+    into_path: str | None = Field(default=None, max_length=1024)
 
 
 class CodingProjectUpdate(SQLModel):
-    name: Optional[str] = Field(default=None, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=500)
+    name: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
 
 
 class CodingProjectRead(CodingProjectBase):
     id: UUID
-    user_id: Optional[UUID]
-    folder_id: Optional[UUID]
+    user_id: UUID | None
+    folder_id: UUID | None
     root_path: str
-    port: Optional[int]
+    port: int | None
     status: CodingProjectStatus
-    last_started_at: Optional[datetime]
-    last_stopped_at: Optional[datetime]
+    last_started_at: datetime | None
+    last_stopped_at: datetime | None
     created_at: datetime
     updated_at: datetime

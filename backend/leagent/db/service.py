@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -32,7 +33,7 @@ T = TypeVar("T", bound=SQLModel)
 class DatabaseService:
     """Service for managing database connections and operations."""
 
-    def __init__(self, settings: "Settings") -> None:
+    def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._engine = make_async_engine(settings.database)
 
@@ -116,8 +117,8 @@ class DatabaseService:
 
     async def ensure_identity_stubs(self) -> None:
         """Insert minimal ``users`` / ``workspaces`` rows for FK targets (messages, pet_projects, …)."""
-        from leagent.services.auth.service import LOCAL_USER_ID
         from leagent.db.models.identity_stub import UserStub, WorkspaceStub
+        from leagent.services.auth.service import LOCAL_USER_ID
 
         async with self.session() as session:
             existing_user = await session.get(UserStub, LOCAL_USER_ID)
@@ -127,9 +128,9 @@ class DatabaseService:
             if existing_ws is None:
                 session.add(WorkspaceStub(id=LOCAL_USER_ID))
         logger.debug(
-            "identity_stubs_ready",
-            user_id=str(LOCAL_USER_ID),
-            workspace_id=str(LOCAL_USER_ID),
+            "identity_stubs_ready user_id=%s workspace_id=%s",
+            LOCAL_USER_ID,
+            LOCAL_USER_ID,
         )
 
     async def drop_tables(self) -> None:
@@ -173,9 +174,9 @@ class DatabaseService:
             await session.delete(obj)
 
     async def soft_delete(self, obj: Any) -> None:
-        from datetime import datetime
+        from leagent.db.models.base import _naive_utc_now
         obj.is_deleted = True
-        obj.deleted_at = datetime.utcnow()
+        obj.deleted_at = _naive_utc_now()
         await self.update(obj)
 
     async def execute(self, statement: Any) -> Any:
@@ -205,7 +206,7 @@ def get_database_service() -> DatabaseService:
     return _database_service
 
 
-def init_database_service(settings: "Settings") -> DatabaseService:
+def init_database_service(settings: Settings) -> DatabaseService:
     global _database_service
     _database_service = DatabaseService(settings)
     return _database_service

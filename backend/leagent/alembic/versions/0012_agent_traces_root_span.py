@@ -9,16 +9,17 @@ Create Date: 2026-07-12
 without ``root_span_id``. This revision adds the column when missing.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0012_agent_traces_root_span"
-down_revision: Union[str, None] = "0011_agent_traces"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0011_agent_traces"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:
