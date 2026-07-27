@@ -205,8 +205,7 @@ class DataMergeTool(SyncTool):
 
         if operation == "concat":
             return self._execute_concat(params, pd, output_format, context)
-        else:
-            return self._execute_merge(params, pd, output_format, context)
+        return self._execute_merge(params, pd, output_format, context)
 
     def _execute_merge(
         self, params: dict[str, Any], pd: Any, output_format: str,
