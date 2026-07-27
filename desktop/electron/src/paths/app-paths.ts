@@ -10,5 +10,6 @@ export function distDir(): string {
 }
 
 export function preloadPath(): string {
-  return path.join(__dirname, 'preload.js');
+  // .cjs: sandboxed preloads must be CommonJS (package is "type": "module").
+  return path.join(__dirname, 'preload.cjs');
 }

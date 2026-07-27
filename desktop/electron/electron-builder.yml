@@ -25,7 +25,10 @@ publish:
   provider: github
   owner: vixues
   repo: LeAgent
-  releaseType: release
+  # Only the `desktop-v*` beta path lets electron-builder publish; the primary
+  # `v*` release passes `--publish never` and attaches assets via release.yml.
+  # Beta desktop builds must therefore be labelled prerelease.
+  releaseType: prerelease
 
 directories:
   output: "dist-pack"
@@ -51,6 +54,7 @@ win:
   icon: resources/icons/icon.ico
 
 nsis:
+  artifactName: LeAgent-Setup-${version}.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

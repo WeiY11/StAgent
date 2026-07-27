@@ -122,6 +122,7 @@ echo "==> make-icons.mjs"
 node "$SCRIPT_DIR/make-icons.mjs" || echo "  ⚠ Icon generation failed (non-fatal)"
 
 npm run build
+npm test
 
 # Build electron-builder arch flags
 ARCH_FLAGS=""
