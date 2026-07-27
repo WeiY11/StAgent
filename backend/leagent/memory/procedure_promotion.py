@@ -13,15 +13,15 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from leagent.db.models.message import MessageRole, MessageStatus
 from leagent.memory.agent_memory import AgentMemory
 from leagent.memory.procedural import build_signature
 from leagent.memory.types import Procedure
 from leagent.services.chat.service import ChatService
-from leagent.db.models.message import MessageRole, MessageStatus
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ async def record_procedure_for_liked_assistant(
     if status.get("pg_written") is False:
         return False, "record_procedure_failed", False, status
 
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     await chat_svc.merge_message_extensions(
         session_id,
         assistant_message_id,

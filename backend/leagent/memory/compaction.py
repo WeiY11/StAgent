@@ -12,6 +12,7 @@ have ``list_episodes``, ``update_importance``, or ``delete_episode``.
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -38,7 +39,7 @@ class MemoryConsolidator:
     - Model upgrade re-embedding
     """
 
-    def __init__(self, memory: "AgentMemory") -> None:
+    def __init__(self, memory: AgentMemory) -> None:
         self._memory = memory
 
     async def run_full_maintenance(
@@ -121,14 +122,14 @@ class MemoryConsolidator:
         from datetime import datetime, timezone
 
         store = self._memory.episodic
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         episodes = await store.list_recent(user_id=user_id, limit=5000)
         pruned = 0
         for ep in episodes:
             importance = float(ep.importance or 0.0)
             created = ep.created_at
             if created and created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
+                created = created.replace(tzinfo=UTC)
             age_days = (now - (created or now)).total_seconds() / 86_400 if created else 999
 
             score = retention_score(

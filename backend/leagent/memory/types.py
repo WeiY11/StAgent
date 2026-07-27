@@ -19,10 +19,11 @@ And one retrieval shape:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from enum import Enum
-from typing import Any, Iterable
+from typing import Any
 from uuid import UUID, uuid4
 
 
@@ -35,7 +36,7 @@ class MemoryKind(str, Enum):
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass(slots=True)

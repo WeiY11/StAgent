@@ -14,14 +14,14 @@ from uuid import UUID
 
 from sqlmodel import select
 
+from leagent.db.models.agent_memory import AgentFact
 from leagent.memory.lexical_backend import or_text_match, session_dialect
 from leagent.memory.types import Fact, MemoryKind, RecallEntry
 from leagent.memory.vector import MilvusCollection, MilvusConnectionConfig
-from leagent.db.models.agent_memory import AgentFact
 
 if TYPE_CHECKING:
-    from leagent.memory.embeddings import EmbeddingProvider
     from leagent.db.service import DatabaseService
+    from leagent.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
