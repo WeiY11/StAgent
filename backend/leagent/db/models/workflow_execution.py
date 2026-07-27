@@ -16,32 +16,32 @@ class WorkflowExecution(UUIDMixin, SQLModel, table=True):
 
     __tablename__ = "workflow_executions"
 
-    flow_id: Optional[UUID] = Field(default=None, foreign_key="flows.id", index=True)
-    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
-    cron_job_id: Optional[UUID] = Field(default=None, index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    flow_id: UUID | None = Field(default=None, foreign_key="flows.id", index=True)
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    cron_job_id: UUID | None = Field(default=None, index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
 
-    prompt_id: Optional[str] = Field(default=None, max_length=100, index=True)
-    graph_hash: Optional[str] = Field(default=None, max_length=128)
+    prompt_id: str | None = Field(default=None, max_length=100, index=True)
+    graph_hash: str | None = Field(default=None, max_length=128)
     priority: int = Field(default=5)
 
     status: str = Field(default="pending", max_length=50, index=True)
     trigger_type: str = Field(default="manual", max_length=50)
 
-    inputs: Optional[str] = Field(default=None, sa_column=Column(Text))
-    outputs: Optional[str] = Field(default=None, sa_column=Column(Text))
-    execution_history: Optional[str] = Field(default=None, sa_column=Column(Text))
+    inputs: str | None = Field(default=None, sa_column=Column(Text))
+    outputs: str | None = Field(default=None, sa_column=Column(Text))
+    execution_history: str | None = Field(default=None, sa_column=Column(Text))
 
-    current_node: Optional[str] = Field(default=None, max_length=200)
+    current_node: str | None = Field(default=None, max_length=200)
     node_count: int = Field(default=0)
-    error: Optional[str] = Field(default=None, sa_column=Column(Text))
-    error_stack: Optional[str] = Field(default=None, sa_column=Column(Text))
+    error: str | None = Field(default=None, sa_column=Column(Text))
+    error_stack: str | None = Field(default=None, sa_column=Column(Text))
 
-    started_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
+    started_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
     duration_ms: int = Field(default=0)
 
-    workflow_state_id: Optional[UUID] = Field(default=None)
+    workflow_state_id: UUID | None = Field(default=None)
     retry_count: int = Field(default=0)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -52,21 +52,21 @@ class WorkflowExecutionRead(SQLModel):
     """Read schema for workflow executions."""
 
     id: UUID
-    flow_id: Optional[UUID]
-    user_id: Optional[UUID]
-    cron_job_id: Optional[UUID]
-    prompt_id: Optional[str]
-    graph_hash: Optional[str]
+    flow_id: UUID | None
+    user_id: UUID | None
+    cron_job_id: UUID | None
+    prompt_id: str | None
+    graph_hash: str | None
     priority: int
     status: str
     trigger_type: str
-    inputs: Optional[str]
-    outputs: Optional[str]
-    current_node: Optional[str]
+    inputs: str | None
+    outputs: str | None
+    current_node: str | None
     node_count: int
-    error: Optional[str]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    error: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
     duration_ms: int
     created_at: datetime
     updated_at: datetime

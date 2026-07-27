@@ -5,16 +5,17 @@ Revises: 0012_agent_traces_root_span
 Create Date: 2026-07-13
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0013_users_auth_fields"
-down_revision: Union[str, None] = "0012_agent_traces_root_span"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0012_agent_traces_root_span"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

@@ -9,18 +9,26 @@ FTS table is missing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Protocol
+from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from sqlmodel import delete, select
+from sqlmodel import col, delete, select
 
+from leagent.db.models.base import utc_now
 from leagent.db.models.document_chunk import DocumentChunk
+from leagent.db.sqlite_compat import (
+    session_dialect_name,
+    sqlite_parent_id_text,
+    uuid_column_equals,
+)
 from leagent.library.chunking import Chunk
 from leagent.library.fts import FTS_TABLE, escape_fts_query
 from leagent.memory.lexical_backend import session_dialect
 
 if TYPE_CHECKING:
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
     from leagent.db.service import DatabaseService
 
 
@@ -59,18 +67,55 @@ class DocumentChunkRepository(Protocol):
 class DbDocumentChunkRepository:
     """``DatabaseService``-backed :class:`DocumentChunkRepository`."""
 
-    def __init__(self, db: "DatabaseService") -> None:
+    def __init__(self, db: DatabaseService) -> None:
         self._db = db
 
     async def replace_for_file(
         self, file_id: UUID, user_id: UUID | None, chunks: list[Chunk]
     ) -> int:
         async with self._db.session() as session:
+            if session_dialect_name(session) == "sqlite":
+                file_db_id = await sqlite_parent_id_text(session, "files", file_id)
+                file_hex = file_id.hex.lower()
+                await session.execute(
+                    sa.text(
+                        "DELETE FROM document_chunks "
+                        "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                    ),
+                    {"file_hex": file_hex},
+                )
+                if chunks:
+                    now = utc_now()
+                    for chunk in chunks:
+                        await session.execute(
+                            sa.text(
+                                "INSERT INTO document_chunks "
+                                "(created_at, updated_at, id, file_id, user_id, seq, "
+                                "start_offset, end_offset, text) "
+                                "VALUES (:created_at, :updated_at, :id, :file_id, "
+                                ":user_id, :seq, :start_offset, :end_offset, :text)"
+                            ),
+                            {
+                                "created_at": now,
+                                "updated_at": now,
+                                "id": str(uuid4()),
+                                "file_id": file_db_id,
+                                "user_id": str(user_id) if user_id else None,
+                                "seq": chunk.seq,
+                                "start_offset": chunk.start_offset,
+                                "end_offset": chunk.end_offset,
+                                "text": chunk.text,
+                            },
+                        )
+                return len(chunks)
+
             await session.exec(
-                delete(DocumentChunk).where(DocumentChunk.file_id == file_id)
+                delete(DocumentChunk).where(
+                    uuid_column_equals(session, DocumentChunk.file_id, file_id)
+                )
             )
-            for chunk in chunks:
-                session.add(
+            if chunks:
+                session.add_all([
                     DocumentChunk(
                         file_id=file_id,
                         user_id=user_id,
@@ -79,18 +124,44 @@ class DbDocumentChunkRepository:
                         end_offset=chunk.end_offset,
                         text=chunk.text,
                     )
-                )
+                    for chunk in chunks
+                ])
             return len(chunks)
 
     async def delete_for_file(self, file_id: UUID) -> int:
         async with self._db.session() as session:
+            if session_dialect_name(session) == "sqlite":
+                file_hex = file_id.hex.lower()
+                count = (
+                    await session.execute(
+                        sa.text(
+                            "SELECT COUNT(*) FROM document_chunks "
+                            "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                        ),
+                        {"file_hex": file_hex},
+                    )
+                ).scalar_one()
+                if count:
+                    await session.execute(
+                        sa.text(
+                            "DELETE FROM document_chunks "
+                            "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                        ),
+                        {"file_hex": file_hex},
+                    )
+                return int(count)
+
             result = await session.exec(
-                select(DocumentChunk.id).where(DocumentChunk.file_id == file_id)
+                select(DocumentChunk.id).where(
+                    uuid_column_equals(session, DocumentChunk.file_id, file_id)
+                )
             )
             ids = list(result.all())
             if ids:
                 await session.exec(
-                    delete(DocumentChunk).where(DocumentChunk.file_id == file_id)
+                    delete(DocumentChunk).where(
+                        uuid_column_equals(session, DocumentChunk.file_id, file_id)
+                    )
                 )
             return len(ids)
 
@@ -119,7 +190,7 @@ class DbDocumentChunkRepository:
 
     # ── internals ────────────────────────────────────────────────
 
-    async def _fts_available(self, session) -> bool:
+    async def _fts_available(self, session: AsyncSession) -> bool:
         try:
             result = await session.execute(
                 sa.text(
@@ -134,7 +205,7 @@ class DbDocumentChunkRepository:
 
     async def _search_fts(
         self,
-        session,
+        session: AsyncSession,
         user_id: UUID | None,
         query: str,
         limit: int,
@@ -167,6 +238,11 @@ class DbDocumentChunkRepository:
                        = lower(:user_id_hex)
                   )
               AND (
+                    :user_id_dashed IS NULL
+                    OR lower(replace(CAST(f.user_id AS TEXT), '-', ''))
+                       = lower(:user_id_hex)
+                  )
+              AND (
                     :scope_value IS NULL
                     OR f.library_scope = :scope_value
                     OR f.library_scope = :scope_name
@@ -193,7 +269,7 @@ class DbDocumentChunkRepository:
 
     async def _search_lexical(
         self,
-        session,
+        session: AsyncSession,
         user_id: UUID | None,
         query: str,
         limit: int,
@@ -203,12 +279,15 @@ class DbDocumentChunkRepository:
 
         stmt = (
             select(DocumentChunk, File.name)
-            .join(File, File.id == DocumentChunk.file_id)
+            .join(File, col(File.id) == col(DocumentChunk.file_id))
             .where(File.is_deleted == False)  # noqa: E712
             .where(DocumentChunk.text.ilike(f"%{query}%"))  # type: ignore[attr-defined]
         )
         if user_id is not None:
-            stmt = stmt.where(DocumentChunk.user_id == user_id)
+            stmt = stmt.where(
+                uuid_column_equals(session, DocumentChunk.user_id, user_id),
+                uuid_column_equals(session, File.user_id, user_id),
+            )
         if library_scope is not None:
             from leagent.db.models.file import LibraryScope as _LibraryScope
 
@@ -237,7 +316,7 @@ class DbDocumentChunkRepository:
         return hits
 
     @staticmethod
-    def _row_to_hit(row, *, score: float) -> ChunkHit:
+    def _row_to_hit(row: Any, *, score: float) -> ChunkHit:
         return ChunkHit(
             chunk_id=_as_uuid(row.chunk_id),
             file_id=_as_uuid(row.file_id),
@@ -251,7 +330,7 @@ class DbDocumentChunkRepository:
         )
 
 
-def _as_uuid(value) -> UUID:
+def _as_uuid(value: object) -> UUID:
     if isinstance(value, UUID):
         return value
     return UUID(str(value))

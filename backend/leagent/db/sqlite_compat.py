@@ -8,11 +8,21 @@ schemas.
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+from typing import cast as type_cast
 from uuid import UUID
 
-from sqlalchemy import text
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import String, false, func, text
+from sqlalchemy import cast as sa_cast
+from sqlmodel import select
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from leagent.db.models.file import File, FileStatus, FileType
+    from leagent.db.models.message import ChatSession
 
 _PARENT_ID_TABLE_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
@@ -23,8 +33,11 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
         "workspaces",
         "pet_projects",
         "chat_projects",
+        "messages",
+        "change_reviews",
         "files",
         "chat_sessions",
+        "flows",
         "roles",
         "folders",
         "todos",
@@ -32,10 +45,24 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
         "tasks",
         "notifications",
         "coding_projects",
+        "workflow_executions",
     }
 )
 
-_T = TypeVar("_T")
+class _HasId(Protocol):
+    id: Any
+
+
+_T = TypeVar("_T", bound=_HasId)
+
+
+async def _scalar_first(session: AsyncSession, stmt: Any) -> Any | None:
+    """Run a scalar select against SQLModel or SQLAlchemy async sessions."""
+    exec_ = getattr(session, "exec", None)
+    if callable(exec_):
+        return (await exec_(stmt)).first()
+    result = await session.execute(stmt)
+    return result.scalars().first()
 
 
 async def load_entity_by_id(
@@ -49,15 +76,19 @@ async def load_entity_by_id(
     if parent_table not in PARENT_ID_TABLES:
         raise ValueError(f"unsupported parent_table for id lookup: {parent_table}")
     if session_dialect_name(session) == "sqlite":
-        id_txt = await sqlite_parent_id_text(session, parent_table, entity_id)
-        logical = parse_uuid_stored(id_txt)
-        return await session.get(model_cls, logical)
+        return await _scalar_first(
+            session,
+            select(model_cls).where(uuid_column_equals(session, model_cls.id, entity_id)),
+        )
     return await session.get(model_cls, entity_id)
 
 
 def session_dialect_name(session: AsyncSession) -> str:
     """Return ``bind.dialect.name`` (e.g. ``sqlite``, ``postgresql``)."""
-    bind = session.get_bind()
+    get_bind = getattr(session, "get_bind", None)
+    if not callable(get_bind):
+        return ""
+    bind = get_bind()
     return getattr(getattr(bind, "dialect", None), "name", "") or ""
 
 
@@ -77,9 +108,36 @@ def same_user_id(a: object, b: object) -> bool:
         return str(a) == str(b)
 
 
-async def load_user_by_id(session: AsyncSession, user_id: UUID):
+def _uuid_hex(value: object) -> str:
+    try:
+        return UUID(str(value)).hex.lower()
+    except (ValueError, TypeError, AttributeError):
+        return str(value).replace("-", "").lower()
+
+
+def uuid_column_equals(session: AsyncSession, column: Any, value: object) -> Any:
+    """Return a UUID equality predicate tolerant of dashed/hex SQLite text."""
+    if value is None:
+        return column.is_(None)
+    if session_dialect_name(session) == "sqlite":
+        normalized_column = func.lower(func.replace(sa_cast(column, String), "-", ""))
+        return normalized_column == _uuid_hex(value)
+    return column == value
+
+
+def uuid_column_in(session: AsyncSession, column: Any, values: list[UUID]) -> Any:
+    """Return a UUID IN predicate tolerant of dashed/hex SQLite text."""
+    if not values:
+        return false()
+    if session_dialect_name(session) == "sqlite":
+        normalized_column = func.lower(func.replace(sa_cast(column, String), "-", ""))
+        return normalized_column.in_([_uuid_hex(v) for v in values])
+    return column.in_(values)
+
+
+async def load_user_by_id(session: AsyncSession, user_id: UUID) -> None:
     """No-op — user model removed."""
-    return None
+    return
 
 
 async def sqlite_user_role_names(session: AsyncSession, user_id: UUID) -> list[str]:
@@ -90,9 +148,8 @@ async def sqlite_user_permission_keys(session: AsyncSession, user_id: UUID) -> l
     return ["*"]
 
 
-async def load_role_by_id(session: AsyncSession, role_id: UUID):
+async def load_role_by_id(session: AsyncSession, role_id: UUID) -> None:
     return None
-    return await session.get(Role, role_id)
 
 
 async def load_chat_session_by_id(
@@ -100,25 +157,27 @@ async def load_chat_session_by_id(
     chat_session_id: UUID,
     *,
     owner_user_id: UUID | None = None,
-):
+) -> ChatSession | None:
     """Load :class:`ChatSession` by PK; optional owner check (SQLite UUID-safe)."""
     from sqlmodel import select
 
     from leagent.db.models.message import ChatSession
 
     if session_dialect_name(session) == "sqlite":
-        s_txt = await sqlite_parent_id_text(session, "chat_sessions", chat_session_id)
-        logical = parse_uuid_stored(s_txt)
-        row = await session.get(ChatSession, logical)
+        stmt = select(ChatSession).where(
+            uuid_column_equals(session, ChatSession.id, chat_session_id)
+        )
+        row = await _scalar_first(session, stmt)
         if row is None:
             return None
         if owner_user_id is not None and not same_user_id(row.user_id, owner_user_id):
             return None
-        return row
+        return type_cast("ChatSession", row)
     stmt = select(ChatSession).where(ChatSession.id == chat_session_id)
     if owner_user_id is not None:
         stmt = stmt.where(ChatSession.user_id == owner_user_id)
-    return (await session.execute(stmt)).scalar_one_or_none()
+    row = (await session.execute(stmt)).scalar_one_or_none()
+    return type_cast("ChatSession | None", row)
 
 
 async def sqlite_parent_id_text(session: AsyncSession, table: str, logical: UUID) -> str:
@@ -141,7 +200,100 @@ async def sqlite_parent_id_text(session: AsyncSession, table: str, logical: UUID
     return str(row[0])
 
 
-def file_type_from_db(raw: object):
+def _enum_db_value(value: object) -> object:
+    """Return enum values in the DB representation used by value-backed enums."""
+    enum_value = getattr(value, "value", None)
+    return enum_value if enum_value is not None else value
+
+
+async def sqlite_insert_message(session: AsyncSession, message: Any) -> Any:
+    """Insert a ``Message`` row preserving exact SQLite FK UUID text.
+
+    SQLAlchemy's SQLite UUID binder stores UUID objects as 32-char hex strings.
+    That is correct for ORM-created rows, but it breaks FK checks when a parent
+    row already exists as dashed text (common in raw imports / older local DBs).
+    This helper writes FK columns with the exact parent id text while still
+    returning an ORM ``Message`` instance.
+    """
+    from leagent.db.models.message import Message
+
+    session_id = await sqlite_parent_id_text(session, "chat_sessions", message.session_id)
+    flow_id = (
+        await sqlite_parent_id_text(session, "flows", message.flow_id)
+        if message.flow_id is not None
+        else None
+    )
+    user_id = (
+        await sqlite_parent_id_text(session, "users", message.user_id)
+        if message.user_id is not None
+        else None
+    )
+    workspace_id = (
+        await sqlite_parent_id_text(session, "workspaces", message.workspace_id)
+        if message.workspace_id is not None
+        else None
+    )
+    parent_id = (
+        await sqlite_parent_id_text(session, "messages", message.parent_id)
+        if message.parent_id is not None
+        else None
+    )
+
+    await session.execute(
+        text(
+            """
+            INSERT INTO messages (
+                created_at, updated_at, id, role, content, status,
+                session_id, flow_id, user_id, workspace_id, model,
+                tool_calls, tool_call_id, attachments, extensions,
+                input_tokens, output_tokens, total_tokens, latency_ms,
+                error, rating, feedback, parent_id
+            )
+            VALUES (
+                :created_at, :updated_at, :id, :role, :content, :status,
+                :session_id, :flow_id, :user_id, :workspace_id, :model,
+                :tool_calls, :tool_call_id, :attachments, :extensions,
+                :input_tokens, :output_tokens, :total_tokens, :latency_ms,
+                :error, :rating, :feedback, :parent_id
+            )
+            """
+        ),
+        {
+            "created_at": message.created_at,
+            "updated_at": message.updated_at,
+            "id": message.id.hex,
+            "role": _enum_db_value(message.role),
+            "content": message.content,
+            "status": _enum_db_value(message.status),
+            "session_id": session_id,
+            "flow_id": flow_id,
+            "user_id": user_id,
+            "workspace_id": workspace_id,
+            "model": message.model,
+            "tool_calls": message.tool_calls,
+            "tool_call_id": message.tool_call_id,
+            "attachments": message.attachments,
+            "extensions": message.extensions,
+            "input_tokens": message.input_tokens,
+            "output_tokens": message.output_tokens,
+            "total_tokens": message.total_tokens,
+            "latency_ms": message.latency_ms,
+            "error": message.error,
+            "rating": message.rating,
+            "feedback": message.feedback,
+            "parent_id": parent_id,
+        },
+    )
+    result = await session.exec(
+        select(Message).where(uuid_column_equals(session, Message.id, message.id))
+    )
+    row = result.first()
+    if row is None:
+        raise RuntimeError("Inserted message row could not be reloaded")
+    return row
+
+
+def file_type_from_db(raw: object) -> FileType:
     """Map DB ``file_type`` (``IMAGE`` or ``image``) to :class:`FileType`."""
     from leagent.db.models.file import FileType
 
@@ -155,7 +307,7 @@ def file_type_from_db(raw: object):
     return FileType.OTHER
 
 
-def file_status_from_db(raw: object):
+def file_status_from_db(raw: object) -> FileStatus:
     """Map DB ``status`` (``PROCESSED`` or ``processed``) to :class:`FileStatus`."""
     from leagent.db.models.file import FileStatus
 
@@ -169,7 +321,7 @@ def file_status_from_db(raw: object):
     return FileStatus.UPLOADED
 
 
-def file_model_from_sqlite_row(row: Mapping[str, Any]):
+def file_model_from_sqlite_row(row: Mapping[str, Any]) -> File:
     """Hydrate :class:`File` from a raw SQLite row (avoids broken enum coercion)."""
     from leagent.db.models.file import File as FileModel
 
@@ -212,7 +364,7 @@ def file_model_from_sqlite_row(row: Mapping[str, Any]):
     )
 
 
-def workspace_member_role_from_db(raw: object):
+def workspace_member_role_from_db(raw: object) -> str:
     return str(raw).strip().lower()
 
 
@@ -221,6 +373,9 @@ __all__ = [
     "session_dialect_name",
     "parse_uuid_stored",
     "same_user_id",
+    "sqlite_insert_message",
+    "uuid_column_equals",
+    "uuid_column_in",
     "sqlite_parent_id_text",
     "load_user_by_id",
     "load_role_by_id",

@@ -17,8 +17,8 @@ class WorkflowStateSnapshot(UUIDMixin, SQLModel, table=True):
     __tablename__ = "workflow_state_snapshots"
 
     state_id: UUID = Field(index=True, unique=True)
-    execution_id: Optional[UUID] = Field(default=None, index=True)
-    prompt_id: Optional[str] = Field(default=None, max_length=100, index=True)
+    execution_id: UUID | None = Field(default=None, index=True)
+    prompt_id: str | None = Field(default=None, max_length=100, index=True)
     status: str = Field(default="paused", max_length=50)
     payload: str = Field(sa_column=Column(Text))
     created_at: datetime = Field(default_factory=datetime.utcnow)

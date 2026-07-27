@@ -9,16 +9,17 @@ NOT NULL TEXT. The ORM treats them as optional JSON blobs, so inserts with
 NULL (no tags/scores yet) failed with IntegrityError and silent empty traces.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0014_agent_traces_nullable_json"
-down_revision: Union[str, None] = "0013_users_auth_fields"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0013_users_auth_fields"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

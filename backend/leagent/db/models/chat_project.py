@@ -16,16 +16,16 @@ class ChatProject(BaseModel, SoftDeleteMixin, table=True):
     __tablename__ = "chat_projects"
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, foreign_key="workspaces.id", index=True)
+    workspace_id: UUID | None = Field(default=None, foreign_key="workspaces.id", index=True)
     #: Linked catalog Folder under 「文件」— shared by all sessions in this project.
-    folder_id: Optional[UUID] = Field(
+    folder_id: UUID | None = Field(
         default=None,
         foreign_key="folders.id",
         index=True,
         unique=True,
     )
     name: str = Field(max_length=200)
-    description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    design_context: Optional[str] = Field(default=None, sa_column=Column(Text))
-    settings: Optional[str] = Field(default=None, sa_column=Column(Text))
-    password_hash: Optional[str] = Field(default=None, max_length=512)
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    design_context: str | None = Field(default=None, sa_column=Column(Text))
+    settings: str | None = Field(default=None, sa_column=Column(Text))
+    password_hash: str | None = Field(default=None, max_length=512)

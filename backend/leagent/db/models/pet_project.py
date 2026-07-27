@@ -17,10 +17,10 @@ class PetProject(BaseModel, SoftDeleteMixin, table=True):
     __tablename__ = "pet_projects"
 
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, foreign_key="workspaces.id", index=True)
+    workspace_id: UUID | None = Field(default=None, foreign_key="workspaces.id", index=True)
     name: str = Field(max_length=200)
-    description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    settings: Optional[str] = Field(default=None, sa_column=Column(Text))
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    settings: str | None = Field(default=None, sa_column=Column(Text))
 
 
 class PetProjectFile(SQLModel, table=True):

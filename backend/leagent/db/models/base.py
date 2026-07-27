@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, SQLModel
+from sqlalchemy import Enum as SAEnum
+from sqlmodel import Column, Field, SQLModel
+
+if TYPE_CHECKING:
+    from enum import Enum as PyEnum
 
 
 def _naive_utc_now() -> datetime:
@@ -16,7 +20,7 @@ def _naive_utc_now() -> datetime:
     asyncpg encoding; see :func:`naive_utc_for_db_column` and
     ``session.store``'s chat timestamp normalization for the symmetric path.
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def naive_utc_for_db_column(dt: datetime | None) -> datetime | None:
@@ -31,7 +35,29 @@ def naive_utc_for_db_column(dt: datetime | None) -> datetime | None:
         return None
     if dt.tzinfo is None:
         return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
+def enum_value_column(
+    enum_cls: type[PyEnum],
+    *,
+    name: str | None = None,
+    nullable: bool = False,
+    index: bool = False,
+) -> Column[Any]:
+    """SQLAlchemy column that persists a string Enum's values, not names."""
+    return Column(
+        SAEnum(
+            enum_cls,
+            name=name or enum_cls.__name__.lower(),
+            values_callable=lambda members: [str(member.value) for member in members],
+            native_enum=False,
+            validate_strings=True,
+            create_constraint=False,
+        ),
+        nullable=nullable,
+        index=index,
+    )
 
 
 class TimestampMixin(SQLModel):
@@ -57,26 +83,24 @@ class TenantMixin(SQLModel):
     filter on this column automatically.
     """
 
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
 
 
 class BaseModel(UUIDMixin, TimestampMixin, SQLModel):
     """Base model with UUID and timestamps."""
 
-    pass
 
 
 class TenantBaseModel(UUIDMixin, TimestampMixin, TenantMixin, SQLModel):
     """Base model for tenant-scoped entities."""
 
-    pass
 
 
 class SoftDeleteMixin(SQLModel):
     """Mixin for soft delete functionality."""
 
     is_deleted: bool = Field(default=False, nullable=False)
-    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+    deleted_at: datetime | None = Field(default=None, nullable=True)
 
 
 def utc_now() -> datetime:

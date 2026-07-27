@@ -13,16 +13,17 @@ Rows whose linked folder carries a `project_path` different from their own
 adopted rows for `Folder.is_project` folders that have no project row yet.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
 revision: str = "0007_coding_project_kind"
-down_revision: Union[str, None] = "0006_document_chunks"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0006_document_chunks"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(table_name: str) -> bool:

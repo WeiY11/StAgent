@@ -1,15 +1,16 @@
 """Message model for chat conversations."""
 
+import json
 from datetime import datetime
 from enum import Enum
-import json
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 from pydantic import field_validator
+from sqlalchemy import Index
 from sqlmodel import Column, Field, Relationship, SQLModel, Text
 
-from leagent.db.models.base import BaseModel
+from leagent.db.models.base import BaseModel, enum_value_column
 
 if TYPE_CHECKING:
     from leagent.db.models.flow import Flow
@@ -49,52 +50,61 @@ class MessageStatus(str, Enum):
 class MessageBase(SQLModel):
     """Base message fields."""
 
-    role: MessageRole = Field(default=MessageRole.USER)
+    role: MessageRole = Field(
+        default=MessageRole.USER,
+        sa_column=enum_value_column(MessageRole),
+    )
     content: str = Field(sa_column=Column(Text))
-    status: MessageStatus = Field(default=MessageStatus.COMPLETED)
+    status: MessageStatus = Field(
+        default=MessageStatus.COMPLETED,
+        sa_column=enum_value_column(MessageStatus),
+    )
 
 
 class Message(MessageBase, BaseModel, table=True):
     """Message database model."""
 
     __tablename__ = "messages"
+    __table_args__ = (
+        Index("ix_messages_session_created", "session_id", "created_at"),
+    )
 
     # Session association
     session_id: UUID = Field(index=True)
-    flow_id: Optional[UUID] = Field(default=None, foreign_key="flows.id", index=True)
-    user_id: Optional[UUID] = Field(default=None, foreign_key="users.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    flow_id: UUID | None = Field(default=None, foreign_key="flows.id", index=True)
+    user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
 
     # For assistant messages: which model generated it
-    model: Optional[str] = Field(default=None, max_length=100)
+    model: str | None = Field(default=None, max_length=100)
 
     # Tool call information (JSON)
-    tool_calls: Optional[str] = Field(default=None, sa_column=Column(Text))
-    tool_call_id: Optional[str] = Field(default=None, max_length=100)
+    tool_calls: str | None = Field(default=None, sa_column=Column(Text))
+    tool_call_id: str | None = Field(default=None, max_length=100)
 
     # Attachments (JSON list of file references)
-    attachments: Optional[str] = Field(default=None, sa_column=Column(Text))
+    attachments: str | None = Field(default=None, sa_column=Column(Text))
 
     # Structured UI payloads (e.g. chat_workflow card JSON)
-    extensions: Optional[str] = Field(default=None, sa_column=Column(Text))
+    extensions: str | None = Field(default=None, sa_column=Column(Text))
 
     # Token usage
-    input_tokens: Optional[int] = Field(default=None)
-    output_tokens: Optional[int] = Field(default=None)
-    total_tokens: Optional[int] = Field(default=None)
+    input_tokens: int | None = Field(default=None)
+    output_tokens: int | None = Field(default=None)
+    total_tokens: int | None = Field(default=None)
 
     # Execution time in milliseconds
-    latency_ms: Optional[int] = Field(default=None)
+    latency_ms: int | None = Field(default=None)
 
     # Error information if failed
-    error: Optional[str] = Field(default=None, sa_column=Column(Text))
+    error: str | None = Field(default=None, sa_column=Column(Text))
 
     # Feedback
-    rating: Optional[int] = Field(default=None)  # 1-5
-    feedback: Optional[str] = Field(default=None, max_length=2000)
+    rating: int | None = Field(default=None)  # 1-5
+    feedback: str | None = Field(default=None, max_length=2000)
 
     # Parent message (for threading)
-    parent_id: Optional[UUID] = Field(default=None, foreign_key="messages.id")
+    parent_id: UUID | None = Field(default=None, foreign_key="messages.id")
 
     # Relationships
     flow: Optional["Flow"] = Relationship(back_populates="messages")
@@ -104,18 +114,21 @@ class ChatSession(BaseModel, table=True):
     """Chat session for grouping messages."""
 
     __tablename__ = "chat_sessions"
+    __table_args__ = (
+        Index("ix_chat_sessions_user_last_msg", "user_id", "last_message_at"),
+    )
 
-    name: Optional[str] = Field(default=None, max_length=200)
+    name: str | None = Field(default=None, max_length=200)
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    flow_id: Optional[UUID] = Field(default=None, foreign_key="flows.id", index=True)
-    project_id: Optional[UUID] = Field(default=None, foreign_key="chat_projects.id", index=True)
-    workspace_id: Optional[UUID] = Field(default=None, nullable=True, index=True)
+    flow_id: UUID | None = Field(default=None, foreign_key="flows.id", index=True)
+    project_id: UUID | None = Field(default=None, foreign_key="chat_projects.id", index=True)
+    workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
     is_active: bool = Field(default=True)
     message_count: int = Field(default=0)
-    last_message_at: Optional[datetime] = Field(default=None)
+    last_message_at: datetime | None = Field(default=None, index=True)
 
     # Session metadata (JSON)
-    session_metadata: Optional[str] = Field(default=None, sa_column=Column(Text))
+    session_metadata: str | None = Field(default=None, sa_column=Column(Text))
 
 
 class MessageCreate(SQLModel):
@@ -124,8 +137,8 @@ class MessageCreate(SQLModel):
     session_id: UUID
     role: MessageRole = MessageRole.USER
     content: str
-    flow_id: Optional[UUID] = None
-    attachments: Optional[str] = None
+    flow_id: UUID | None = None
+    attachments: str | None = None
 
 
 class MessageRead(MessageBase):
@@ -133,17 +146,17 @@ class MessageRead(MessageBase):
 
     id: UUID
     session_id: UUID
-    flow_id: Optional[UUID]
-    user_id: Optional[UUID]
-    model: Optional[str]
-    tool_calls: Optional[list[dict[str, Any]]]
-    attachments: Optional[list[Any]]
-    extensions: Optional[dict[str, Any]]
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    total_tokens: Optional[int] = None
-    latency_ms: Optional[int]
-    rating: Optional[int] = None
+    flow_id: UUID | None
+    user_id: UUID | None
+    model: str | None
+    tool_calls: list[dict[str, Any]] | None
+    attachments: list[Any] | None
+    extensions: dict[str, Any] | None
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None = None
+    latency_ms: int | None
+    rating: int | None = None
     created_at: datetime
 
     @field_validator("tool_calls", mode="before")
@@ -170,9 +183,9 @@ class MessageRead(MessageBase):
 class SessionCreate(SQLModel):
     """Schema for creating a chat session."""
 
-    name: Optional[str] = None
-    flow_id: Optional[UUID] = None
-    project_id: Optional[UUID] = None
+    name: str | None = None
+    flow_id: UUID | None = None
+    project_id: UUID | None = None
 
 
 PINNED_MESSAGE_IDS_KEY = "pinned_message_ids"
@@ -181,7 +194,7 @@ SESSION_STATE_METADATA_KEY = "session_state_v1"
 AUTHORIZED_ROOTS_META_KEY = "authorized_roots"
 
 
-def parse_authorized_roots_from_session_metadata(raw: Optional[str]) -> list[dict[str, Any]]:
+def parse_authorized_roots_from_session_metadata(raw: str | None) -> list[dict[str, Any]]:
     """Return ``[{path, label?}, …]`` from ``session_metadata`` JSON (best-effort)."""
     if not raw:
         return []
@@ -209,7 +222,7 @@ def parse_authorized_roots_from_session_metadata(raw: Optional[str]) -> list[dic
     return out
 
 
-def parse_pinned_message_ids_from_session_metadata(raw: Optional[str]) -> list[UUID]:
+def parse_pinned_message_ids_from_session_metadata(raw: str | None) -> list[UUID]:
     """Read ordered pinned message UUIDs from ``session_metadata`` JSON."""
     if not raw:
         return []
@@ -236,10 +249,7 @@ def parse_pinned_message_ids_from_session_metadata(raw: Optional[str]) -> list[U
     return out
 
 
-    return out
-
-
-def parse_todos_from_session_metadata(raw: Optional[str]) -> list[dict[str, Any]]:
+def parse_todos_from_session_metadata(raw: str | None) -> list[dict[str, Any]]:
     """Read session-scoped agent todos from ``session_metadata`` JSON."""
     if not raw:
         return []
@@ -263,11 +273,12 @@ def parse_todos_from_session_metadata(raw: Optional[str]) -> list[dict[str, Any]
         status = str(item.get("status") or "pending").strip().lower()
         if status not in {"pending", "in_progress", "completed", "cancelled", "failed"}:
             status = "pending"
+        order_raw = item.get("order")
         out.append({
             "id": todo_id,
             "content": str(item.get("content") or todo_id),
             "status": status,
-            "order": int(item.get("order") if item.get("order") is not None else index),
+            "order": int(order_raw) if order_raw is not None else index,
         })
     out.sort(key=lambda t: (t.get("order", 0), t.get("id", "")))
     return out
@@ -286,13 +297,13 @@ class SessionRead(SQLModel):
     """Schema for reading a chat session."""
 
     id: UUID
-    name: Optional[str]
+    name: str | None
     user_id: UUID
-    flow_id: Optional[UUID]
-    project_id: Optional[UUID]
+    flow_id: UUID | None
+    project_id: UUID | None
     is_active: bool
     message_count: int
-    last_message_at: Optional[datetime]
+    last_message_at: datetime | None
     created_at: datetime
     updated_at: datetime
     pinned_message_ids: list[UUID] = Field(default_factory=list)
