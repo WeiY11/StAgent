@@ -12,25 +12,30 @@ commit history without the LLM loop in the middle.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sse_starlette.sse import EventSourceResponse
+from sqlalchemy import update as sa_update
 from sqlmodel import col, func, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sse_starlette.sse import EventSourceResponse
 
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
-from leagent.db.sqlite_compat import load_entity_by_id
 from leagent.db.models import (
     Folder,
-    FolderCreate,
     FolderRead,
-    FolderUpdate,
+)
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
+from leagent.project.fs import (
+    MAX_TEXT_FILE_BYTES,
+    IgnoreMatcher,
+    format_lines_with_numbers,
+    read_text_with_detection,
+    resolve_in_project,
 )
 from leagent.project.git import (
     GitCommandError,
@@ -48,36 +53,62 @@ from leagent.project.paths import (
     resolve_owned_project_folder,
     validate_project_path,
 )
-from leagent.project.fs import (
-    MAX_TEXT_FILE_BYTES,
-    IgnoreMatcher,
-    format_lines_with_numbers,
-    read_text_with_detection,
-    resolve_in_project,
-)
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import CurrentUserId
 
 router = APIRouter()
+
+
+def _folder_belongs_to_user(folder: Folder | None, user_id: UUID) -> bool:
+    return bool(
+        folder is not None
+        and not folder.is_deleted
+        and same_user_id(folder.user_id, user_id)
+    )
+
+
+async def _would_create_folder_cycle(
+    session: AsyncSession,
+    *,
+    folder_id: UUID,
+    new_parent_id: UUID,
+    user_id: UUID,
+) -> bool:
+    """Return true if assigning ``new_parent_id`` would make ``folder_id`` cyclic."""
+    current_id: UUID | None = new_parent_id
+    seen: set[UUID] = set()
+    while current_id is not None:
+        if same_user_id(current_id, folder_id):
+            return True
+        if current_id in seen:
+            return True
+        seen.add(current_id)
+        parent = await load_entity_by_id(session, Folder, current_id, parent_table="folders")
+        if not _folder_belongs_to_user(parent, user_id):
+            return False
+        current_id = parent.parent_id
+    return False
 
 
 class FolderCreateRequest(BaseModel):
     """Request schema for creating a folder."""
 
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=500)
-    icon: Optional[str] = Field(default="📁", max_length=50)
-    color: Optional[str] = Field(default=None, max_length=20)
-    parent_id: Optional[UUID] = None
+    description: str | None = Field(default=None, max_length=500)
+    icon: str | None = Field(default="📁", max_length=50)
+    color: str | None = Field(default=None, max_length=20)
+    parent_id: UUID | None = None
 
 
 class FolderUpdateRequest(BaseModel):
     """Request schema for updating a folder."""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=500)
-    icon: Optional[str] = Field(default=None, max_length=50)
-    color: Optional[str] = Field(default=None, max_length=20)
-    parent_id: Optional[UUID] = None
-    position: Optional[int] = Field(default=None, ge=0)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
+    icon: str | None = Field(default=None, max_length=50)
+    color: str | None = Field(default=None, max_length=20)
+    parent_id: UUID | None = None
+    position: int | None = Field(default=None, ge=0)
 
 
 class FolderTreeNode(BaseModel):
@@ -85,17 +116,17 @@ class FolderTreeNode(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str]
-    icon: Optional[str]
-    color: Optional[str]
-    parent_id: Optional[UUID]
+    description: str | None
+    icon: str | None
+    color: str | None
+    parent_id: UUID | None
     position: int
     file_count: int
     flow_count: int
     #: Code-project mode — same semantics as :class:`FolderRead`.
     is_project: bool = False
-    project_path: Optional[str] = None
-    children: list["FolderTreeNode"] = Field(default_factory=list)
+    project_path: str | None = None
+    children: list[FolderTreeNode] = Field(default_factory=list)
 
 
 @router.post("", response_model=FolderRead, status_code=status.HTTP_201_CREATED)
@@ -113,15 +144,15 @@ async def create_folder(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Parent folder not found",
                 )
-            if parent.user_id != user_id:
+            if not same_user_id(parent.user_id, user_id):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Access denied to parent folder",
                 )
 
         max_pos_query = select(func.max(Folder.position)).where(
-            Folder.user_id == user_id,
-            Folder.parent_id == data.parent_id,
+            uuid_column_equals(session, Folder.user_id, user_id),
+            uuid_column_equals(session, Folder.parent_id, data.parent_id),
             Folder.is_deleted == False,
         )
         result = await session.exec(max_pos_query)
@@ -149,17 +180,17 @@ async def list_folders(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    parent_id: Optional[UUID] = Query(default=None),
+    parent_id: UUID | None = Query(default=None),
 ) -> PaginatedResponse[FolderRead]:
     """List folders for the current user."""
     async with db.session() as session:
         query = select(Folder).where(
-            Folder.user_id == user_id,
+            uuid_column_equals(session, Folder.user_id, user_id),
             Folder.is_deleted == False,
         )
 
         if parent_id is not None:
-            query = query.where(Folder.parent_id == parent_id)
+            query = query.where(uuid_column_equals(session, Folder.parent_id, parent_id))
         else:
             query = query.where(Folder.parent_id == None)
 
@@ -191,7 +222,7 @@ async def get_folder_tree(
     """Get the complete folder tree for the current user."""
     async with db.session() as session:
         query = select(Folder).where(
-            Folder.user_id == user_id,
+            uuid_column_equals(session, Folder.user_id, user_id),
             Folder.is_deleted == False,
         ).order_by(col(Folder.position).asc())
 
@@ -242,7 +273,7 @@ async def get_folder(
                 detail="Folder not found",
             )
 
-        if folder.user_id != user_id:
+        if not same_user_id(folder.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this folder",
@@ -268,7 +299,7 @@ async def update_folder(
                 detail="Folder not found",
             )
 
-        if folder.user_id != user_id:
+        if not same_user_id(folder.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this folder",
@@ -287,10 +318,20 @@ async def update_folder(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Parent folder not found",
                 )
-            if parent.user_id != user_id:
+            if not same_user_id(parent.user_id, user_id):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Access denied to parent folder",
+                )
+            if await _would_create_folder_cycle(
+                session,
+                folder_id=folder_id,
+                new_parent_id=data.parent_id,
+                user_id=user_id,
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Folder cannot be moved under itself or its descendants",
                 )
 
         update_data = data.model_dump(exclude_unset=True)
@@ -322,14 +363,15 @@ async def delete_folder(
                 detail="Folder not found",
             )
 
-        if folder.user_id != user_id:
+        if not same_user_id(folder.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this folder",
             )
 
         children_query = select(Folder).where(
-            Folder.parent_id == folder_id,
+            uuid_column_equals(session, Folder.parent_id, folder_id),
+            uuid_column_equals(session, Folder.user_id, user_id),
             Folder.is_deleted == False,
         )
         children_result = await session.exec(children_query)
@@ -342,13 +384,16 @@ async def delete_folder(
             )
 
         async def soft_delete_recursive(f: Folder) -> None:
-            f.is_deleted = True
-            f.deleted_at = datetime.utcnow()
-            f.updated_at = datetime.utcnow()
-            session.add(f)
+            now = datetime.utcnow()
+            await session.exec(
+                sa_update(Folder)
+                .where(uuid_column_equals(session, Folder.id, f.id))
+                .values(is_deleted=True, deleted_at=now, updated_at=now)
+            )
 
             sub_query = select(Folder).where(
-                Folder.parent_id == f.id,
+                uuid_column_equals(session, Folder.parent_id, f.id),
+                uuid_column_equals(session, Folder.user_id, user_id),
                 Folder.is_deleted == False,
             )
             sub_result = await session.exec(sub_query)
@@ -373,7 +418,7 @@ class FolderProjectUpdateRequest(BaseModel):
             "False, clear ``project_path`` and exit project mode."
         ),
     )
-    project_path: Optional[str] = Field(
+    project_path: str | None = Field(
         default=None,
         max_length=1024,
         description=(
@@ -389,17 +434,17 @@ class ProjectTreeEntry(BaseModel):
     name: str
     rel_path: str
     type: str  # "file" | "dir"
-    size: Optional[int] = None
-    mtime: Optional[float] = None
+    size: int | None = None
+    mtime: float | None = None
     is_ignored: bool = False
-    has_children: Optional[bool] = None
+    has_children: bool | None = None
 
 
 class ProjectFileResponse(BaseModel):
     """Body of a project file read."""
 
     rel_path: str
-    encoding: Optional[str] = None
+    encoding: str | None = None
     size: int
     line_count: int
     is_binary: bool = False
@@ -446,7 +491,7 @@ async def _load_project_folder(
     or the configured directory is no longer reachable on disk.
     """
     folder = await load_entity_by_id(session, Folder, folder_id, parent_table="folders")
-    if not folder or folder.is_deleted or folder.user_id != user_id:
+    if not _folder_belongs_to_user(folder, user_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Folder not found",
@@ -461,7 +506,7 @@ async def _load_project_folder(
     return folder, path
 
 
-def _resolve_subpath(root: Path, raw: Optional[str]) -> Path:
+def _resolve_subpath(root: Path, raw: str | None) -> Path:
     """Resolve a relative ``raw`` to an absolute path under ``root``.
 
     Empty / missing input means "the root itself". Symlink escapes
@@ -496,7 +541,7 @@ async def update_folder_project(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Folder not found",
             )
-        if folder.user_id != user_id:
+        if not same_user_id(folder.user_id, user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this folder",
@@ -593,7 +638,7 @@ async def get_project_tree(
             except OSError:
                 size = None
                 mtime = None
-            has_children: Optional[bool] = None
+            has_children: bool | None = None
             if is_dir:
                 try:
                     has_children = any(True for _ in child.iterdir())
@@ -625,7 +670,7 @@ async def get_project_file(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     path: str = Query(..., min_length=1),
     offset: int = Query(default=1, ge=1),
-    limit: Optional[int] = Query(default=None, ge=1, le=20000),
+    limit: int | None = Query(default=None, ge=1, le=20000),
 ) -> ProjectFileResponse:
     """Read a single text file inside the project.
 
@@ -711,7 +756,7 @@ async def get_project_git_log(
     folder_id: UUID,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
-    path: Optional[str] = Query(default=None, description="Limit history to a single path"),
+    path: str | None = Query(default=None, description="Limit history to a single path"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0, le=100000),
 ) -> list[ProjectGitCommit]:
@@ -762,8 +807,8 @@ async def get_project_git_diff(
     folder_id: UUID,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
-    commit: Optional[str] = Query(default=None, max_length=200),
-    path: Optional[str] = Query(default=None),
+    commit: str | None = Query(default=None, max_length=200),
+    path: str | None = Query(default=None),
     against_worktree: bool = Query(default=False),
 ) -> dict:
     """Return a unified diff for ``commit`` or the unstaged worktree.
@@ -853,7 +898,7 @@ def _get_coding_projects_manager():
 class FolderProjectScaffoldRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     template: str = Field(..., min_length=1, max_length=64)
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
 
 
 @router.post("/{folder_id}/project/scaffold")
@@ -864,13 +909,12 @@ async def scaffold_folder_project(
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> dict:
     """Scaffold a coding project into a folder and enable project mode."""
-    from leagent.project.manager import CodingProjectNotFoundError
     from leagent.project.paths import ProjectPathSafetyError
 
     manager = _get_coding_projects_manager()
     async with db.session() as session:
         folder = await load_entity_by_id(session, Folder, folder_id, parent_table="folders")
-        if folder is None or folder.is_deleted or folder.user_id != user_id:
+        if not _folder_belongs_to_user(folder, user_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
 
     try:
@@ -902,9 +946,6 @@ async def run_folder_project(
     user_id: CurrentUserId,
 ) -> dict:
     """Start the dev server for a project-mode folder."""
-    import json
-    from datetime import timezone
-
     from leagent.config.settings import get_settings
     from leagent.project.binaries import CodingBinaryNotAllowedError
     from leagent.project.manager import (
@@ -944,7 +985,7 @@ async def run_folder_project(
         "host": running.host,
         "preview_url": manager.build_preview_url(project.id, token, sub_path=""),
         "preview_token": token,
-        "expires_at": datetime.now(timezone.utc).timestamp()
+        "expires_at": datetime.now(UTC).timestamp()
         + settings.coding_projects.preview_token_ttl_seconds,
         "health_path": template.health_path,
     }
@@ -1012,8 +1053,6 @@ async def folder_project_preview(
     Lets any client (another tab, another device, or a reloaded page)
     obtain a token-gated preview link without restarting the server.
     """
-    from datetime import timezone
-
     from leagent.config.settings import get_settings
     from leagent.project.manager import CodingProjectNotFoundError
     from leagent.project.preview_tokens import mint_preview_token
@@ -1048,7 +1087,7 @@ async def folder_project_preview(
         "host": server.host,
         "preview_url": manager.build_preview_url(project.id, token, sub_path=""),
         "preview_token": token,
-        "expires_at": datetime.now(timezone.utc).timestamp()
+        "expires_at": datetime.now(UTC).timestamp()
         + settings.coding_projects.preview_token_ttl_seconds,
     }
 

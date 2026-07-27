@@ -20,6 +20,12 @@ from pydantic import BaseModel, Field
 from leagent.api.v1.files import _resolve_file_for_serve
 from leagent.db import DatabaseService, get_database_service
 from leagent.services.auth import CurrentUserId
+from leagent.tools.doc.pdf_research import (
+    build_formula_extraction_prompt,
+    build_summary_prompt,
+    build_translate_prompt,
+    parse_formula_json,
+)
 from leagent.tools.doc.pdf_research_core import (
     extract_citations,
     extract_formula_candidates,
@@ -27,12 +33,6 @@ from leagent.tools.doc.pdf_research_core import (
     extract_pages_text_tagged,
     extract_region_text,
     extract_structure,
-)
-from leagent.tools.doc.pdf_research import (
-    build_formula_extraction_prompt,
-    build_summary_prompt,
-    build_translate_prompt,
-    parse_formula_json,
 )
 
 logger = logging.getLogger(__name__)

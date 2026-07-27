@@ -32,12 +32,12 @@ class MCPServerDetail(BaseModel):
 
     name: str
     transport: str
-    command: Optional[str] = None
+    command: str | None = None
     args: list[str] = Field(default_factory=list)
-    url: Optional[str] = None
+    url: str | None = None
     enabled: bool
     auto_connect: bool
-    description: Optional[str] = None
+    description: str | None = None
     health: dict[str, Any]
     tools: list[dict[str, Any]]
     prompts: list[dict[str, Any]]
@@ -49,13 +49,13 @@ class MCPServerCreateRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     transport: MCPTransport = Field(default=MCPTransport.STDIO)
-    command: Optional[str] = Field(default=None, max_length=500)
+    command: str | None = Field(default=None, max_length=500)
     args: list[str] = Field(default_factory=list)
-    url: Optional[str] = Field(default=None, max_length=500)
+    url: str | None = Field(default=None, max_length=500)
     env: dict[str, str] = Field(default_factory=dict)
     enabled: bool = Field(default=True)
     auto_connect: bool = Field(default=True)
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
 
 
 class MCPToolCallRequest(BaseModel):
@@ -72,7 +72,7 @@ class MCPToolCallResponse(BaseModel):
     tool_name: str
     success: bool
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     latency_ms: int = 0
 
 
@@ -258,7 +258,7 @@ async def disconnect_server(
 async def list_all_tools(
     user_id: CurrentUserId,
     manager: Annotated[MCPClientManager, Depends(get_manager)],
-    server_name: Optional[str] = Query(default=None),
+    server_name: str | None = Query(default=None),
 ) -> list[dict[str, Any]]:
     """List all available MCP tools."""
     if server_name:

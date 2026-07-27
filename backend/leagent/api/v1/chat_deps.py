@@ -22,6 +22,12 @@ ChatSvc = Annotated[ChatService, Depends(get_chat_service)]
 
 def build_agent_controller(
     service_manager: ServiceManager | None = None,
+    *,
+    prompt_variant: str | None = None,
+    extra_system_prompt: str | None = None,
+    model_provider: str | None = None,
+    model_name: str | None = None,
+    temperature: float | None = None,
 ):  # type: ignore[return]
     """Build an :class:`AgentController` wired to the running services.
 
@@ -48,6 +54,16 @@ def build_agent_controller(
             return None
 
         config = AgentConfig(enable_streaming=True)
+        if prompt_variant:
+            config.prompt_variant = prompt_variant
+        if extra_system_prompt:
+            config.extra_system_prompt = extra_system_prompt
+        if model_provider:
+            config.model_provider = model_provider
+        if model_name and model_name != "default":
+            config.model_name = model_name
+        if temperature is not None:
+            config.temperature = temperature
         controller = AgentController(
             llm=ctx.llm,
             tools=ctx.tools,

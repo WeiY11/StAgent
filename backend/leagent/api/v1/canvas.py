@@ -504,11 +504,15 @@ async def list_revisions(
     if sm.db is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
     from leagent.db.models.canvas import CanvasDocument
+    from leagent.db.sqlite_compat import uuid_column_equals
 
     async with sm.db.session() as db:
         stmt = (
             select(CanvasDocument)
-            .where(CanvasDocument.canvas_id == canvas_id, CanvasDocument.user_id == user_id)
+            .where(
+                uuid_column_equals(db, CanvasDocument.canvas_id, canvas_id),
+                uuid_column_equals(db, CanvasDocument.user_id, user_id),
+            )
             .order_by(col(CanvasDocument.revision).asc())
         )
         res = await db.execute(stmt)

@@ -53,7 +53,7 @@ def get_rule_engine() -> RuleEngine:
 class RuleSetInfo(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     enabled: bool
     rule_count: int
     tags: list[str] = Field(default_factory=list)
@@ -62,7 +62,7 @@ class RuleSetInfo(BaseModel):
 class RuleSetDetail(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     enabled: bool
     version: str
     rules: list[dict[str, Any]]
@@ -72,23 +72,23 @@ class RuleSetDetail(BaseModel):
 class RuleSetCreateRequest(BaseModel):
     id: str = Field(..., min_length=1, max_length=100)
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    description: str | None = Field(default=None, max_length=2000)
     enabled: bool = Field(default=True)
     rules: list[dict[str, Any]] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
 
 class RuleSetUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    enabled: Optional[bool] = None
-    rules: Optional[list[dict[str, Any]]] = None
-    tags: Optional[list[str]] = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    enabled: bool | None = None
+    rules: list[dict[str, Any]] | None = None
+    tags: list[str] | None = None
 
 
 class RuleEvaluateRequest(BaseModel):
     data: dict[str, Any]
-    tags: Optional[list[str]] = None
+    tags: list[str] | None = None
     skip_disabled: bool = Field(default=True)
     fail_fast: bool = Field(default=False)
 
@@ -116,7 +116,7 @@ def _parse_rule_definitions(raw_rules: list[dict[str, Any]]) -> list[RuleDefinit
 async def list_rule_sets(
     user_id: CurrentUserId,
     engine: Annotated[RuleEngine, Depends(get_rule_engine)],
-    enabled: Optional[bool] = Query(default=None),
+    enabled: bool | None = Query(default=None),
 ) -> list[RuleSetInfo]:
     """List all registered rule sets."""
     rule_set_ids = engine.list_rule_sets()

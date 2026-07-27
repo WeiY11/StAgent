@@ -7,7 +7,7 @@ dashboard reflects all activity – background tasks **and** workflow runs.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -16,6 +16,7 @@ from sqlmodel import func, select
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import Flow, Task, TaskStatus
 from leagent.db.models.workflow_execution import WorkflowExecution
+from leagent.db.sqlite_compat import uuid_column_equals
 from leagent.services.auth import AdminUserId, CurrentUserId
 
 router = APIRouter()
@@ -71,9 +72,9 @@ class CacheEntryStat(BaseModel):
     #: since-boot cumulative ``hit_rate`` would otherwise mask.
     recent_hit_rate: float = 0.0
     recent_requests: int = 0
-    size: Optional[int] = None
+    size: int | None = None
     #: Lazy per-cache diagnostics (backend, L2 circuit state, split counters).
-    detail: Optional[dict] = None
+    detail: dict | None = None
 
 
 class CacheStatsResponse(BaseModel):
@@ -85,13 +86,13 @@ class CacheStatsResponse(BaseModel):
     total_requests: int
     overall_hit_rate: float
     #: Live :class:`CacheService` configuration (sizes, TTLs) for context.
-    config: Optional[dict] = None
+    config: dict | None = None
 
 
 class CacheConfigUpdate(BaseModel):
     """Runtime cache-tuning payload for ``POST /stats/cache/config``."""
 
-    max_items: Optional[int] = None
+    max_items: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +135,10 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(Flow)
                 .where(
-                    (Flow.user_id == user_id) | (Flow.is_public == True),
+                    (
+                        uuid_column_equals(session, Flow.user_id, user_id)
+                        | (Flow.is_public == True)
+                    ),
                     Flow.is_deleted == False,
                 )
                 .subquery()
@@ -146,7 +150,10 @@ async def get_home_stats(
         running_res = await session.exec(
             select(func.count()).select_from(
                 select(Task)
-                .where(Task.user_id == user_id, Task.status == TaskStatus.RUNNING)
+                .where(
+                    uuid_column_equals(session, Task.user_id, user_id),
+                    Task.status == TaskStatus.RUNNING,
+                )
                 .subquery()
             )
         )
@@ -157,7 +164,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(WorkflowExecution)
                 .where(
-                    WorkflowExecution.user_id == user_id,
+                    uuid_column_equals(session, WorkflowExecution.user_id, user_id),
                     WorkflowExecution.status == "running",
                 )
                 .subquery()
@@ -170,7 +177,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(Task)
                 .where(
-                    Task.user_id == user_id,
+                    uuid_column_equals(session, Task.user_id, user_id),
                     Task.status == TaskStatus.COMPLETED,
                     Task.completed_at >= today_start,
                 )
@@ -184,7 +191,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(WorkflowExecution)
                 .where(
-                    WorkflowExecution.user_id == user_id,
+                    uuid_column_equals(session, WorkflowExecution.user_id, user_id),
                     WorkflowExecution.status == "completed",
                     WorkflowExecution.completed_at >= today_start,
                 )
@@ -198,7 +205,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(Task)
                 .where(
-                    Task.user_id == user_id,
+                    uuid_column_equals(session, Task.user_id, user_id),
                     Task.status.in_([TaskStatus.COMPLETED, TaskStatus.FAILED]),
                     Task.completed_at >= thirty_days_ago,
                 )
@@ -213,7 +220,7 @@ async def get_home_stats(
                 select(func.count()).select_from(
                     select(Task)
                     .where(
-                        Task.user_id == user_id,
+                        uuid_column_equals(session, Task.user_id, user_id),
                         Task.status == TaskStatus.COMPLETED,
                         Task.completed_at >= thirty_days_ago,
                     )
@@ -227,7 +234,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(WorkflowExecution)
                 .where(
-                    WorkflowExecution.user_id == user_id,
+                    uuid_column_equals(session, WorkflowExecution.user_id, user_id),
                     WorkflowExecution.status.in_(["completed", "failed"]),
                     WorkflowExecution.completed_at >= thirty_days_ago,
                 )
@@ -242,7 +249,7 @@ async def get_home_stats(
                 select(func.count()).select_from(
                     select(WorkflowExecution)
                     .where(
-                        WorkflowExecution.user_id == user_id,
+                        uuid_column_equals(session, WorkflowExecution.user_id, user_id),
                         WorkflowExecution.status == "completed",
                         WorkflowExecution.completed_at >= thirty_days_ago,
                     )
@@ -287,7 +294,7 @@ async def get_dashboard_stats(
 
     async def _count(session, status_filter, start, end=None):
         q = select(Task).where(
-            Task.user_id == user_id,
+            uuid_column_equals(session, Task.user_id, user_id),
             Task.created_at >= start,
         )
         if end:
@@ -299,7 +306,7 @@ async def get_dashboard_stats(
 
     async def _wf_count(session, status_filter, start, end=None):
         q = select(WorkflowExecution).where(
-            WorkflowExecution.user_id == user_id,
+            uuid_column_equals(session, WorkflowExecution.user_id, user_id),
             WorkflowExecution.created_at >= start,
         )
         if end:
@@ -311,7 +318,7 @@ async def get_dashboard_stats(
 
     async def _avg_duration(session, start, end=None):
         q = select(func.avg(Task.duration_ms)).where(
-            Task.user_id == user_id,
+            uuid_column_equals(session, Task.user_id, user_id),
             Task.status == TaskStatus.COMPLETED,
             Task.duration_ms.isnot(None),
             Task.created_at >= start,
@@ -324,7 +331,7 @@ async def get_dashboard_stats(
 
     async def _wf_avg_duration(session, start, end=None):
         q = select(func.avg(WorkflowExecution.duration_ms)).where(
-            WorkflowExecution.user_id == user_id,
+            uuid_column_equals(session, WorkflowExecution.user_id, user_id),
             WorkflowExecution.status == "completed",
             WorkflowExecution.duration_ms > 0,
             WorkflowExecution.created_at >= start,
@@ -441,7 +448,7 @@ async def get_usage_data(
                     .select_from(
                         select(Task)
                         .where(
-                            Task.user_id == user_id,
+                            uuid_column_equals(session, Task.user_id, user_id),
                             Task.status == status,
                             Task.created_at >= bucket_start,
                             Task.created_at < bucket_end,
@@ -456,7 +463,11 @@ async def get_usage_data(
                     .select_from(
                         select(WorkflowExecution)
                         .where(
-                            WorkflowExecution.user_id == user_id,
+                            uuid_column_equals(
+                                session,
+                                WorkflowExecution.user_id,
+                                user_id,
+                            ),
                             WorkflowExecution.status == status_str,
                             WorkflowExecution.created_at >= bucket_start,
                             WorkflowExecution.created_at < bucket_end,

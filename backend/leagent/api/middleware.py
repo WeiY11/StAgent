@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections import defaultdict, deque
-from typing import Callable
+from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -183,9 +183,36 @@ class ContentSizeLimitMiddleware:
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach standard security response headers."""
 
-    def __init__(self, app: ASGIApp, *, hsts_enabled: bool = False) -> None:
+    # Default CSP: allow self, inline styles (needed for Tailwind/gen-ui), data URIs
+    # for images, and blob URIs for file previews. WebSocket connects to self.
+    _DEFAULT_CSP = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' ws: wss:; "
+        "media-src 'self' blob:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'self'"
+    )
+    _DEFAULT_PERMISSIONS = (
+        "camera=(), microphone=(), geolocation=(), payment=()"
+    )
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        hsts_enabled: bool = False,
+        csp: str | None = None,
+        permissions_policy: str | None = None,
+    ) -> None:
         super().__init__(app)
         self._hsts_enabled = hsts_enabled
+        self._csp = csp or self._DEFAULT_CSP
+        self._permissions_policy = permissions_policy or self._DEFAULT_PERMISSIONS
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:  # type: ignore[type-arg]
         response = await call_next(request)
@@ -194,6 +221,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         headers.setdefault("X-XSS-Protection", "0")
+        headers.setdefault("Content-Security-Policy", self._csp)
+        headers.setdefault("Permissions-Policy", self._permissions_policy)
         if self._hsts_enabled:
             headers.setdefault(
                 "Strict-Transport-Security",
@@ -209,9 +238,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     deployment. Behind multiple workers each process keeps its own window, so
     the effective limit scales with worker count. Health/metrics probes are
     exempt so monitoring is never throttled.
+
+    Stale IP buckets are evicted periodically to prevent unbounded memory
+    growth from diverse source addresses.
     """
 
     _EXEMPT: frozenset[str] = frozenset({"/health", "/healthz", "/metrics"})
+    _MAX_TRACKED_IPS: int = 10_000
+    _GC_INTERVAL: float = 120.0  # seconds between full sweeps
 
     def __init__(
         self,
@@ -225,10 +259,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._burst = max(1, burst)
         self._window = 60.0
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._last_gc: float = 0.0
 
     def _client_key(self, request: Request) -> str:
         client = request.client
         return client.host if client else "unknown"
+
+    def _gc_stale_buckets(self, now: float) -> None:
+        """Evict IP buckets with no recent hits to bound memory usage."""
+        if now - self._last_gc < self._GC_INTERVAL:
+            return
+        self._last_gc = now
+        cutoff = now - self._window
+        stale_keys = [k for k, dq in self._hits.items() if not dq or dq[-1] < cutoff]
+        for k in stale_keys:
+            del self._hits[k]
+        # Hard cap: if still over limit, drop oldest-accessed entries
+        if len(self._hits) > self._MAX_TRACKED_IPS:
+            excess = len(self._hits) - self._MAX_TRACKED_IPS
+            for k in list(self._hits)[:excess]:
+                del self._hits[k]
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:  # type: ignore[type-arg]
         path = request.url.path
@@ -236,6 +286,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         now = time.monotonic()
+        self._gc_stale_buckets(now)
+
         key = self._client_key(request)
         bucket = self._hits[key]
         cutoff = now - self._window

@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 from uuid import UUID
 
@@ -31,23 +31,16 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from leagent.services.auth.tokens import TokenError
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from leagent.config.settings import Settings, get_settings
-from leagent.services.auth import CurrentUserId
-from leagent.project.binaries import CodingBinaryNotAllowedError
-from leagent.project.manager import (
-    CodingProjectManager,
-    CodingProjectNotFoundError,
-    CodingProjectQuotaError,
+from leagent.db.models import (
+    CodingProjectRead,
+    CodingProjectRuntimeKind,
+    CodingProjectStatus,
 )
-from leagent.project.paths import ProjectPathSafetyError
-from leagent.project.preview_tokens import decode_preview_token, mint_preview_token
-from leagent.project.proxy import forward_http, forward_websocket
-from leagent.project.runtime import StartTimeoutError
-from leagent.project.templates import list_templates
+from leagent.project.binaries import CodingBinaryNotAllowedError
 from leagent.project.git import (
     GitCommandError,
     GitNotInstalledError,
@@ -58,17 +51,24 @@ from leagent.project.git import (
     git_status_porcelain,
     is_git_repo,
 )
+from leagent.project.manager import (
+    CodingProjectManager,
+    CodingProjectNotFoundError,
+    CodingProjectQuotaError,
+)
+from leagent.project.paths import ProjectPathSafetyError
+from leagent.project.preview_tokens import decode_preview_token, mint_preview_token
+from leagent.project.proxy import forward_http, forward_websocket
+from leagent.project.runtime import StartTimeoutError
+from leagent.project.templates import list_templates
 from leagent.project.workspace import (
     UnsafePathError,
     build_tree,
     git_snapshot,
     read_text_file,
 )
-from leagent.db.models import (
-    CodingProjectRead,
-    CodingProjectRuntimeKind,
-    CodingProjectStatus,
-)
+from leagent.services.auth import CurrentUserId
+from leagent.services.auth.tokens import TokenError
 
 router = APIRouter()
 
@@ -110,9 +110,9 @@ class TemplateInfo(BaseModel):
 class CreateProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     template: str = Field(..., min_length=1, max_length=64)
-    description: Optional[str] = Field(default=None, max_length=500)
-    folder_id: Optional[UUID] = None
-    into_path: Optional[str] = Field(default=None, max_length=1024)
+    description: str | None = Field(default=None, max_length=500)
+    folder_id: UUID | None = None
+    into_path: str | None = Field(default=None, max_length=1024)
 
 
 class RunResponse(BaseModel):
@@ -131,10 +131,10 @@ class StatusResponse(BaseModel):
     project_id: UUID
     status: CodingProjectStatus
     runtime_kind: CodingProjectRuntimeKind
-    port: Optional[int]
-    pid: Optional[int]
-    last_started_at: Optional[datetime]
-    last_stopped_at: Optional[datetime]
+    port: int | None
+    pid: int | None
+    last_started_at: datetime | None
+    last_stopped_at: datetime | None
     is_running: bool
 
 
@@ -335,7 +335,7 @@ async def coding_project_git_log(
     project_id: UUID,
     user_id: CurrentUserId,
     manager: Annotated[CodingProjectManager, Depends(get_coding_projects)],
-    path: Optional[str] = Query(default=None),
+    path: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0, le=100000),
 ) -> list[dict[str, str]]:
@@ -391,8 +391,8 @@ async def coding_project_git_diff(
     project_id: UUID,
     user_id: CurrentUserId,
     manager: Annotated[CodingProjectManager, Depends(get_coding_projects)],
-    commit: Optional[str] = Query(default=None, max_length=200),
-    path: Optional[str] = Query(default=None),
+    commit: str | None = Query(default=None, max_length=200),
+    path: str | None = Query(default=None),
     against_worktree: bool = Query(default=False),
 ) -> dict[str, Any]:
     root = await _coding_project_root(manager, project_id, user_id)
@@ -481,7 +481,7 @@ async def run_project(
 
     template = manager.get_template(project.template)
     expires_at = (
-        datetime.now(timezone.utc).timestamp()
+        datetime.now(UTC).timestamp()
         + settings.coding_projects.preview_token_ttl_seconds
     )
     preview_url = manager.build_preview_url(project.id, token, sub_path="")
@@ -620,9 +620,33 @@ def _decode_token_or_401(
     return claims
 
 
-@router.api_route(
+@router.get(
     "/{project_id}/preview/{sub_path:path}",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    operation_id="coding_project_preview_get",
+)
+@router.post(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_post",
+)
+@router.put(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_put",
+)
+@router.patch(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_patch",
+)
+@router.delete(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_delete",
+)
+@router.options(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_options",
+)
+@router.head(
+    "/{project_id}/preview/{sub_path:path}",
+    operation_id="coding_project_preview_head",
 )
 async def preview_proxy(
     project_id: UUID,
@@ -652,7 +676,7 @@ async def preview_proxy(
         request, target_base=target_base, sub_path=upstream_path
     )
     if token and token != cookie_token:
-        max_age = max(60, int(claims.get("exp", 0)) - int(datetime.now(timezone.utc).timestamp()))
+        max_age = max(60, int(claims.get("exp", 0)) - int(datetime.now(UTC).timestamp()))
         response.set_cookie(
             _preview_cookie_name(project_id),
             token,
@@ -664,8 +688,8 @@ async def preview_proxy(
     return response
 
 
-@router.websocket("/{project_id}/preview-ws/{sub_path:path}")
-@router.websocket("/{project_id}/preview/{sub_path:path}")
+@router.websocket("/{project_id}/preview-ws/{sub_path:path}", name="coding_project_preview_ws_alt")
+@router.websocket("/{project_id}/preview/{sub_path:path}", name="coding_project_preview_ws")
 async def preview_proxy_ws(
     websocket: WebSocket,
     project_id: UUID,

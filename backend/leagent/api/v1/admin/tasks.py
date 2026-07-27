@@ -10,17 +10,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import update as sa_update
 from sqlmodel import col, func, select
 
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import PermissionChecker
 from leagent.db import DatabaseService, get_database_service
-from leagent.db.sqlite_compat import load_entity_by_id
 from leagent.db.models import (
     Task,
     TaskPriority,
@@ -29,6 +27,9 @@ from leagent.db.models import (
     TaskType,
     is_terminal_task_status,
 )
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import PermissionChecker
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,12 @@ async def list_tasks_admin(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
-    status_filter: Annotated[Optional[TaskStatus], Query(alias="status")] = None,
-    task_type: Optional[TaskType] = Query(default=None),
-    priority: Optional[TaskPriority] = Query(default=None),
-    user_id: Optional[UUID] = Query(default=None),
-    flow_id: Optional[UUID] = Query(default=None),
-    search: Optional[str] = Query(default=None),
+    status_filter: Annotated[TaskStatus | None, Query(alias="status")] = None,
+    task_type: TaskType | None = Query(default=None),
+    priority: TaskPriority | None = Query(default=None),
+    user_id: UUID | None = Query(default=None),
+    flow_id: UUID | None = Query(default=None),
+    search: str | None = Query(default=None),
 ) -> PaginatedResponse[TaskRead]:
     """Cross-user task listing with the standard filters."""
     async with db.session() as session:
@@ -63,9 +64,9 @@ async def list_tasks_admin(
         if priority is not None:
             clauses.append(Task.priority == priority)
         if user_id is not None:
-            clauses.append(Task.user_id == user_id)
+            clauses.append(uuid_column_equals(session, Task.user_id, user_id))
         if flow_id is not None:
-            clauses.append(Task.flow_id == flow_id)
+            clauses.append(uuid_column_equals(session, Task.flow_id, flow_id))
         if search:
             clauses.append(col(Task.name).ilike(f"%{search.strip()}%"))
 
@@ -119,7 +120,7 @@ class AdminTaskActionResponse(BaseModel):
     task_id: str
     ok: bool
     previous_status: str
-    new_status: Optional[str] = None
+    new_status: str | None = None
     message: str
 
 
@@ -154,12 +155,16 @@ async def cancel_task_admin(
                 message=f"Task already in terminal state: {previous}",
             )
 
-        task.status = TaskStatus.CANCELLED
         now = datetime.utcnow()
-        task.completed_at = now
-        task.updated_at = now
-        session.add(task)
-        await session.commit()
+        await session.execute(
+            sa_update(Task)
+            .where(uuid_column_equals(session, Task.id, task_id))
+            .values(
+                status=TaskStatus.CANCELLED,
+                completed_at=now,
+                updated_at=now,
+            )
+        )
 
         return AdminTaskActionResponse(
             task_id=str(task_id),
@@ -261,7 +266,7 @@ async def retry_task_admin(
                 detail=f"TaskManager unavailable: {exc}",
             ) from exc
 
-        input_data: Optional[dict[str, Any]] = None
+        input_data: dict[str, Any] | None = None
         try:
             import json
 

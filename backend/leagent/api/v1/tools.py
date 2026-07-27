@@ -56,8 +56,8 @@ def get_tool_registry() -> ToolRegistry:
 async def list_tools(
     user_id: CurrentUserId,
     registry: Annotated[ToolRegistry, Depends(get_tool_registry)],
-    category: Optional[ToolCategory] = Query(default=None),
-    search: Optional[str] = Query(default=None, max_length=100),
+    category: ToolCategory | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
 ) -> ToolListResponse:
     """List all available tools with optional filtering."""
     if category:

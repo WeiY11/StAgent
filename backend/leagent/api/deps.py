@@ -35,7 +35,7 @@ def get_settings() -> Settings:
     return _get_settings()
 
 
-def get_service_manager(request: Request) -> "ServiceManager":
+def get_service_manager(request: Request) -> ServiceManager:
     """Return the process-wide :class:`ServiceManager`.
 
     Prefers ``request.app.state.service_manager`` (set during lifespan startup);
@@ -51,18 +51,19 @@ def get_service_manager(request: Request) -> "ServiceManager":
 
 
 def get_db_service(
-    sm: Annotated["ServiceManager", Depends(get_service_manager)],
-) -> "DatabaseService":
+    sm: Annotated[ServiceManager, Depends(get_service_manager)],
+) -> DatabaseService:
     return sm.db
 
 
 def get_file_service(
-    sm: Annotated["ServiceManager", Depends(get_service_manager)],
-) -> "FileService":
+    sm: Annotated[ServiceManager, Depends(get_service_manager)],
+) -> FileService:
     """Return the process-wide :class:`FileService` (single managed-blob ingress)."""
     fs = sm.file_service
     if fs is None:
-        from fastapi import HTTPException, status as _status
+        from fastapi import HTTPException
+        from fastapi import status as _status
 
         raise HTTPException(
             status_code=_status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -72,7 +73,7 @@ def get_file_service(
 
 
 def get_auth_service(
-    sm: Annotated["ServiceManager", Depends(get_service_manager)],
+    sm: Annotated[ServiceManager, Depends(get_service_manager)],
 ) -> Any:
     return sm.auth
 

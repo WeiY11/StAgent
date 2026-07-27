@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from enum import Enum
 from typing import Annotated, Any, Optional
 from uuid import UUID, uuid4
@@ -11,7 +11,8 @@ from croniter import croniter
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from leagent.cron.base import CronExecution, CronJob, CronJobStatus, CronJobType as CronJobTypeBase
+from leagent.cron.base import CronExecution, CronJob, CronJobStatus
+from leagent.cron.base import CronJobType as CronJobTypeBase
 from leagent.cron.manager import CronManager
 from leagent.services.auth import CurrentUserId
 from leagent.services.service_manager import get_service_manager
@@ -48,7 +49,7 @@ def _base_type_to_api(t: CronJobTypeBase) -> CronJobType:
     return CronJobType(t.value)
 
 
-def _parse_target_uuid(s: str | None) -> Optional[UUID]:
+def _parse_target_uuid(s: str | None) -> UUID | None:
     if not s:
         return None
     try:
@@ -58,7 +59,7 @@ def _parse_target_uuid(s: str | None) -> Optional[UUID]:
 
 
 def calculate_next_runs(cron_expression: str, count: int = 5, from_time: datetime | None = None) -> list[datetime]:
-    base = from_time or datetime.now(timezone.utc)
+    base = from_time or datetime.now(UTC)
     itr = croniter(cron_expression.strip(), base)
     return [itr.get_next(datetime) for _ in range(count)]
 
@@ -67,7 +68,7 @@ def calculate_next_run(cron_expression: str, from_time: datetime | None = None) 
     return calculate_next_runs(cron_expression, 1, from_time)[0]
 
 
-def _job_to_info(job: CronJob) -> "CronJobInfo":
+def _job_to_info(job: CronJob) -> CronJobInfo:
     success_rate = 0.0
     if job.run_count > 0:
         success_rate = round((job.success_count / job.run_count) * 100, 1)
@@ -100,7 +101,7 @@ def _job_to_info(job: CronJob) -> "CronJobInfo":
     )
 
 
-def _job_to_detail(job: CronJob) -> "CronJobDetail":
+def _job_to_detail(job: CronJob) -> CronJobDetail:
     success_rate = 0.0
     if job.run_count > 0:
         success_rate = round((job.success_count / job.run_count) * 100, 1)
@@ -159,13 +160,13 @@ def _require_user_job(cron: CronManager, job_id: UUID, user_id: UUID) -> CronJob
 class CronJobInfo(BaseModel):
     id: UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     job_type: CronJobType
     cron_expression: str
     status: CronJobStatus
     enabled: bool
-    last_run_at: Optional[datetime] = None
-    next_run_at: Optional[datetime] = None
+    last_run_at: datetime | None = None
+    next_run_at: datetime | None = None
     run_count: int = 0
     success_count: int = 0
     error_count: int = 0
@@ -177,10 +178,10 @@ class CronJobInfo(BaseModel):
 
 
 class CronJobDetail(CronJobInfo):
-    target_id: Optional[UUID] = None
+    target_id: UUID | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-    last_run_status: Optional[str] = None
-    last_error: Optional[str] = None
+    last_run_status: str | None = None
+    last_error: str | None = None
     timezone: str = "UTC"
     max_retries: int = 3
     timeout_sec: int = 3600
@@ -192,10 +193,10 @@ class CronJobDetail(CronJobInfo):
 
 class CronJobCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
     job_type: CronJobType
     cron_expression: str = Field(..., min_length=1, max_length=100)
-    target_id: Optional[UUID] = None
+    target_id: UUID | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = Field(default=True)
     timezone: str = Field(default="UTC", max_length=50)
@@ -208,19 +209,19 @@ class CronJobCreateRequest(BaseModel):
 
 
 class CronJobUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    description: Optional[str] = Field(default=None, max_length=500)
-    cron_expression: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    target_id: Optional[UUID] = None
-    payload: Optional[dict[str, Any]] = None
-    enabled: Optional[bool] = None
-    timezone: Optional[str] = Field(default=None, max_length=50)
-    max_retries: Optional[int] = Field(default=None, ge=0, le=10)
-    timeout_sec: Optional[int] = Field(default=None, ge=1, le=86400)
-    notify_on_start: Optional[bool] = None
-    notify_on_complete: Optional[bool] = None
-    notify_on_fail: Optional[bool] = None
-    tags: Optional[list[str]] = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    cron_expression: str | None = Field(default=None, min_length=1, max_length=100)
+    target_id: UUID | None = None
+    payload: dict[str, Any] | None = None
+    enabled: bool | None = None
+    timezone: str | None = Field(default=None, max_length=50)
+    max_retries: int | None = Field(default=None, ge=0, le=10)
+    timeout_sec: int | None = Field(default=None, ge=1, le=86400)
+    notify_on_start: bool | None = None
+    notify_on_complete: bool | None = None
+    notify_on_fail: bool | None = None
+    tags: list[str] | None = None
 
 
 class CronJobListResponse(BaseModel):
@@ -248,8 +249,8 @@ class CronJobStats(BaseModel):
     failed_runs: int
     success_rate: float
     avg_duration_ms: float
-    last_run_at: Optional[datetime]
-    next_run_at: Optional[datetime]
+    last_run_at: datetime | None
+    next_run_at: datetime | None
 
 
 class CronSystemStats(BaseModel):
@@ -274,9 +275,9 @@ class NextRunsResponse(BaseModel):
 async def list_cron_jobs(
     user_id: CurrentUserId,
     cron: CronManagerDep,
-    job_status: Optional[CronJobStatus] = Query(default=None, alias="status"),
-    job_type: Optional[CronJobType] = Query(default=None),
-    search: Optional[str] = Query(default=None, max_length=100),
+    job_status: CronJobStatus | None = Query(default=None, alias="status"),
+    job_type: CronJobType | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
 ) -> CronJobListResponse:
     jobs = cron.list_jobs(status=job_status, user_id=user_id)
     if job_type is not None:
@@ -590,7 +591,7 @@ async def clone_cron_job(
     job_id: UUID,
     user_id: CurrentUserId,
     cron: CronManagerDep,
-    new_name: Optional[str] = Query(default=None, max_length=100),
+    new_name: str | None = Query(default=None, max_length=100),
 ) -> CronJobDetail:
     """Duplicate a cron job."""
     original = _require_user_job(cron, job_id, user_id)

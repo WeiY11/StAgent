@@ -39,6 +39,7 @@ async def resolve_folder_context(
     from sqlmodel import select as sel
 
     from leagent.db.models.file import File as FileModel
+    from leagent.db.sqlite_compat import uuid_column_equals, uuid_column_in
 
     results: list[tuple[str, str, str | None]] = []
     raw_ids: list[_UUID] = []
@@ -57,8 +58,8 @@ async def resolve_folder_context(
                 fid = None
             if fid:
                 stmt = sel(FileModel).where(
-                    FileModel.folder_id == fid,
-                    FileModel.user_id == user_id,
+                    uuid_column_equals(session, FileModel.folder_id, fid),
+                    uuid_column_equals(session, FileModel.user_id, user_id),
                     FileModel.is_deleted == False,  # noqa: E712
                 )
                 rows = (await session.exec(stmt)).all()
@@ -68,8 +69,8 @@ async def resolve_folder_context(
 
         if raw_ids:
             stmt = sel(FileModel).where(
-                FileModel.id.in_(raw_ids),
-                FileModel.user_id == user_id,
+                uuid_column_in(session, FileModel.id, raw_ids),
+                uuid_column_equals(session, FileModel.user_id, user_id),
                 FileModel.is_deleted == False,  # noqa: E712
             )
             rows = (await session.exec(stmt)).all()
@@ -107,13 +108,14 @@ async def resolve_folder_context_note(
     from sqlmodel import select
 
     from leagent.db.models import Folder
+    from leagent.db.sqlite_compat import uuid_column_equals
 
     async with db.session() as session:
         folder = (
             await session.exec(
                 select(Folder).where(
-                    Folder.id == fid,
-                    Folder.user_id == user_id,
+                    uuid_column_equals(session, Folder.id, fid),
+                    uuid_column_equals(session, Folder.user_id, user_id),
                     Folder.is_deleted == False,  # noqa: E712
                 ),
             )
@@ -129,8 +131,8 @@ async def resolve_folder_context_note(
             parent = (
                 await session.exec(
                     select(Folder).where(
-                        Folder.id == parent_id,
-                        Folder.user_id == user_id,
+                        uuid_column_equals(session, Folder.id, parent_id),
+                        uuid_column_equals(session, Folder.user_id, user_id),
                         Folder.is_deleted == False,  # noqa: E712
                     ),
                 )
@@ -192,7 +194,7 @@ async def resolve_project_folder_path(
         return None
 
     from leagent.db.models import Folder
-    from leagent.db.sqlite_compat import load_entity_by_id
+    from leagent.db.sqlite_compat import load_entity_by_id, same_user_id
     from leagent.project.paths import (
         ProjectPathSafetyError,
         resolve_owned_project_folder,
@@ -200,7 +202,7 @@ async def resolve_project_folder_path(
 
     async with db.session() as session:
         folder = await load_entity_by_id(session, Folder, fid, parent_table="folders")
-        if not folder or folder.is_deleted or folder.user_id != user_id:
+        if not folder or folder.is_deleted or not same_user_id(folder.user_id, user_id):
             return None
         try:
             resolved = resolve_owned_project_folder(folder, user_id)
@@ -269,6 +271,7 @@ async def resolve_knowledge_message_paths(
     from sqlmodel import col, select
 
     from leagent.db.models.file import File as FileModel
+    from leagent.db.sqlite_compat import uuid_column_equals
 
     refs: list[tuple[UUID | None, str | None]] = []
     for m in _KNOWLEDGE_LINE_RE.finditer(message or ""):
@@ -284,8 +287,8 @@ async def resolve_knowledge_message_paths(
             row = None
             if file_id is not None:
                 stmt = select(FileModel).where(
-                    FileModel.id == file_id,
-                    FileModel.user_id == user_id,
+                    uuid_column_equals(session, FileModel.id, file_id),
+                    uuid_column_equals(session, FileModel.user_id, user_id),
                     FileModel.is_deleted == False,  # noqa: E712
                 )
                 row = (await session.exec(stmt)).first()
@@ -293,7 +296,7 @@ async def resolve_knowledge_message_paths(
                 stmt = (
                     select(FileModel)
                     .where(
-                        FileModel.user_id == user_id,
+                        uuid_column_equals(session, FileModel.user_id, user_id),
                         FileModel.is_deleted == False,  # noqa: E712
                         FileModel.original_name == name,
                     )

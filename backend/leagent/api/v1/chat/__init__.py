@@ -12,8 +12,7 @@ import json
 import time
 from collections.abc import AsyncIterator  # noqa: TC003
 from contextlib import suppress
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -27,21 +26,12 @@ from fastapi import (
     HTTPException,
     Query,
     UploadFile,
-    WebSocket,
-    WebSocketDisconnect,
     status,
 )
 from sse_starlette.sse import EventSourceResponse
 
 from leagent.api.v1.chat_deps import ChatSvc, build_agent_controller
-from leagent.apps.gateway.infrastructure.ws_fanout import (
-    DistributedConnectionManager,
-)
-from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId  # noqa: TC001
 from leagent.db import DatabaseService, get_database_service
-from leagent.services.chat.service import ChatService
-from leagent.services.chat.projects import ChatProjectService
 from leagent.db.models.message import (
     MessageRead,
     MessageRole,
@@ -50,6 +40,9 @@ from leagent.db.models.message import (
     SessionRead,
     chat_session_to_read,
 )
+from leagent.schema.api import PaginatedResponse
+from leagent.services.auth import CurrentUserId  # noqa: TC001
+from leagent.services.chat.service import ChatService
 
 logger = structlog.get_logger(__name__)
 
@@ -60,94 +53,58 @@ from leagent.api.v1.chat.reviews import router as _reviews_router  # noqa: E402
 
 router.include_router(_reviews_router)
 
+# Local filesystem directory browsing (folder-grant modal).
+from leagent.api.v1.chat.directories import (  # noqa: E402,F401
+    _quick_access_dirs,
+    browse_directories,
+)
+from leagent.api.v1.chat.directories import (
+    router as _directories_router,
+)
 
-def _project_locked_error() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_423_LOCKED, detail="Project locked")
+router.include_router(_directories_router)
 
+# Session-scoped agent todo endpoints.
+from leagent.api.v1.chat.todos import router as _todos_router  # noqa: E402
 
-def _accumulate_workflow_extensions(existing_json: str | None, edata: dict[str, Any]) -> str | None:
-    """Merge a workflow SSE payload into the accumulated message extensions.
+router.include_router(_todos_router)
 
-    A single assistant turn may emit BOTH a DAG embed (``chat_workflow_embed_emit``)
-    and a step card (``chat_workflow_emit``). They live under disjoint extension
-    keys, so we accumulate rather than overwrite — otherwise the second emit would
-    erase the first card on reload (and the DAG would disappear).
-    """
-    from leagent.chat_workflow.workflow_embed import build_extensions_payload
+# Real-time chat WebSocket endpoint. ``manager`` is re-exported below for
+# backward compatibility (``leagent.main`` imports it as ``chat_ws_manager``).
+from leagent.api.v1.chat.websocket import (  # noqa: E402,F401
+    ConnectionManager,
+    manager,
+)
+from leagent.api.v1.chat.websocket import (
+    router as _websocket_router,
+)
 
-    acc: dict[str, Any] = {}
-    if existing_json:
-        try:
-            parsed = json.loads(existing_json)
-            if isinstance(parsed, dict):
-                acc = parsed
-        except json.JSONDecodeError:
-            acc = {}
+router.include_router(_websocket_router)
 
-    spec = edata.get("spec")
-    embed = edata.get("embed")
-    if isinstance(embed, dict) and isinstance(embed.get("data"), dict):
-        acc.update(
-            build_extensions_payload(
-                flow_data=embed["data"],
-                digest=str(embed.get("digest") or ""),
-                flow_id=str(embed["flow_id"]) if embed.get("flow_id") else None,
-                title=str(embed.get("title") or "") or None,
-                summary=str(embed.get("summary") or "") or None,
-            )
-        )
-    elif isinstance(spec, dict):
-        acc["chat_workflow"] = spec
-        acc["chat_workflow_digest"] = edata.get("digest")
-    else:
-        return existing_json
+# Chat workflow step / embed execution endpoints.
+from leagent.api.v1.chat.workflow_steps import router as _workflow_steps_router  # noqa: E402
 
-    return json.dumps(acc, ensure_ascii=False)
+router.include_router(_workflow_steps_router)
 
+# OpenAI-compatible chat completions endpoint (streaming + non-streaming).
+# ``create_chat_completion`` / ``_generate_openai_sse`` are re-exported for
+# backward compatibility with existing callers/tests.
+from leagent.api.v1.chat.openai_compat import (  # noqa: E402,F401
+    _generate_openai_sse,
+    create_chat_completion,
+)
+from leagent.api.v1.chat.openai_compat import (
+    router as _openai_compat_router,
+)
 
-async def _require_project_access(
-    db: DatabaseService,
-    *,
-    project_id: UUID | None,
-    user_id: UUID,
-    unlock_token: str | None,
-) -> None:
-    try:
-        await ChatProjectService(db).require_project_access(
-            project_id,
-            user_id=user_id,
-            unlock_token=unlock_token,
-        )
-    except PermissionError as exc:
-        if str(exc) == "Project locked":
-            raise _project_locked_error() from exc
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found") from exc
+router.include_router(_openai_compat_router)
 
-
-async def _require_session_project_access(
-    db: DatabaseService,
-    *,
-    session: Any,
-    user_id: UUID,
-    unlock_token: str | None,
-) -> None:
-    try:
-        await ChatProjectService(db).require_session_project_access(
-            session,
-            user_id=user_id,
-            unlock_token=unlock_token,
-        )
-    except PermissionError as exc:
-        if str(exc) == "Project locked":
-            raise _project_locked_error() from exc
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found") from exc
-
-
+# Shared cross-cutting helpers (access control + workflow extension merge),
+# re-exported for backward compatibility with existing callers/tests.
 # ---------------------------------------------------------------------------
 # Request/Response Models — defined in ``leagent.api.schemas.chat`` and
 # re-exported here for backward compatibility.
 # ---------------------------------------------------------------------------
-
 from leagent.api.schemas.chat import (  # noqa: E402
     AgentMemoryEpisodeRead,
     AgentMemoryFactRead,
@@ -158,32 +115,30 @@ from leagent.api.schemas.chat import (  # noqa: E402
     AuthorizedPathCreateBody,
     AuthorizedPathEntry,
     AuthorizedPathsResponse,
-    BrowseResponse as _BrowseResponse,
-    ChatCompletionChoice,
     ChatCompletionMessage,
     ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatCompletionUsage,
-    ChatWorkflowStepRunRequest,
-    ChatWorkflowEmbedRunRequest,
-    SessionExecutionRead,
     ChatWorkflowTemplateRead,
     CompactContextRequest,
     CompactContextResponse,
     DailyGreetingsResponse,
-    DirEntry as _DirEntry,
     MaterializedTemplateRow,
     MaterializeWorkflowTemplatesResponse,
     MessageFeedbackBody,
     PromptLayerRead,
     PromptPreviewRead,
-    SendMessageRequest,
-    SessionAttachmentsResponse,
     ResumeCheckpointRequest,
     ResumeCheckpointResponse,
+    SendMessageRequest,
+    SessionAttachmentsResponse,
     SessionCancelResponse,
-    SessionTodoStatusPatchRequest,
+    SessionExecutionRead,
     SessionUpdateRequest,
+)
+from leagent.api.v1.chat._common import (  # noqa: E402,F401
+    _accumulate_workflow_extensions,
+    _project_locked_error,
+    _require_project_access,
+    _require_session_project_access,
 )
 
 # Business-logic helpers live in ``helpers.py``; re-exported for callers/tests.
@@ -194,41 +149,76 @@ from leagent.api.schemas.chat import (  # noqa: E402
 # ``from leagent.api.v1.chat.sse import format_openai_chunk``.
 from leagent.api.v1.chat.agent_stream import (  # noqa: E402,F401
     TASK_STATUS_RANK,
+)
+from leagent.api.v1.chat.agent_stream import (
     run_agent_stream as _run_agent_stream,
 )
 from leagent.api.v1.chat.attachments import (  # noqa: E402,F401
     attach_chat_files as _attach_chat_files,
+)
+from leagent.api.v1.chat.attachments import (
     build_assistant_media_event as _build_assistant_media_event,
+)
+from leagent.api.v1.chat.attachments import (
     merge_agent_attachment_paths as _merge_agent_attachment_paths,
+)
+from leagent.api.v1.chat.attachments import (
     resolve_request_attachment_paths as _resolve_request_attachment_paths,
 )
 from leagent.api.v1.chat.context_sources import (  # noqa: E402,F401
     authorized_root_paths_for_session as _authorized_root_paths_for_session,
+)
+from leagent.api.v1.chat.context_sources import (
     chat_project_workspace_note as _chat_project_workspace_note,
+)
+from leagent.api.v1.chat.context_sources import (
     context_item_paths as _context_item_paths,
+)
+from leagent.api.v1.chat.context_sources import (  # noqa: E402,F401
     parse_knowledge_line_payload as _parse_knowledge_line_payload,
+)
+from leagent.api.v1.chat.context_sources import (
     resolve_folder_context as _resolve_folder_context,
+)
+from leagent.api.v1.chat.context_sources import (
     resolve_folder_context_note as _resolve_folder_context_note,
+)
+from leagent.api.v1.chat.context_sources import (
     resolve_knowledge_message_paths as _resolve_knowledge_message_paths,
+)
+from leagent.api.v1.chat.context_sources import (
     resolve_project_folder_path as _resolve_project_folder_path,
 )
 from leagent.api.v1.chat.message_persistence import (  # noqa: E402,F401
     merge_message_extensions_json as _merge_message_extensions_json,
+)
+from leagent.api.v1.chat.message_persistence import (
     merge_stream_thinking_for_persist as _merge_stream_thinking_for_persist,
+)
+from leagent.api.v1.chat.message_persistence import (
     parse_tool_replies_json as _parse_tool_replies_json,
 )
 from leagent.api.v1.chat.paths import (  # noqa: E402,F401
     attachment_local_path_for_sse as _attachment_local_path_for_sse,
+)
+from leagent.api.v1.chat.paths import (
     dedupe_resolved_paths as _dedupe_resolved_paths,
 )
 from leagent.api.v1.chat.sse import (  # noqa: E402,F401
     companion_sse_events as _companion_sse_events,
+)
+from leagent.api.v1.chat.sse import (
     format_frontend_event as _format_frontend_event,
+)
+from leagent.api.v1.chat.sse import (  # noqa: E402,F401
     format_openai_chunk as _format_openai_chunk,
+)
+from leagent.api.v1.chat.sse import (
     openai_tool_call_from_stream_edata as _openai_tool_call_from_stream_edata,
+)
+from leagent.api.v1.chat.sse import (
     tokens_from_stream_usage as _tokens_from_stream_usage,
 )
-
 
 # ---------------------------------------------------------------------------
 # Frontend-compatible streaming endpoint (/chat/stream)
@@ -310,7 +300,7 @@ async def chat_stream_endpoint(
     if not parsed_session_id:
         new_session = await chat_svc.create_session(
             user_id,
-            name=f"Chat {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+            name=f"Chat {datetime.now(UTC).strftime('%Y-%m-%d %H:%M')}",
             project_id=parsed_project_id,
         )
         parsed_session_id = new_session.id
@@ -547,11 +537,13 @@ async def chat_stream_endpoint(
     stream_user_message_id: UUID | None = None
 
     if has_tool_replies:
-        from leagent.main import get_service_manager
         from leagent.api.v1.chat.approvals import (
             audit_approval_decision as _audit_approval_decision,
+        )
+        from leagent.api.v1.chat.approvals import (
             transform_approval_reply as _transform_approval_reply,
         )
+        from leagent.main import get_service_manager
 
         sm = get_service_manager()
         for tr in parsed_tool_replies:
@@ -1126,249 +1118,6 @@ async def chat_stream_endpoint(
 
 
 # ---------------------------------------------------------------------------
-# Chat Completions Endpoints (OpenAI-compatible)
-# ---------------------------------------------------------------------------
-
-
-async def _generate_openai_sse(
-    request: ChatCompletionRequest,
-    session_id: UUID,
-    user_id: UUID,
-    chat_svc: ChatSvc,
-    *,
-    attachments: list[str] | None = None,
-    persisted_user_message_id: UUID | None = None,
-) -> AsyncIterator[dict[str, Any]]:
-    """Generate OpenAI-compatible SSE chunks."""
-
-    completion_id = f"chatcmpl-{uuid4().hex[:24]}"
-    created = int(time.time())
-    model = request.model
-    start_time = time.time()
-    output_tokens = 0
-
-    try:
-        yield _format_openai_chunk(completion_id, created, model, {"role": "assistant", "content": ""})
-
-        response_content = ""
-        last_extensions_json: str | None = None
-        agent = build_agent_controller()
-
-        if agent is not None:
-            from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
-            try:
-                await apply_pet_personality_to_agent(agent, get_database_service(), user_id)
-            except Exception:
-                logger.debug("openai_sse_apply_pet_personality_failed", exc_info=True)
-            last_user_msg = next(
-                (m.content for m in reversed(request.messages) if m.role == MessageRole.USER), "",
-            )
-            openai_auth_roots = await _authorized_root_paths_for_session(
-                chat_svc, session_id, user_id,
-            )
-            openai_agent_task_id = uuid4()
-            async for etype, edata, acc_text in _run_agent_stream(
-                agent, last_user_msg, session_id, user_id,
-                attachments=attachments,
-                authorized_roots=openai_auth_roots,
-                persisted_user_message_id=persisted_user_message_id,
-                agent_task_id=openai_agent_task_id,
-            ):
-                response_content = acc_text
-                if etype == "token":
-                    token = edata.get("token", "")
-                    output_tokens += 1
-                    yield _format_openai_chunk(completion_id, created, model, {"content": token})
-                elif etype == "thinking":
-                    yield {"event": "thinking", "data": json.dumps({"thought": edata.get("thought", "")})}
-                elif etype == "tool_call_delta":
-                    yield {"event": "tool_call_delta", "data": json.dumps(edata)}
-                elif etype == "nested_agent_preview":
-                    yield {"event": "nested_agent_preview", "data": json.dumps(edata)}
-                elif etype in ("tool_call", "tool_result"):
-                    yield {"event": etype, "data": json.dumps(edata)}
-                elif etype == "workflow":
-                    yield {"event": "workflow", "data": json.dumps(edata)}
-                    if isinstance(edata, dict):
-                        last_extensions_json = _accumulate_workflow_extensions(
-                            last_extensions_json, edata
-                        )
-                elif etype == "complete" and response_content and output_tokens == 0:
-                    yield _format_openai_chunk(completion_id, created, model, {"content": response_content})
-                elif etype == "error":
-                    yield {"event": "error", "data": json.dumps({"error": edata.get("error", "Unknown error"), "type": "agent_error"})}
-        else:
-            yield {"event": "error", "data": json.dumps({
-                "error": "No LLM provider configured",
-                "type": "configuration_error",
-            })}
-
-        yield _format_openai_chunk(completion_id, created, model, {}, finish_reason="stop")
-        yield {"event": "message", "data": "[DONE]"}
-
-        latency_ms = int((time.time() - start_time) * 1000)
-        if response_content or last_extensions_json:
-            await chat_svc.add_message(
-                session_id,
-                MessageRole.ASSISTANT,
-                response_content or "",
-                user_id=user_id,
-                model=model,
-                output_tokens=output_tokens or None,
-                latency_ms=latency_ms,
-                extensions=last_extensions_json,
-            )
-
-    except Exception as e:
-        logger.exception("Error in SSE stream: %s", e)
-        yield {"event": "error", "data": json.dumps({"error": str(e), "type": "stream_error"})}
-
-
-@router.post("/completions")
-async def create_chat_completion(
-    request: ChatCompletionRequest,
-    user_id: CurrentUserId,
-    chat_svc: ChatSvc,
-    db: Annotated[DatabaseService, Depends(get_database_service)],
-    x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
-):
-    """Create a chat completion (OpenAI-compatible). Streaming or non-streaming."""
-    if not request.messages:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Messages list cannot be empty",
-        )
-
-    session_id = request.session_id
-    if not session_id:
-        await _require_project_access(
-            db,
-            project_id=request.project_id,
-            user_id=user_id,
-            unlock_token=x_chat_project_token,
-        )
-        new_session = await chat_svc.create_session(
-            user_id,
-            name=f"Chat {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
-            project_id=request.project_id,
-        )
-        session_id = new_session.id
-    else:
-        existing_session = await chat_svc.get_session(session_id, user_id=user_id)
-        if not existing_session:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-        await _require_session_project_access(
-            db,
-            session=existing_session,
-            user_id=user_id,
-            unlock_token=x_chat_project_token,
-        )
-
-    last_user_message = next(
-        (m for m in reversed(request.messages) if m.role == MessageRole.USER), None,
-    )
-    persisted_openai_user_id: UUID | None = None
-    if last_user_message:
-        um_row = await chat_svc.add_message(
-            session_id, MessageRole.USER, last_user_message.content, user_id=user_id,
-        )
-        persisted_openai_user_id = um_row.id
-
-    last_user_text = (
-        last_user_message.content
-        if last_user_message
-        else ""
-    )
-    knowledge_paths = await _resolve_knowledge_message_paths(user_id, db, last_user_text)
-    merged_attachments = _merge_agent_attachment_paths(None, knowledge_paths)
-
-    if request.stream:
-        return EventSourceResponse(
-            _generate_openai_sse(
-                request,
-                session_id,
-                user_id,
-                chat_svc,
-                attachments=merged_attachments,
-                persisted_user_message_id=persisted_openai_user_id,
-            ),
-            media_type="text/event-stream",
-        )
-
-    completion_id = f"chatcmpl-{uuid4().hex[:24]}"
-    created = int(time.time())
-
-    # Per-app agent customization (leagent.js custom chatbots / agent apps).
-    # Unknown variants are ignored by the context layer (default recipe used).
-    requested_variant: str | None = None
-    if request.agent_variant:
-        from leagent.context.recipe import RECIPE_REGISTRY
-
-        candidate = request.agent_variant.strip()
-        if candidate in RECIPE_REGISTRY:
-            requested_variant = candidate
-    override_model = request.model if request.model not in ("", "default") else None
-
-    agent = build_agent_controller(
-        prompt_variant=requested_variant,
-        extra_system_prompt=request.system_prompt,
-        model_name=override_model,
-    )
-    if agent is not None:
-        from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
-        await apply_pet_personality_to_agent(agent, db, user_id)
-        last_user_msg = next(
-            (m.content for m in reversed(request.messages) if m.role == MessageRole.USER), "",
-        )
-        completion_auth_roots = await _authorized_root_paths_for_session(
-            chat_svc, session_id, user_id,
-        )
-        agent_response = await agent.run(
-            last_user_msg,
-            session_id,
-            user_id=user_id,
-            attachments=merged_attachments,
-            authorized_roots=completion_auth_roots,
-            persisted_user_message_id=persisted_openai_user_id,
-            agent_task_id=uuid4(),
-        )
-        response_content = agent_response.text
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No LLM provider configured. Please configure a model in Settings.",
-        )
-
-    await chat_svc.add_message(
-        session_id,
-        MessageRole.ASSISTANT,
-        response_content,
-        user_id=user_id,
-        model=request.model,
-        output_tokens=len(response_content.split()),
-    )
-
-    return ChatCompletionResponse(
-        id=completion_id,
-        created=created,
-        model=request.model,
-        session_id=session_id,
-        choices=[
-            ChatCompletionChoice(
-                index=0,
-                message=ChatCompletionMessage(role=MessageRole.ASSISTANT, content=response_content),
-                finish_reason="stop",
-            )
-        ],
-        usage=ChatCompletionUsage(
-            prompt_tokens=sum(len(m.content.split()) for m in request.messages),
-            completion_tokens=len(response_content.split()),
-            total_tokens=sum(len(m.content.split()) for m in request.messages) + len(response_content.split()),
-        ),
-    )
-
-
-# ---------------------------------------------------------------------------
 # Session Management Endpoints
 # ---------------------------------------------------------------------------
 
@@ -1390,7 +1139,7 @@ async def create_session(
     )
     session = await chat_svc.create_session(
         user_id,
-        name=data.name or f"New Chat {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        name=data.name or f"New Chat {datetime.now(UTC).strftime('%Y-%m-%d %H:%M')}",
         flow_id=data.flow_id,
         project_id=data.project_id,
     )
@@ -1422,11 +1171,17 @@ async def list_sessions(
     sessions = await chat_svc.list_sessions(
         user_id,
         active_only=active_only,
+        flow_id=flow_id,
         project_id=project_id,
         offset=offset,
         limit=page_size,
     )
-    total = len(sessions)
+    total = await chat_svc.count_sessions(
+        user_id,
+        active_only=active_only,
+        flow_id=flow_id,
+        project_id=project_id,
+    )
     return PaginatedResponse[SessionRead](
         items=sessions,
         total=total,
@@ -1589,81 +1344,6 @@ async def remove_session_authorized_path(
 # ---------------------------------------------------------------------------
 # Local directory browser (single-machine deployment)
 # ---------------------------------------------------------------------------
-
-
-def _quick_access_dirs() -> list[_DirEntry]:
-    """Well-known directories for the current OS user."""
-    home = Path.home()
-    candidates = [
-        ("Home", home),
-        ("Desktop", home / "Desktop"),
-        ("Documents", home / "Documents"),
-        ("Downloads", home / "Downloads"),
-    ]
-    out: list[_DirEntry] = []
-    for label, p in candidates:
-        try:
-            resolved = p.resolve(strict=True)
-            if resolved.is_dir():
-                out.append(_DirEntry(name=label, path=str(resolved), is_dir=True))
-        except (OSError, RuntimeError):
-            continue
-    return out
-
-
-@router.get("/browse-directories", response_model=_BrowseResponse)
-async def browse_directories(
-    user_id: CurrentUserId,
-    path: str | None = Query(None, max_length=4096),
-) -> _BrowseResponse:
-    """List subdirectories and files at *path* on the local machine.
-
-    Used by the folder-grant modal to let users navigate the filesystem
-    visually instead of typing absolute paths by hand.  Returns only
-    names and ``is_dir`` — no file contents are exposed.
-    """
-    quick = _quick_access_dirs()
-
-    if not path:
-        root = Path.home()
-    else:
-        root = Path(path).expanduser()
-
-    try:
-        root = root.resolve(strict=True)
-    except (FileNotFoundError, OSError):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Directory not found: {path}",
-        )
-
-    if not root.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Not a directory: {path}",
-        )
-
-    entries: list[_DirEntry] = []
-    try:
-        for child in sorted(root.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
-            if child.name.startswith("."):
-                continue
-            entries.append(
-                _DirEntry(name=child.name, path=str(child), is_dir=child.is_dir())
-            )
-    except PermissionError:
-        pass
-
-    parent_str: str | None = None
-    if root.parent != root:
-        parent_str = str(root.parent)
-
-    return _BrowseResponse(
-        path=str(root),
-        parent=parent_str,
-        entries=entries,
-        quick_access=quick,
-    )
 
 
 async def _compose_prompt_preview(
@@ -2163,8 +1843,8 @@ async def steer_session(
             status_code=status.HTTP_400_BAD_REQUEST, detail="message must be non-empty",
         )
 
-    from leagent.agent.controller import AgentController
     from leagent.agent.control import get_session_control_registry
+    from leagent.agent.controller import AgentController
 
     if session_id not in AgentController._session_tasks:
         raise HTTPException(
@@ -2447,57 +2127,6 @@ async def update_session(
     return chat_session_to_read(final)
 
 
-@router.patch(
-    "/sessions/{session_id}/todos/{todo_id}",
-    response_model=SessionRead,
-)
-async def patch_session_todo_status(
-    session_id: UUID,
-    todo_id: str,
-    body: SessionTodoStatusPatchRequest,
-    user_id: CurrentUserId,
-    chat_svc: ChatSvc,
-    db: Annotated[DatabaseService, Depends(get_database_service)],
-    x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
-) -> SessionRead:
-    """Update one session-scoped agent todo status (manual UI interaction)."""
-    existing = await chat_svc.get_session(session_id, user_id=user_id)
-    if not existing:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    await _require_session_project_access(
-        db,
-        session=existing,
-        user_id=user_id,
-        unlock_token=x_chat_project_token,
-    )
-
-    from leagent.main import get_service_manager
-
-    try:
-        sm = get_service_manager()
-    except Exception:  # noqa: BLE001
-        sm = None
-
-    if sm is None or sm.session_manager is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Session manager unavailable",
-        )
-
-    try:
-        await sm.session_manager.update_todo_status(session_id, todo_id, body.status)
-    except ValueError as exc:
-        detail = str(exc)
-        if "not found" in detail.lower():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from exc
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
-
-    final = await chat_svc.get_session(session_id, user_id=user_id)
-    if not final:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    return chat_session_to_read(final)
-
-
 # ---------------------------------------------------------------------------
 # Message Endpoints
 # ---------------------------------------------------------------------------
@@ -2635,370 +2264,6 @@ async def patch_message_feedback(
     return {"ok": True, "procedure_promoted": False}
 
 
-@router.post("/sessions/{session_id}/workflow-steps/{step_id}/run")
-async def run_chat_workflow_step(
-    session_id: UUID,
-    step_id: str,
-    body: ChatWorkflowStepRunRequest,
-    user_id: CurrentUserId,
-    chat_svc: ChatSvc,
-    db: Annotated[DatabaseService, Depends(get_database_service)],
-    x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
-) -> dict[str, Any]:
-    """Execute a single workflow step tool call after digest verification."""
-    from leagent.chat_workflow.arguments import (
-        coerce_workflow_step_arguments,
-        normalize_workflow_step_arguments,
-        validate_workflow_step_paths,
-    )
-    from leagent.chat_workflow.schema import (
-        ValidationError as ChatWorkflowValidationError,
-        chat_workflow_digest,
-        parse_chat_workflow_spec,
-        resolve_argument_templates,
-    )
-    from leagent.main import get_service_manager
-    from leagent.tools.base import ToolPermissionContext
-    from leagent.tools.context import build_tool_context
-    from leagent.tools.executor import get_executor
-    from leagent.tools.registry import get_registry
-    from leagent.file.attachment_context import tool_extra_for_chat_session
-
-    session = await chat_svc.get_session(session_id, user_id=user_id)
-    if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    await _require_session_project_access(
-        db,
-        session=session,
-        user_id=user_id,
-        unlock_token=x_chat_project_token,
-    )
-
-    msg = await chat_svc.get_session_message(session_id, body.message_id, user_id=user_id)
-    if not msg:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-    if msg.role != MessageRole.ASSISTANT:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workflow steps apply only to assistant messages",
-        )
-    if not msg.extensions:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Message has no workflow data",
-        )
-
-    try:
-        ext = json.loads(msg.extensions)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid extensions JSON",
-        ) from None
-
-    raw_spec = ext.get("chat_workflow")
-    if not isinstance(raw_spec, dict):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No chat_workflow in message extensions",
-        )
-
-    registry = get_registry()
-    try:
-        spec = parse_chat_workflow_spec(raw_spec, registry=registry)
-    except ChatWorkflowValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-
-    digest_stored = ext.get("chat_workflow_digest")
-    if isinstance(digest_stored, str) and len(digest_stored) >= 32:
-        digest_ok = digest_stored.lower() == body.workflow_digest.strip().lower()
-    else:
-        digest_ok = chat_workflow_digest(spec).lower() == body.workflow_digest.strip().lower()
-    if not digest_ok:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="workflow_digest does not match stored workflow",
-        )
-
-    step = next((s for s in spec.steps if s.id == step_id), None)
-    if step is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Step not found")
-
-    sm = None
-    with suppress(Exception):
-        sm = get_service_manager()
-
-    tool_ctx = build_tool_context(
-        service_manager=sm,
-        user_id=str(user_id),
-        session_id=str(session_id),
-    )
-    if sm is not None and getattr(sm, "session_manager", None) is not None:
-        extra_paths: list[str] | None = None
-        raw_ui = (body.user_input or "").strip()
-        if raw_ui:
-            resolved_refs = await _resolve_request_attachment_paths(session_id, [raw_ui])
-            extra_paths = resolved_refs or None
-        att_extra = await tool_extra_for_chat_session(
-            sm.session_manager,
-            session_id,
-            extra_paths=extra_paths,
-        )
-        tool_ctx.extra.update(att_extra)
-
-    resolved = resolve_argument_templates(
-        step.action.arguments,
-        session_id=str(session_id),
-        user_id=str(user_id),
-        user_input=body.user_input or "",
-    )
-    resolved = normalize_workflow_step_arguments(step.action.tool_id, resolved, registry=registry)
-    resolved = coerce_workflow_step_arguments(step.action.tool_id, resolved, tool_ctx, registry=registry)
-    path_error = validate_workflow_step_paths(
-        step.action.tool_id, resolved, tool_ctx, registry=registry,
-    )
-    if path_error:
-        runs: dict[str, Any] = ext.get("chat_workflow_step_runs")
-        if not isinstance(runs, dict):
-            runs = {}
-        runs[step_id] = {"status": "error", "error": path_error}
-        await chat_svc.merge_message_extensions(
-            session_id,
-            body.message_id,
-            user_id=user_id,
-            patch={"chat_workflow_step_runs": runs},
-        )
-        return {
-            "success": False,
-            "data": None,
-            "error": path_error,
-            "duration_ms": 0,
-        }
-
-    from leagent.chat_workflow.runner import run_chat_workflow_step_via_engine
-    from leagent.runtime.execution_registry import get_execution_run_registry
-
-    parent_run_id = body.parent_run_id
-    if not parent_run_id:
-        active = get_execution_run_registry().get_active_chat_turn(str(session_id))
-        if active is not None:
-            parent_run_id = active.run_id
-
-    outcome = await run_chat_workflow_step_via_engine(
-        spec=spec,
-        step_id=step_id,
-        resolved_args=resolved,
-        tool_ctx=tool_ctx,
-        service_manager=sm,
-        user_id=str(user_id),
-        session_id=str(session_id),
-        parent_run_id=parent_run_id,
-    )
-    result = outcome.tool_result
-
-    from datetime import datetime, timezone
-
-    runs: dict[str, Any] = ext.get("chat_workflow_step_runs")
-    if not isinstance(runs, dict):
-        runs = {}
-    completed_at = datetime.now(timezone.utc).isoformat()
-    step_entry: dict[str, Any] = {
-        "started_at": completed_at,
-        "status": "success" if result.success else "error",
-        "completed_at": completed_at,
-    }
-    if outcome.prompt_id:
-        step_entry["prompt_id"] = outcome.prompt_id
-    if outcome.run_id:
-        step_entry["run_id"] = outcome.run_id
-    if not result.success and result.error:
-        step_entry["error"] = str(result.error)
-    runs[step_id] = step_entry
-    await chat_svc.merge_message_extensions(
-        session_id,
-        body.message_id,
-        user_id=user_id,
-        patch={"chat_workflow_step_runs": runs},
-    )
-
-    return {
-        "success": result.success,
-        "data": result.data,
-        "error": result.error,
-        "duration_ms": result.duration_ms,
-        "prompt_id": outcome.prompt_id,
-        "run_id": outcome.run_id,
-    }
-
-
-@router.post("/sessions/{session_id}/workflow-embeds/{message_id}/run")
-async def run_chat_workflow_embed(
-    session_id: UUID,
-    message_id: UUID,
-    body: ChatWorkflowEmbedRunRequest,
-    user_id: CurrentUserId,
-    chat_svc: ChatSvc,
-    db: Annotated[DatabaseService, Depends(get_database_service)],
-    x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
-) -> dict[str, Any]:
-    """Execute a whole chat workflow DAG embed after digest verification.
-
-    Returns ``prompt_id`` so the client can subscribe to the per-node execution
-    WebSocket and render live status on the chat mini-graph. The graph runs in
-    the background; the terminal status is persisted to message extensions when
-    it finishes.
-    """
-    from datetime import datetime, timezone
-
-    from leagent.chat_workflow.runner import (
-        evaluate_embed_result,
-        start_chat_workflow_embed_via_engine,
-    )
-    from leagent.main import get_service_manager
-    from leagent.runtime.execution_registry import get_execution_run_registry
-
-    if message_id != body.message_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="message_id mismatch between path and body",
-        )
-
-    session = await chat_svc.get_session(session_id, user_id=user_id)
-    if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    await _require_session_project_access(
-        db,
-        session=session,
-        user_id=user_id,
-        unlock_token=x_chat_project_token,
-    )
-
-    msg = await chat_svc.get_session_message(session_id, body.message_id, user_id=user_id)
-    if not msg:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-    if msg.role != MessageRole.ASSISTANT:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workflow embeds apply only to assistant messages",
-        )
-    if not msg.extensions:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Message has no workflow data",
-        )
-
-    try:
-        ext = json.loads(msg.extensions)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid extensions JSON",
-        ) from None
-
-    embed = ext.get("workflow_embed")
-    if not isinstance(embed, dict) or not isinstance(embed.get("data"), dict):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No workflow_embed in message extensions",
-        )
-
-    digest_stored = embed.get("digest") or ext.get("workflow_embed_digest")
-    if not isinstance(digest_stored, str) or len(digest_stored) < 16:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stored workflow embed has no digest",
-        )
-    if digest_stored.lower() != body.workflow_digest.strip().lower():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="workflow_digest does not match stored workflow",
-        )
-
-    sm = None
-    with suppress(Exception):
-        sm = get_service_manager()
-
-    parent_run_id = body.parent_run_id
-    if not parent_run_id:
-        active = get_execution_run_registry().get_active_chat_turn(str(session_id))
-        if active is not None:
-            parent_run_id = active.run_id
-
-    msg_id = body.message_id
-
-    async def _persist_terminal(result: Any | None) -> None:
-        """Background completion hook: persist terminal status to extensions."""
-        from leagent.services.chat.service import get_chat_service
-
-        evaluated = evaluate_embed_result(result)
-        entry: dict[str, Any] = {
-            "status": "success" if evaluated.success else "error",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        }
-        if not evaluated.success and evaluated.error:
-            entry["error"] = str(evaluated.error)
-        with suppress(Exception):
-            svc = get_chat_service()
-            await svc.merge_message_extensions(
-                session_id,
-                msg_id,
-                user_id=user_id,
-                patch={"workflow_embed_run": entry},
-            )
-
-    outcome = await start_chat_workflow_embed_via_engine(
-        flow_data=embed["data"],
-        service_manager=sm,
-        user_id=str(user_id),
-        session_id=str(session_id),
-        user_input=body.user_input or "",
-        inputs=body.inputs,
-        parent_run_id=parent_run_id,
-        on_complete=_persist_terminal,
-    )
-
-    if not outcome.started:
-        run_entry = {
-            "status": "error",
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "error": outcome.error or "Failed to start workflow",
-        }
-        await chat_svc.merge_message_extensions(
-            session_id,
-            body.message_id,
-            user_id=user_id,
-            patch={"workflow_embed_run": run_entry},
-        )
-        return {
-            "success": False,
-            "error": outcome.error,
-            "prompt_id": None,
-            "run_id": None,
-        }
-
-    run_entry = {
-        "status": "running",
-        "started_at": datetime.now(timezone.utc).isoformat(),
-    }
-    if outcome.prompt_id:
-        run_entry["prompt_id"] = outcome.prompt_id
-    if outcome.run_id:
-        run_entry["run_id"] = outcome.run_id
-    await chat_svc.merge_message_extensions(
-        session_id,
-        body.message_id,
-        user_id=user_id,
-        patch={"workflow_embed_run": run_entry},
-    )
-
-    return {
-        "success": True,
-        "status": "running",
-        "prompt_id": outcome.prompt_id,
-        "run_id": outcome.run_id,
-    }
-
-
 @router.get("/sessions/{session_id}/executions", response_model=list[SessionExecutionRead])
 async def list_session_executions(
     session_id: UUID,
@@ -3017,9 +2282,9 @@ async def list_session_executions(
         user_id=user_id,
         unlock_token=x_chat_project_token,
     )
-    from leagent.runtime.execution_registry import get_execution_run_registry
+    from leagent.runtime.run_store import get_run_store
 
-    runs = get_execution_run_registry().list_for_session(str(session_id))
+    runs = get_run_store().list_for_session(str(session_id))
     return [
         SessionExecutionRead(
             run_id=r.run_id,
@@ -3140,6 +2405,7 @@ async def send_message(
         resolved_request_attachments = await _resolve_request_attachment_paths(
             session_id,
             request.attachments,
+            user_id=user_id,
         )
         k_paths = await _resolve_knowledge_message_paths(user_id, db, request.content)
         merged_request_attachments = _merge_agent_attachment_paths(
@@ -3170,6 +2436,7 @@ async def send_message(
         resolved_request_attachments = await _resolve_request_attachment_paths(
             session_id,
             request.attachments,
+            user_id=user_id,
         )
         k_paths = await _resolve_knowledge_message_paths(user_id, db, request.content)
         merged_request_attachments = _merge_agent_attachment_paths(
@@ -3259,196 +2526,6 @@ async def send_message_with_attachments(
         db,
         x_chat_project_token=project_unlock_token,
     )
-
-
-# ---------------------------------------------------------------------------
-# WebSocket Endpoint
-# ---------------------------------------------------------------------------
-
-
-class ConnectionManager(DistributedConnectionManager):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def attach_redis(self, redis: Any) -> None:
-        pass
-
-    @property
-    def active_connections(self) -> dict[UUID, list[Any]]:  # type: ignore[override]
-        return self._local
-
-
-manager = ConnectionManager()
-
-
-def _resolve_ws_token(websocket: WebSocket) -> str | None:
-    """Resolve the WS auth token.
-
-    Prefers header-based transports that don't leak into access/proxy logs:
-    ``Authorization: Bearer`` then ``Sec-WebSocket-Protocol`` (``bearer,<token>``),
-    falling back to the legacy ``?token=`` query parameter for compatibility.
-    """
-    auth = websocket.headers.get("authorization") or ""
-    if auth.lower().startswith("bearer "):
-        tok = auth[7:].strip()
-        if tok:
-            return tok
-    proto = websocket.headers.get("sec-websocket-protocol") or ""
-    if proto:
-        parts = [p.strip() for p in proto.split(",") if p.strip()]
-        if len(parts) >= 2 and parts[0].lower() in {"bearer", "authorization"}:
-            return parts[1]
-    return websocket.query_params.get("token")
-
-
-@router.websocket("/ws/{session_id}")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    session_id: UUID,
-    chat_svc: ChatSvc,
-    db: Annotated[DatabaseService, Depends(get_database_service)],
-):
-    """WebSocket endpoint for real-time chat."""
-    token_str = _resolve_ws_token(websocket)
-    if not token_str:
-        await websocket.close(code=4001, reason="Authentication required")
-        return
-
-    from leagent.services.auth import get_auth_service
-
-    auth_service = get_auth_service()
-    user_id = auth_service.verify_access_token(token_str)
-    if not user_id:
-        await websocket.close(code=4001, reason="Invalid token")
-        return
-
-    session = await chat_svc.get_session(session_id, user_id=user_id)
-    if not session:
-        await websocket.close(code=4003, reason="Session not found or access denied")
-        return
-    project_token = (
-        websocket.headers.get("x-chat-project-token")
-        or websocket.query_params.get("project_token")
-    )
-    try:
-        await _require_session_project_access(
-            db,
-            session=session,
-            user_id=user_id,
-            unlock_token=project_token,
-        )
-    except HTTPException as exc:
-        await websocket.close(code=4003, reason=str(exc.detail))
-        return
-
-    await manager.connect(websocket, session_id)
-
-    try:
-        while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type", "message")
-
-            if msg_type == "ping":
-                await manager.send_personal_message({"type": "pong"}, websocket)
-                continue
-
-            if msg_type == "message":
-                content = data.get("content", "")
-                model = data.get("model", "default")
-
-                if not content:
-                    await manager.send_personal_message(
-                        {"type": "error", "error": "Empty message content"}, websocket,
-                    )
-                    continue
-
-                user_message = await chat_svc.add_message(
-                    session_id, MessageRole.USER, content, user_id=user_id,
-                )
-
-                await manager.send_personal_message(
-                    {"type": "message_received", "message_id": str(user_message.id)},
-                    websocket,
-                )
-
-                response_content = ""
-                agent = build_agent_controller()
-
-                if agent is not None:
-                    from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
-                    await apply_pet_personality_to_agent(agent, db, user_id)
-                    k_paths = await _resolve_knowledge_message_paths(user_id, db, content)
-                    ws_attachments = _merge_agent_attachment_paths(None, k_paths)
-                    ws_auth_roots = await _authorized_root_paths_for_session(
-                        chat_svc, session_id, user_id,
-                    )
-                    ws_agent_task_id = uuid4()
-                    await manager.send_personal_message(
-                        {
-                            "type": "agent_task",
-                            "task_id": str(ws_agent_task_id),
-                            "session_id": str(session_id),
-                        },
-                        websocket,
-                    )
-                    async for etype, edata, acc_text in _run_agent_stream(
-                        agent,
-                        content,
-                        session_id,
-                        user_id,
-                        attachments=ws_attachments,
-                        authorized_roots=ws_auth_roots,
-                        persisted_user_message_id=user_message.id,
-                        agent_task_id=ws_agent_task_id,
-                    ):
-                        response_content = acc_text
-                        if etype == "token":
-                            await manager.send_personal_message(
-                                {"type": "stream", "content": edata.get("token", "")}, websocket,
-                            )
-                        elif etype in (
-                            "thinking",
-                            "tool_call",
-                            "tool_call_delta",
-                            "tool_result",
-                            "nested_agent_preview",
-                        ):
-                            await manager.send_personal_message(
-                                {"type": etype, **edata}, websocket,
-                            )
-                        elif etype == "error":
-                            await manager.send_personal_message(
-                                {"type": "error", "error": edata.get("error", "")}, websocket,
-                            )
-                else:
-                    await manager.send_personal_message(
-                        {"type": "error", "error": "No LLM provider configured"},
-                        websocket,
-                    )
-
-                if response_content:
-                    assistant_message = await chat_svc.add_message(
-                        session_id,
-                        MessageRole.ASSISTANT,
-                        response_content,
-                        user_id=user_id,
-                        model=model,
-                        output_tokens=len(response_content.split()),
-                    )
-                    await manager.send_personal_message(
-                        {
-                            "type": "complete",
-                            "message_id": str(assistant_message.id),
-                            "content": response_content,
-                        },
-                        websocket,
-                    )
-
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, session_id)
-    except Exception as e:
-        logger.exception("WebSocket error for session %s: %s", session_id, e)
-        manager.disconnect(websocket, session_id)
 
 
 # ---------------------------------------------------------------------------

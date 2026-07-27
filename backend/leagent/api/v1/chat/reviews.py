@@ -16,16 +16,23 @@ Endpoints:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import update as sa_update
 from sqlmodel import select
 
 from leagent.api.v1.chat_deps import ChatSvc
 from leagent.db.models.change_review import ChangeReview
+from leagent.db.sqlite_compat import (
+    load_entity_by_id,
+    same_user_id,
+    session_dialect_name,
+    uuid_column_equals,
+)
 from leagent.project.worktree import (
     WorktreeError,
     WorktreeInfo,
@@ -40,7 +47,7 @@ router = APIRouter()
 
 
 def _naive_utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _get_db():
@@ -87,6 +94,12 @@ def _info_from_review(row: ChangeReview) -> WorktreeInfo:
         branch=row.branch or "",
         base_branch=row.base_branch or "",
     )
+
+
+def _ensure_review_owner(row: ChangeReview, user_id: UUID) -> None:
+    """Fail closed unless the review row is owned by the current user."""
+    if not row.user_id or not same_user_id(row.user_id, user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
 
 
 # ---------------------------------------------------------------------------
@@ -232,23 +245,82 @@ async def list_change_reviews(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     db = _get_db()
     async with db.session() as s:
+        owner_filter = (
+            uuid_column_equals(s, ChangeReview.user_id, user_id)
+            if session_dialect_name(s) == "sqlite"
+            else ChangeReview.user_id == str(user_id)
+        )
         rows = (
             await s.execute(
                 select(ChangeReview)
-                .where(ChangeReview.session_id == str(session_id))
+                .where(
+                    ChangeReview.session_id == str(session_id),
+                    owner_filter,
+                )
                 .order_by(ChangeReview.created_at.desc())  # type: ignore[attr-defined]
             )
         ).scalars().all()
     return {"session_id": str(session_id), "reviews": [_review_to_dict(r) for r in rows]}
 
 
-async def _load_review(review_id: UUID) -> ChangeReview:
+async def _load_review(review_id: UUID, *, user_id: UUID) -> ChangeReview:
     db = _get_db()
     async with db.session() as s:
-        row = await s.get(ChangeReview, review_id)
+        row = await load_entity_by_id(
+            s,
+            ChangeReview,
+            review_id,
+            parent_table="change_reviews",
+        )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+    _ensure_review_owner(row, user_id)
     return row
+
+
+async def _update_review_decision(
+    review_id: UUID,
+    *,
+    user_id: UUID,
+    values: dict[str, Any],
+) -> ChangeReview:
+    """Owner-checked decision update with SQLite dashed UUID compatibility."""
+    db = _get_db()
+    async with db.session() as s:
+        fresh = await load_entity_by_id(
+            s,
+            ChangeReview,
+            review_id,
+            parent_table="change_reviews",
+        )
+        if fresh is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
+        _ensure_review_owner(fresh, user_id)
+        if session_dialect_name(s) == "sqlite":
+            await s.execute(
+                sa_update(ChangeReview)
+                .where(uuid_column_equals(s, ChangeReview.id, review_id))
+                .values(**values)
+            )
+            s.expunge(fresh)
+            updated = await load_entity_by_id(
+                s,
+                ChangeReview,
+                review_id,
+                parent_table="change_reviews",
+            )
+            if updated is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Review not found",
+                )
+            return updated
+        for key, value in values.items():
+            setattr(fresh, key, value)
+        s.add(fresh)
+        await s.commit()
+        await s.refresh(fresh)
+        return fresh
 
 
 @router.get("/change-reviews/{review_id}/diff")
@@ -257,7 +329,7 @@ async def get_change_review_diff(
     user_id: CurrentUserId,
 ) -> dict[str, Any]:
     """Live unified diff of the review's worktree vs its base branch."""
-    row = await _load_review(review_id)
+    row = await _load_review(review_id, user_id=user_id)
     info = _info_from_review(row)
     manager = get_worktree_manager()
     try:
@@ -286,7 +358,7 @@ async def approve_change_review(
     user_id: CurrentUserId,
 ) -> dict[str, Any]:
     """Approve: commit pending worktree changes and merge into the base branch."""
-    row = await _load_review(review_id)
+    row = await _load_review(review_id, user_id=user_id)
     if row.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -302,19 +374,17 @@ async def approve_change_review(
         new_status = "failed"
         reject_reason = str(exc)[:1000]
 
-    db = _get_db()
-    async with db.session() as s:
-        fresh = await s.get(ChangeReview, review_id)
-        if fresh is not None:
-            fresh.status = new_status
-            fresh.decided_at = _naive_utc_now()
-            fresh.decided_by = str(user_id) if user_id else "user"
-            fresh.reject_reason = reject_reason
-            fresh.updated_at = _naive_utc_now()
-            s.add(fresh)
-            await s.commit()
-            await s.refresh(fresh)
-            row = fresh
+    row = await _update_review_decision(
+        review_id,
+        user_id=user_id,
+        values={
+            "status": new_status,
+            "decided_at": _naive_utc_now(),
+            "decided_by": str(user_id) if user_id else "user",
+            "reject_reason": reject_reason,
+            "updated_at": _naive_utc_now(),
+        },
+    )
 
     if new_status == "merged":
         # Retire the worktree after a successful merge.
@@ -338,7 +408,7 @@ async def reject_change_review(
     body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reject: mark the review rejected. The worktree is kept for iteration."""
-    row = await _load_review(review_id)
+    row = await _load_review(review_id, user_id=user_id)
     if row.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -346,18 +416,16 @@ async def reject_change_review(
         )
     reason = str((body or {}).get("reason") or "").strip() or None
 
-    db = _get_db()
-    async with db.session() as s:
-        fresh = await s.get(ChangeReview, review_id)
-        if fresh is not None:
-            fresh.status = "rejected"
-            fresh.decided_at = _naive_utc_now()
-            fresh.decided_by = str(user_id) if user_id else "user"
-            fresh.reject_reason = reason[:1000] if reason else None
-            fresh.updated_at = _naive_utc_now()
-            s.add(fresh)
-            await s.commit()
-            await s.refresh(fresh)
-            row = fresh
+    row = await _update_review_decision(
+        review_id,
+        user_id=user_id,
+        values={
+            "status": "rejected",
+            "decided_at": _naive_utc_now(),
+            "decided_by": str(user_id) if user_id else "user",
+            "reject_reason": reason[:1000] if reason else None,
+            "updated_at": _naive_utc_now(),
+        },
+    )
     logger.info("change_review_rejected", review_id=str(review_id))
     return _review_to_dict(row)

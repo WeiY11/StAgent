@@ -64,9 +64,9 @@ class ChannelCreateRequest(BaseModel):
 class ChannelUpdateRequest(BaseModel):
     """Request schema for updating a channel."""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    enabled: Optional[bool] = None
-    config: Optional[dict[str, Any]] = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    enabled: bool | None = None
+    config: dict[str, Any] | None = None
 
 
 class ChannelListResponse(BaseModel):
@@ -83,13 +83,13 @@ class ChannelTestResponse(BaseModel):
     channel_type: ChannelType
     success: bool
     latency_ms: int
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class WeixinLoginStartRequest(BaseModel):
     """Optional overrides when requesting a Weixin QR code."""
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
 
 
 class WeixinLoginStartResponse(BaseModel):
@@ -160,7 +160,7 @@ async def weixin_login_status(
     user_id: CurrentUserId,
     sm: ServiceManagerDep,
     qrcode: str = Query(..., min_length=1),
-    base_url: Optional[str] = Query(default=None),
+    base_url: str | None = Query(default=None),
 ) -> WeixinLoginStatusResponse:
     """Poll QR scan status; on confirm, hot-start the Weixin agent channel."""
     from leagent.channels.weixin.client import ILINK_BASE_URL
@@ -250,8 +250,8 @@ async def weixin_stop(
 @router.get("", response_model=ChannelListResponse)
 async def list_channels(
     user_id: CurrentUserId,
-    channel_type: Optional[ChannelType] = Query(default=None),
-    status: Optional[ChannelStatus] = Query(default=None),
+    channel_type: ChannelType | None = Query(default=None),
+    status: ChannelStatus | None = Query(default=None),
 ) -> ChannelListResponse:
     """List all configured channels."""
     channels = []

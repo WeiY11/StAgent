@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated, Any, Mapping, Optional
+from collections.abc import Mapping
+from datetime import UTC, datetime, timezone
+from typing import Annotated, Any, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -13,14 +14,15 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from leagent.api.v1.files import (
-    FileUploadResponse,
     MAX_FILE_SIZE,
+    FileUploadResponse,
     persist_pet_space_file,
 )
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import (
     File as FileModel,
+)
+from leagent.db.models import (
     PetProject,
     PetProjectFile,
 )
@@ -32,6 +34,9 @@ from leagent.db.sqlite_compat import (
     session_dialect_name,
     sqlite_parent_id_text,
 )
+from leagent.services.auth import CurrentUserId
+
+
 async def ensure_personal_workspace(session, user):
     from types import SimpleNamespace
     return SimpleNamespace(id=user.id if hasattr(user, 'id') else None)
@@ -45,22 +50,22 @@ router = APIRouter()
 
 class PetProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=5000)
+    description: str | None = Field(default=None, max_length=5000)
 
 
 class PetProjectUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=5000)
-    settings: Optional[str] = Field(default=None, max_length=20000)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    settings: str | None = Field(default=None, max_length=20000)
 
 
 class PetProjectRead(BaseModel):
     id: UUID
     user_id: UUID
-    workspace_id: Optional[UUID]
+    workspace_id: UUID | None
     name: str
-    description: Optional[str]
-    settings: Optional[str] = None
+    description: str | None
+    settings: str | None = None
     created_at: object
     updated_at: object
 
@@ -70,7 +75,7 @@ class PetProjectFileRead(BaseModel):
     pet_project_id: UUID
     file_id: UUID
     original_name: str
-    mime_type: Optional[str]
+    mime_type: str | None
     size: int
     created_at: object
 
@@ -392,7 +397,7 @@ async def delete_project(
     async with db.session() as session:
         if session_dialect_name(session) == "sqlite":
             p_txt = await sqlite_parent_id_text(session, "pet_projects", project_id)
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            now = datetime.now(UTC).replace(tzinfo=None)
             await session.execute(
                 text(
                     "UPDATE pet_projects SET is_deleted = 1, deleted_at = :d, updated_at = :d "
@@ -407,7 +412,7 @@ async def delete_project(
         if proj is None:
             return
         proj.is_deleted = True
-        proj.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        proj.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         session.add(proj)
 
 
