@@ -16,8 +16,9 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -206,7 +207,7 @@ def _is_inside(resolved: Path, roots: tuple[Path, ...]) -> bool:
     return is_path_inside(resolved, roots)
 
 
-def get_project_roots(context: "ToolContext | None") -> tuple[Path, ...]:
+def get_project_roots(context: ToolContext | None) -> tuple[Path, ...]:
     """Return the per-request project roots from ``context.extra``."""
     return _collect_context_dir_roots(
         context,
@@ -333,7 +334,7 @@ def _pick_stored_file_by_leading_uuid(
 
 
 def _collect_attachment_lookup(
-    context: "ToolContext | None",
+    context: ToolContext | None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     if context is None:
         return {}, {}
@@ -351,7 +352,7 @@ def _collect_attachment_lookup(
 
 
 def _collect_attachment_roots(
-    context: "ToolContext | None",
+    context: ToolContext | None,
     *,
     tool_name: str,
     request_id: str,
@@ -376,7 +377,7 @@ def _collect_attachment_roots(
 
 
 def _collect_context_dir_roots(
-    context: "ToolContext | None",
+    context: ToolContext | None,
     key: str,
     *,
     tool_name: str,
@@ -409,7 +410,7 @@ def _collect_context_dir_roots(
 
 
 def _session_roots(
-    context: "ToolContext | None",
+    context: ToolContext | None,
     global_roots: tuple[Path, ...],
 ) -> tuple[Path, ...]:
     """Derive likely per-session upload roots."""
@@ -527,7 +528,7 @@ def _system_temp_roots() -> tuple[Path, ...]:
     return _dedupe_paths(roots)
 
 
-def _ensure_session_output_root(context: "ToolContext | None") -> Path | None:
+def _ensure_session_output_root(context: ToolContext | None) -> Path | None:
     """Create and return the current session's managed upload/output directory."""
     session_id = getattr(context, "session_id", None) if context is not None else None
     if not session_id:
@@ -545,7 +546,7 @@ def _reroute_temp_output_path(
     raw: str,
     resolved: Path,
     *,
-    context: "ToolContext | None",
+    context: ToolContext | None,
     allowed_roots: tuple[Path, ...],
     allowed_files: tuple[Path, ...],
     tool_name: str,
@@ -590,7 +591,7 @@ class PathSandbox:
     def resolve_safe(
         raw: str,
         *,
-        context: "ToolContext | None" = None,
+        context: ToolContext | None = None,
         allow_create: bool = False,
         tool_name: str = "",
         request_id: str = "",
@@ -861,7 +862,7 @@ class PathSandbox:
     def is_safe(
         raw: str,
         *,
-        context: "ToolContext | None" = None,
+        context: ToolContext | None = None,
         allow_create: bool = False,
     ) -> bool:
         """Non-raising path check."""

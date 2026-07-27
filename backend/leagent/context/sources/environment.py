@@ -6,7 +6,7 @@ import asyncio
 import os
 import platform
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import structlog
 
@@ -112,7 +112,7 @@ class EnvironmentSource:
     async def resolve(self, ctx: ResolveContext) -> ContextBlock | None:
         try:
             cwd = ctx.cwd or "."
-            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            date_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
             env_val = os.environ.get("ENVIRONMENT", "")
             os_name = platform.system()
             shell = os.environ.get("SHELL", "")

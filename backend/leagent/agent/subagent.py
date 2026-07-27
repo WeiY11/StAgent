@@ -26,16 +26,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, Iterable, TypedDict
+from collections.abc import Awaitable, Callable, Iterable
+from typing import TYPE_CHECKING, Any, TypedDict
 from uuid import UUID, uuid4
 
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.utils.logging import get_logger
-
 from leagent.tools.context import resolve_subagent_run_identity
-
-
+from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from leagent.agent.controller import AgentController
@@ -74,9 +71,9 @@ class SubagentResult(TypedDict, total=False):
 
 
 def make_child_executor(
-    parent_executor: "ToolExecutor",
-    child_registry: "ToolRegistry",
-) -> "ToolExecutor":
+    parent_executor: ToolExecutor,
+    child_registry: ToolRegistry,
+) -> ToolExecutor:
     """Build a :class:`~leagent.tools.executor.ToolExecutor` scoped to ``child_registry``.
 
     Copies permission and service wiring from ``parent_executor`` so
@@ -96,12 +93,12 @@ def make_child_executor(
 
 
 def fork_scoped_engine(
-    parent_engine: "QueryEngine",
+    parent_engine: QueryEngine,
     *,
-    child_registry: "ToolRegistry",
+    child_registry: ToolRegistry,
     prompt_variant: str,
     system_prompt: str | None = None,
-) -> "QueryEngine":
+) -> QueryEngine:
     """Fork with an executor bound to ``child_registry`` (authoritative tool lookup).
 
     After forking, syncs the child's ``ContextManager.variant`` with
@@ -186,11 +183,11 @@ def _public_activity_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _filter_registry(
-    source: "ToolRegistry",
+    source: ToolRegistry,
     *,
     allowed_tools: Iterable[str] | None,
     denied_tools: Iterable[str] | None,
-) -> "ToolRegistry":
+) -> ToolRegistry:
     """Build a child registry honouring allow/deny lists.
 
     Thin wrapper over the canonical :meth:`ToolRegistry.scoped` primitive:
@@ -345,7 +342,7 @@ def assess_verification_gap(
 
 
 async def _run_engine(
-    engine: "QueryEngine",
+    engine: QueryEngine,
     prompt: str,
 ) -> dict[str, Any]:
     """Drive the agent kernel ``run_loop`` to completion, collecting metrics.
@@ -520,8 +517,8 @@ async def _run_engine(
 
 async def _run_subagent_core(
     *,
-    parent_controller: "AgentController | None",
-    parent_engine: "QueryEngine | None",
+    parent_controller: AgentController | None,
+    parent_engine: QueryEngine | None,
     prompt: str,
     prompt_variant: str,
     allowed_tools: Iterable[str] | None,
@@ -767,7 +764,7 @@ async def _run_subagent_core(
 
 
 async def fork_subagent(
-    parent: "AgentController | QueryEngine",
+    parent: AgentController | QueryEngine,
     prompt: str,
     *,
     allowed_tools: Iterable[str] | None = None,
@@ -853,10 +850,10 @@ class AgentTool(BaseTool):
 
     def __init__(
         self,
-        parent_controller: "AgentController | None" = None,
+        parent_controller: AgentController | None = None,
         *,
-        parent_engine: "QueryEngine | None" = None,
-        parent_provider: Callable[[], "AgentController | None"] | None = None,
+        parent_engine: QueryEngine | None = None,
+        parent_provider: Callable[[], AgentController | None] | None = None,
     ) -> None:
         if parent_controller is None and parent_engine is None and parent_provider is None:
             raise ValueError(
@@ -915,7 +912,7 @@ class AgentTool(BaseTool):
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("'prompt' must be a non-empty string")
 
-        parent: "AgentController | QueryEngine"
+        parent: AgentController | QueryEngine
         if self._parent_engine is not None:
             parent = self._parent_engine
         elif self._parent_controller is not None:

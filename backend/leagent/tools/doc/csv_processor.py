@@ -38,7 +38,7 @@ def _sniff_delimiter(sample_text: str) -> str:
 def _delimiter_for_path(path: Path, encoding: str, delimiter: str | None) -> str:
     if delimiter is not None:
         return delimiter
-    with open(path, "r", encoding=encoding, newline="") as f:
+    with open(path, encoding=encoding, newline="") as f:
         sample = f.read(_SNIFF_BYTES)
     return _sniff_delimiter(sample)
 
@@ -240,7 +240,7 @@ class CSVProcessorTool(SyncTool):
         rows: list[dict[str, Any]] = []
         total_data_rows = 0
 
-        with open(path, "r", encoding=encoding, newline="") as f:
+        with open(path, encoding=encoding, newline="") as f:
             reader = csv.reader(f, delimiter=delimiter)
             if has_header:
                 first = next(reader, None)
@@ -304,7 +304,7 @@ class CSVProcessorTool(SyncTool):
 
         matched: list[dict[str, Any]] = []
 
-        with open(path, "r", encoding=encoding, newline="") as f:
+        with open(path, encoding=encoding, newline="") as f:
             reader = csv.reader(f, delimiter=delimiter)
             if has_header:
                 header_row = next(reader, None)
@@ -344,8 +344,7 @@ class CSVProcessorTool(SyncTool):
             reverse = sort_order == "desc"
             matched.sort(key=sort_key, reverse=reverse)
             matched = matched[:max_out]
-        else:
-            matched = matched[:max_out]
+        matched = matched[:max_out]
 
         return {
             "rows": matched,
@@ -433,7 +432,7 @@ class CSVProcessorTool(SyncTool):
                 if _try_date(s):
                     date_hits[col] = date_hits.get(col, 0) + 1
 
-        with open(path, "r", encoding=encoding, newline="") as f:
+        with open(path, encoding=encoding, newline="") as f:
             reader = csv.reader(f, delimiter=delimiter)
             if has_header:
                 hr = next(reader, None)
@@ -516,7 +515,7 @@ class CSVProcessorTool(SyncTool):
 
         row_count = 0
         with (
-            open(path, "r", encoding=encoding, newline="") as inf,
+            open(path, encoding=encoding, newline="") as inf,
             open(out_path, "w", encoding="utf-8", newline="\n") as outf,
         ):
             reader = csv.reader(inf, delimiter=delimiter)

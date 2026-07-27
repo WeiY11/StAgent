@@ -10,7 +10,6 @@ from __future__ import annotations
 import html
 from typing import Any
 
-
 _DESIGN_SURFACE_PRESETS = frozenset(
     {"poster", "slide", "card", "editorial", "minimal", "brutalist", "geek"}
 )

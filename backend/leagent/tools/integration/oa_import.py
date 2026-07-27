@@ -314,31 +314,31 @@ class OAImportTool(BaseTool):
         try:
             if transform_type == "string":
                 return str(value)
-            elif transform_type == "integer":
+            if transform_type == "integer":
                 return int(float(value))
-            elif transform_type == "float":
+            if transform_type == "float":
                 return float(value)
-            elif transform_type == "boolean":
+            if transform_type == "boolean":
                 if isinstance(value, bool):
                     return value
                 return str(value).lower() in ("true", "1", "yes", "是")
-            elif transform_type == "date":
+            if transform_type == "date":
                 fmt = transform.get("format", "%Y-%m-%d")
                 if isinstance(value, str):
                     return datetime.strptime(value, fmt).date().isoformat()
                 return value
-            elif transform_type == "datetime":
+            if transform_type == "datetime":
                 fmt = transform.get("format", "%Y-%m-%d %H:%M:%S")
                 if isinstance(value, str):
                     return datetime.strptime(value, fmt).isoformat()
                 return value
-            elif transform_type == "json":
+            if transform_type == "json":
                 import json
 
                 if isinstance(value, str):
                     return json.loads(value)
                 return value
-            elif transform_type == "list":
+            if transform_type == "list":
                 if isinstance(value, list):
                     return value
                 delimiter = transform.get("delimiter", ",")

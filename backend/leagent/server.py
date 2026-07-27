@@ -2,9 +2,28 @@
 
 from __future__ import annotations
 
-import multiprocessing
 import os
 from argparse import ArgumentParser
+
+from leagent.runtime.deployment_topology import (
+    DeploymentTopologyError,
+    validate_deployment_topology,
+)
+
+
+def _validate_topology(workers: int) -> None:
+    """Fail-fast on an unsafe database/worker combination before binding."""
+    import logging
+
+    from leagent.config.settings import get_settings
+
+    topology = validate_deployment_topology(
+        database_backend=get_settings().database.backend,
+        workers=workers,
+    )
+    logger = logging.getLogger(__name__)
+    for warning in topology.warnings:
+        logger.warning("deployment_topology_warning: %s", warning)
 
 
 def run_uvicorn(
@@ -16,6 +35,8 @@ def run_uvicorn(
 ) -> None:
     """Launch the application with Uvicorn."""
     import uvicorn
+
+    _validate_topology(workers)
 
     uvicorn.run(
         "leagent.main:app",
@@ -42,6 +63,7 @@ def run_gunicorn(
     from gunicorn.app.base import BaseApplication
 
     effective_workers = workers or _default_worker_count()
+    _validate_topology(effective_workers)
 
     class LeAgentApplication(BaseApplication):  # type: ignore[misc]
         def __init__(self, options: dict | None = None) -> None:
@@ -77,11 +99,16 @@ def run_gunicorn(
 
 
 def _default_worker_count() -> int:
-    cpu_count = multiprocessing.cpu_count()
+    """Default worker count.
+
+    Returns the validated ``LEAGENT_WORKERS`` override, or ``1``. CPU-count
+    auto-scaling is intentionally removed: multi-worker mode must be opted into
+    explicitly (and is rejected for SQLite by :func:`validate_deployment_topology`).
+    """
     env_override = os.getenv("LEAGENT_WORKERS")
     if env_override:
         return int(env_override)
-    return min(cpu_count * 2 + 1, 8)
+    return 1
 
 
 def main() -> None:
@@ -93,6 +120,11 @@ def main() -> None:
     parser.add_argument("--reload", action="store_true")
     parser.add_argument("--log-level", default="info")
     args = parser.parse_args()
+
+    try:
+        _validate_topology(args.workers)
+    except DeploymentTopologyError as exc:
+        parser.error(str(exc))
 
     run_uvicorn(
         host=args.host,

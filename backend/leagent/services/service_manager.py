@@ -10,21 +10,23 @@ from leagent.services.base import ServiceState
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
     from leagent.cron.manager import CronManager
+    from leagent.cron.repository import JobRepository
+    from leagent.db.service import DatabaseService
     from leagent.file.service import FileService
     from leagent.llm.service import LLMService
     from leagent.mcp.manager import MCPClientManager
     from leagent.memory.agent_memory import AgentMemory
-    from leagent.services.canvas.service import CanvasService
-    from leagent.services.cache.service import CacheService
-    from leagent.services.chat.service import ChatService
+    from leagent.memory.embeddings import EmbeddingProvider
     from leagent.project.manager import CodingProjectManager
-    from leagent.db.service import DatabaseService
+    from leagent.runtime.context import RuntimeContext
+    from leagent.services.cache.service import CacheService
+    from leagent.services.canvas.service import CanvasService
+    from leagent.services.chat.service import ChatService
     from leagent.services.event.manager import EventManager
     from leagent.services.event.webhook import WebhookEventManager
     from leagent.services.file_processing.service import FileProcessingService
     from leagent.services.session.manager import SessionManager
     from leagent.services.task_manager import TaskManager
-    from leagent.runtime.context import RuntimeContext
     from leagent.services.variable.service import VariableService
     from leagent.workflow.services import WorkflowService
 
@@ -43,8 +45,8 @@ class ServiceManager:
         self._db: DatabaseService | None = None
         self._cache: CacheService | None = None
         self._chat: ChatService | None = None
-        self._canvas: "CanvasService | None" = None
-        self._coding_projects: "CodingProjectManager | None" = None
+        self._canvas: CanvasService | None = None
+        self._coding_projects: CodingProjectManager | None = None
         self._variable: VariableService | None = None
         self._event: EventManager | None = None
         self._webhook: WebhookEventManager | None = None
@@ -55,7 +57,7 @@ class ServiceManager:
         self._cron: CronManager | None = None
         self._workflow_service: WorkflowService | None = None
         self._workflow_event_bus: Any = None
-        self._file_service: "FileService | None" = None
+        self._file_service: FileService | None = None
         self._file_processing: FileProcessingService | None = None
         self._rule_engine: Any = None
         self._task_manager: TaskManager | None = None
@@ -67,7 +69,7 @@ class ServiceManager:
         self._started = False
 
     @property
-    def db(self) -> "DatabaseService | None":
+    def db(self) -> DatabaseService | None:
         return self._db
 
     @property
@@ -79,19 +81,19 @@ class ServiceManager:
         return self._cache
 
     @property
-    def chat(self) -> "ChatService | None":
+    def chat(self) -> ChatService | None:
         return self._chat
 
     @property
-    def canvas(self) -> "CanvasService | None":
+    def canvas(self) -> CanvasService | None:
         return self._canvas
 
     @property
-    def variable(self) -> "VariableService | None":
+    def variable(self) -> VariableService | None:
         return self._variable
 
     @property
-    def coding_projects(self) -> "CodingProjectManager | None":
+    def coding_projects(self) -> CodingProjectManager | None:
         return self._coding_projects
 
     @property
@@ -103,11 +105,11 @@ class ServiceManager:
         return None
 
     @property
-    def event(self) -> "EventManager | None":
+    def event(self) -> EventManager | None:
         return self._event
 
     @property
-    def webhook(self) -> "WebhookEventManager | None":
+    def webhook(self) -> WebhookEventManager | None:
         return self._webhook
 
     @property
@@ -135,7 +137,7 @@ class ServiceManager:
         return self._llm
 
     @property
-    def llm_service(self) -> "LLMService | None":
+    def llm_service(self) -> LLMService | None:
         return self._llm_service
 
     async def reload_llm_service(self) -> None:
@@ -166,19 +168,19 @@ class ServiceManager:
             logger.warning("LLMService reload failed", exc_info=True)
 
     @property
-    def mcp_manager(self) -> "MCPClientManager | None":
+    def mcp_manager(self) -> MCPClientManager | None:
         return self._mcp_manager
 
     @property
-    def cron(self) -> "CronManager | None":
+    def cron(self) -> CronManager | None:
         return self._cron
 
     @property
-    def workflow_service(self) -> "WorkflowService | None":
+    def workflow_service(self) -> WorkflowService | None:
         return self._workflow_service
 
     @property
-    def runtime_context(self) -> "RuntimeContext":
+    def runtime_context(self) -> RuntimeContext:
         """Process-wide :class:`RuntimeContext` (lazy singleton).
 
         Central wiring point for agent execution: tool executor, hooks,
@@ -192,11 +194,11 @@ class ServiceManager:
         return self._runtime_context
 
     @property
-    def file_service(self) -> "FileService | None":
+    def file_service(self) -> FileService | None:
         return self._file_service
 
     @property
-    def file_processing(self) -> "FileProcessingService | None":
+    def file_processing(self) -> FileProcessingService | None:
         return self._file_processing
 
     @property
@@ -204,7 +206,7 @@ class ServiceManager:
         return self._rule_engine
 
     @property
-    def task_manager(self) -> "TaskManager | None":
+    def task_manager(self) -> TaskManager | None:
         return self._task_manager
 
     @property
@@ -212,11 +214,11 @@ class ServiceManager:
         return None
 
     @property
-    def session_manager(self) -> "SessionManager | None":
+    def session_manager(self) -> SessionManager | None:
         return self._session_manager
 
     @property
-    def agent_memory(self) -> "AgentMemory | None":
+    def agent_memory(self) -> AgentMemory | None:
         return self._agent_memory
 
     @property
@@ -233,6 +235,18 @@ class ServiceManager:
             return
 
         logger.info("Starting services...")
+
+        # Defense in depth: a launcher should already have validated the
+        # database/worker combination, but re-check here so the process refuses
+        # to bring up services under an unsafe topology (e.g. SQLite + workers>1).
+        from leagent.runtime.deployment_topology import validate_deployment_topology
+
+        topology = validate_deployment_topology(
+            database_backend=self.settings.database.backend,
+            workers=self.settings.workers,
+        )
+        for warning in topology.warnings:
+            logger.warning("deployment_topology_warning: %s", warning)
 
         await self._start_database()
         await self._start_event()
@@ -271,6 +285,12 @@ class ServiceManager:
                 await self._cron.stop()
             except Exception:
                 logger.warning("Cron manager shutdown error", exc_info=True)
+
+        if self._mcp_manager is not None:
+            try:
+                await self._mcp_manager.shutdown()
+            except Exception:
+                logger.warning("MCP manager shutdown error", exc_info=True)
 
         if self._webhook:
             try:
@@ -359,7 +379,10 @@ class ServiceManager:
             from leagent.db.service import init_database_service
             self._db = init_database_service(self.settings)
             await self._db.create_tables()
-            logger.info("Database service initialized (SQLite)")
+            logger.info(
+                "Database service initialized (%s)",
+                self.settings.database.backend,
+            )
         except Exception:
             logger.exception("Database initialization failed")
             raise
@@ -438,6 +461,7 @@ class ServiceManager:
     async def _start_rules(self) -> None:
         try:
             from pathlib import Path
+
             from leagent.config.constants import RULES_DIR
             from leagent.rules.engine import RuleEngine
 
@@ -454,7 +478,7 @@ class ServiceManager:
         if not self._db:
             return
         try:
-            from leagent.workflow.engine import WorkflowExecutor
+            from leagent.workflow.engine import CacheServiceWorkflowProvider, WorkflowExecutor
             from leagent.workflow.nodes import bootstrap as bootstrap_nodes
             from leagent.workflow.registry import FlowWorkflowRegistry
             from leagent.workflow.server.event_bus import InMemoryEventBus
@@ -509,7 +533,11 @@ class ServiceManager:
                     "lru_size": wf_settings.cache_lru_size,
                     "ram_mb": wf_settings.cache_ram_mb,
                 },
-                cache_provider=None,
+                cache_provider=(
+                    CacheServiceWorkflowProvider(self._cache)
+                    if self._cache is not None
+                    else None
+                ),
                 state_store=state_store,
             )
 
@@ -520,9 +548,9 @@ class ServiceManager:
                     logger.warning("Workflow event bus publish failed", exc_info=True)
                 try:
                     if self._event is not None:
-                        from leagent.runtime.execution_registry import get_execution_run_registry
+                        from leagent.runtime.run_store import get_run_store
 
-                        exec_run = get_execution_run_registry().get_by_prompt_id(
+                        exec_run = get_run_store().get_by_prompt_id(
                             getattr(event, "prompt_id", "") or ""
                         )
                         run_id = exec_run.run_id if exec_run else None
@@ -555,10 +583,12 @@ class ServiceManager:
 
             if self._db:
                 from leagent.cron.repository import DatabaseJobRepository
-                repository = DatabaseJobRepository(self._db)
+
+                repository: JobRepository = DatabaseJobRepository(self._db)
                 await repository.initialize()
             else:
                 from leagent.cron import JsonJobRepository
+
                 repository = JsonJobRepository("/tmp/leagent/cron_jobs.json", auto_save_interval=30.0)
                 await repository.initialize()
 
@@ -638,6 +668,7 @@ class ServiceManager:
                 self.settings,
                 database=self._db,
                 file_service=self._file_service,
+                cache=self._cache,
             )
             logger.info("SessionManager initialised (SQLite-only)")
         except Exception:
@@ -658,6 +689,7 @@ class ServiceManager:
 
             embedding_dim = int(getattr(self.settings.llm, "embedding_dim", 1024) or 1024)
 
+            embeddings: EmbeddingProvider
             if self._llm_service is not None:
                 embeddings = LLMServiceEmbeddingProvider(
                     self._llm_service,
@@ -796,7 +828,7 @@ class ServiceManager:
             save_config(config)
 
         health = await weixin.health_check()
-        logger.info("Weixin channel running", account_id=account_id[:12])
+        logger.info("Weixin channel running account_id=%s", account_id[:12])
         return {
             "running": True,
             "account_id": account_id,
@@ -889,7 +921,7 @@ def get_service_manager() -> ServiceManager:
         return _service_manager
 
 
-def init_service_manager(settings: "Settings") -> ServiceManager:
+def init_service_manager(settings: Settings) -> ServiceManager:
     global _service_manager
     _service_manager = ServiceManager(settings)
     return _service_manager

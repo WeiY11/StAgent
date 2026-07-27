@@ -30,14 +30,14 @@ class FileProcessingTaskHandler:
     name = "file_processing_handler"
     task_type: TaskType = TaskType.IMPORT
 
-    def __init__(self, service_manager: "ServiceManager | None" = None) -> None:
+    def __init__(self, service_manager: ServiceManager | None = None) -> None:
         self._sm = service_manager
 
     async def spawn(
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         file_id = str(params.get("file_id") or "").strip()
         storage_path = params.get("storage_path")
@@ -87,5 +87,5 @@ class FileProcessingTaskHandler:
             f"file processing failed after {_MAX_ATTEMPTS} attempts: {last_err}"
         )
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         return None

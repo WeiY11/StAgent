@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import timedelta
-from typing import Any, Sequence
+from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel

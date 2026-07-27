@@ -19,8 +19,8 @@ from .loader import (
 )
 from .registry import NodeRegistry, get_registry, reset_registry
 from .replacement import (
-    NodeReplaceRegistry,
     NodeReplacement,
+    NodeReplaceRegistry,
     get_replace_registry,
     reset_replace_registry,
 )

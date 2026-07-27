@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from heapq import heappop, heappush
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -170,7 +171,7 @@ class JobQueueService(Service):
 
     def __init__(
         self,
-        settings: "Settings",
+        settings: Settings,
         cache_service: Any = None,
     ) -> None:
         super().__init__(settings)
@@ -195,7 +196,7 @@ class JobQueueService(Service):
             task.cancel()
             try:
                 await asyncio.wait_for(task, timeout=5.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+            except (TimeoutError, asyncio.CancelledError):
                 logger.warning("Worker %s did not shut down cleanly", name)
 
         self._workers.clear()
@@ -385,7 +386,7 @@ class JobQueueService(Service):
                 duration_ms=duration_ms,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             job.status = JobStatus.TIMEOUT
             job.completed_at = datetime.utcnow()
             job.error = f"Job timed out after {job.timeout_seconds}s"
@@ -563,7 +564,7 @@ def get_job_queue_service() -> JobQueueService:
 
 
 async def init_job_queue_service(
-    settings: "Settings",
+    settings: Settings,
     cache_service: Any = None,
 ) -> JobQueueService:
     global _job_queue_service

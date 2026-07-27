@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import mimetypes
 import os
 import signal
@@ -32,7 +33,6 @@ import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
-
 
 _STDOUT_LIMIT = 1 << 20  # 1 MB
 _RESULT_STR_LIMIT = 64 * 1024  # 64 KB textual result
@@ -191,13 +191,167 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
     return text[:limit], True
 
 
-def _sandbox_builtins(*, workspace_path: Path) -> dict[str, Any]:
+_VALID_IMPORT_TIERS = frozenset({"stdlib", "extended", "unrestricted"})
+_STDLIB_IMPORT_ROOTS = frozenset(getattr(sys, "stdlib_module_names", ())) | {
+    "__future__",
+    "builtins",
+}
+_EXTENDED_IMPORT_ROOTS = frozenset(
+    {
+        "bs4",
+        "cv2",
+        "docx",
+        "httpx",
+        "jinja2",
+        "lxml",
+        "matplotlib",
+        "numpy",
+        "openpyxl",
+        "pandas",
+        "PIL",
+        "plotly",
+        "pptx",
+        "requests",
+        "scipy",
+        "seaborn",
+        "sklearn",
+        "statsmodels",
+        "xlsxwriter",
+        "yaml",
+    }
+)
+
+
+def _normalise_import_root(raw: object) -> str | None:
+    root = str(raw or "").strip().split(".", 1)[0]
+    if not root or not root.isidentifier():
+        return None
+    return root
+
+
+def _allowed_import_roots(
+    import_tier: str,
+    extra_import_roots: list[str] | tuple[str, ...],
+) -> frozenset[str] | None:
+    tier = (import_tier or "unrestricted").strip().lower()
+    if tier not in _VALID_IMPORT_TIERS:
+        raise ValueError(
+            "import_tier must be one of: stdlib, extended, unrestricted"
+        )
+    if tier == "unrestricted":
+        return None
+
+    allowed = set(_STDLIB_IMPORT_ROOTS)
+    if tier == "extended":
+        allowed.update(_EXTENDED_IMPORT_ROOTS)
+    for raw in extra_import_roots:
+        root = _normalise_import_root(raw)
+        if root:
+            allowed.add(root)
+    return frozenset(allowed)
+
+
+def _guarded_import(allowed_roots: frozenset[str]):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _import(
+        name: str,
+        globals: dict[str, Any] | None = None,
+        locals: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        root = (name or "").split(".", 1)[0]
+        if level == 0 and root and root not in allowed_roots:
+            raise ImportError(
+                f"Import '{root}' is not allowed by the active import_tier"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    return _import
+
+
+def _sandbox_builtins(
+    *,
+    workspace_path: Path,
+    import_tier: str = "unrestricted",
+    extra_import_roots: list[str] | tuple[str, ...] = (),
+) -> dict[str, Any]:
     """Full builtins for user ``exec`` — no import restrictions."""
     import builtins
 
     out = dict(builtins.__dict__)
     out["__name__"] = "__sandbox__"
+    allowed_roots = _allowed_import_roots(import_tier, extra_import_roots)
+    if allowed_roots is not None:
+        out["__import__"] = _guarded_import(allowed_roots)
     return out
+
+
+def _positive_int(raw: object) -> int:
+    try:
+        value = int(raw or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, value)
+
+
+def _positive_seconds(raw: object) -> int:
+    try:
+        value = float(raw or 0)
+    except (TypeError, ValueError):
+        return 0
+    if value <= 0:
+        return 0
+    return max(1, int(math.ceil(value)))
+
+
+def _apply_resource_limits(payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply POSIX resource limits inside the child process, best effort."""
+    metadata: dict[str, Any] = {
+        "supported": False,
+        "applied": {},
+        "warnings": [],
+    }
+    try:
+        import resource
+    except Exception as exc:  # noqa: BLE001
+        metadata["warnings"].append(f"resource module unavailable: {exc}")
+        return metadata
+
+    metadata["supported"] = True
+    applied: dict[str, int] = {}
+    warnings: list[str] = []
+
+    def _set(label: str, resource_name: str, requested: int) -> None:
+        if requested <= 0 or not hasattr(resource, resource_name):
+            return
+        res_id = getattr(resource, resource_name)
+        try:
+            current_soft, current_hard = resource.getrlimit(res_id)
+            target = requested
+            if current_hard != resource.RLIM_INFINITY:
+                target = min(target, int(current_hard))
+            if current_soft != resource.RLIM_INFINITY:
+                target = min(target, int(current_soft))
+            if target <= 0:
+                return
+            resource.setrlimit(res_id, (target, current_hard))
+            applied[label] = int(target)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"{label}: {exc}")
+
+    _set("cpu_sec", "RLIMIT_CPU", _positive_seconds(payload.get("cpu_sec")))
+    _set("memory_bytes", "RLIMIT_AS", _positive_int(payload.get("memory_bytes")))
+    _set("file_bytes", "RLIMIT_FSIZE", _positive_int(payload.get("file_bytes")))
+    _set("open_files", "RLIMIT_NOFILE", _positive_int(payload.get("open_files")))
+    _set("max_processes", "RLIMIT_NPROC", _positive_int(payload.get("max_processes")))
+
+    metadata["applied"] = applied
+    metadata["warnings"] = warnings
+    return metadata
 
 
 def _configure_matplotlib_if_needed(source: str, base: Path) -> None:
@@ -319,6 +473,8 @@ def main() -> int:
     timeout_sec = float(payload.get("timeout_sec", 30.0))
     workspace = payload.get("workspace")
     extra_scan_roots_raw = payload.get("extra_scan_roots") or []
+    import_tier = str(payload.get("import_tier") or "unrestricted").strip().lower()
+    extra_import_roots = tuple(str(r) for r in (payload.get("extra_import_roots") or ()))
 
     if workspace:
         base = Path(workspace)
@@ -346,6 +502,8 @@ def main() -> int:
         seen_roots.add(candidate)
         extra_roots.append(candidate)
 
+    limit_metadata = _apply_resource_limits(payload)
+
     os.environ.setdefault("MPLBACKEND", "Agg")
     _configure_matplotlib_if_needed(source, base)
     before = _scan_files(base)
@@ -367,7 +525,11 @@ def main() -> int:
 
     globals_env: dict[str, Any] = {
         "__name__": "__sandbox__",
-        "__builtins__": _sandbox_builtins(workspace_path=base),
+        "__builtins__": _sandbox_builtins(
+            workspace_path=base,
+            import_tier=import_tier,
+            extra_import_roots=extra_import_roots,
+        ),
     }
     globals_env.update(globals_in)
 
@@ -408,6 +570,10 @@ def main() -> int:
             extra_before=extra_before,
         ),
         "duration_ms": duration_ms,
+        "metadata": {
+            "import_tier": import_tier,
+            "runner_limits": limit_metadata,
+        },
     }
     json.dump(envelope, sys.stdout)
     sys.stdout.write("\n")

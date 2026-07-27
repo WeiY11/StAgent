@@ -16,7 +16,8 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncIterator, Literal
+from collections.abc import AsyncIterator
+from typing import Any, Literal
 
 import httpx
 
@@ -26,7 +27,6 @@ from leagent.exceptions.llm import (
     LLMTimeoutError,
     ModelNotFoundError,
 )
-from leagent.llm.transport import HttpTransport, TransportConfig
 from leagent.llm.base import (
     ChatMessage,
     EmbeddingResponse,
@@ -38,11 +38,12 @@ from leagent.llm.base import (
     ToolDefinition,
 )
 from leagent.llm.providers.custom import (
-    _ContentToolCallBuffer,
     _content_tool_call_delta_from_text,
+    _ContentToolCallBuffer,
     _known_tool_names,
     _tool_call_from_content_delta,
 )
+from leagent.llm.transport import HttpTransport, TransportConfig
 
 _THINKING_CAPABLE_PREFIXES = (
     "qwen3",

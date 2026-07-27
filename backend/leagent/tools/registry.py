@@ -291,8 +291,8 @@ class ToolRegistry:
     def scoped(
         self,
         *,
-        allow: "Iterable[str] | None" = None,
-        deny: "Iterable[str] | None" = None,
+        allow: Iterable[str] | None = None,
+        deny: Iterable[str] | None = None,
         match: str = "glob",
         only_enabled: bool = False,
         replace: bool = False,
@@ -479,9 +479,9 @@ class ToolRegistry:
         hit = self._llm_tool_schema_cache.get(cache_key)
         if hit is not None:
             try:
-                from leagent.utils.metrics import get_metrics
+                from leagent.services.cache.observability import record_cache_event
 
-                get_metrics().record_cache_event(
+                record_cache_event(
                     "tool_schema",
                     hit=True,
                     entries=len(self._llm_tool_schema_cache),
@@ -490,9 +490,9 @@ class ToolRegistry:
                 logger.debug("tool_schema_cache_metrics_failed")
             return hit
         try:
-            from leagent.utils.metrics import get_metrics
+            from leagent.services.cache.observability import record_cache_event
 
-            get_metrics().record_cache_event(
+            record_cache_event(
                 "tool_schema",
                 hit=False,
                 entries=len(self._llm_tool_schema_cache),
@@ -517,7 +517,7 @@ class ToolRegistry:
 
     _PER_TOOL_SCHEMA_CACHE_MAX_GENERATIONS = 3
 
-    def _get_cached_tool_schema(self, tool: "BaseTool", provider_format: str) -> dict[str, Any]:
+    def _get_cached_tool_schema(self, tool: BaseTool, provider_format: str) -> dict[str, Any]:
         """Return a cached per-tool schema dict, rebuilding only on generation change."""
         gen = self._schema_generation
         key = (tool.name, provider_format, gen)
@@ -543,16 +543,16 @@ class ToolRegistry:
 
     def _select_relevant_tools(
         self,
-        tools: list["BaseTool"],
+        tools: list[BaseTool],
         context_hint: str,
         max_tools: int,
-    ) -> list["BaseTool"]:
+    ) -> list[BaseTool]:
         """Score tools by relevance to the query and return top-N + core tools."""
         hint_lower = context_hint.lower()
         keywords = set(hint_lower.split())
 
-        core: list["BaseTool"] = []
-        scored: list[tuple[float, str, "BaseTool"]] = []
+        core: list[BaseTool] = []
+        scored: list[tuple[float, str, BaseTool]] = []
 
         for tool in tools:
             if tool.name in self._CORE_TOOL_NAMES:

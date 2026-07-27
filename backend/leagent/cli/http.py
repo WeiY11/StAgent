@@ -232,7 +232,7 @@ class CLIHttpClient:
             self._client.close()
             self._client = None
 
-    def __enter__(self) -> "CLIHttpClient":
+    def __enter__(self) -> CLIHttpClient:
         return self
 
     def __exit__(self, *args: Any) -> None:

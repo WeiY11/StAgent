@@ -13,11 +13,11 @@ import json
 import os
 import time
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import jsonschema
 import structlog
@@ -208,11 +208,11 @@ class ToolContext:
     user_id: str | None
     session_id: str | None
     task_id: str | None = None
-    settings: "Settings | None" = None
-    db: "AsyncSession | None" = None
+    settings: Settings | None = None
+    db: AsyncSession | None = None
     cache: Any = None
     file_store: Any = None
-    llm: "LLMClient | None" = None
+    llm: LLMClient | None = None
     temp_dir: str | None = None
     abort_signal: asyncio.Event | None = None
     extra: dict[str, Any] = field(default_factory=dict)
@@ -511,7 +511,7 @@ class BaseTool(ABC):
                     )
                 return coerced
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_error = f"Tool execution timed out after {self.timeout_sec}s"
                 logger.warning("Tool execution timed out", tool=self.name, timeout_sec=self.timeout_sec, attempt=attempt)
 
@@ -584,7 +584,7 @@ class BaseTool(ABC):
             await exec_task
         except asyncio.CancelledError:
             pass
-        raise asyncio.TimeoutError()
+        raise TimeoutError()
 
     def _enforce_result_budget(self, result: Any) -> Any:
         """Truncate oversized results to stay within max_result_size_chars."""

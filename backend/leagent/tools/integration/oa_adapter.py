@@ -254,9 +254,9 @@ class OAAdapterTool(BaseTool):
         context: ToolContext,
     ) -> dict[str, Any]:
         """Handle RPA-mode operations via web_* tools."""
+        from leagent.tools.web.form_fill import WebFormFillTool
         from leagent.tools.web.login import WebLoginTool
         from leagent.tools.web.scraper import WebScraperTool
-        from leagent.tools.web.form_fill import WebFormFillTool
 
         base_url: str = params["base_url"].rstrip("/")
         login_cfg: dict[str, Any] = params.get("login") or {}

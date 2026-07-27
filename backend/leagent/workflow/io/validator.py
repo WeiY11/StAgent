@@ -20,7 +20,6 @@ from typing import Any
 
 from .loader import WorkflowDocument
 
-
 # Node classes that allow back-edges (e.g. retry/loop semantics).
 _LOOP_SAFE_TYPES = {"ErrorHandlerNode", "WaitNode", "IterativeRefineNode"}
 
@@ -248,7 +247,7 @@ def _detect_cycles(doc: WorkflowDocument) -> dict[str, list[dict[str, Any]]]:
         adj[nid] = succ
 
     WHITE, GRAY, BLACK = 0, 1, 2
-    color = {nid: WHITE for nid in adj}
+    color = dict.fromkeys(adj, WHITE)
 
     def dfs(nid: str, path: list[str]) -> None:
         color[nid] = GRAY

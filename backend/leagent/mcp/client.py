@@ -10,13 +10,12 @@ import asyncio
 import json
 import os
 import subprocess
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
-
-from leagent.utils.httpx_proxy import httpx_trust_env
 
 from leagent.mcp.base import (
     MCPCapabilities,
@@ -28,6 +27,7 @@ from leagent.mcp.base import (
     MCPTransport,
 )
 from leagent.mcp.constants import CLIENT_INFO, MCP_PROTOCOL_VERSION
+from leagent.utils.httpx_proxy import httpx_trust_env
 
 if TYPE_CHECKING:
     from asyncio.subprocess import Process
@@ -249,7 +249,7 @@ class MCPClient:
             try:
                 self._process.terminate()
                 await asyncio.wait_for(self._process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._process.kill()
             except Exception:
                 pass
@@ -286,8 +286,7 @@ class MCPClient:
 
         if self.config.transport == MCPTransport.STDIO:
             return await self._send_stdio_request(request)
-        else:
-            return await self._send_http_request(request)
+        return await self._send_http_request(request)
 
     async def _send_notification(self, method: str, params: dict[str, Any] | None = None) -> None:
         """Send a JSON-RPC notification (no response expected).
@@ -343,7 +342,7 @@ class MCPClient:
                     self._process.stdout.readline(),
                     timeout=self.config.timeout_sec,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 raise MCPProtocolError("Read timeout")
 
             if not line:

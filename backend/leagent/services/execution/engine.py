@@ -11,8 +11,8 @@ from __future__ import annotations
 import asyncio
 import json as _json
 import os
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -33,7 +33,6 @@ from leagent.services.execution.os_sandbox import (
 )
 from leagent.services.execution.policies import (
     AgentPolicy,
-    CronPolicy,
     ExecutionPolicy,
 )
 from leagent.services.python_env.resolve import backend_root
@@ -327,6 +326,7 @@ class ExecutionEngine:
         workspace: str | None = None,
         policy: ExecutionPolicy | None = None,
         timeout_sec: float | None = None,
+        cpu_sec: float | None = None,
         python_exe: str | None = None,
         globals_in: dict[str, Any] | None = None,
         import_tier: str = "stdlib",
@@ -368,7 +368,7 @@ class ExecutionEngine:
             "source": source,
             "globals": globals_in or {},
             "timeout_sec": effective_timeout,
-            "cpu_sec": effective_timeout,
+            "cpu_sec": cpu_sec if cpu_sec is not None else effective_timeout,
             "memory_bytes": pol.memory_bytes,
             "file_bytes": pol.file_bytes,
             "open_files": pol.open_files,
@@ -578,11 +578,11 @@ class ExecutionEngine:
                             proc.communicate(input=stdin_data),
                             timeout=timeout,
                         )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     _kill_process_group(proc)
                     try:
                         await asyncio.wait_for(proc.wait(), timeout=2.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass
                     duration_ms = int((time.monotonic() - started) * 1000)
                     logger.warning("execution_timeout", argv=argv[:3], timeout=timeout)
@@ -675,11 +675,11 @@ class ExecutionEngine:
                         proc.communicate(),
                         timeout=timeout,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     _kill_process_group(proc)
                     try:
                         await asyncio.wait_for(proc.wait(), timeout=2.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass
                     duration_ms = int((time.monotonic() - started) * 1000)
                     return ExecutionResult(
@@ -751,6 +751,16 @@ class ExecutionEngine:
                     mode=mode,
                 )
 
+        envelope_metadata = envelope.get("metadata")
+        metadata = dict(envelope_metadata) if isinstance(envelope_metadata, dict) else {}
+        metadata.update(
+            {
+                "result": envelope.get("result"),
+                "stdout_truncated": bool(envelope.get("stdout_truncated")),
+                "stderr_truncated": bool(envelope.get("stderr_truncated")),
+            }
+        )
+
         return ExecutionResult(
             status=envelope.get("status", "error"),
             stdout=envelope.get("stdout", ""),
@@ -760,11 +770,7 @@ class ExecutionEngine:
             error=envelope.get("error"),
             produced_files=list(envelope.get("produced_files") or []),
             mode=mode,
-            metadata={
-                "result": envelope.get("result"),
-                "stdout_truncated": bool(envelope.get("stdout_truncated")),
-                "stderr_truncated": bool(envelope.get("stderr_truncated")),
-            },
+            metadata=metadata,
         )
 
 

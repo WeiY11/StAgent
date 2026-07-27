@@ -14,9 +14,12 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+    from datetime import datetime
 
 from leagent.config.constants import TRACES_DIR
 from leagent.db.models.base import _naive_utc_now
@@ -24,7 +27,6 @@ from leagent.telemetry.trace.context import (
     bind_trace_context,
     clear_trace_context,
     current_run_id,
-    parent_span_id_var,
     root_span_id_var,
 )
 from leagent.telemetry.trace.models import (
@@ -81,12 +83,18 @@ def _utcnow() -> datetime:
     return _naive_utc_now()
 
 
-def _schedule(coro: Any) -> None:
+def _schedule(factory: Callable[[], Coroutine[Any, Any, None]]) -> asyncio.Task[None] | None:
+    """Fire-and-forget *factory* on the running loop.
+
+    Takes a coroutine *factory* (not a coroutine) so nothing is created when no
+    loop is running — an already-created coroutine would leak an
+    "was never awaited" warning on the sync path.
+    """
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        return
-    task = loop.create_task(coro)
+        return None
+    task = loop.create_task(factory())
 
     def _done(t: asyncio.Task[Any]) -> None:
         try:
@@ -95,6 +103,7 @@ def _schedule(coro: Any) -> None:
             logger.warning("agent_trace_task_failed", exc_info=True)
 
     task.add_done_callback(_done)
+    return task
 
 
 def _maybe_preview(value: Any) -> str | None:
@@ -125,6 +134,7 @@ class TraceRecorder:
         self._ended: set[str] = set()
         self._pending: dict[str, _PendingBuf] = {}
         self._flush_handle: asyncio.TimerHandle | None = None
+        self._flush_task: asyncio.Task[None] | None = None
         self._flushing = False
 
     def _next_seq(self, trace_id: str) -> int:
@@ -147,12 +157,32 @@ class TraceRecorder:
             elif val is not None:
                 upd[key] = val
 
+    def _prepend_pending_buf(self, trace_id: str, older: _PendingBuf) -> None:
+        newer = self._pending.get(trace_id)
+        if newer is None:
+            self._pending[trace_id] = older
+            return
+        if older.create is not None:
+            newer.create = older.create
+        if older.spans:
+            newer.spans[:0] = older.spans
+        if older.closes:
+            newer.closes[:0] = older.closes
+        if older.update:
+            newer_update = dict(newer.update)
+            newer.update = dict(older.update)
+            self._merge_update(newer, **newer_update)
+
+    def _restore_pending_batch(self, items: list[tuple[str, _PendingBuf]]) -> None:
+        for trace_id, buf in items:
+            self._prepend_pending_buf(trace_id, buf)
+
     def _schedule_flush(self, *, force: bool = False) -> None:
         if force or _flush_interval_ms() <= 0:
             if self._flush_handle is not None:
                 self._flush_handle.cancel()
                 self._flush_handle = None
-            _schedule(self._flush_pending())
+            self._ensure_flush_task()
             return
         try:
             loop = asyncio.get_running_loop()
@@ -164,16 +194,36 @@ class TraceRecorder:
 
         def _fire() -> None:
             self._flush_handle = None
-            _schedule(self._flush_pending())
+            self._ensure_flush_task()
 
         self._flush_handle = loop.call_later(delay, _fire)
+
+    def _ensure_flush_task(self) -> None:
+        task = self._flush_task
+        if task is not None and not task.done():
+            return
+        self._flush_task = _schedule(self._flush_pending)
 
     async def flush(self) -> None:
         """Public awaitable flush (tests / shutdown)."""
         if self._flush_handle is not None:
             self._flush_handle.cancel()
             self._flush_handle = None
-        await self._flush_pending()
+        failures = 0
+        while True:
+            try:
+                task = self._flush_task
+                if task is not None and not task.done() and task is not asyncio.current_task():
+                    await task
+                    continue
+                if not self._pending:
+                    return
+                await self._flush_pending()
+            except Exception:
+                failures += 1
+                self._flush_task = None
+                if failures >= 2 or not self._pending:
+                    raise
 
     async def _flush_pending(self) -> None:
         if self._flushing:
@@ -181,16 +231,27 @@ class TraceRecorder:
         if not self._pending:
             return
         self._flushing = True
+        failed = False
         try:
-            # Snapshot + clear so new events can enqueue while we write.
-            batch = self._pending
-            self._pending = {}
-            for tid, buf in batch.items():
-                await self._flush_one(tid, buf)
+            while self._pending:
+                # Snapshot + clear so new events can enqueue while we write.
+                batch = self._pending
+                self._pending = {}
+                items = list(batch.items())
+                for index, (tid, buf) in enumerate(items):
+                    try:
+                        await self._flush_one(tid, buf)
+                    except Exception:
+                        failed = True
+                        self._restore_pending_batch(items[index:])
+                        raise
         finally:
             self._flushing = False
             # A concurrent enqueue may have filled _pending again.
-            if self._pending:
+            if failed:
+                self._flush_task = None
+            elif self._pending:
+                self._flush_task = None
                 self._schedule_flush(force=True)
 
     async def _flush_one(self, tid: str, buf: _PendingBuf) -> None:

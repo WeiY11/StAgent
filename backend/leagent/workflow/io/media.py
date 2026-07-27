@@ -87,7 +87,7 @@ class MediaRef:
         return out
 
     @classmethod
-    def from_dict(cls, raw: Any) -> "MediaRef | None":
+    def from_dict(cls, raw: Any) -> MediaRef | None:
         """Rehydrate a MediaRef from its wire dict (tolerant of partials)."""
         if isinstance(raw, MediaRef):
             return raw
@@ -114,7 +114,7 @@ class MediaRef:
         kind: MediaKind,
         mime: str = "",
         meta: dict[str, Any] | None = None,
-    ) -> "MediaRef | None":
+    ) -> MediaRef | None:
         """Build a MediaRef from a ``register_tool_artifact`` attachment dict."""
         if not isinstance(attachment, dict):
             return None

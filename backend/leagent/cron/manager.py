@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import structlog
@@ -24,7 +25,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone as pytz_timezone
 
-from .base import CronExecution, CronHeartbeat, CronJob, CronJobStatus, CronExecutionStatus
+from .base import CronExecution, CronExecutionStatus, CronHeartbeat, CronJob, CronJobStatus
 
 if TYPE_CHECKING:
     from .executor import CronExecutor

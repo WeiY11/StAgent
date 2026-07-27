@@ -27,6 +27,9 @@ from leagent.db.service import DatabaseService
 from leagent.db.sqlite_compat import (
     load_entity_by_id,
     same_user_id,
+    session_dialect_name,
+    sqlite_parent_id_text,
+    uuid_column_equals,
 )
 
 CHAT_PROJECTS_ROOT_SENTINEL = "__leagent_chat_projects_root__"
@@ -46,6 +49,77 @@ def ensure_chat_project_files_root(project_id: UUID | str) -> Path:
     return root
 
 
+async def _insert_folder_preserving_sqlite_fks(
+    db_session: object,
+    folder: Folder,
+) -> Folder:
+    """Insert ``Folder`` while preserving exact parent FK text on SQLite."""
+    if session_dialect_name(db_session) != "sqlite":  # type: ignore[arg-type]
+        db_session.add(folder)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        return folder
+
+    user_id = (
+        await sqlite_parent_id_text(db_session, "users", folder.user_id)  # type: ignore[arg-type]
+        if folder.user_id is not None
+        else None
+    )
+    workspace_id = (
+        await sqlite_parent_id_text(db_session, "workspaces", folder.workspace_id)  # type: ignore[arg-type]
+        if folder.workspace_id is not None
+        else None
+    )
+    parent_id = (
+        await sqlite_parent_id_text(db_session, "folders", folder.parent_id)  # type: ignore[arg-type]
+        if folder.parent_id is not None
+        else None
+    )
+    await db_session.execute(  # type: ignore[attr-defined]
+        text(
+            """
+            INSERT INTO folders (
+                is_deleted, deleted_at, created_at, updated_at, id,
+                name, description, icon, color, user_id, workspace_id,
+                parent_id, position, file_count, flow_count, is_project,
+                project_path, project_path_checked_at
+            )
+            VALUES (
+                :is_deleted, :deleted_at, :created_at, :updated_at, :id,
+                :name, :description, :icon, :color, :user_id, :workspace_id,
+                :parent_id, :position, :file_count, :flow_count, :is_project,
+                :project_path, :project_path_checked_at
+            )
+            """
+        ),
+        {
+            "is_deleted": bool(folder.is_deleted),
+            "deleted_at": folder.deleted_at,
+            "created_at": folder.created_at,
+            "updated_at": folder.updated_at,
+            "id": folder.id.hex,
+            "name": folder.name,
+            "description": folder.description,
+            "icon": folder.icon,
+            "color": folder.color,
+            "user_id": user_id,
+            "workspace_id": workspace_id,
+            "parent_id": parent_id,
+            "position": folder.position,
+            "file_count": folder.file_count,
+            "flow_count": folder.flow_count,
+            "is_project": bool(folder.is_project),
+            "project_path": folder.project_path,
+            "project_path_checked_at": folder.project_path_checked_at,
+        },
+    )
+    loaded = await load_entity_by_id(  # type: ignore[arg-type]
+        db_session, Folder, folder.id, parent_table="folders"
+    )
+    if loaded is None:
+        raise RuntimeError("Inserted project folder could not be reloaded")
+    return loaded
+
+
 @dataclass(slots=True)
 class ChatProjectFileSpace:
     """Resolved shared file space for a chat project."""
@@ -63,7 +137,7 @@ async def _find_projects_parent_folder(
     """Return the per-user 「项目」parent folder, if it already exists."""
     result = await db_session.exec(  # type: ignore[attr-defined]
         select(Folder).where(
-            Folder.user_id == user_id,
+            uuid_column_equals(db_session, Folder.user_id, user_id),  # type: ignore[arg-type]
             Folder.is_deleted == False,  # noqa: E712
             Folder.parent_id == None,  # noqa: E711
             Folder.description == CHAT_PROJECTS_ROOT_SENTINEL,
@@ -91,9 +165,7 @@ async def ensure_projects_parent_folder(
         parent_id=None,
         position=0,
     )
-    db_session.add(folder)  # type: ignore[attr-defined]
-    await db_session.flush()  # type: ignore[attr-defined]
-    return folder
+    return await _insert_folder_preserving_sqlite_fks(db_session, folder)
 
 
 async def create_project_folder(
@@ -113,9 +185,7 @@ async def create_project_folder(
         parent_id=parent.id,
         position=0,
     )
-    db_session.add(folder)  # type: ignore[attr-defined]
-    await db_session.flush()  # type: ignore[attr-defined]
-    return folder
+    return await _insert_folder_preserving_sqlite_fks(db_session, folder)
 
 
 async def ensure_project_folder(
@@ -174,10 +244,31 @@ async def ensure_project_folder(
             name=fresh.name,
             parent=parent,
         )
-        fresh.folder_id = folder.id
-        fresh.updated_at = utc_now()
-        session.add(fresh)
-        await session.flush()
+        now = utc_now()
+        if session_dialect_name(session) == "sqlite":
+            folder_id_text = await sqlite_parent_id_text(session, "folders", folder.id)
+            await session.execute(
+                text(
+                    """
+                    UPDATE chat_projects
+                    SET folder_id = :folder_id, updated_at = :updated_at
+                    WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :project_id
+                    """
+                ),
+                {
+                    "folder_id": folder_id_text,
+                    "updated_at": now,
+                    "project_id": str(fresh.id).replace("-", "").lower(),
+                },
+            )
+            session.expunge(fresh)
+            fresh.folder_id = folder.id
+            fresh.updated_at = now
+        else:
+            fresh.folder_id = folder.id
+            fresh.updated_at = now
+            session.add(fresh)
+            await session.flush()
         ensure_chat_project_files_root(fresh.id)
         return ChatProjectFileSpace(
             project_id=fresh.id,
@@ -240,28 +331,69 @@ async def link_file_ids_to_folder(
 
     linked = 0
     async with db.session() as session:
+        sqlite = session_dialect_name(session) == "sqlite"
         folder = await load_entity_by_id(
             session, Folder, folder_id, parent_table="folders"
         )
         if folder is None or folder.is_deleted or not same_user_id(folder.user_id, user_id):
             return 0
+        folder_id_text = (
+            await sqlite_parent_id_text(session, "folders", folder_id)
+            if sqlite
+            else None
+        )
 
         for fid in file_ids:
             row = await load_entity_by_id(session, FileModel, fid, parent_table="files")
             if row is None or row.is_deleted or not same_user_id(row.user_id, user_id):
                 continue
-            if row.folder_id == folder_id:
+            if row.folder_id is not None and same_user_id(row.folder_id, folder_id):
                 continue
-            row.folder_id = folder_id
-            row.updated_at = utc_now()
-            session.add(row)
+            now = utc_now()
+            if sqlite:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE files
+                        SET folder_id = :folder_id, updated_at = :updated_at
+                        WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :file_id
+                        """
+                    ),
+                    {
+                        "folder_id": folder_id_text,
+                        "updated_at": now,
+                        "file_id": str(fid).replace("-", "").lower(),
+                    },
+                )
+            else:
+                row.folder_id = folder_id
+                row.updated_at = now
+                session.add(row)
             linked += 1
 
         if linked:
-            folder.file_count = int(folder.file_count or 0) + linked
-            folder.updated_at = utc_now()
-            session.add(folder)
-            await session.flush()
+            now = utc_now()
+            if sqlite:
+                await session.execute(
+                    text(
+                        """
+                        UPDATE folders
+                        SET file_count = COALESCE(file_count, 0) + :linked,
+                            updated_at = :updated_at
+                        WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :folder_id
+                        """
+                    ),
+                    {
+                        "linked": linked,
+                        "updated_at": now,
+                        "folder_id": str(folder_id).replace("-", "").lower(),
+                    },
+                )
+            else:
+                folder.file_count = int(folder.file_count or 0) + linked
+                folder.updated_at = now
+                session.add(folder)
+                await session.flush()
 
     return linked
 
@@ -281,7 +413,23 @@ async def soft_delete_project_folder(
     if folder is None or folder.is_deleted or not same_user_id(folder.user_id, user_id):
         return
     now = utc_now()
-    folder.is_deleted = True
-    folder.deleted_at = now
-    folder.updated_at = now
-    db_session.add(folder)  # type: ignore[attr-defined]
+    if session_dialect_name(db_session) == "sqlite":  # type: ignore[arg-type]
+        await db_session.execute(  # type: ignore[attr-defined]
+            text(
+                """
+                UPDATE folders
+                SET is_deleted = 1, deleted_at = :deleted_at, updated_at = :updated_at
+                WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :folder_id
+                """
+            ),
+            {
+                "deleted_at": now,
+                "updated_at": now,
+                "folder_id": str(folder_id).replace("-", "").lower(),
+            },
+        )
+    else:
+        folder.is_deleted = True
+        folder.deleted_at = now
+        folder.updated_at = now
+        db_session.add(folder)  # type: ignore[attr-defined]

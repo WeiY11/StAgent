@@ -38,10 +38,10 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext, ToolResult
 from leagent.project.fs import (
     select_project_root,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext, ToolResult
 
 logger = structlog.get_logger(__name__)
 
@@ -373,7 +373,7 @@ def _build_engine_policy(
     timeout: float,
     project_root: Path,
     free_shell: bool,
-) -> "Any":
+) -> Any:
     """Build the per-call :class:`ExecutionPolicy` for the engine.
 
     The whitelist is enforced by the tool itself (with basename

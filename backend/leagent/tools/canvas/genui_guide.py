@@ -11,7 +11,6 @@ from typing import Any
 
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
-
 _GUIDE_PAYLOAD: dict[str, Any] = {
     "purpose": (
         "Ship polished, scannable gen UI: clear hierarchy, calm spacing, "

@@ -71,7 +71,7 @@ def priority_meta(priority: str | None) -> tuple[str, str] | None:
 
 def checklist_stats(block: ChecklistBlock) -> dict[str, Any]:
     """Count items by status (including nested sub-items) and progress %."""
-    counts = {k: 0 for k in STATUS_META}
+    counts = dict.fromkeys(STATUS_META, 0)
     total = 0
 
     def _walk(items: list[ChecklistItem]) -> None:

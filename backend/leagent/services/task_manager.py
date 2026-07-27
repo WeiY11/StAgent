@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from leagent.config.settings import Settings
 
 import structlog
+from sqlalchemy import update as sa_update
+
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
 logger = structlog.get_logger(__name__)
 
@@ -209,15 +212,26 @@ class TaskManager:
 
         handler = self.get_handler(task.task_type)
         if handler is None:
+            error = f"No handler registered for task type: {task.task_type.value}"
+            await self._update_task_fields(
+                session,
+                task.id,
+                status=TaskStatus.FAILED,
+                error=error,
+            )
             task.status = TaskStatus.FAILED
-            task.error = f"No handler registered for task type: {task.task_type.value}"
-            session.add(task)
+            task.error = error
             return
 
+        started_at = datetime.utcnow()
+        await self._update_task_fields(
+            session,
+            task.id,
+            status=TaskStatus.RUNNING,
+            started_at=started_at,
+        )
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.utcnow()
-        session.add(task)
-        await session.flush()
+        task.started_at = started_at
 
         ctx = self._active_contexts.get(str(task.id))
         if ctx is None:
@@ -259,7 +273,7 @@ class TaskManager:
 
             while task_snapshot is None:
                 async with db.session() as session:
-                    task = await session.get(Task, task_uuid)
+                    task = await self._load_task(session, task_uuid)
                     if task is not None:
                         task_snapshot = {
                             "timeout_seconds": task.timeout_seconds,
@@ -295,31 +309,39 @@ class TaskManager:
                     raise
 
             async with db.session() as session:
-                task = await session.get(Task, UUID(task_id))
+                task = await self._load_task(session, task_id)
                 if task and not is_terminal_task_status(task.status):
+                    completed_at = datetime.utcnow()
+                    duration_ms = (
+                        int((completed_at - task.started_at).total_seconds() * 1000)
+                        if task.started_at
+                        else None
+                    )
                     if ctx.abort_event.is_set():
-                        task.status = TaskStatus.KILLED
-                        task.completed_at = datetime.utcnow()
-                        if task.started_at:
-                            task.duration_ms = int(
-                                (task.completed_at - task.started_at).total_seconds() * 1000
-                            )
-                        task.output_offset = ctx.output_offset
-                        session.add(task)
+                        await self._update_task_fields(
+                            session,
+                            task_id,
+                            status=TaskStatus.KILLED,
+                            completed_at=completed_at,
+                            duration_ms=duration_ms,
+                            output_offset=ctx.output_offset,
+                        )
                         return
-                    task.status = TaskStatus.COMPLETED
-                    task.completed_at = datetime.utcnow()
-                    if task.started_at:
-                        task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
-                    task.progress = 100
-                    task.output_data = json.dumps(result) if result else None
-                    task.output_offset = ctx.output_offset
-                    session.add(task)
+                    await self._update_task_fields(
+                        session,
+                        task_id,
+                        status=TaskStatus.COMPLETED,
+                        completed_at=completed_at,
+                        duration_ms=duration_ms,
+                        progress=100,
+                        output_data=json.dumps(result) if result else None,
+                        output_offset=ctx.output_offset,
+                    )
 
         except asyncio.CancelledError:
             if task_id not in self._kill_owned_cancellations:
                 await self._mark_killed(task_id)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             ctx.abort()
             await self._mark_timeout(task_id)
         except Exception as e:
@@ -342,15 +364,22 @@ class TaskManager:
         if ctx:
             ctx.abort()
 
-        task = await session.get(Task, UUID(task_id))
+        task = await self._load_task(session, task_id)
         if task and not is_terminal_task_status(task.status):
-            task.status = TaskStatus.CANCELLED
-            task.completed_at = datetime.utcnow()
-            task.updated_at = datetime.utcnow()
-            task.output_offset = ctx.output_offset if ctx else task.output_offset
-            if task.started_at:
-                task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
-            session.add(task)
+            completed_at = datetime.utcnow()
+            duration_ms = (
+                int((completed_at - task.started_at).total_seconds() * 1000)
+                if task.started_at
+                else None
+            )
+            await self._update_task_fields(
+                session,
+                task_id,
+                status=TaskStatus.CANCELLED,
+                completed_at=completed_at,
+                duration_ms=duration_ms,
+                output_offset=ctx.output_offset if ctx else task.output_offset,
+            )
             return True
         return False
 
@@ -379,7 +408,7 @@ class TaskManager:
                 logger.debug("distributed cancel routing failed", exc_info=True)
 
         handler = None
-        task = await session.get(Task, UUID(task_id))
+        task = await self._load_task(session, task_id)
         if task:
             handler = self.get_handler(task.task_type)
             try:
@@ -398,12 +427,20 @@ class TaskManager:
                 logger.warning("Handler kill failed for %s: %s", task_id, e)
 
         if task and not is_terminal_task_status(task.status):
-            task.status = TaskStatus.KILLED
-            task.completed_at = datetime.utcnow()
-            if task.started_at:
-                task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
-            task.output_offset = ctx.output_offset if ctx else task.output_offset
-            session.add(task)
+            completed_at = datetime.utcnow()
+            duration_ms = (
+                int((completed_at - task.started_at).total_seconds() * 1000)
+                if task.started_at
+                else None
+            )
+            await self._update_task_fields(
+                session,
+                task_id,
+                status=TaskStatus.KILLED,
+                completed_at=completed_at,
+                duration_ms=duration_ms,
+                output_offset=ctx.output_offset if ctx else task.output_offset,
+            )
             logger.info("task_killed", task_id=task_id)
             return True
 
@@ -420,7 +457,7 @@ class TaskManager:
             return ""
 
         try:
-            with open(output_file, "r", encoding="utf-8") as f:
+            with open(output_file, encoding="utf-8") as f:
                 if offset > 0:
                     f.seek(offset)
                 return f.read()
@@ -441,22 +478,57 @@ class TaskManager:
 
     # -- Internal helpers ---------------------------------------------------
 
+    async def _load_task(self, session: AsyncSession, task_id: str | UUID) -> Task | None:
+        return await load_entity_by_id(
+            session,
+            Task,
+            task_id if isinstance(task_id, UUID) else UUID(str(task_id)),
+            parent_table="tasks",
+        )
+
+    async def _update_task_fields(
+        self,
+        session: AsyncSession,
+        task_id: str | UUID,
+        **values: Any,
+    ) -> bool:
+        values.setdefault("updated_at", datetime.utcnow())
+        result = await session.execute(
+            sa_update(Task)
+            .where(
+                uuid_column_equals(
+                    session,
+                    Task.id,
+                    task_id if isinstance(task_id, UUID) else UUID(str(task_id)),
+                )
+            )
+            .values(**values)
+        )
+        return bool(result.rowcount)
+
     async def _mark_killed(self, task_id: str) -> None:
         try:
             from leagent.db import get_database_service
 
             db = get_database_service()
             async with db.session() as session:
-                task = await session.get(Task, UUID(task_id))
+                task = await self._load_task(session, task_id)
                 if task and not is_terminal_task_status(task.status):
-                    task.status = TaskStatus.KILLED
-                    task.completed_at = datetime.utcnow()
-                    if task.started_at:
-                        task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
+                    completed_at = datetime.utcnow()
+                    duration_ms = (
+                        int((completed_at - task.started_at).total_seconds() * 1000)
+                        if task.started_at
+                        else None
+                    )
                     ctx = self._active_contexts.get(task_id)
-                    if ctx:
-                        task.output_offset = ctx.output_offset
-                    session.add(task)
+                    await self._update_task_fields(
+                        session,
+                        task_id,
+                        status=TaskStatus.KILLED,
+                        completed_at=completed_at,
+                        duration_ms=duration_ms,
+                        output_offset=ctx.output_offset if ctx else task.output_offset,
+                    )
         except Exception as e:
             logger.error("Failed to mark task killed: %s", e)
 
@@ -468,19 +540,26 @@ class TaskManager:
             await get_execution_engine().cancel_session(task_id)
             db = get_database_service()
             async with db.session() as session:
-                task = await session.get(Task, UUID(task_id))
+                task = await self._load_task(session, task_id)
                 if task and task.session_id:
                     await get_execution_engine().cancel_session(str(task.session_id))
                 if task and not is_terminal_task_status(task.status):
-                    task.status = TaskStatus.TIMEOUT
-                    task.error = f"Task exceeded {task.timeout_seconds}s wall-clock budget"
-                    task.completed_at = datetime.utcnow()
-                    if task.started_at:
-                        task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
+                    completed_at = datetime.utcnow()
+                    duration_ms = (
+                        int((completed_at - task.started_at).total_seconds() * 1000)
+                        if task.started_at
+                        else None
+                    )
                     ctx = self._active_contexts.get(task_id)
-                    if ctx:
-                        task.output_offset = ctx.output_offset
-                    session.add(task)
+                    await self._update_task_fields(
+                        session,
+                        task_id,
+                        status=TaskStatus.TIMEOUT,
+                        error=f"Task exceeded {task.timeout_seconds}s wall-clock budget",
+                        completed_at=completed_at,
+                        duration_ms=duration_ms,
+                        output_offset=ctx.output_offset if ctx else task.output_offset,
+                    )
         except Exception as e:
             logger.error("Failed to mark task timeout: %s", e)
 
@@ -490,17 +569,24 @@ class TaskManager:
 
             db = get_database_service()
             async with db.session() as session:
-                task = await session.get(Task, UUID(task_id))
+                task = await self._load_task(session, task_id)
                 if task and not is_terminal_task_status(task.status):
-                    task.status = TaskStatus.FAILED
-                    task.error = error
-                    task.completed_at = datetime.utcnow()
-                    if task.started_at:
-                        task.duration_ms = int((task.completed_at - task.started_at).total_seconds() * 1000)
+                    completed_at = datetime.utcnow()
+                    duration_ms = (
+                        int((completed_at - task.started_at).total_seconds() * 1000)
+                        if task.started_at
+                        else None
+                    )
                     ctx = self._active_contexts.get(task_id)
-                    if ctx:
-                        task.output_offset = ctx.output_offset
-                    session.add(task)
+                    await self._update_task_fields(
+                        session,
+                        task_id,
+                        status=TaskStatus.FAILED,
+                        error=error,
+                        completed_at=completed_at,
+                        duration_ms=duration_ms,
+                        output_offset=ctx.output_offset if ctx else task.output_offset,
+                    )
         except Exception as e:
             logger.error("Failed to mark task failed: %s", e)
 

@@ -11,7 +11,6 @@ import structlog
 
 from leagent.tools.base import ToolResult
 from leagent.tools.workflow.chat_workflow import ChatWorkflowEmitTool
-from leagent.tools.workflow.workflow_embed_emit import ChatWorkflowEmbedEmitTool
 from leagent.tools.workflow.workflow_crud import (
     WorkflowCancelTool,
     WorkflowListTool,
@@ -20,6 +19,7 @@ from leagent.tools.workflow.workflow_crud import (
     WorkflowRunTool,
     WorkflowStatusTool,
 )
+from leagent.tools.workflow.workflow_embed_emit import ChatWorkflowEmbedEmitTool
 from leagent.tools.workflow.workflow_save import WorkflowSaveTool
 
 __all__ = [

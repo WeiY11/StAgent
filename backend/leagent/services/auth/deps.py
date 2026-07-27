@@ -8,7 +8,7 @@ and apply real RBAC on :class:`UserPrincipal`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
@@ -31,8 +31,8 @@ _ADMIN_PERMISSIONS = frozenset(
 
 def _auth_enforced() -> bool:
     try:
-        from leagent.services.auth.policy import effective_enforce_auth
         from leagent.config.settings import get_settings
+        from leagent.services.auth.policy import effective_enforce_auth
 
         return effective_enforce_auth(get_settings())
     except Exception:  # noqa: BLE001
@@ -46,7 +46,7 @@ def _bearer_token(request: Request) -> str | None:
     return None
 
 
-def _principal_from_token(token: str) -> "UserPrincipal":
+def _principal_from_token(token: str) -> UserPrincipal:
     from leagent.services.auth.service import get_auth_service
 
     svc = get_auth_service()
@@ -106,17 +106,56 @@ class UserPrincipal:
         return any(k in self.permissions or k in self.roles for k in keys)
 
 
+def principal_from_request_state(
+    request: Request,
+    fallback_user_id: UUID | str | None = None,
+) -> UserPrincipal:
+    """Return the principal resolved earlier in the request, or a safe fallback."""
+    principal = getattr(request.state, "user_principal", None)
+    if isinstance(principal, UserPrincipal):
+        return principal
+
+    uid = LOCAL_USER_ID
+    if fallback_user_id is not None:
+        try:
+            uid = fallback_user_id if isinstance(fallback_user_id, UUID) else UUID(str(fallback_user_id))
+        except Exception:  # noqa: BLE001
+            uid = LOCAL_USER_ID
+
+    is_admin = uid == LOCAL_USER_ID
+    return UserPrincipal(
+        user_id=uid,
+        roles=frozenset({"admin"} if is_admin else {"user"}),
+        permissions=frozenset({"*"} if is_admin else ()),
+        is_superuser=is_admin,
+        username="admin" if is_admin else "user",
+    )
+
+
 async def get_current_user_id(request: Request) -> UUID:
     if _auth_enforced():
-        uid = _require_authenticated_user(request)
+        token = _bearer_token(request)
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        principal = _principal_from_token(token)
+        uid = principal.user_id
     else:
         token = _bearer_token(request)
         if token:
-            from leagent.services.auth.service import get_auth_service
-
-            uid = get_auth_service().verify_access_token(token) or LOCAL_USER_ID
+            try:
+                principal = _principal_from_token(token)
+                uid = principal.user_id
+            except HTTPException:
+                uid = LOCAL_USER_ID
+                principal = UserPrincipal()
         else:
             uid = LOCAL_USER_ID
+            principal = UserPrincipal()
+    request.state.user_principal = principal
     request.state.user_id = str(uid)
     request.state.user_id_cached = str(uid)
     from leagent.utils.logging import bind_log_context
@@ -125,7 +164,7 @@ async def get_current_user_id(request: Request) -> UUID:
     return uid
 
 
-async def get_current_user_id_optional(request: Request) -> Optional[UUID]:
+async def get_current_user_id_optional(request: Request) -> UUID | None:
     token = _bearer_token(request)
     if _auth_enforced():
         if not token:
@@ -223,7 +262,7 @@ require_staff = RoleChecker(["admin", "user"])
 
 CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
 CurrentPrincipal = Annotated[UserPrincipal, Depends(get_current_principal)]
-OptionalUserId = Annotated[Optional[UUID], Depends(get_current_user_id_optional)]
+OptionalUserId = Annotated[UUID | None, Depends(get_current_user_id_optional)]
 AdminUserId = Annotated[UUID, Depends(require_admin)]
 
 

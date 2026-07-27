@@ -25,7 +25,7 @@ from leagent.services.session.state import (
 )
 
 
-def _session_compress_budget_tokens(settings: "Settings", override: int | None) -> int:
+def _session_compress_budget_tokens(settings: Settings, override: int | None) -> int:
     """Token budget used by progressive + dry-run pipeline (aligned with historical default)."""
     session_threshold = getattr(settings.session, "autocompact_token_threshold", 96_000)
     if override is not None:
@@ -103,7 +103,7 @@ def _progressive_output_dicts(
 def apply_progressive_transcript_compress(
     llm_messages: list[dict[str, Any]],
     *,
-    settings: "Settings",
+    settings: Settings,
     budget_tokens: int | None = None,
 ) -> list[dict[str, Any]]:
     """Progressive token shrink for the live LLM payload (no summariser LLM, no DB writes).
@@ -124,8 +124,8 @@ def apply_progressive_transcript_compress(
 async def run_session_compression_pipeline(
     llm_messages: list[dict[str, Any]],
     *,
-    settings: "Settings",
-    llm: "LLMService | None",
+    settings: Settings,
+    llm: LLMService | None,
     budget_tokens: int | None = None,
     force_llm: bool = False,
     system_prompt_for_autocompact: str = "",

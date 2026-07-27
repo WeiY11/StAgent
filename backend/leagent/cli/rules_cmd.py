@@ -171,8 +171,8 @@ def validate_rules(path: str) -> None:
 @click.option("--tags", "-t", default=None, help="Comma-separated tag filter.")
 def evaluate_rule_set(rule_set_id: str, data_json: str, tags: str | None) -> None:
     """Evaluate a rule set against provided JSON data (locally)."""
-    from leagent.rules.loader import RuleLoader
     from leagent.rules.engine import RuleEngine
+    from leagent.rules.loader import RuleLoader
 
     try:
         data = json.loads(data_json)

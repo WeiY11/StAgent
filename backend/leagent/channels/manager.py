@@ -186,7 +186,7 @@ class ChannelManager:
                     )
                 finally:
                     queue.task_done()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break

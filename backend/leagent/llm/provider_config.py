@@ -9,12 +9,12 @@ in the other.
 from __future__ import annotations
 
 import asyncio
-import shutil
 import os
+import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import yaml
@@ -24,6 +24,9 @@ from leagent.llm.error_policy import classify_llm_error
 from leagent.llm.registry import HealthCheckResult, ProviderRegistry
 from leagent.llm.transport import get_default_transport
 from leagent.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from leagent.llm.model_registry import ModelRegistry
 
 logger = get_logger(__name__)
 
@@ -90,6 +93,8 @@ def validate_models_list(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 from leagent.llm.model_catalog import (
     PROVIDER_PRESETS as _CATALOG_PRESETS,
+)
+from leagent.llm.model_catalog import (
     get_provider_presets_dict as _get_presets_dict,
 )
 
@@ -166,6 +171,9 @@ class ProviderConfigService:
 
     Reads/writes ``providers.yaml`` and keeps a :class:`ProviderRegistry`
     populated with the corresponding live provider instances.
+
+    Config reads are cached in memory; the cache is automatically invalidated
+    when the file's mtime changes (or after ``_save_yaml`` writes).
     """
 
     def __init__(
@@ -176,6 +184,9 @@ class ProviderConfigService:
         self._path = providers_path or PROVIDERS_PATH
         self._registry = registry or ProviderRegistry()
         self._health_monitor_task: asyncio.Task[None] | None = None
+        # In-memory config cache: avoids repeated disk reads + YAML parse + validation.
+        self._cached_config: dict[str, Any] | None = None
+        self._cached_mtime: float = 0.0
         self._load_and_sync()
 
     # -- public properties ---------------------------------------------------
@@ -188,10 +199,19 @@ class ProviderConfigService:
 
     def _load_yaml(self) -> dict[str, Any]:
         if not self._path.exists():
+            self._cached_config = None
             return self._auto_init_from_env()
+        # Check file mtime; return cached result when unchanged.
+        try:
+            current_mtime = self._path.stat().st_mtime
+        except OSError:
+            current_mtime = 0.0
+        if self._cached_config is not None and current_mtime == self._cached_mtime:
+            return self._cached_config
         with open(self._path, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
         if not isinstance(data, dict):
+            self._cached_config = None
             return self._auto_init_from_env()
         from leagent.llm.providers_schema import validate_v2_config
 
@@ -200,7 +220,10 @@ class ProviderConfigService:
                 f"Unsupported providers.yaml version {data.get('version')!r}. "
                 "Expected version 2. Run: leagent providers migrate"
             )
-        return validate_v2_config(data)
+        validated = validate_v2_config(data)
+        self._cached_config = validated
+        self._cached_mtime = current_mtime
+        return validated
 
     def _auto_init_from_env(self) -> dict[str, Any]:
         """Auto-create providers.yaml v2 from detected API keys on first run."""
@@ -234,6 +257,13 @@ class ProviderConfigService:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with open(self._path, "w", encoding="utf-8") as fh:
             yaml.dump(config, fh, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        # Invalidate cache so subsequent reads pick up the new content.
+        self._cached_config = config
+        try:
+            self._cached_mtime = self._path.stat().st_mtime
+        except OSError:
+            self._cached_config = None
+            self._cached_mtime = 0.0
 
     # -- registry sync -------------------------------------------------------
 
@@ -282,57 +312,57 @@ class ProviderConfigService:
         meta_parse_think = meta.get("parse_think_tags")
 
         if pc.type in ("openai", "azure"):
-            kwargs: dict[str, Any] = dict(
-                api_key=api_key or "not-needed",
-                base_url=pc.base_url or "https://api.openai.com/v1",
-                default_model=default_model or "gpt-4o",
-                timeout=pc.timeout,
-                parse_think_tags=bool(meta_parse_think) if meta_parse_think is not None else False,
-            )
+            kwargs: dict[str, Any] = {
+                "api_key": api_key or "not-needed",
+                "base_url": pc.base_url or "https://api.openai.com/v1",
+                "default_model": default_model or "gpt-4o",
+                "timeout": pc.timeout,
+                "parse_think_tags": bool(meta_parse_think) if meta_parse_think is not None else False,
+            }
         elif pc.type == "anthropic":
-            kwargs = dict(
-                api_key=api_key,
-                default_model=default_model or "claude-sonnet-4-20250514",
-                timeout=pc.timeout,
-                base_url=pc.base_url or None,
-            )
+            kwargs = {
+                "api_key": api_key,
+                "default_model": default_model or "claude-sonnet-4-20250514",
+                "timeout": pc.timeout,
+                "base_url": pc.base_url or None,
+            }
         elif pc.type in ("qwen", "dashscope"):
-            kwargs = dict(
-                api_key=api_key,
-                base_url=pc.base_url or DashScopeProvider.DEFAULT_BASE_URL,
-                default_model=default_model or "qwen-plus",
-                timeout=pc.timeout,
-            )
+            kwargs = {
+                "api_key": api_key,
+                "base_url": pc.base_url or DashScopeProvider.DEFAULT_BASE_URL,
+                "default_model": default_model or "qwen-plus",
+                "timeout": pc.timeout,
+            }
         elif pc.type == "ollama":
-            kwargs = dict(
-                base_url=pc.base_url or "http://localhost:11434",
-                default_model=default_model or "llama3.2",
-                timeout=pc.timeout,
-            )
+            kwargs = {
+                "base_url": pc.base_url or "http://localhost:11434",
+                "default_model": default_model or "llama3.2",
+                "timeout": pc.timeout,
+            }
         elif pc.type == "deepseek":
-            kwargs = dict(
-                api_key=api_key,
-                base_url=pc.base_url or DeepSeekProvider.DEFAULT_BASE_URL,
-                default_model=default_model or DeepSeekProvider.DEFAULT_MODEL,
-                timeout=pc.timeout,
-            )
+            kwargs = {
+                "api_key": api_key,
+                "base_url": pc.base_url or DeepSeekProvider.DEFAULT_BASE_URL,
+                "default_model": default_model or DeepSeekProvider.DEFAULT_MODEL,
+                "timeout": pc.timeout,
+            }
         elif pc.type == "vllm":
-            kwargs = dict(
-                api_key=api_key or "not-needed",
-                base_url=pc.base_url or VLLMProvider.DEFAULT_BASE_URL,
-                default_model=default_model,
-                timeout=pc.timeout,
-                enable_auto_tool_choice=bool(meta.get("enable_auto_tool_choice", False)),
-            )
+            kwargs = {
+                "api_key": api_key or "not-needed",
+                "base_url": pc.base_url or VLLMProvider.DEFAULT_BASE_URL,
+                "default_model": default_model,
+                "timeout": pc.timeout,
+                "enable_auto_tool_choice": bool(meta.get("enable_auto_tool_choice", False)),
+            }
         else:
             # ``custom`` + any unknown type: tolerant OpenAI-compatible gateway.
-            kwargs = dict(
-                api_key=api_key or "not-needed",
-                base_url=pc.base_url,
-                default_model=default_model,
-                timeout=pc.timeout,
-                parse_think_tags=bool(meta_parse_think) if meta_parse_think is not None else True,
-            )
+            kwargs = {
+                "api_key": api_key or "not-needed",
+                "base_url": pc.base_url,
+                "default_model": default_model,
+                "timeout": pc.timeout,
+                "parse_think_tags": bool(meta_parse_think) if meta_parse_think is not None else True,
+            }
 
         return create_provider(pc.type, **kwargs)
 
@@ -385,7 +415,7 @@ class ProviderConfigService:
         pricing = config.get("pricing")
         return pricing if isinstance(pricing, dict) else {}
 
-    def get_model_registry(self) -> "ModelRegistry":
+    def get_model_registry(self) -> ModelRegistry:
         """Build a :class:`ModelRegistry` from the current YAML config."""
         from leagent.llm.model_registry import ModelRegistry
 
@@ -848,7 +878,7 @@ class ProviderConfigService:
                         status=status,
                         tested_model=test_model,
                     )
-                except asyncio.TimeoutError as exc:
+                except TimeoutError as exc:
                     attempt += 1
                     if attempt <= max_retries:
                         continue

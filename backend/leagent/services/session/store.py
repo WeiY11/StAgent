@@ -22,21 +22,23 @@ The LRU is a read-through cache; it never holds state the JSON blob does not.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import String, cast, text as sa_text
+from sqlalchemy import text as sa_text
 from sqlmodel import select
 
 from leagent.db.models.base import naive_utc_for_db_column
+from leagent.db.models.message import ChatSession, Message, MessageRole
 from leagent.db.sqlite_compat import (
     load_chat_session_by_id,
     parse_uuid_stored,
     session_dialect_name,
+    sqlite_insert_message,
     sqlite_parent_id_text,
+    uuid_column_equals,
 )
-from leagent.db.models.message import ChatSession, Message, MessageRole
 from leagent.services.cache.lru import BoundedLRU
 from leagent.services.session.state import (
     SessionAttachment,
@@ -49,6 +51,7 @@ from leagent.utils.logging import get_logger
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
     from leagent.db.service import DatabaseService
+    from leagent.services.cache.service import CacheService
 
 logger = get_logger(__name__)
 
@@ -57,8 +60,8 @@ def _as_utc_aware(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def _as_utc_naive_for_db(dt: datetime | None) -> datetime | None:
@@ -83,6 +86,7 @@ def _normalize_chat_session_timestamps(chat: ChatSession) -> None:
 
 
 _SESSION_METADATA_KEY = "session_state_v1"
+_SESSION_CACHE_NAMESPACE = "sessions"
 
 
 def _role_to_enum(role: str) -> MessageRole:
@@ -125,9 +129,11 @@ class TieredSessionStore:
         settings: Settings,
         *,
         database: DatabaseService | None,
+        cache: CacheService | None = None,
     ) -> None:
         self._settings = settings
         self._database = database
+        self._cache = cache
         self._lru = _LRUCache(settings.session.in_memory_lru_size)
 
     # -- public API -----------------------------------------------------
@@ -137,20 +143,78 @@ class TieredSessionStore:
         if cached is not None:
             return cached
 
+        state = await self._load_from_cache(session_id)
+        if state is not None:
+            self._lru.put(state)
+            return state
+
         state = await self._load_from_database(session_id)
         if state is not None:
             self._lru.put(state)
+            await self._save_to_cache(state)
         return state
 
     async def save(self, state: SessionState) -> None:
         # Persist to the durable tier first; only publish to the read-through
-        # L1 after the database write succeeds so a failed save can never leave
-        # an undurable state visible to subsequent reads.
+        # caches after the database write succeeds so a failed save can never
+        # leave an undurable state visible to subsequent reads.
         await self._save_to_database(state)
         self._lru.put(state)
+        await self._save_to_cache(state)
 
     async def delete(self, session_id: UUID) -> None:
         self._lru.drop(session_id)
+        await self._delete_from_cache(session_id)
+
+    # -- cache (process-local CacheService L2) -------------------------
+
+    @staticmethod
+    def _cache_key(session_id: UUID) -> str:
+        return f"state:{session_id}"
+
+    async def _load_from_cache(self, session_id: UUID) -> SessionState | None:
+        if self._cache is None:
+            return None
+        key = self._cache_key(session_id)
+        try:
+            cached = await self._cache.get(key, namespace=_SESSION_CACHE_NAMESPACE)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("session_store_cache_load_failed: %s", exc)
+            return None
+        if cached is None:
+            return None
+        try:
+            if isinstance(cached, SessionState):
+                return cached
+            if isinstance(cached, dict):
+                return SessionState.from_dict(cached)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("session_store_cache_decode_failed: %s", exc)
+            await self._delete_from_cache(session_id)
+        return None
+
+    async def _save_to_cache(self, state: SessionState) -> None:
+        if self._cache is None:
+            return
+        try:
+            await self._cache.set(
+                self._cache_key(state.session_id),
+                state.to_dict(),
+                namespace=_SESSION_CACHE_NAMESPACE,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("session_store_cache_save_failed: %s", exc)
+
+    async def _delete_from_cache(self, session_id: UUID) -> None:
+        if self._cache is None:
+            return
+        try:
+            await self._cache.delete(
+                self._cache_key(session_id),
+                namespace=_SESSION_CACHE_NAMESPACE,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("session_store_cache_delete_failed: %s", exc)
 
     # -- database (SQLite / Postgres) -----------------------------------
 
@@ -199,8 +263,7 @@ class TieredSessionStore:
     ) -> SessionState:
         """Fallback: rebuild the transcript from the ``messages`` table."""
         if session_dialect_name(db) == "sqlite":
-            s_txt = await sqlite_parent_id_text(db, "chat_sessions", chat.id)
-            sid_eq = cast(Message.session_id, String) == s_txt
+            sid_eq = uuid_column_equals(db, Message.session_id, chat.id)
         else:
             sid_eq = Message.session_id == chat.id
         result = await db.exec(
@@ -237,7 +300,7 @@ class TieredSessionStore:
                     id=row.id,
                     role=row.role.value if hasattr(row.role, "value") else str(row.role),
                     content=row.content,
-                    created_at=_as_utc_aware(row.created_at) or datetime.now(timezone.utc),
+                    created_at=_as_utc_aware(row.created_at) or datetime.now(UTC),
                     tool_calls=tool_calls,
                     tool_call_id=row.tool_call_id,
                     attachment_ids=attachment_ids,
@@ -262,18 +325,23 @@ class TieredSessionStore:
             attachments=[],
             file_state=[],
             usage=usage,
-            created_at=_as_utc_aware(chat.created_at) or datetime.now(timezone.utc),
+            created_at=_as_utc_aware(chat.created_at) or datetime.now(UTC),
             updated_at=_as_utc_aware(chat.last_message_at or chat.updated_at)
-            or datetime.now(timezone.utc),
+            or datetime.now(UTC),
         )
 
     async def _save_to_database(self, state: SessionState) -> None:
         if self._database is None:
             return
-        now_db = _as_utc_naive_for_db(datetime.now(timezone.utc))
+        now_db = _as_utc_naive_for_db(datetime.now(UTC))
         last_at = _as_utc_naive_for_db(_as_utc_aware(state.updated_at)) or now_db
+        snapshot_json = json.dumps(
+            {_SESSION_METADATA_KEY: state.to_dict()},
+            ensure_ascii=False,
+        )
         try:
             async with self._database.session() as db:
+                sqlite = session_dialect_name(db) == "sqlite"
                 chat = await load_chat_session_by_id(
                     db, state.session_id, owner_user_id=None
                 )
@@ -287,32 +355,96 @@ class TieredSessionStore:
 
                         owner_id = LOCAL_USER_ID
                         state.user_id = owner_id
-                    chat = ChatSession(
-                        id=state.session_id,
-                        user_id=owner_id,
-                        flow_id=state.flow_id,
-                        workspace_id=state.workspace_id,
-                        message_count=len(state.messages),
-                        last_message_at=last_at,
+                    if sqlite:
+                        created_at = (
+                            _as_utc_naive_for_db(_as_utc_aware(state.created_at))
+                            or now_db
+                        )
+                        await db.execute(
+                            sa_text(
+                                """
+                                INSERT INTO chat_sessions (
+                                    created_at, updated_at, id, name, user_id,
+                                    flow_id, project_id, workspace_id, is_active,
+                                    message_count, last_message_at, session_metadata
+                                )
+                                VALUES (
+                                    :created_at, :updated_at, :id, NULL, :user_id,
+                                    :flow_id, NULL, :workspace_id, 1,
+                                    :message_count, :last_message_at, :session_metadata
+                                )
+                                """
+                            ),
+                            {
+                                "created_at": created_at,
+                                "updated_at": now_db,
+                                "id": state.session_id.hex,
+                                "user_id": await sqlite_parent_id_text(
+                                    db, "users", owner_id
+                                ),
+                                "flow_id": (
+                                    await sqlite_parent_id_text(
+                                        db, "flows", state.flow_id
+                                    )
+                                    if state.flow_id is not None
+                                    else None
+                                ),
+                                "workspace_id": (
+                                    await sqlite_parent_id_text(
+                                        db, "workspaces", state.workspace_id
+                                    )
+                                    if state.workspace_id is not None
+                                    else None
+                                ),
+                                "message_count": len(state.messages),
+                                "last_message_at": last_at,
+                                "session_metadata": snapshot_json,
+                            },
+                        )
+                    else:
+                        chat = ChatSession(
+                            id=state.session_id,
+                            user_id=owner_id,
+                            flow_id=state.flow_id,
+                            workspace_id=state.workspace_id,
+                            message_count=len(state.messages),
+                            last_message_at=last_at,
+                            session_metadata=snapshot_json,
+                            updated_at=now_db,
+                        )
+                        db.add(chat)
+                elif sqlite:
+                    await db.execute(
+                        sa_text(
+                            """
+                            UPDATE chat_sessions
+                            SET message_count = :message_count,
+                                last_message_at = :last_message_at,
+                                session_metadata = :session_metadata,
+                                updated_at = :updated_at
+                            WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :session_id
+                            """
+                        ),
+                        {
+                            "message_count": len(state.messages),
+                            "last_message_at": last_at,
+                            "session_metadata": snapshot_json,
+                            "updated_at": now_db,
+                            "session_id": str(state.session_id).replace("-", "").lower(),
+                        },
                     )
-                    db.add(chat)
                 else:
                     _normalize_chat_session_timestamps(chat)
-
-                chat.message_count = len(state.messages)
-                chat.last_message_at = last_at
-                chat.session_metadata = json.dumps(
-                    {_SESSION_METADATA_KEY: state.to_dict()},
-                    ensure_ascii=False,
-                )
-                chat.updated_at = now_db
+                    chat.message_count = len(state.messages)
+                    chat.last_message_at = last_at
+                    chat.session_metadata = snapshot_json
+                    chat.updated_at = now_db
 
                 # Persist only messages that don't already exist. We rely on
                 # the message's primary key (UUID) to avoid duplicates —
                 # ``SessionMessage.id`` is stable per message.
                 if session_dialect_name(db) == "sqlite":
-                    s_txt = await sqlite_parent_id_text(db, "chat_sessions", state.session_id)
-                    sid_eq = cast(Message.session_id, String) == s_txt
+                    sid_eq = uuid_column_equals(db, Message.session_id, state.session_id)
                 else:
                     sid_eq = Message.session_id == state.session_id
                 existing_ids = await db.exec(select(Message.id).where(sid_eq))
@@ -338,31 +470,33 @@ class TieredSessionStore:
                     # history queries only.
                     if role_enum in (MessageRole.ASSISTANT, MessageRole.USER):
                         continue
-                    db.add(
-                        Message(
-                            id=msg.id,
-                            session_id=state.session_id,
-                            flow_id=state.flow_id,
-                            user_id=state.user_id,
-                            workspace_id=state.workspace_id,
-                            role=_role_to_enum(msg.role),
-                            content=msg.content,
-                            model=msg.model,
-                            tool_calls=(
-                                json.dumps(msg.tool_calls) if msg.tool_calls else None
-                            ),
-                            tool_call_id=msg.tool_call_id,
-                            attachments=(
-                                json.dumps(msg.attachment_ids)
-                                if msg.attachment_ids
-                                else None
-                            ),
-                            created_at=_as_utc_naive_for_db(
-                                _as_utc_aware(msg.created_at)
-                            )
-                            or now_db,
+                    row = Message(
+                        id=msg.id,
+                        session_id=state.session_id,
+                        flow_id=state.flow_id,
+                        user_id=state.user_id,
+                        workspace_id=state.workspace_id,
+                        role=_role_to_enum(msg.role),
+                        content=msg.content,
+                        model=msg.model,
+                        tool_calls=(
+                            json.dumps(msg.tool_calls) if msg.tool_calls else None
+                        ),
+                        tool_call_id=msg.tool_call_id,
+                        attachments=(
+                            json.dumps(msg.attachment_ids)
+                            if msg.attachment_ids
+                            else None
+                        ),
+                        created_at=_as_utc_naive_for_db(
+                            _as_utc_aware(msg.created_at)
                         )
+                        or now_db,
                     )
+                    if session_dialect_name(db) == "sqlite":
+                        await sqlite_insert_message(db, row)
+                    else:
+                        db.add(row)
         except Exception as exc:  # noqa: BLE001
             # Re-raise after logging so ``save`` cannot publish an undurable
             # state to L1. The runtime recovery boundary in ``SessionManager``
@@ -387,26 +521,22 @@ class TieredSessionStore:
                         sa_text(
                             """
                             SELECT id FROM chat_sessions
-                            WHERE CAST(user_id AS TEXT) = :u AND is_active = 1
+                            WHERE lower(replace(CAST(user_id AS TEXT), '-', '')) = :u
+                              AND is_active = 1
                             ORDER BY (last_message_at IS NULL), last_message_at DESC,
                                      updated_at DESC
                             LIMIT :lim
                             """
                         ),
-                        {"u": u_txt, "lim": limit},
+                        {"u": u_txt.replace("-", "").lower(), "lim": limit},
                     )
                     id_rows = r.all()
                     ids = [parse_uuid_stored(str(row[0])) for row in id_rows]
-                    if not ids:
-                        rows = []
-                    else:
-                        res = await db.exec(
-                            select(ChatSession).where(ChatSession.id.in_(ids))  # type: ignore[arg-type]
-                        )
-                        chats = list(res.all())
-                        rank = {cid: i for i, cid in enumerate(ids)}
-                        chats.sort(key=lambda c: rank.get(c.id, 999))
-                        rows = chats
+                    rows = []
+                    for sid in ids:
+                        chat = await load_chat_session_by_id(db, sid, owner_user_id=None)
+                        if chat is not None:
+                            rows.append(chat)
                 else:
                     result = await db.exec(
                         select(ChatSession)
@@ -429,9 +559,9 @@ class TieredSessionStore:
                     user_id=chat.user_id,
                     workspace_id=chat.workspace_id,
                     flow_id=chat.flow_id,
-                    created_at=_as_utc_aware(chat.created_at) or datetime.now(timezone.utc),
+                    created_at=_as_utc_aware(chat.created_at) or datetime.now(UTC),
                     updated_at=_as_utc_aware(chat.last_message_at or chat.updated_at)
-                    or datetime.now(timezone.utc),
+                    or datetime.now(UTC),
                 )
             states.append(materialised)
         return states

@@ -11,6 +11,8 @@ from leagent.exceptions.llm import LLMServiceError, ModelNotFoundError
 from leagent.llm.circuit_breaker import CircuitBreaker
 
 if TYPE_CHECKING:
+    import logging
+
     from leagent.llm.base import LLMProvider
 
 
@@ -193,6 +195,21 @@ class ProviderRegistry:
         info = self._providers.get(name)
         return bool(info and info.circuit_breaker.is_available())
 
+    def find_embedding_provider(self, *, exclude: str = "") -> LLMProvider | None:
+        """Return the first available provider that likely supports embeddings.
+
+        Checks whether the provider class overrides the base ``embed`` method.
+        """
+        from leagent.llm.base import LLMProvider as _Base
+
+        base_embed = _Base.embed
+        for name, info in self._providers.items():
+            if name == exclude or not info.circuit_breaker.is_available():
+                continue
+            if type(info.provider).embed is not base_embed:
+                return info.provider
+        return None
+
     def record_success(self, name: str) -> None:
         """Record a successful provider request."""
         info = self._providers.get(name)
@@ -314,7 +331,7 @@ class ProviderRegistry:
 
             return processed_results
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return [
                 HealthCheckResult(
                     provider_name=name,
@@ -393,7 +410,7 @@ def create_default_registry() -> ProviderRegistry:
 
 def _register_env_overrides(
     registry: ProviderRegistry,
-    _log: "logging.Logger",
+    _log: logging.Logger,
 ) -> None:
     """Register optional env-only providers (vLLM, Ollama)."""
     from leagent.config.settings import get_settings

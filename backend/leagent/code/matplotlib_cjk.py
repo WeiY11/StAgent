@@ -10,8 +10,9 @@ after a script wiped the stack down to DejaVu-only.
 
 from __future__ import annotations
 
-import structlog
 from pathlib import Path
+
+import structlog
 
 from leagent.utils.cjk_font_discovery import resolve_cjk_regular_path
 
@@ -48,8 +49,8 @@ def configure_matplotlib_cjk(*, explicit_font_path: str | None = None) -> bool:
     global _REGISTERED_PATH, _FAMILY
 
     try:
-        from matplotlib import font_manager
         import matplotlib.pyplot as plt
+        from matplotlib import font_manager
     except Exception as exc:
         logger.debug("matplotlib_cjk_import_failed", error=str(exc))
         return False

@@ -13,7 +13,8 @@ at startup.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 try:  # importlib.metadata is stdlib; older interpreters fall back
     from importlib.metadata import entry_points

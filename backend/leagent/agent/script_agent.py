@@ -28,8 +28,8 @@ Public API:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import structlog
@@ -94,10 +94,10 @@ def build_script_agent_registry(
 
 def build_script_execution_agent(
     *,
-    parent: "AgentController",
+    parent: AgentController,
     allowed_tools: Iterable[str] = DEFAULT_SCRIPT_AGENT_TOOLS,
     max_iterations: int = 15,
-) -> "AgentController":
+) -> AgentController:
     """Build a child :class:`AgentController` for sandboxed script runs.
 
     .. deprecated:: 0.1.0
@@ -117,7 +117,7 @@ def build_script_execution_agent(
     config.temperature = parent.config.temperature
 
     child_registry = build_script_agent_registry(parent.tools, allowed_tools=allowed_tools)
-    service_manager: "ServiceManager | None" = getattr(
+    service_manager: ServiceManager | None = getattr(
         parent.executor, "service_manager", None,
     )
     child_executor = ToolExecutor(
@@ -142,16 +142,16 @@ def build_script_execution_agent(
 
 def build_script_agent_engine(
     *,
-    llm: "LLMService",
+    llm: LLMService,
     tools: ToolRegistry,
     cwd: str,
     system_prompt: str | None = None,
     append_system_prompt: str = "",
     prompt_variant: str = "script_agent",
     allowed_tools: Iterable[str] = DEFAULT_SCRIPT_AGENT_TOOLS,
-    agent_memory: "AgentMemory | None" = None,
+    agent_memory: AgentMemory | None = None,
     hooks: Any = None,
-    service_manager: "ServiceManager | None" = None,
+    service_manager: ServiceManager | None = None,
     max_turns: int = 15,
     max_tool_calls_per_turn: int = 6,
     temperature: float | None = 0.2,
@@ -160,7 +160,7 @@ def build_script_agent_engine(
     session_id: UUID | None = None,
     workflow_node_id: str | None = None,
     deps: Any = None,
-) -> "QueryEngine":
+) -> QueryEngine:
     """Return a :class:`QueryEngine` configured as the script/compute sub-agent."""
     from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
     from leagent.tools.executor import ToolExecutor
@@ -217,9 +217,9 @@ class ScriptAgentTool(BaseTool):
 
     def __init__(
         self,
-        parent_controller: "AgentController | None" = None,
+        parent_controller: AgentController | None = None,
         *,
-        parent_provider: Callable[[], "AgentController | None"] | None = None,
+        parent_provider: Callable[[], AgentController | None] | None = None,
         allowed_tools: Iterable[str] = DEFAULT_SCRIPT_AGENT_TOOLS,
         max_iterations: int = 15,
     ) -> None:

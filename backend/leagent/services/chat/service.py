@@ -4,26 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from pydantic import ValidationError
-from sqlalchemy import String, and_, cast, delete, text
+from sqlalchemy import and_, delete, text
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
-from leagent.db.sqlite_compat import (
-    load_chat_session_by_id,
-    parse_uuid_stored,
-    same_user_id,
-    session_dialect_name,
-    sqlite_parent_id_text,
-)
-
-from leagent.services.base import Service, ServiceType, service_factory
-from leagent.services.cache import build_scoped_cache_key
 from leagent.db.models.agent_memory import AgentEpisode
 from leagent.db.models.base import naive_utc_for_db_column, utc_now
 from leagent.db.models.canvas import CanvasDocument
@@ -32,20 +24,30 @@ from leagent.db.models.message import (
     AUTHORIZED_ROOTS_META_KEY,
     ChatSession,
     Message,
-    MessageCreate,
     MessageRead,
     MessageRole,
     MessageStatus,
-    SessionCreate,
     SessionRead,
     chat_session_to_read,
     parse_authorized_roots_from_session_metadata,
 )
+from leagent.db.sqlite_compat import (
+    load_chat_session_by_id,
+    parse_uuid_stored,
+    same_user_id,
+    session_dialect_name,
+    sqlite_insert_message,
+    sqlite_parent_id_text,
+    uuid_column_equals,
+    uuid_column_in,
+)
+from leagent.services.base import Service, ServiceType, service_factory
+from leagent.services.cache import build_scoped_cache_key
 
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
-    from leagent.services.cache.service import CacheService
     from leagent.db.service import DatabaseService
+    from leagent.services.cache.service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +64,38 @@ def estimate_tokens(text: str) -> int:
 async def _message_session_sid_eq(db: AsyncSession, session_id: UUID):
     """Return session filter expression for ``Message`` rows."""
     if session_dialect_name(db) == "sqlite":
-        s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-        return cast(Message.session_id, String) == s_txt
+        return uuid_column_equals(db, Message.session_id, session_id)
     return Message.session_id == session_id
+
+
+async def _sqlite_update_chat_session(
+    db: AsyncSession,
+    session_id: UUID,
+    values: dict[str, Any],
+) -> None:
+    """Update non-FK ``chat_sessions`` fields with UUID-normalized PK matching."""
+    if not values:
+        return
+    await db.execute(
+        sa_update(ChatSession)
+        .where(uuid_column_equals(db, ChatSession.id, session_id))
+        .values(**values)
+    )
+
+
+async def _sqlite_update_message(
+    db: AsyncSession,
+    message_id: UUID,
+    values: dict[str, Any],
+) -> None:
+    """Update non-FK ``messages`` fields with UUID-normalized PK matching."""
+    if not values:
+        return
+    await db.execute(
+        sa_update(Message)
+        .where(uuid_column_equals(db, Message.id, message_id))
+        .values(**values)
+    )
 
 
 async def _delete_hard_session_dependents(db: AsyncSession, session_id: UUID) -> tuple[int, int, int, int]:
@@ -73,19 +104,27 @@ async def _delete_hard_session_dependents(db: AsyncSession, session_id: UUID) ->
     Returns deleted row counts ``(canvas_documents, agent_episodes, files, messages)``.
     """
     if session_dialect_name(db) == "sqlite":
-        s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
         canvas_r = await db.execute(
-            delete(CanvasDocument).where(cast(CanvasDocument.session_id, String) == s_txt),
+            delete(CanvasDocument).where(
+                uuid_column_equals(db, CanvasDocument.session_id, session_id)
+            ),
         )
         ep_r = await db.execute(
-            delete(AgentEpisode).where(cast(AgentEpisode.session_id, String) == s_txt),
+            delete(AgentEpisode).where(
+                uuid_column_equals(db, AgentEpisode.session_id, session_id)
+            ),
         )
         file_r = await db.execute(
             delete(File).where(
-                and_(col(File.session_id).is_not(None), cast(File.session_id, String) == s_txt),
+                and_(
+                    col(File.session_id).is_not(None),
+                    uuid_column_equals(db, File.session_id, session_id),
+                ),
             ),
         )
-        msg_r = await db.execute(delete(Message).where(cast(Message.session_id, String) == s_txt))
+        msg_r = await db.execute(
+            delete(Message).where(uuid_column_equals(db, Message.session_id, session_id))
+        )
     else:
         canvas_r = await db.execute(delete(CanvasDocument).where(CanvasDocument.session_id == session_id))
         ep_r = await db.execute(delete(AgentEpisode).where(AgentEpisode.session_id == session_id))
@@ -222,9 +261,61 @@ class ChatService(Service):
         )
 
         async with self._db.session() as db:
-            db.add(session)
-            await db.flush()
-            await db.refresh(session)
+            if session_dialect_name(db) == "sqlite":
+                await db.execute(
+                    text(
+                        """
+                        INSERT INTO chat_sessions (
+                            created_at, updated_at, id, name, user_id,
+                            flow_id, project_id, workspace_id, is_active,
+                            message_count, last_message_at, session_metadata
+                        )
+                        VALUES (
+                            :created_at, :updated_at, :id, :name, :user_id,
+                            :flow_id, :project_id, :workspace_id, :is_active,
+                            :message_count, :last_message_at, :session_metadata
+                        )
+                        """
+                    ),
+                    {
+                        "created_at": session.created_at,
+                        "updated_at": session.updated_at,
+                        "id": session.id.hex,
+                        "name": session.name,
+                        "user_id": await sqlite_parent_id_text(db, "users", user_id),
+                        "flow_id": (
+                            await sqlite_parent_id_text(db, "flows", flow_id)
+                            if flow_id is not None
+                            else None
+                        ),
+                        "project_id": (
+                            await sqlite_parent_id_text(db, "chat_projects", project_id)
+                            if project_id is not None
+                            else None
+                        ),
+                        "workspace_id": (
+                            await sqlite_parent_id_text(
+                                db, "workspaces", session.workspace_id
+                            )
+                            if session.workspace_id is not None
+                            else None
+                        ),
+                        "is_active": bool(session.is_active),
+                        "message_count": session.message_count,
+                        "last_message_at": session.last_message_at,
+                        "session_metadata": session.session_metadata,
+                    },
+                )
+                loaded = await load_chat_session_by_id(
+                    db, session.id, owner_user_id=None
+                )
+                if loaded is None:
+                    raise RuntimeError("Inserted chat session could not be reloaded")
+                session = loaded
+            else:
+                db.add(session)
+                await db.flush()
+                await db.refresh(session)
 
         if self._cache:
             await self._cache.set(
@@ -290,6 +381,7 @@ class ChatService(Service):
         user_id: UUID,
         *,
         active_only: bool = True,
+        flow_id: UUID | None = None,
         project_id: UUID | None = None,
         offset: int = 0,
         limit: int = 50,
@@ -325,11 +417,19 @@ class ChatService(Service):
                     )
                     p_txt = await sqlite_parent_id_text(db, "chat_projects", project_id)
                     params["pid_plain"] = p_txt.replace("-", "").lower()
+                flow_sql = ""
+                if flow_id is not None:
+                    flow_sql = (
+                        " AND lower(replace(CAST(flow_id AS TEXT), '-', '')) = :fid_plain"
+                    )
+                    f_txt = await sqlite_parent_id_text(db, "flows", flow_id)
+                    params["fid_plain"] = f_txt.replace("-", "").lower()
                 r = await db.execute(
                     text(
                         "SELECT id FROM chat_sessions "
                         "WHERE lower(replace(CAST(user_id AS TEXT), '-', '')) = :u_plain"
-                        f"{active_sql}{project_sql} ORDER BY updated_at DESC LIMIT :lim OFFSET :off"
+                        f"{active_sql}{project_sql}{flow_sql} "
+                        "ORDER BY updated_at DESC LIMIT :lim OFFSET :off"
                     ),
                     params,
                 )
@@ -350,6 +450,8 @@ class ChatService(Service):
                 )
                 if active_only:
                     stmt = stmt.where(ChatSession.is_active == True)
+                if flow_id is not None:
+                    stmt = stmt.where(ChatSession.flow_id == flow_id)
                 if project_id is not None:
                     stmt = stmt.where(ChatSession.project_id == project_id)
 
@@ -357,6 +459,60 @@ class ChatService(Service):
                 sessions = list(result.scalars().all())
 
         return [chat_session_to_read(s) for s in sessions]
+
+    async def count_sessions(
+        self,
+        user_id: UUID,
+        *,
+        active_only: bool = True,
+        flow_id: UUID | None = None,
+        project_id: UUID | None = None,
+    ) -> int:
+        """Return the total number of sessions matching the filter criteria."""
+        if self._db is None:
+            return 0
+        from sqlmodel import func as sqlfunc
+
+        async with self._db.session() as db:
+            if session_dialect_name(db) == "sqlite":
+                u_txt = await sqlite_parent_id_text(db, "users", user_id)
+                active_sql = " AND is_active = 1" if active_only else ""
+                params: dict[str, Any] = {"u_plain": u_txt.replace("-", "").lower()}
+                project_sql = ""
+                if project_id is not None:
+                    project_sql = (
+                        " AND lower(replace(CAST(project_id AS TEXT), '-', '')) = :pid_plain"
+                    )
+                    p_txt = await sqlite_parent_id_text(db, "chat_projects", project_id)
+                    params["pid_plain"] = p_txt.replace("-", "").lower()
+                flow_sql = ""
+                if flow_id is not None:
+                    flow_sql = (
+                        " AND lower(replace(CAST(flow_id AS TEXT), '-', '')) = :fid_plain"
+                    )
+                    f_txt = await sqlite_parent_id_text(db, "flows", flow_id)
+                    params["fid_plain"] = f_txt.replace("-", "").lower()
+                r = await db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM chat_sessions "
+                        "WHERE lower(replace(CAST(user_id AS TEXT), '-', '')) = :u_plain"
+                        f"{active_sql}{project_sql}{flow_sql}"
+                    ),
+                    params,
+                )
+                row = r.first()
+                return int(row[0]) if row else 0
+            stmt = select(sqlfunc.count()).select_from(ChatSession).where(
+                ChatSession.user_id == user_id
+            )
+            if active_only:
+                stmt = stmt.where(ChatSession.is_active == True)  # noqa: E712
+            if flow_id is not None:
+                stmt = stmt.where(ChatSession.flow_id == flow_id)
+            if project_id is not None:
+                stmt = stmt.where(ChatSession.project_id == project_id)
+            result = await db.execute(stmt)
+            return result.scalar_one()
 
     async def move_session_to_project(
         self,
@@ -372,11 +528,36 @@ class ChatService(Service):
             session = await load_chat_session_by_id(db, session_id, owner_user_id=user_id)
             if session is None:
                 return None
-            session.project_id = project_id
-            session.updated_at = utc_now()
-            db.add(session)
-            await db.flush()
-            await db.refresh(session)
+            updated_at = utc_now()
+            if session_dialect_name(db) == "sqlite":
+                project_id_text = (
+                    await sqlite_parent_id_text(db, "chat_projects", project_id)
+                    if project_id is not None
+                    else None
+                )
+                await db.execute(
+                    text(
+                        """
+                        UPDATE chat_sessions
+                        SET project_id = :project_id, updated_at = :updated_at
+                        WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :session_id
+                        """
+                    ),
+                    {
+                        "project_id": project_id_text,
+                        "updated_at": updated_at,
+                        "session_id": str(session_id).replace("-", "").lower(),
+                    },
+                )
+                db.expunge(session)
+                session.project_id = project_id
+                session.updated_at = updated_at
+            else:
+                session.project_id = project_id
+                session.updated_at = updated_at
+                db.add(session)
+                await db.flush()
+                await db.refresh(session)
         if self._cache:
             await self._cache.delete(f"session:{session_id}", namespace="chat")
         return session
@@ -390,13 +571,14 @@ class ChatService(Service):
         if not candidate_ids or self._db is None:
             return []
         async with self._db.session() as db:
+            sid_eq = await _message_session_sid_eq(db, session_id)
             result = await db.execute(
                 select(Message.id).where(
-                    Message.session_id == session_id,
-                    col(Message.id).in_(candidate_ids),
+                    sid_eq,
+                    uuid_column_in(db, Message.id, candidate_ids),
                 )
             )
-            found = {row[0] for row in result.all()}
+            found = {parse_uuid_stored(str(row[0])) for row in result.all()}
         return [mid for mid in candidate_ids if mid in found]
 
     async def sanitize_metadata_patch(
@@ -460,10 +642,25 @@ class ChatService(Service):
                     current.pop(key, None)
                 else:
                     current[key] = value
-            session.session_metadata = json.dumps(current) if current else None
-            session.updated_at = utc_now()
-            await db.flush()
-            await db.refresh(session)
+            session_metadata = json.dumps(current) if current else None
+            updated_at = utc_now()
+            if session_dialect_name(db) == "sqlite":
+                await _sqlite_update_chat_session(
+                    db,
+                    session_id,
+                    {
+                        "session_metadata": session_metadata,
+                        "updated_at": updated_at,
+                    },
+                )
+                db.expunge(session)
+                session.session_metadata = session_metadata
+                session.updated_at = updated_at
+            else:
+                session.session_metadata = session_metadata
+                session.updated_at = updated_at
+                await db.flush()
+                await db.refresh(session)
 
         if self._cache:
             await self._cache.set(
@@ -572,13 +769,28 @@ class ChatService(Service):
             if not session:
                 return None
 
-            if name is not None:
-                session.name = name
-            if is_active is not None:
-                session.is_active = is_active
-            session.updated_at = utc_now()
-            await db.flush()
-            await db.refresh(session)
+            updated_at = utc_now()
+            if session_dialect_name(db) == "sqlite":
+                values: dict[str, Any] = {"updated_at": updated_at}
+                if name is not None:
+                    values["name"] = name
+                if is_active is not None:
+                    values["is_active"] = is_active
+                await _sqlite_update_chat_session(db, session_id, values)
+                db.expunge(session)
+                if name is not None:
+                    session.name = name
+                if is_active is not None:
+                    session.is_active = is_active
+                session.updated_at = updated_at
+            else:
+                if name is not None:
+                    session.name = name
+                if is_active is not None:
+                    session.is_active = is_active
+                session.updated_at = updated_at
+                await db.flush()
+                await db.refresh(session)
 
         if self._cache:
             await self._cache.set(
@@ -610,11 +822,8 @@ class ChatService(Service):
             return [], 0
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                base = select(Message).where(cast(Message.session_id, String) == s_txt)
-            else:
-                base = select(Message).where(Message.session_id == session_id)
+            sid_eq = await _message_session_sid_eq(db, session_id)
+            base = select(Message).where(sid_eq)
             if role is not None:
                 base = base.where(Message.role == role)
             if before is not None:
@@ -663,11 +872,29 @@ class ChatService(Service):
                 return False
 
             if soft:
-                chat.is_active = False
-                chat.updated_at = utc_now()
+                if session_dialect_name(db) == "sqlite":
+                    await _sqlite_update_chat_session(
+                        db,
+                        session_id,
+                        {"is_active": False, "updated_at": utc_now()},
+                    )
+                else:
+                    chat.is_active = False
+                    chat.updated_at = utc_now()
             else:
                 await _delete_hard_session_dependents(db, session_id)
-                await db.delete(chat)
+                if session_dialect_name(db) == "sqlite":
+                    await db.execute(
+                        text(
+                            """
+                            DELETE FROM chat_sessions
+                            WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :session_id
+                            """
+                        ),
+                        {"session_id": str(session_id).replace("-", "").lower()},
+                    )
+                else:
+                    await db.delete(chat)
 
         if self._cache:
             await self._cache.delete(f"session:{session_id}", namespace="chat")
@@ -711,9 +938,29 @@ class ChatService(Service):
                     c_canv, _ep, _fi, c_msg = await _delete_hard_session_dependents(db, chat.id)
                     deleted_canvas += c_canv
                     deleted_messages += c_msg
-                    await db.delete(chat)
+                    if session_dialect_name(db) == "sqlite":
+                        await db.execute(
+                            text(
+                                """
+                                DELETE FROM chat_sessions
+                                WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :session_id
+                                """
+                            ),
+                            {
+                                "session_id": str(chat.id).replace("-", "").lower(),
+                            },
+                        )
+                    else:
+                        await db.delete(chat)
                 else:
-                    chat.updated_at = utc_now()
+                    if session_dialect_name(db) == "sqlite":
+                        await _sqlite_update_chat_session(
+                            db,
+                            chat.id,
+                            {"updated_at": utc_now()},
+                        )
+                    else:
+                        chat.updated_at = utc_now()
                 deleted_sessions += 1
 
         if self._cache:
@@ -801,19 +1048,42 @@ class ChatService(Service):
 
         async with self._db.session() as db:
             # Avoid autoflush ordering issues: load session row before flushing new message.
+            sqlite = session_dialect_name(db) == "sqlite"
             with db.no_autoflush:
                 chat_row = await load_chat_session_by_id(
                     db, session_id, owner_user_id=None
                 )
                 message.created_at = await self._next_message_created_at(db, session_id)
                 if chat_row:
-                    chat_row.message_count += 1
-                    chat_row.last_message_at = utc_now()
-                    chat_row.updated_at = utc_now()
-                db.add(message)
+                    now = utc_now()
+                    if sqlite:
+                        await db.execute(
+                            text(
+                                """
+                                UPDATE chat_sessions
+                                SET message_count = COALESCE(message_count, 0) + 1,
+                                    last_message_at = :now,
+                                    updated_at = :now
+                                WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :session_id
+                                """
+                            ),
+                            {
+                                "now": now,
+                                "session_id": str(session_id).replace("-", "").lower(),
+                            },
+                        )
+                    else:
+                        chat_row.message_count += 1
+                        chat_row.last_message_at = now
+                        chat_row.updated_at = now
+                if sqlite:
+                    message = await sqlite_insert_message(db, message)
+                else:
+                    db.add(message)
 
             await db.flush()
-            await db.refresh(message)
+            if not sqlite:
+                await db.refresh(message)
 
         await self._invalidate_session_message_cache(session_id)
 
@@ -843,11 +1113,8 @@ class ChatService(Service):
             if chat_row is None:
                 return False
 
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sqlite = session_dialect_name(db) == "sqlite"
+            sid_eq = await _message_session_sid_eq(db, session_id)
 
             await db.execute(delete(Message).where(sid_eq))
 
@@ -886,11 +1153,25 @@ class ChatService(Service):
                     status=MessageStatus.COMPLETED,
                     created_at=row_created,
                 )
-                db.add(row)
+                if sqlite:
+                    await sqlite_insert_message(db, row)
+                else:
+                    db.add(row)
 
-            chat_row.message_count = len(messages)
-            chat_row.last_message_at = now_db
-            chat_row.updated_at = now_db
+            if sqlite:
+                await _sqlite_update_chat_session(
+                    db,
+                    session_id,
+                    {
+                        "message_count": len(messages),
+                        "last_message_at": now_db,
+                        "updated_at": now_db,
+                    },
+                )
+            else:
+                chat_row.message_count = len(messages)
+                chat_row.last_message_at = now_db
+                chat_row.updated_at = now_db
 
         await self._invalidate_session_message_cache(session_id)
 
@@ -909,11 +1190,7 @@ class ChatService(Service):
             return False
         token = "_wa_pending"
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = (
                 select(Message)
                 .where(sid_eq)
@@ -925,10 +1202,36 @@ class ChatService(Service):
             row = result.scalars().first()
             if row is None or token not in (row.content or ""):
                 return False
-            row.content = new_content
-            if user_id is not None:
-                row.user_id = user_id
-            await db.commit()
+            if session_dialect_name(db) == "sqlite":
+                values: dict[str, Any] = {
+                    "content": new_content,
+                    "updated_at": utc_now(),
+                }
+                if user_id is None:
+                    await _sqlite_update_message(db, row.id, values)
+                else:
+                    await db.execute(
+                        text(
+                            """
+                            UPDATE messages
+                            SET content = :content,
+                                user_id = :user_id,
+                                updated_at = :updated_at
+                            WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :message_id
+                            """
+                        ),
+                        {
+                            **values,
+                            "user_id": await sqlite_parent_id_text(db, "users", user_id),
+                            "message_id": str(row.id).replace("-", "").lower(),
+                        },
+                    )
+            else:
+                row.content = new_content
+                row.updated_at = utc_now()
+                if user_id is not None:
+                    row.user_id = user_id
+                await db.commit()
 
         await self._invalidate_session_message_cache(session_id)
 
@@ -982,11 +1285,7 @@ class ChatService(Service):
                 return [MessageRead.model_validate(m) for m in cached]
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = (
                 select(Message)
                 .where(sid_eq)
@@ -995,7 +1294,9 @@ class ChatService(Service):
             )
 
             if before_id:
-                subq = select(Message.created_at).where(Message.id == before_id)
+                subq = select(Message.created_at).where(
+                    uuid_column_equals(db, Message.id, before_id)
+                )
                 stmt = stmt.where(Message.created_at < subq.scalar_subquery())
 
             if not include_system:
@@ -1030,13 +1331,9 @@ class ChatService(Service):
         if session is None:
             return None
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = select(Message).where(
-                Message.id == message_id,
+                uuid_column_equals(db, Message.id, message_id),
                 sid_eq,
             )
             result = await db.execute(stmt)
@@ -1116,11 +1413,7 @@ class ChatService(Service):
             return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = select(Message).where(sid_eq)
             if since:
                 stmt = stmt.where(Message.created_at >= since)
@@ -1159,7 +1452,9 @@ class ChatService(Service):
         last_check = utc_now()
         if after_id:
             async with self._db.session() as db:
-                stmt = select(Message.created_at).where(Message.id == after_id)
+                stmt = select(Message.created_at).where(
+                    uuid_column_equals(db, Message.id, after_id)
+                )
                 result = await db.execute(stmt)
                 row = result.first()
                 if row:
@@ -1167,11 +1462,7 @@ class ChatService(Service):
 
         while True:
             async with self._db.session() as db:
-                if session_dialect_name(db) == "sqlite":
-                    s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                    sid_eq = cast(Message.session_id, String) == s_txt
-                else:
-                    sid_eq = Message.session_id == session_id
+                sid_eq = await _message_session_sid_eq(db, session_id)
                 stmt = (
                     select(Message)
                     .where(
@@ -1212,17 +1503,24 @@ class ChatService(Service):
             return False
 
         async with self._db.session() as db:
-            stmt = select(Message).where(Message.id == message_id)
+            stmt = select(Message).where(uuid_column_equals(db, Message.id, message_id))
             result = await db.execute(stmt)
             message = result.scalar_one_or_none()
 
             if not message:
                 return False
 
-            message.status = status
-            message.updated_at = utc_now()
-            if error:
-                message.error = error
+            updated_at = utc_now()
+            if session_dialect_name(db) == "sqlite":
+                values: dict[str, Any] = {"status": status, "updated_at": updated_at}
+                if error:
+                    values["error"] = error
+                await _sqlite_update_message(db, message_id, values)
+            else:
+                message.status = status
+                message.updated_at = updated_at
+                if error:
+                    message.error = error
 
         return True
 
@@ -1247,18 +1545,27 @@ class ChatService(Service):
             return False
 
         async with self._db.session() as db:
-            stmt = select(Message).where(Message.id == message_id)
+            stmt = select(Message).where(uuid_column_equals(db, Message.id, message_id))
             result = await db.execute(stmt)
             message = result.scalar_one_or_none()
 
             if not message:
                 return False
 
+            updated_at = utc_now()
+            values: dict[str, Any] = {"updated_at": updated_at}
             if rating is not None:
-                message.rating = max(1, min(5, rating))
+                values["rating"] = max(1, min(5, rating))
             if feedback is not None:
-                message.feedback = feedback[:2000]
-            message.updated_at = utc_now()
+                values["feedback"] = feedback[:2000]
+            if session_dialect_name(db) == "sqlite":
+                await _sqlite_update_message(db, message_id, values)
+            else:
+                if "rating" in values:
+                    message.rating = values["rating"]
+                if "feedback" in values:
+                    message.feedback = values["feedback"]
+                message.updated_at = updated_at
 
         return True
 
@@ -1278,13 +1585,9 @@ class ChatService(Service):
             return False
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = select(Message).where(
-                Message.id == message_id,
+                uuid_column_equals(db, Message.id, message_id),
                 sid_eq,
                 Message.role == MessageRole.ASSISTANT,
             )
@@ -1293,11 +1596,20 @@ class ChatService(Service):
             if not message:
                 return False
 
+            updated_at = utc_now()
             if rating is None:
-                message.rating = None
+                value = None
             else:
-                message.rating = max(1, min(5, int(rating)))
-            message.updated_at = utc_now()
+                value = max(1, min(5, int(rating)))
+            if session_dialect_name(db) == "sqlite":
+                await _sqlite_update_message(
+                    db,
+                    message_id,
+                    {"rating": value, "updated_at": updated_at},
+                )
+            else:
+                message.rating = value
+                message.updated_at = updated_at
 
         await self._invalidate_session_message_cache(session_id)
 
@@ -1319,13 +1631,9 @@ class ChatService(Service):
             return False
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = select(Message).where(
-                Message.id == message_id,
+                uuid_column_equals(db, Message.id, message_id),
                 sid_eq,
                 Message.role == MessageRole.ASSISTANT,
             )
@@ -1343,8 +1651,17 @@ class ChatService(Service):
                 except json.JSONDecodeError:
                     base = {}
             merged = {**base, **patch}
-            message.extensions = json.dumps(merged, ensure_ascii=False)
-            message.updated_at = utc_now()
+            extensions = json.dumps(merged, ensure_ascii=False)
+            updated_at = utc_now()
+            if session_dialect_name(db) == "sqlite":
+                await _sqlite_update_message(
+                    db,
+                    message_id,
+                    {"extensions": extensions, "updated_at": updated_at},
+                )
+            else:
+                message.extensions = extensions
+                message.updated_at = updated_at
 
         await self._invalidate_session_message_cache(session_id)
 
@@ -1365,11 +1682,7 @@ class ChatService(Service):
             return None
 
         async with self._db.session() as db:
-            if session_dialect_name(db) == "sqlite":
-                s_txt = await sqlite_parent_id_text(db, "chat_sessions", session_id)
-                sid_eq = cast(Message.session_id, String) == s_txt
-            else:
-                sid_eq = Message.session_id == session_id
+            sid_eq = await _message_session_sid_eq(db, session_id)
             stmt = (
                 select(Message)
                 .where(

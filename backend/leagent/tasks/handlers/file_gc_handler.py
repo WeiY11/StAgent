@@ -22,14 +22,14 @@ class FileGcTaskHandler:
     name = "file_gc_handler"
     task_type: TaskType = TaskType.MONITOR
 
-    def __init__(self, service_manager: "ServiceManager | None" = None) -> None:
+    def __init__(self, service_manager: ServiceManager | None = None) -> None:
         self._sm = service_manager
 
     async def spawn(
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         del session, task_ctx
         sm = self._sm

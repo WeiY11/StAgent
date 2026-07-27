@@ -19,26 +19,29 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, status
-from sqlmodel import col, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, status
+from sqlalchemy import update as sa_update
 
-from leagent.services.auth import CurrentUserId
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import Flow
+from leagent.db.models.base import utc_now
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
+from leagent.services.auth import CurrentUserId
+from leagent.services.auth.deps import principal_from_request_state, require_permissions
 
 from ..io import export as io_export
 from ..io import graph_hash, load
 from ..nodes import get_registry
 from ..nodes.replacement import NodeReplacement, get_replace_registry
 from .event_bus import ExecutionEventBus
+from .flow_permissions import require_flow_access
 from .flows_router import flows_router
 from .prompt_hooks import apply_replacements, seed_context, validate_prompt
 from .schemas import (
-    ExecutionStatusEvent,
     FlowBuildRequest,
     FlowBuildResponse,
     FlowExportResponse,
@@ -60,6 +63,7 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/workflow", tags=["workflow"])
 router.include_router(flows_router)
+_workflow_admin = [Depends(require_permissions("workflow:admin"))]
 
 
 # ---------------------------------------------------------------------------
@@ -90,21 +94,28 @@ def _require_workflow_service() -> Any:
 @router.post("/prompts", response_model=FlowRunResponse, status_code=status.HTTP_202_ACCEPTED)
 async def submit_prompt(
     data: FlowRunRequest,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     flow_id: UUID = Query(..., description="Flow to execute."),
 ) -> FlowRunResponse:
     """Queue a workflow run. Returns immediately with a ``prompt_id``."""
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id and not flow.is_public:
-            raise HTTPException(status_code=403, detail="Access denied to this flow")
-        flow.run_count += 1
-        flow.last_run_at = datetime.utcnow()
-        session.add(flow)
-        await session.flush()
+        require_flow_access(flow, principal, "run")
+        now = utc_now()
+        await session.execute(
+            sa_update(Flow)
+            .where(uuid_column_equals(session, Flow.id, flow_id))
+            .values(
+                run_count=(flow.run_count or 0) + 1,
+                last_run_at=now,
+                updated_at=now,
+            )
+        )
 
         raw = json.loads(flow.data) if flow.data else {}
 
@@ -155,11 +166,12 @@ async def submit_prompt(
 async def run_flow(
     flow_id: UUID,
     data: FlowRunRequest,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowRunResponse:
     """Convenience wrapper around :func:`submit_prompt` using a path parameter."""
-    return await submit_prompt(data, user_id, db, flow_id=flow_id)
+    return await submit_prompt(data, request, user_id, db, flow_id=flow_id)
 
 
 @router.get("/prompts/{prompt_id}", response_model=WorkflowExecutionDetail)
@@ -202,7 +214,7 @@ async def pause_prompt(prompt_id: str, user_id: CurrentUserId) -> dict[str, Any]
 async def resume_prompt(
     prompt_id: str,
     user_id: CurrentUserId,
-    resume_data: Optional[dict[str, Any]] = None,
+    resume_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     workflow_service = _require_workflow_service()
     record = await workflow_service.get_by_prompt_id(prompt_id)
@@ -226,8 +238,29 @@ async def validate_flow(
     body: FlowValidateRequest,
     user_id: CurrentUserId,
 ) -> FlowValidateResponse:
+    return _validate_raw_flow_document(body.data)
+
+
+@router.get("/flows/{flow_id}/validate", response_model=FlowValidateResponse)
+async def validate_saved_flow(
+    flow_id: UUID,
+    request: Request,
+    user_id: CurrentUserId,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+) -> FlowValidateResponse:
+    principal = principal_from_request_state(request, user_id)
+    async with db.session() as session:
+        flow = await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
+        if not flow or flow.is_deleted:
+            raise HTTPException(status_code=404, detail="Flow not found")
+        require_flow_access(flow, principal, "view")
+        raw = json.loads(flow.data) if flow.data else {}
+    return _validate_raw_flow_document(raw)
+
+
+def _validate_raw_flow_document(raw: dict[str, Any]) -> FlowValidateResponse:
     try:
-        doc = load(body.data)
+        doc = load(raw)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Invalid flow document: {exc}") from exc
     ok, outputs, errors = validate_prompt(doc)
@@ -238,17 +271,18 @@ async def validate_flow(
 async def build_flow(
     flow_id: UUID,
     body: FlowBuildRequest,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowBuildResponse:
+    principal = principal_from_request_state(request, user_id)
     raw = body.data
     if raw is None:
         async with db.session() as session:
-            flow = await session.get(Flow, flow_id)
+            flow = await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
             if not flow or flow.is_deleted:
                 raise HTTPException(status_code=404, detail="Flow not found")
-            if flow.user_id != user_id and not flow.is_public:
-                raise HTTPException(status_code=403, detail="Access denied")
+            require_flow_access(flow, principal, "view")
             raw = json.loads(flow.data) if flow.data else {}
     try:
         doc = load(raw)
@@ -266,15 +300,16 @@ async def build_flow(
 @router.get("/flows/{flow_id}/export", response_model=FlowExportResponse)
 async def export_flow(
     flow_id: UUID,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> FlowExportResponse:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id and not flow.is_public:
-            raise HTTPException(status_code=403, detail="Access denied")
+        require_flow_access(flow, principal, "view")
         raw = json.loads(flow.data) if flow.data else {}
     doc = load(raw)
     payload = io_export(doc)
@@ -321,9 +356,14 @@ async def object_info() -> ObjectInfoResponse:
     )
 
 
-@router.post("/admin/reload-nodes", response_model=NodeReloadResponse)
-async def reload_nodes(user_id: CurrentUserId) -> NodeReloadResponse:
+@router.post(
+    "/admin/reload-nodes",
+    response_model=NodeReloadResponse,
+    dependencies=_workflow_admin,
+)
+async def reload_nodes() -> NodeReloadResponse:
     from leagent.config import get_settings
+
     from ..nodes import load_directory
     settings = get_settings()
     custom_dir = getattr(settings, "workflow_custom_nodes_dir", None)
@@ -337,19 +377,26 @@ async def reload_nodes(user_id: CurrentUserId) -> NodeReloadResponse:
     return NodeReloadResponse(registered=registered)
 
 
-@router.get("/admin/replacements", response_model=list[NodeReplacementEntry])
-async def list_replacements(user_id: CurrentUserId) -> list[NodeReplacementEntry]:
+@router.get(
+    "/admin/replacements",
+    response_model=list[NodeReplacementEntry],
+    dependencies=_workflow_admin,
+)
+async def list_replacements() -> list[NodeReplacementEntry]:
     return [
         NodeReplacementEntry(old_class=r.old_class, new_class=r.new_class, reason=r.reason)
         for r in get_replace_registry().list_all()
     ]
 
 
-@router.post("/admin/replacements", response_model=NodeReplacementEntry,
-             status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/admin/replacements",
+    response_model=NodeReplacementEntry,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=_workflow_admin,
+)
 async def register_replacement(
     entry: NodeReplacementEntry,
-    user_id: CurrentUserId,
 ) -> NodeReplacementEntry:
     get_replace_registry().register(NodeReplacement(
         old_class=entry.old_class, new_class=entry.new_class, reason=entry.reason,
@@ -357,11 +404,10 @@ async def register_replacement(
     return entry
 
 
-@router.delete("/admin/replacements")
+@router.delete("/admin/replacements", dependencies=_workflow_admin)
 async def unregister_replacement(
     old_class: str,
-    new_class: Optional[str] = None,
-    user_id: CurrentUserId = None,  # type: ignore[assignment]
+    new_class: str | None = None,
 ) -> dict[str, Any]:
     removed = get_replace_registry().unregister(old_class, new_class)
     return {"removed": removed}
@@ -375,17 +421,18 @@ async def unregister_replacement(
 @router.get("/flows/{flow_id}/executions", response_model=list[WorkflowExecutionSummary])
 async def list_flow_executions(
     flow_id: UUID,
+    request: Request,
     user_id: CurrentUserId,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[WorkflowExecutionSummary]:
+    principal = principal_from_request_state(request, user_id)
     async with db.session() as session:
-        flow = await session.get(Flow, flow_id)
+        flow = await load_entity_by_id(session, Flow, flow_id, parent_table="flows")
         if not flow or flow.is_deleted:
             raise HTTPException(status_code=404, detail="Flow not found")
-        if flow.user_id != user_id and not flow.is_public:
-            raise HTTPException(status_code=403, detail="Access denied")
+        require_flow_access(flow, principal, "view")
     workflow_service = _require_workflow_service()
     records = await workflow_service.list_executions(flow_id, limit, offset)
     return [_to_summary(r) for r in records]
@@ -452,9 +499,9 @@ async def _authenticate_websocket(
     ``None``. When the client offers ``bearer,<jwt>`` via
     ``Sec-WebSocket-Protocol``, the accept subprotocol is ``bearer``.
     """
+    from leagent.config.settings import get_settings
     from leagent.services.auth.policy import effective_enforce_auth
     from leagent.services.auth.service import LOCAL_USER_ID, get_auth_service
-    from leagent.config.settings import get_settings
 
     token: str | None = None
     accept_subprotocol: str | None = None
@@ -528,7 +575,7 @@ def _to_detail(record: dict[str, Any]) -> WorkflowExecutionDetail:
     )
 
 
-def _opt_dt(value: Any) -> Optional[datetime]:
+def _opt_dt(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):

@@ -26,8 +26,8 @@ from leagent.workflow.io import (
     Schema,
 )
 from leagent.workflow.nodes.agent_exec import run_agent_node
-from leagent.workflow.nodes.base import WorkflowNode
 from leagent.workflow.nodes.agent_model import agent_model_input
+from leagent.workflow.nodes.base import WorkflowNode
 from leagent.workflow.nodes.prompt_resolve import resolve_node_prompt
 
 logger = structlog.get_logger(__name__)

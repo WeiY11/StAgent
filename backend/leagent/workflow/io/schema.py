@@ -98,7 +98,7 @@ class Schema:
             )
         return errors
 
-    def finalize(self) -> "Schema":
+    def finalize(self) -> Schema:
         errors = self.validate()
         if errors:
             raise ValueError(f"Invalid schema for {self.node_id}: {errors}")

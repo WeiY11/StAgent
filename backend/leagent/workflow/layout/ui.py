@@ -24,7 +24,6 @@ from typing import Any
 from .edges import LayoutEdge, extract_edges
 from .engine import LayoutOptions, compute_layout
 
-
 # Map canonical `class_type` → frontend category + display `type`.
 # Mirrors the TypeScript mapping in `workflowLayout.ts` so nodes rendered
 # from the backend-computed UI block look identical to nodes laid out

@@ -13,11 +13,13 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 import structlog
+from sqlalchemy import update as sa_update
 
+from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 from leagent.workflow.base import WorkflowResult, WorkflowStatus
 
 from .prompt_map import InMemoryPromptMap, PromptExecutionMap
@@ -27,7 +29,7 @@ if TYPE_CHECKING:
     from leagent.db.service import DatabaseService
 
     from .engine.executor import WorkflowExecutor
-    from .queue.base import PromptItem, PromptQueue
+    from .queue.base import PromptQueue
 
 logger = structlog.get_logger(__name__)
 
@@ -37,11 +39,11 @@ class WorkflowService:
 
     def __init__(
         self,
-        db: "DatabaseService",
-        executor: "WorkflowExecutor",
+        db: DatabaseService,
+        executor: WorkflowExecutor,
         registry: FlowWorkflowRegistry,
-        queue: "PromptQueue | None" = None,
-        prompt_map: "PromptExecutionMap | None" = None,
+        queue: PromptQueue | None = None,
+        prompt_map: PromptExecutionMap | None = None,
     ) -> None:
         self._db = db
         self._executor = executor
@@ -79,7 +81,7 @@ class WorkflowService:
             dup = await session.exec(
                 select(WorkflowExecution).where(
                     WorkflowExecution.prompt_id == prompt_id,
-                    WorkflowExecution.user_id == user_id,
+                    uuid_column_equals(session, WorkflowExecution.user_id, user_id),
                     WorkflowExecution.status.in_(("queued", "running")),  # type: ignore[arg-type]
                 )
             )
@@ -135,6 +137,7 @@ class WorkflowService:
 
     async def get_by_prompt_id(self, prompt_id: str) -> dict[str, Any] | None:
         from sqlmodel import select
+
         from leagent.db.models.workflow_execution import WorkflowExecution
 
         async with self._db.session() as session:
@@ -477,7 +480,12 @@ class WorkflowService:
     async def get_execution(self, execution_id: UUID) -> dict[str, Any] | None:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            record = await session.get(WorkflowExecution, execution_id)
+            record = await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
             if not record:
                 return None
             return self._record_to_dict(record)
@@ -489,12 +497,13 @@ class WorkflowService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         from sqlmodel import col, select
+
         from leagent.db.models.workflow_execution import WorkflowExecution
 
         async with self._db.session() as session:
             q = (
                 select(WorkflowExecution)
-                .where(WorkflowExecution.flow_id == flow_id)
+                .where(uuid_column_equals(session, WorkflowExecution.flow_id, flow_id))
                 .order_by(col(WorkflowExecution.created_at).desc())
                 .offset(offset)
                 .limit(limit)
@@ -505,7 +514,12 @@ class WorkflowService:
     async def cancel_execution(self, execution_id: UUID) -> bool:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            record = await session.get(WorkflowExecution, execution_id)
+            record = await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
             if not record or record.status not in ("queued", "running", "pending", "paused", "waiting_human"):
                 return False
         if record.workflow_state_id:
@@ -516,7 +530,12 @@ class WorkflowService:
     async def pause_execution(self, execution_id: UUID) -> bool:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            record = await session.get(WorkflowExecution, execution_id)
+            record = await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
             if not record or record.status != "running":
                 return False
         if record.workflow_state_id:
@@ -532,7 +551,12 @@ class WorkflowService:
     ) -> WorkflowResult | None:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            record = await session.get(WorkflowExecution, execution_id)
+            record = await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
             if not record or record.status not in ("paused", "waiting_human"):
                 return None
         if not record.workflow_state_id:
@@ -671,7 +695,12 @@ class WorkflowService:
     async def _fetch_execution_record(self, execution_id: UUID) -> Any:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            return await session.get(WorkflowExecution, execution_id)
+            return await load_entity_by_id(
+                session,
+                WorkflowExecution,
+                execution_id,
+                parent_table="workflow_executions",
+            )
 
     async def _update_execution(
         self,
@@ -689,32 +718,33 @@ class WorkflowService:
     ) -> None:
         from leagent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:
-            record = await session.get(WorkflowExecution, execution_id)
-            if not record:
-                return
+            values: dict[str, Any] = {}
             if status:
-                record.status = status
+                values["status"] = status
             if outputs is not None:
-                record.outputs = json.dumps(outputs)
+                values["outputs"] = json.dumps(outputs)
             if execution_history is not None:
-                record.execution_history = json.dumps(execution_history)
+                values["execution_history"] = json.dumps(execution_history)
             if error is not None:
-                record.error = error
+                values["error"] = error
             if started_at:
-                record.started_at = started_at
+                values["started_at"] = started_at
             if completed_at:
-                record.completed_at = completed_at
+                values["completed_at"] = completed_at
             if duration_ms is not None:
-                record.duration_ms = duration_ms
+                values["duration_ms"] = duration_ms
             if node_count is not None:
-                record.node_count = node_count
+                values["node_count"] = node_count
             if workflow_state_id is not None:
-                record.workflow_state_id = workflow_state_id
+                values["workflow_state_id"] = workflow_state_id
             if graph_hash is not None:
-                record.graph_hash = graph_hash
-            record.updated_at = datetime.utcnow()
-            session.add(record)
-            await session.flush()
+                values["graph_hash"] = graph_hash
+            values["updated_at"] = datetime.utcnow()
+            await session.execute(
+                sa_update(WorkflowExecution)
+                .where(uuid_column_equals(session, WorkflowExecution.id, execution_id))
+                .values(**values)
+            )
 
     async def update_execution_by_prompt_id(
         self,
@@ -728,6 +758,7 @@ class WorkflowService:
     ) -> None:
         """Update execution row by prompt id (used by queue workers)."""
         from sqlmodel import select
+
         from leagent.db.models.workflow_execution import WorkflowExecution
 
         async with self._db.session() as session:
@@ -738,25 +769,28 @@ class WorkflowService:
             if record is None:
                 return
 
-            record.status = status
+            values: dict[str, Any] = {"status": status}
             if status == "running" and record.started_at is None:
-                record.started_at = datetime.utcnow()
+                values["started_at"] = datetime.utcnow()
             if status in {"completed", "failed", "cancelled", "timeout"}:
-                record.completed_at = datetime.utcnow()
+                values["completed_at"] = datetime.utcnow()
             if outputs is not None:
-                record.outputs = json.dumps(outputs)
+                values["outputs"] = json.dumps(outputs)
             if error is not None:
-                record.error = error
+                values["error"] = error
             if duration_ms is not None:
-                record.duration_ms = duration_ms
+                values["duration_ms"] = duration_ms
             if metadata is not None:
                 history = list(json.loads(record.execution_history) if record.execution_history else [])
                 history.append({"status": status, "metadata": metadata, "duration_ms": duration_ms or 0})
-                record.execution_history = json.dumps(history)
-                record.node_count = max(record.node_count or 0, len(history))
-            record.updated_at = datetime.utcnow()
-            session.add(record)
-            await session.flush()
+                values["execution_history"] = json.dumps(history)
+                values["node_count"] = max(record.node_count or 0, len(history))
+            values["updated_at"] = datetime.utcnow()
+            await session.execute(
+                sa_update(WorkflowExecution)
+                .where(uuid_column_equals(session, WorkflowExecution.id, record.id))
+                .values(**values)
+            )
 
     def _record_to_dict(self, record: Any) -> dict[str, Any]:
         return {

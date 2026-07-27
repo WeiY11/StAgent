@@ -21,9 +21,9 @@ from __future__ import annotations
 import shutil
 import sys
 import tomllib  # py311+
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping
 
 import structlog
 

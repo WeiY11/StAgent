@@ -16,11 +16,6 @@ from .control_nodes import (
     CameraControlNode,
     PoseControlNode,
 )
-from .storyboard import (
-    STORYBOARD_NODES,
-    ShotNode,
-    StoryboardNode,
-)
 from .nodes import (
     ART_GENERATION_NODES,
     ImageGenNode,
@@ -30,6 +25,11 @@ from .nodes import (
     VideoGenNode,
 )
 from .quality_critic import QualityCriticNode
+from .storyboard import (
+    STORYBOARD_NODES,
+    ShotNode,
+    StoryboardNode,
+)
 
 #: Art-side evaluation nodes (perceptual / LLM scoring for the gate).
 ART_EVAL_NODES: list[type[WorkflowNode]] = [QualityCriticNode]

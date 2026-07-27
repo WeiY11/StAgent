@@ -40,7 +40,7 @@ class ArchiveManagerTool(SyncTool):
     def _enforce_path_sandbox(
         self,
         params: dict[str, Any],
-        context: "ToolContext",
+        context: ToolContext,
     ) -> None:
         super()._enforce_path_sandbox(params, context)
 

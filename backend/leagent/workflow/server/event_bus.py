@@ -7,7 +7,8 @@ WebSocket clients via an in-memory transport.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncIterator, Awaitable, Callable, Protocol
+from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Any, Protocol
 
 import structlog
 

@@ -6,7 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-
 # backend/leagent/services/python_env/resolve.py -> parents[3] == backend root.
 _BACKEND_ROOT = Path(__file__).resolve().parents[3]
 

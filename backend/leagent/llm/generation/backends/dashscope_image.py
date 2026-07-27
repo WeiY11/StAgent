@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from leagent.utils.logging import get_logger
-
 from leagent.llm.generation.adapter import provider_result_to_output
 from leagent.llm.generation.base import GenerationOutput
 from leagent.llm.generation.config import get_image_gen_config
 from leagent.llm.generation.providers.dashscope import DashScopeWanxProvider
+from leagent.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

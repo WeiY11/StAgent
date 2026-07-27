@@ -16,8 +16,10 @@ from leagent.context.types import (
     ContextBlock,
     ContextScope,
     ProjectMemoryOrigin,
-    ProjectMemorySource as ProjectMemoryRecord,
     RenderTarget,
+)
+from leagent.context.types import (
+    ProjectMemorySource as ProjectMemoryRecord,
 )
 
 logger = structlog.get_logger(__name__)

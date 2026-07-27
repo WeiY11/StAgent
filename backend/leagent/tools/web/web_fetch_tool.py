@@ -99,7 +99,7 @@ class WebFetchTool(BaseTool):
 
         cache_ttl = float(cfg.cache_ttl_minutes or 0.0)
         cache_key = hashlib.sha256(
-            f"{url}|{max_chars}|{int(bool(summarize))}".encode("utf-8")
+            f"{url}|{max_chars}|{int(bool(summarize))}".encode()
         ).hexdigest()
         if cache_ttl > 0:
             cached = get_fetch_cache(ttl_minutes=cache_ttl).get(cache_key)

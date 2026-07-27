@@ -21,7 +21,8 @@ single handler per :class:`TaskType`, so the last registration wins).
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, List
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, List
 
 if TYPE_CHECKING:
     from leagent.services.service_manager import ServiceManager
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 HandlerBuilder = Callable[["ServiceManager"], "TaskHandler | None"]
 
-_builders: List[HandlerBuilder] = []
+_builders: list[HandlerBuilder] = []
 
 
 def register_task_handler_builder(fn: HandlerBuilder) -> None:
@@ -50,44 +51,44 @@ def reset_task_handler_builders() -> None:
     _builders.clear()
 
 
-def _default_builders() -> List[HandlerBuilder]:
+def _default_builders() -> list[HandlerBuilder]:
     """Return the set of default-handler builders shipped with the app."""
 
-    def _agent(sm: "ServiceManager") -> "TaskHandler | None":
+    def _agent(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.agent_handler import AgentTaskHandler
 
         return AgentTaskHandler(service_manager=sm)
 
-    def _shell(_: "ServiceManager") -> "TaskHandler | None":
+    def _shell(_: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.shell_handler import ShellTaskHandler
 
         return ShellTaskHandler()
 
-    def _workflow(sm: "ServiceManager") -> "TaskHandler | None":
+    def _workflow(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.workflow_handler import WorkflowTaskHandler
 
         if sm.workflow_service is None:
             return None
         return WorkflowTaskHandler(service_manager=sm)
 
-    def _tool(sm: "ServiceManager") -> "TaskHandler | None":
+    def _tool(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.tool_handler import ToolTaskHandler
 
         return ToolTaskHandler(service_manager=sm)
 
-    def _batch(sm: "ServiceManager") -> "TaskHandler | None":
+    def _batch(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.batch_handler import BatchTaskHandler
 
         return BatchTaskHandler(service_manager=sm)
 
-    def _file_processing(sm: "ServiceManager") -> "TaskHandler | None":
+    def _file_processing(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.file_processing_handler import (
             FileProcessingTaskHandler,
         )
 
         return FileProcessingTaskHandler(service_manager=sm)
 
-    def _file_gc(sm: "ServiceManager") -> "TaskHandler | None":
+    def _file_gc(sm: ServiceManager) -> TaskHandler | None:
         from leagent.tasks.handlers.file_gc_handler import FileGcTaskHandler
 
         return FileGcTaskHandler(service_manager=sm)
@@ -96,7 +97,7 @@ def _default_builders() -> List[HandlerBuilder]:
 
 
 async def register_default_handlers(
-    sm: "ServiceManager", tm: "TaskManager"
+    sm: ServiceManager, tm: TaskManager
 ) -> int:
     """Instantiate and register every known :class:`TaskHandler`.
 

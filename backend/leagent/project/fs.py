@@ -22,9 +22,10 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import structlog
 
@@ -473,11 +474,20 @@ def apply_str_replace(
     """
     import difflib
 
-    if old_string == new_string:
-        raise ValueError("old_string and new_string must differ.")
     text, encoding = read_text_with_detection(abs_path)
 
-    occurrences = text.count(old_string)
+    # Match with newlines normalized to LF so an LF-only snippet (what the
+    # agent sees via project_read) still matches a CRLF file on Windows.
+    # The file's original newline convention is preserved on write.
+    file_newline = "\r\n" if "\r\n" in text else "\n"
+    norm_text = text.replace("\r\n", "\n")
+    norm_old = old_string.replace("\r\n", "\n")
+    norm_new = new_string.replace("\r\n", "\n")
+
+    if norm_old == norm_new:
+        raise ValueError("old_string and new_string must differ.")
+
+    occurrences = norm_text.count(norm_old)
     if occurrences == 0:
         raise ValueError(
             f"old_string not found in {rel_path}. Provide a snippet that "
@@ -491,15 +501,16 @@ def apply_str_replace(
         )
 
     if replace_all:
-        new_text = text.replace(old_string, new_string)
+        new_norm = norm_text.replace(norm_old, norm_new)
     else:
-        new_text = text.replace(old_string, new_string, 1)
+        new_norm = norm_text.replace(norm_old, norm_new, 1)
 
+    new_text = new_norm.replace("\n", file_newline) if file_newline == "\r\n" else new_norm
     abs_path.write_bytes(new_text.encode(_safe_encoding(encoding)))
     diff = "".join(
         difflib.unified_diff(
-            text.splitlines(keepends=True),
-            new_text.splitlines(keepends=True),
+            norm_text.splitlines(keepends=True),
+            new_norm.splitlines(keepends=True),
             fromfile=f"a/{rel_path}",
             tofile=f"b/{rel_path}",
             n=3,
@@ -784,7 +795,7 @@ def _strip_diff_prefix(header: str) -> str:
 
 async def resolve_content(
     params: dict,
-    context: "ToolContext",
+    context: ToolContext,
     *,
     inline_key: str = "content",
     blob_key: str = "content_blob_id",

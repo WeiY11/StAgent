@@ -32,26 +32,25 @@ from __future__ import annotations
 
 import click
 
-from leagent.cli.utils import console, print_error, print_success
-
 from leagent.cli.app_cmd import app_group
+from leagent.cli.auth_cmd import reset_password_cmd
+from leagent.cli.channels_cmd import channels_group
+from leagent.cli.chat_cmd import chat_cmd
+from leagent.cli.chats_cmd import chats_group
+from leagent.cli.clean_cmd import clean_cmd, prune_cmd
+from leagent.cli.config_cmd import config_group
+from leagent.cli.cron_cmd import cron_group
+from leagent.cli.daemon_cmd import daemon_group
+from leagent.cli.env_cmd import env_group
 from leagent.cli.init_cmd import init_cmd
 from leagent.cli.providers_cmd import models_group
-from leagent.cli.channels_cmd import channels_group
-from leagent.cli.skills_cmd import skills_group
-from leagent.cli.cron_cmd import cron_group
-from leagent.cli.chats_cmd import chats_group
-from leagent.cli.env_cmd import env_group
-from leagent.cli.daemon_cmd import daemon_group
-from leagent.cli.clean_cmd import clean_cmd, prune_cmd
-from leagent.cli.chat_cmd import chat_cmd
-from leagent.cli.config_cmd import config_group
 from leagent.cli.rules_cmd import rules_group
-from leagent.cli.workflows_cmd import workflows_group
+from leagent.cli.skills_cmd import skills_group
 from leagent.cli.tasks_cmd import tasks_group
 from leagent.cli.templates_cmd import templates_group
+from leagent.cli.utils import console, print_error, print_success
 from leagent.cli.webhooks_cmd import webhooks_group
-from leagent.cli.auth_cmd import reset_password_cmd
+from leagent.cli.workflows_cmd import workflows_group
 
 
 class AgenticGroup(click.Group):
@@ -253,15 +252,14 @@ def version() -> None:
 def doctor() -> None:
     """Check local install health: config paths, core imports, LLM registry, tools, rules, skills."""
     import shutil
-
     from pathlib import Path
 
     from leagent.config.constants import (
         ALL_DIRS,
         CONFIG_PATH,
+        LEAGENT_HOME,
         PROVIDERS_PATH,
         RULES_DIR,
-        LEAGENT_HOME,
     )
     from leagent.config.settings import get_settings
 
@@ -497,8 +495,8 @@ Available objects:
 
 Type 'help(obj)' for documentation.
 """
-        from leagent.config.config import load_config
         from leagent.cli.http import get_client
+        from leagent.config.config import load_config
 
         config = load_config()
         client = get_client()
@@ -508,8 +506,8 @@ Type 'help(obj)' for documentation.
     except ImportError:
         import code
 
-        from leagent.config.config import load_config
         from leagent.cli.http import get_client
+        from leagent.config.config import load_config
 
         config = load_config()
         client = get_client()

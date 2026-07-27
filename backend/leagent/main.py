@@ -4,24 +4,31 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import mimetypes
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
+
+# Windows registry-backed mimetypes maps .svg to the non-canonical "image/svg"
+# (missing +xml suffix); force the correct IANA type so StaticFiles serves SVG
+# with a Content-Type browsers accept.
+mimetypes.add_type("image/svg+xml", ".svg")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+from leagent import __version__ as leagent_version
 from leagent.api.middleware import (
-    APIVersionMiddleware,
     AccessLogMiddleware,
+    APIVersionMiddleware,
     ContentSizeLimitMiddleware,
     RateLimitMiddleware,
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
 )
-from leagent import __version__ as leagent_version
 from leagent.api.router import api_router
 from leagent.config.settings import get_settings
 from leagent.exceptions.handlers import register_exception_handlers
@@ -35,12 +42,12 @@ logger = get_logger(__name__)
 _service_manager: ServiceManager | None = None
 
 
-def get_service_manager() -> "ServiceManager":
+def get_service_manager() -> ServiceManager:
     assert _service_manager is not None, "ServiceManager not initialised"
     return _service_manager
 
 
-def set_service_manager(sm: "ServiceManager | None") -> None:
+def set_service_manager(sm: ServiceManager | None) -> None:
     global _service_manager
     _service_manager = sm
 
@@ -129,13 +136,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await chat_ws_manager.aclose()
     except Exception:
         logger.debug("ws manager close failed", exc_info=True)
-    await _service_manager.stop_all()
+    # Flush pending trace data before tearing down services.
+    with contextlib.suppress(Exception):
+        from leagent.telemetry.trace import get_trace_recorder
+        await get_trace_recorder().flush()
+    try:
+        await asyncio.wait_for(_service_manager.stop_all(), timeout=30.0)
+    except TimeoutError:
+        logger.error("Service shutdown timed out after 30s, forcing exit")
     _service_manager = None
     app.state.service_manager = None
     logger.info("LeAgent stopped")
 
 
-async def _post_startup_warmup(app: FastAPI, sm: "ServiceManager") -> None:
+async def _post_startup_warmup(app: FastAPI, sm: ServiceManager) -> None:
     """Deferred startup: tools, skills, routes.
 
     When ``LEAGENT_DESKTOP=1`` (Electron shell), Playwright browser
@@ -170,31 +184,59 @@ async def _post_startup_warmup(app: FastAPI, sm: "ServiceManager") -> None:
         ev.set()
 
 
+_migrations_applied = False
+
+
 async def _run_db_migrations() -> None:
     """Apply Alembic migrations (in-process for SQLite).
 
     Delegates to :func:`leagent.alembic.sync_runner.run_sync_migrations`, which
     uses ``alembic.command.upgrade`` so ``env.run_migrations_online`` can use the
     injected connection. Skips when no revision scripts exist.
+
+    A process-level guard makes repeat calls a no-op: a process runs its lifespan
+    once in production, so re-checking is only ever hit by the test suite (each
+    ``with TestClient(app)`` re-enters the lifespan) where it wasted ~2.4s of
+    Alembic config/engine loading per test even though the schema was at head.
     """
+    global _migrations_applied
+    if _migrations_applied:
+        return
+
+    settings = get_settings()
+    if settings.skip_startup_migrations:
+        logger.info("Database migrations skipped by configuration")
+        _migrations_applied = True
+        return
+
     from alembic.script import ScriptDirectory
     from sqlalchemy import create_engine, text
 
     from leagent.alembic.runtime_config import load_alembic_config
     from leagent.alembic.sync_runner import run_sync_migrations
 
-    settings = get_settings()
-
     def _migrate() -> None:
         cfg = load_alembic_config()
         script = ScriptDirectory.from_config(cfg)
         head = script.get_current_head()
+        if head is None:
+            logger.info("No Alembic revisions in script directory; skipping migrations")
+            return
+
+        # Non-SQLite backends (e.g. PostgreSQL) migrate through env.py's async
+        # path: sync_url maps to psycopg2, which we don't ship. Injecting no
+        # connection makes env.run_migrations_online build its own asyncpg
+        # engine from settings. upgrade() is idempotent (no-op at head).
+        if not settings.database.is_sqlite:
+            from alembic import command
+
+            command.upgrade(load_alembic_config(), "head")
+            logger.info("Database migrations applied (async path): %s", head)
+            return
+
         url = settings.database.sync_url
         eng = create_engine(url)
         try:
-            if head is None:
-                logger.info("No Alembic revisions in script directory; skipping migrations")
-                return
             with eng.connect() as conn:
                 try:
                     row = conn.execute(
@@ -214,6 +256,7 @@ async def _run_db_migrations() -> None:
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _migrate)
+    _migrations_applied = True
 
 
 async def _bootstrap_tool_system() -> None:
@@ -399,6 +442,19 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict:
+        if _service_manager is not None and _service_manager.is_started:
+            report = await _service_manager.health_check()
+            status_code = 200 if report.get("healthy") else 503
+            from starlette.responses import JSONResponse
+
+            return JSONResponse(
+                content={
+                    "status": "healthy" if report.get("healthy") else "degraded",
+                    "version": leagent_version,
+                    "services": report.get("services", {}),
+                },
+                status_code=status_code,
+            )
         return {"status": "healthy", "version": leagent_version}
 
     spa_raw = (os.environ.get("LEAGENT_FRONTEND_DIST") or "").strip()

@@ -198,7 +198,7 @@ def minimise(
 
     scored.sort(key=lambda t: (-t[0], t[1]))
 
-    for ratio, _, b in scored:
+    for _ratio, _, b in scored:
         remaining = max_chars - used
         scope = ContextScope(b.metadata.get("scope", ContextScope.SESSION.value)) if "scope" in b.metadata else ContextScope.SESSION
         score = b.priority * b.weight * _freshness_decay(scope, freshness_half_life_seconds)

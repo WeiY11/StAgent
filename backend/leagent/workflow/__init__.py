@@ -56,8 +56,6 @@ from leagent.workflow.engine import (
     WorkflowExecutor,
     build_cache_set,
 )
-from leagent.workflow.registry import FlowWorkflowRegistry
-from leagent.workflow.services import WorkflowService
 from leagent.workflow.io import (
     IO,
     Hidden,
@@ -76,8 +74,8 @@ from leagent.workflow.nodes import (
     HotReloader,
     NodeExtension,
     NodeRegistry,
-    NodeReplaceRegistry,
     NodeReplacement,
+    NodeReplaceRegistry,
     WorkflowNode,
     bootstrap,
     get_registry,
@@ -89,6 +87,8 @@ from leagent.workflow.queue import (
     PromptItem,
     PromptQueue,
 )
+from leagent.workflow.registry import FlowWorkflowRegistry
+from leagent.workflow.services import WorkflowService
 
 __all__ = [
     # IO

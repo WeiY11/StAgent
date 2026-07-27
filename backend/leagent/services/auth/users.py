@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -15,7 +15,7 @@ from leagent.utils.crypto import hash_password, verify_password
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True)
@@ -56,8 +56,9 @@ def _row_to_record(row: UserAccount) -> UserRecord:
 def _sync_session() -> Session | None:
     """Open a short-lived sync Session against the app database."""
     try:
-        from leagent.config.settings import get_settings
         from sqlalchemy import create_engine
+
+        from leagent.config.settings import get_settings
 
         settings = get_settings()
         url = settings.database.sync_url

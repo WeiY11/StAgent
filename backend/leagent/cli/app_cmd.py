@@ -5,6 +5,10 @@ from __future__ import annotations
 import click
 
 from leagent.cli.utils import console, print_error, print_info, print_success
+from leagent.runtime.deployment_topology import (
+    DeploymentTopologyError,
+    validate_deployment_topology,
+)
 
 
 @click.group(name="app")
@@ -89,6 +93,18 @@ def start(
     if reload and workers > 1:
         print_info("Auto-reload requires single worker, setting workers=1")
         workers = 1
+
+    from leagent.config.settings import get_settings
+
+    try:
+        topology = validate_deployment_topology(
+            database_backend=get_settings().database.backend,
+            workers=workers,
+        )
+    except DeploymentTopologyError as exc:
+        raise click.UsageError(str(exc)) from exc
+    for warning in topology.warnings:
+        print_info(warning)
 
     console.print()
     console.rule("[bold cyan]LeAgent Server[/]")

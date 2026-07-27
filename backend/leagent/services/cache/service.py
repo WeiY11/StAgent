@@ -9,7 +9,7 @@ import sys
 import time
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from leagent.services.base import Service, ServiceState, ServiceType, service_factory
+from leagent.services.base import Service, ServiceType, service_factory
 from leagent.services.cache.lru import make_lru
 from leagent.services.cache.observability import (
     get_cache_stats_registry,
@@ -126,7 +126,7 @@ class InMemoryCache:
 class CacheService(Service):
     """In-memory LRU cache service (no Redis)."""
 
-    def __init__(self, settings: "Settings") -> None:
+    def __init__(self, settings: Settings) -> None:
         super().__init__(settings)
         self._cache_cfg = settings.cache
         self._memory_cache = InMemoryCache(
@@ -197,7 +197,7 @@ class CacheService(Service):
                 await asyncio.wait_for(
                     self._maintenance_stop.wait(), timeout=interval
                 )
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 expired = await self._memory_cache.sweep_expired()
                 if expired:
                     record_cache_expiration("cache:_memory", count=expired)
@@ -452,7 +452,7 @@ def get_cache_service() -> CacheService:
     return _cache_service
 
 
-async def init_cache_service(settings: "Settings") -> CacheService:
+async def init_cache_service(settings: Settings) -> CacheService:
     global _cache_service
     _cache_service = CacheService(settings)
     await _cache_service.start()

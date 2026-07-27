@@ -12,7 +12,8 @@ Supports Claude models via the Anthropic Messages API with:
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator, Literal
+from collections.abc import AsyncIterator
+from typing import Any, Literal
 
 import httpx
 
@@ -34,7 +35,6 @@ from leagent.llm.base import (
 )
 from leagent.llm.transport import HttpTransport, TransportConfig
 from leagent.utils.logging import get_logger
-
 
 logger = get_logger(__name__)
 

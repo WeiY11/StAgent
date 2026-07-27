@@ -31,9 +31,9 @@ import json
 import sys
 import threading
 from collections import OrderedDict
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Iterable
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Signature helpers
@@ -366,7 +366,7 @@ class HierarchicalCache(BaseCache):
     def __init__(self, factory: Callable[[], BaseCache]) -> None:
         self._factory = factory
         self._top: BaseCache = factory()
-        self._children: dict[str, "HierarchicalCache"] = {}
+        self._children: dict[str, HierarchicalCache] = {}
         self._lock = threading.RLock()
 
     def get(self, key: str) -> CacheEntry | None:
@@ -380,7 +380,7 @@ class HierarchicalCache(BaseCache):
             self._top.clear()
             self._children.clear()
 
-    def subcache(self, scope: str) -> "HierarchicalCache":
+    def subcache(self, scope: str) -> HierarchicalCache:
         with self._lock:
             child = self._children.get(scope)
             if child is None:

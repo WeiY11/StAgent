@@ -19,8 +19,8 @@ from leagent.mcp.client import (
     MCPProtocolError,
 )
 from leagent.mcp.manager import (
-    MCPClientManager,
     ManagedClient,
+    MCPClientManager,
     ServerHealth,
     get_mcp_manager,
     reset_mcp_manager,

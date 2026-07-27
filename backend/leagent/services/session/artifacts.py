@@ -14,9 +14,10 @@ from __future__ import annotations
 import json
 import mimetypes
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import UUID
 
@@ -257,6 +258,16 @@ def rewrite_inline_data_image_markdown(text: str, preview_urls: list[str]) -> st
 def _file_uri_to_path(raw: str) -> str | None:
     parsed = urlparse(raw)
     path_part = unquote(parsed.path) if parsed.path else ""
+    netloc = unquote(parsed.netloc) if parsed.netloc else ""
+    # Windows file URIs need care: a naive ``file://C:\dir\file`` (missing the
+    # third slash) parks the whole drive-qualified path in ``netloc`` with an
+    # empty path, while a canonical ``file:///C:/dir`` yields ``/C:/dir`` whose
+    # leading slash must be dropped. A genuine host (``localhost``) has a
+    # non-empty path, so it never trips the drive-in-netloc branch.
+    if not path_part and netloc and (":" in netloc or "\\" in netloc):
+        path_part = netloc
+    elif len(path_part) >= 3 and path_part[0] == "/" and path_part[2] == ":":
+        path_part = path_part[1:]
     return path_part or None
 
 

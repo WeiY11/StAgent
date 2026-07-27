@@ -25,14 +25,14 @@ class ToolTaskHandler:
     name = "tool_task_handler"
     task_type: TaskType = TaskType.TOOL
 
-    def __init__(self, *, service_manager: "ServiceManager | None" = None) -> None:
+    def __init__(self, *, service_manager: ServiceManager | None = None) -> None:
         self._sm = service_manager
 
     async def spawn(
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         from leagent.tools.executor import ToolExecutor
         from leagent.tools.registry import get_registry
@@ -108,5 +108,5 @@ class ToolTaskHandler:
         finally:
             end_execution(exec_run.run_id)
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         return None

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 

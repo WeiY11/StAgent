@@ -49,7 +49,6 @@ from leagent.tools.integration.notification import (
     NotificationTool,
     normalize_workflow_notification_params,
 )
-from leagent.tools.integration.speech_to_text import SpeechToTextTool
 from leagent.tools.integration.oa_api import (
     OAApiTool,
     OAAuthType,
@@ -66,6 +65,7 @@ from leagent.tools.integration.oa_import import (
     ImportSourceType,
     OAImportTool,
 )
+from leagent.tools.integration.speech_to_text import SpeechToTextTool
 
 try:
     from leagent.tools.integration.configure_settings import ConfigureSettingsTool

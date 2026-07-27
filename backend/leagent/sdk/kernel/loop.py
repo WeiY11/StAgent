@@ -185,7 +185,7 @@ async def run_loop(
                 state.reason in RESUMABLE_CHECKPOINT_REASONS
                 or (checkpoint_on_complete and state.reason == "completed")
             )
-            if should_checkpoint:
+            if should_checkpoint and checkpoint_store is not None:
                 from leagent.sdk.kernel.checkpoint import create_checkpoint
 
                 cp = create_checkpoint(
@@ -199,16 +199,18 @@ async def run_loop(
                 await checkpoint_store.save(cp)
                 event.data["checkpoint_id"] = cp.checkpoint_id
                 try:
-                    from leagent.runtime.execution_registry import get_execution_run_registry
+                    from leagent.runtime.run_store import get_run_store
 
-                    exec_run = get_execution_run_registry().get_active_chat_turn(
-                        state.session_id
-                    )
+                    store = get_run_store()
+                    exec_run = store.get_active_chat_turn(state.session_id)
                     if exec_run is not None:
                         token = exec_run.pause(
                             reason=state.reason,
                             checkpoint_id=cp.checkpoint_id,
                         )
+                        # Persist the mutation so a shared (cross-worker) store
+                        # sees the pause; a no-op re-store for the in-memory one.
+                        store.register(exec_run)
                         event.data["pause_token"] = token.to_dict()
                 except Exception:
                     logger.debug(

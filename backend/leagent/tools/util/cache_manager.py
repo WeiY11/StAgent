@@ -8,15 +8,31 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
 
+from leagent.config.settings import get_settings
+from leagent.services.cache.observability import (
+    get_cache_stats_registry,
+    record_cache_event,
+    record_cache_set,
+)
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
+
+#: Stat name under which the agent-facing tool cache reports to the central
+#: :class:`CacheStatsRegistry` (surfaced by ``GET /api/v1/stats/cache``).
+_STAT_NAME = "cache_manager_tool"
+#: Fallback bound when settings are unavailable. The live bound is sourced from
+#: ``settings.cache.tool_cache_max_items`` at singleton construction so it is
+#: tunable via ``LEAGENT_CACHE_TOOL_CACHE_MAX_ITEMS`` rather than hardcoded.
+_DEFAULT_MAX_SIZE = 5_000
 
 
 @dataclass
@@ -47,34 +63,78 @@ class CacheEntry:
 
 
 class LocalCache:
-    """Simple in-memory cache implementation."""
+    """Bounded, thread-safe in-memory LRU cache with TTL, tags and observability.
 
-    def __init__(self) -> None:
-        self._cache: dict[str, CacheEntry] = {}
+    Backed by an :class:`~collections.OrderedDict` so recency ordering is O(1):
+    reads/writes move the key to the most-recently-used end and inserts past
+    ``max_size`` evict the least-recently-used entry. Every mutation is guarded
+    by a re-entrant lock so the process-wide singleton is safe under concurrent
+    access from the event loop *and* threadpool tool executors. Every
+    hit/miss/eviction/expiry is mirrored to the process-wide
+    :class:`CacheStatsRegistry` via :func:`record_cache_event`.
+
+    This layer keeps richer per-entry metadata (tags, access counts, last-access
+    time) than the shared :class:`~leagent.services.cache.lru.BoundedLRU`
+    primitive because the ``cache_manager`` tool exposes tag- and
+    metadata-oriented operations (``get_by_tag`` / ``info`` / ``touch``).
+    """
+
+    def __init__(self, max_size: int = _DEFAULT_MAX_SIZE) -> None:
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._max_size = max(1, int(max_size))
+        self._lock = threading.RLock()
         self._stats = {
             "hits": 0,
             "misses": 0,
             "sets": 0,
             "deletes": 0,
+            "evictions": 0,
+            "expirations": 0,
         }
+        registry = get_cache_stats_registry()
+        registry.register_size_provider(_STAT_NAME, lambda: len(self._cache))
+        registry.register_detail_provider(
+            _STAT_NAME,
+            lambda: {
+                "max_size": self._max_size,
+                "evictions": self._stats["evictions"],
+                "expirations": self._stats["expirations"],
+            },
+        )
+
+    @property
+    def size(self) -> int:
+        return len(self._cache)
+
+    @property
+    def max_size(self) -> int:
+        return self._max_size
 
     def get(self, key: str) -> tuple[Any, bool]:
         """Get value from cache. Returns (value, found)."""
-        entry = self._cache.get(key)
+        with self._lock:
+            entry = self._cache.get(key)
 
-        if entry is None:
-            self._stats["misses"] += 1
-            return None, False
+            if entry is None:
+                self._stats["misses"] += 1
+                record_cache_event(_STAT_NAME, hit=False, entries=len(self._cache))
+                return None, False
 
-        if entry.is_expired:
-            del self._cache[key]
-            self._stats["misses"] += 1
-            return None, False
+            if entry.is_expired:
+                del self._cache[key]
+                self._stats["misses"] += 1
+                self._stats["expirations"] += 1
+                record_cache_event(
+                    _STAT_NAME, hit=False, entries=len(self._cache), expired=1
+                )
+                return None, False
 
-        entry.access_count += 1
-        entry.last_accessed = time.time()
-        self._stats["hits"] += 1
-        return entry.value, True
+            entry.access_count += 1
+            entry.last_accessed = time.time()
+            self._cache.move_to_end(key)  # mark most-recently-used
+            self._stats["hits"] += 1
+            record_cache_event(_STAT_NAME, hit=True, entries=len(self._cache))
+            return entry.value, True
 
     def set(
         self,
@@ -83,107 +143,163 @@ class LocalCache:
         ttl: float | None = None,
         tags: list[str] | None = None,
     ) -> None:
-        """Set value in cache."""
+        """Set value in cache, evicting the LRU entry past ``max_size``."""
         expires_at = time.time() + ttl if ttl else None
-        self._cache[key] = CacheEntry(
-            value=value,
-            created_at=time.time(),
-            expires_at=expires_at,
-            tags=tags or [],
-        )
-        self._stats["sets"] += 1
+        with self._lock:
+            self._cache[key] = CacheEntry(
+                value=value,
+                created_at=time.time(),
+                expires_at=expires_at,
+                tags=tags or [],
+            )
+            self._cache.move_to_end(key)
+            self._stats["sets"] += 1
+
+            evicted = 0
+            while len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)  # drop least-recently-used
+                evicted += 1
+            if evicted:
+                self._stats["evictions"] += evicted
+        record_cache_set(_STAT_NAME, evicted=evicted)
+
+    def touch(self, key: str, ttl: float | None) -> bool:
+        """Reset the TTL of a live entry. Returns True if the key was present."""
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None or entry.is_expired:
+                return False
+            entry.expires_at = time.time() + ttl if ttl else None
+            self._cache.move_to_end(key)
+            return True
+
+    def resize(self, max_size: int) -> int:
+        """Change the capacity bound, evicting LRU entries if shrinking."""
+        with self._lock:
+            self._max_size = max(1, int(max_size))
+            evicted = 0
+            while len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)
+                evicted += 1
+            if evicted:
+                self._stats["evictions"] += evicted
+            return evicted
 
     def delete(self, key: str) -> bool:
         """Delete key from cache. Returns True if key existed."""
-        if key in self._cache:
-            del self._cache[key]
-            self._stats["deletes"] += 1
-            return True
-        return False
+        with self._lock:
+            if key in self._cache:
+                del self._cache[key]
+                self._stats["deletes"] += 1
+                return True
+            return False
 
     def exists(self, key: str) -> bool:
         """Check if key exists and is not expired."""
-        entry = self._cache.get(key)
-        if entry is None:
-            return False
-        if entry.is_expired:
-            del self._cache[key]
-            return False
-        return True
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None:
+                return False
+            if entry.is_expired:
+                del self._cache[key]
+                self._stats["expirations"] += 1
+                return False
+            return True
 
     def clear(self) -> int:
         """Clear all entries. Returns count cleared."""
-        count = len(self._cache)
-        self._cache.clear()
-        return count
+        with self._lock:
+            count = len(self._cache)
+            self._cache.clear()
+            return count
 
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
-        total = self._stats["hits"] + self._stats["misses"]
-        hit_rate = (self._stats["hits"] / total * 100) if total > 0 else 0
-
-        return {
-            **self._stats,
-            "hit_rate": round(hit_rate, 2),
-            "total_requests": total,
-            "current_size": len(self._cache),
-        }
+        with self._lock:
+            total = self._stats["hits"] + self._stats["misses"]
+            hit_rate = (self._stats["hits"] / total * 100) if total > 0 else 0
+            return {
+                **self._stats,
+                "hit_rate": round(hit_rate, 2),
+                "total_requests": total,
+                "current_size": len(self._cache),
+                "max_size": self._max_size,
+            }
 
     def get_entry_info(self, key: str) -> dict[str, Any] | None:
         """Get metadata about a cache entry."""
-        entry = self._cache.get(key)
-        if entry is None or entry.is_expired:
-            return None
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None or entry.is_expired:
+                return None
 
-        return {
-            "created_at": entry.created_at,
-            "expires_at": entry.expires_at,
-            "ttl_remaining": entry.ttl_remaining,
-            "access_count": entry.access_count,
-            "last_accessed": entry.last_accessed,
-            "tags": entry.tags,
-        }
+            return {
+                "created_at": entry.created_at,
+                "expires_at": entry.expires_at,
+                "ttl_remaining": entry.ttl_remaining,
+                "access_count": entry.access_count,
+                "last_accessed": entry.last_accessed,
+                "tags": entry.tags,
+            }
 
     def keys(self, pattern: str | None = None) -> list[str]:
         """Get all keys, optionally filtered by pattern."""
-        self._cleanup_expired()
-
-        if pattern is None:
-            return list(self._cache.keys())
-
         import fnmatch
 
-        return [k for k in self._cache.keys() if fnmatch.fnmatch(k, pattern)]
+        with self._lock:
+            self._cleanup_expired()
+            all_keys = list(self._cache.keys())
+        if pattern is None:
+            return all_keys
+        return [k for k in all_keys if fnmatch.fnmatch(k, pattern)]
 
     def get_by_tag(self, tag: str) -> dict[str, Any]:
         """Get all entries with a specific tag."""
-        self._cleanup_expired()
-
-        return {
-            key: entry.value
-            for key, entry in self._cache.items()
-            if tag in entry.tags
-        }
+        with self._lock:
+            self._cleanup_expired()
+            return {
+                key: entry.value
+                for key, entry in self._cache.items()
+                if tag in entry.tags
+            }
 
     def delete_by_tag(self, tag: str) -> int:
         """Delete all entries with a specific tag."""
-        keys_to_delete = [
-            key for key, entry in self._cache.items() if tag in entry.tags
-        ]
-        for key in keys_to_delete:
-            del self._cache[key]
-        self._stats["deletes"] += len(keys_to_delete)
-        return len(keys_to_delete)
+        with self._lock:
+            keys_to_delete = [
+                key for key, entry in self._cache.items() if tag in entry.tags
+            ]
+            for key in keys_to_delete:
+                del self._cache[key]
+            self._stats["deletes"] += len(keys_to_delete)
+            return len(keys_to_delete)
 
     def _cleanup_expired(self) -> int:
-        """Remove expired entries."""
+        """Remove expired entries (caller must hold the lock)."""
         expired = [k for k, v in self._cache.items() if v.is_expired]
         for key in expired:
             del self._cache[key]
+        if expired:
+            self._stats["expirations"] += len(expired)
         return len(expired)
 
 
-_local_cache = LocalCache()
+_local_cache: LocalCache | None = None
+_local_cache_lock = threading.Lock()
+
+
+def _get_local_cache() -> LocalCache:
+    """Return the process-wide tool cache, sized from settings on first use."""
+    global _local_cache
+    if _local_cache is None:
+        with _local_cache_lock:
+            if _local_cache is None:
+                try:
+                    max_size = get_settings().cache.tool_cache_max_items
+                except Exception:  # noqa: BLE001 - settings optional at import
+                    max_size = _DEFAULT_MAX_SIZE
+                _local_cache = LocalCache(max_size=max_size)
+    return _local_cache
 
 
 class CacheManagerTool(BaseTool):
@@ -364,7 +480,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for get operation")
 
         full_key = self._make_key(key, namespace)
-        value, found = _local_cache.get(full_key)
+        value, found = _get_local_cache().get(full_key)
 
         return {
             "key": key,
@@ -384,7 +500,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for set operation")
 
         full_key = self._make_key(key, namespace)
-        _local_cache.set(full_key, value, ttl, tags)
+        _get_local_cache().set(full_key, value, ttl, tags)
 
         return {
             "key": key,
@@ -400,7 +516,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for delete operation")
 
         full_key = self._make_key(key, namespace)
-        deleted = _local_cache.delete(full_key)
+        deleted = _get_local_cache().delete(full_key)
 
         return {
             "key": key,
@@ -415,7 +531,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for exists operation")
 
         full_key = self._make_key(key, namespace)
-        exists = _local_cache.exists(full_key)
+        exists = _get_local_cache().exists(full_key)
 
         return {
             "key": key,
@@ -425,7 +541,7 @@ class CacheManagerTool(BaseTool):
 
     def _local_clear(self, params: dict[str, Any], namespace: str) -> dict[str, Any]:
         """Clear local cache."""
-        count = _local_cache.clear()
+        count = _get_local_cache().clear()
         return {
             "cleared": count,
             "source": "local",
@@ -433,7 +549,7 @@ class CacheManagerTool(BaseTool):
 
     def _local_stats(self, params: dict[str, Any], namespace: str) -> dict[str, Any]:
         """Get local cache statistics."""
-        stats = _local_cache.get_stats()
+        stats = _get_local_cache().get_stats()
         stats["source"] = "local"
         return stats
 
@@ -444,7 +560,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for info operation")
 
         full_key = self._make_key(key, namespace)
-        info = _local_cache.get_entry_info(full_key)
+        info = _get_local_cache().get_entry_info(full_key)
 
         if info is None:
             return {"key": key, "found": False, "source": "local"}
@@ -462,7 +578,7 @@ class CacheManagerTool(BaseTool):
         if namespace:
             pattern = f"{namespace}:{pattern or '*'}"
 
-        keys = _local_cache.keys(pattern)
+        keys = _get_local_cache().keys(pattern)
 
         if namespace:
             keys = [k[len(namespace) + 1 :] for k in keys]
@@ -484,7 +600,7 @@ class CacheManagerTool(BaseTool):
 
         for key in keys:
             full_key = self._make_key(key, namespace)
-            value, found = _local_cache.get(full_key)
+            value, found = _get_local_cache().get(full_key)
             results[key] = value
             if found:
                 found_count += 1
@@ -507,7 +623,7 @@ class CacheManagerTool(BaseTool):
 
         for key, value in values.items():
             full_key = self._make_key(key, namespace)
-            _local_cache.set(full_key, value, ttl, tags)
+            _get_local_cache().set(full_key, value, ttl, tags)
 
         return {
             "set_count": len(values),
@@ -524,7 +640,7 @@ class CacheManagerTool(BaseTool):
         deleted_count = 0
         for key in keys:
             full_key = self._make_key(key, namespace)
-            if _local_cache.delete(full_key):
+            if _get_local_cache().delete(full_key):
                 deleted_count += 1
 
         return {
@@ -539,7 +655,7 @@ class CacheManagerTool(BaseTool):
         if not tag:
             raise ValueError("Tag is required for get_by_tag operation")
 
-        entries = _local_cache.get_by_tag(tag)
+        entries = _get_local_cache().get_by_tag(tag)
 
         return {
             "tag": tag,
@@ -554,7 +670,7 @@ class CacheManagerTool(BaseTool):
         if not tag:
             raise ValueError("Tag is required for delete_by_tag operation")
 
-        deleted = _local_cache.delete_by_tag(tag)
+        deleted = _get_local_cache().delete_by_tag(tag)
 
         return {
             "tag": tag,
@@ -571,14 +687,10 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for touch operation")
 
         full_key = self._make_key(key, namespace)
-        value, found = _local_cache.get(full_key)
+        touched = _get_local_cache().touch(full_key, ttl)
 
-        if not found:
+        if not touched:
             return {"key": key, "success": False, "message": "Key not found"}
-
-        entry = _local_cache._cache.get(full_key)
-        if entry and ttl is not None:
-            entry.expires_at = time.time() + ttl
 
         return {
             "key": key,
@@ -596,7 +708,7 @@ class CacheManagerTool(BaseTool):
             raise ValueError("Key is required for increment operation")
 
         full_key = self._make_key(key, namespace)
-        value, found = _local_cache.get(full_key)
+        value, found = _get_local_cache().get(full_key)
 
         if not found:
             new_value = amount
@@ -605,7 +717,7 @@ class CacheManagerTool(BaseTool):
         else:
             raise ValueError(f"Cannot increment non-numeric value: {type(value)}")
 
-        _local_cache.set(full_key, new_value)
+        _get_local_cache().set(full_key, new_value)
 
         return {
             "key": key,
@@ -633,24 +745,23 @@ class CacheManagerTool(BaseTool):
         try:
             if operation == "get":
                 return await self._redis_get(redis, params, namespace)
-            elif operation == "set":
+            if operation == "set":
                 return await self._redis_set(redis, params, namespace)
-            elif operation == "delete":
+            if operation == "delete":
                 return await self._redis_delete(redis, params, namespace)
-            elif operation == "exists":
+            if operation == "exists":
                 return await self._redis_exists(redis, params, namespace)
-            elif operation == "keys":
+            if operation == "keys":
                 return await self._redis_keys(redis, params, namespace)
-            elif operation == "mget":
+            if operation == "mget":
                 return await self._redis_mget(redis, params, namespace)
-            elif operation == "mset":
+            if operation == "mset":
                 return await self._redis_mset(redis, params, namespace)
-            elif operation == "increment":
+            if operation == "increment":
                 return await self._redis_increment(redis, params, namespace)
-            elif operation == "decrement":
+            if operation == "decrement":
                 return await self._redis_decrement(redis, params, namespace)
-            else:
-                return self._execute_local(operation, params, namespace)
+            return self._execute_local(operation, params, namespace)
         except Exception as e:
             logger.warning("Redis operation failed, falling back to local", error=str(e))
             return self._execute_local(operation, params, namespace)

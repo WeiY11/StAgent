@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from leagent.tools.web.web_search.protocol import WebSearchProvider
 from leagent.tools.web.web_search.providers.bing import BingWebSearchProvider
 from leagent.tools.web.web_search.providers.bing_playwright import BingPlaywrightWebSearchProvider
 from leagent.tools.web.web_search.providers.brave import BraveWebSearchProvider
@@ -11,7 +12,6 @@ from leagent.tools.web.web_search.providers.firecrawl import FirecrawlWebSearchP
 from leagent.tools.web.web_search.providers.searxng import SearxngWebSearchProvider
 from leagent.tools.web.web_search.providers.serper import SerperWebSearchProvider
 from leagent.tools.web.web_search.providers.tavily import TavilyWebSearchProvider
-from leagent.tools.web.web_search.protocol import WebSearchProvider
 
 __all__ = [
     "BingPlaywrightWebSearchProvider",

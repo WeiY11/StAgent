@@ -7,7 +7,7 @@ or reconciling completed / in-progress work.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -31,8 +31,8 @@ def _as_utc(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def _parse_iso_datetime(value: Any, *, end_of_day: bool = False) -> datetime | None:
@@ -78,7 +78,7 @@ def _content_matches(content: str, query: str | None) -> bool:
 
 def _resolve_window(params: dict[str, Any]) -> tuple[datetime, datetime]:
     until = _parse_iso_datetime(params.get("until"), end_of_day=True) or datetime.now(
-        timezone.utc
+        UTC
     )
     since = _parse_iso_datetime(params.get("since"))
     if since is None:
@@ -527,7 +527,7 @@ class ConversationHistoryTool(BaseTool):
                     ts = _as_utc(getattr(s, "last_message_at", None)) or _as_utc(
                         getattr(s, "updated_at", None)
                     )
-                    sid = getattr(s, "id")
+                    sid = s.id
                     is_current = current_uuid is not None and sid == current_uuid
                     if is_current and not include_current:
                         continue
@@ -586,7 +586,7 @@ class ConversationHistoryTool(BaseTool):
 
         rows.sort(
             key=lambda r: _as_utc(r.get("last_message_at") or r.get("updated_at"))
-            or datetime.min.replace(tzinfo=timezone.utc),
+            or datetime.min.replace(tzinfo=UTC),
             reverse=True,
         )
         return rows[:max_sessions]

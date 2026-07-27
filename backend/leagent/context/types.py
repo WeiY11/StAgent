@@ -7,9 +7,10 @@ live here to avoid circular imports.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 from uuid import UUID
 
 

@@ -13,8 +13,9 @@ import builtins
 import io
 import threading
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 
 class ScriptExecutionError(RuntimeError):
@@ -152,7 +153,7 @@ async def execute_script(
         stdout, result, locals_ns, truncated = await asyncio.wait_for(
             future, timeout=timeout_sec,
         )
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         raise ScriptTimeoutError(
             f"Script exceeded {timeout_sec:g}s wall-clock budget"
         ) from exc

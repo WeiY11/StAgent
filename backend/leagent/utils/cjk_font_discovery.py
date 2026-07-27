@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 _DISCOVERY_CACHE: dict[bool, str | None] = {}
 # Tools that write CJK text into rendered artifacts through user-authored
 # code (charts, scripts). document_generate / slides_generate are NOT listed:

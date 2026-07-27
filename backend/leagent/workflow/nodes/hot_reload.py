@@ -51,7 +51,7 @@ class HotReloader:
             return
 
         class _Handler(FileSystemEventHandler):
-            def __init__(self, parent: "HotReloader") -> None:
+            def __init__(self, parent: HotReloader) -> None:
                 super().__init__()
                 self._parent = parent
 

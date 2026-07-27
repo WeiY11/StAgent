@@ -49,5 +49,5 @@ class NodeOutput:
         return (self.values,)
 
     @classmethod
-    def single(cls, value: Any, **kwargs: Any) -> "NodeOutput":
+    def single(cls, value: Any, **kwargs: Any) -> NodeOutput:
         return cls(values=(value,), **kwargs)

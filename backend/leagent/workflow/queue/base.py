@@ -27,7 +27,7 @@ class PromptItem:
     attempts: int = 0
 
     @classmethod
-    def new(cls, **kwargs: Any) -> "PromptItem":
+    def new(cls, **kwargs: Any) -> PromptItem:
         if "prompt_id" not in kwargs:
             kwargs["prompt_id"] = str(uuid4())
         import time

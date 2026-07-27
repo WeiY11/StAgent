@@ -24,14 +24,13 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-
 from leagent.project.fs import (
     apply_unified_diff,
     resolve_content,
     select_project_root,
 )
 from leagent.project.tools.edit_hints import find_closest_lines
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 
@@ -192,8 +191,8 @@ class ProjectApplyPatchTool(BaseTool):
     @staticmethod
     async def _track_artifact(diff_text: str, context: ToolContext) -> None:
         try:
-            from leagent.code.pipeline import get_pipeline
             from leagent.code.artifacts import ArtifactKind
+            from leagent.code.pipeline import get_pipeline
 
             pipeline = get_pipeline(context)
             if pipeline is None:

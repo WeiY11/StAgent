@@ -32,7 +32,7 @@ class BatchTaskHandler:
     def __init__(
         self,
         *,
-        service_manager: "ServiceManager | None" = None,
+        service_manager: ServiceManager | None = None,
         max_concurrency: int = 5,
     ) -> None:
         self._sm = service_manager
@@ -42,7 +42,7 @@ class BatchTaskHandler:
         self,
         task_ctx: TaskContext,
         params: dict[str, Any],
-        session: "AsyncSession",
+        session: AsyncSession,
     ) -> dict[str, Any]:
         from leagent.db import get_database_service
         from leagent.db.models import Task
@@ -114,7 +114,7 @@ class BatchTaskHandler:
             return {"children": summary, "failed_count": len(failed)}
         return {"children": summary, "failed_count": 0}
 
-    async def kill(self, task_id: str, session: "AsyncSession") -> None:
+    async def kill(self, task_id: str, session: AsyncSession) -> None:
         # Child kills are best-effort and handled by the top-level abort
         # propagation in ``TaskManager.kill_task``.
         return None

@@ -7,9 +7,9 @@ preserve maximum information within budget constraints.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import IntEnum
-import json
 from typing import TYPE_CHECKING, Any
 
 from leagent.utils.logging import get_logger
@@ -278,7 +278,7 @@ def compress_turn(role: str, content: Any, max_chars: int = 300) -> str:
     lines = flat.strip().splitlines()
     if role == "user":
         return f"[user intent] {lines[0][:max_chars]}"
-    elif role == "assistant":
+    if role == "assistant":
         first_meaningful = ""
         for line in lines:
             stripped = line.strip()

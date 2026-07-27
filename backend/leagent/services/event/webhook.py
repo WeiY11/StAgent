@@ -190,7 +190,7 @@ class WebhookEventManager(Service):
             self._retry_task.cancel()
             try:
                 await asyncio.wait_for(self._retry_task, timeout=5.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+            except (TimeoutError, asyncio.CancelledError):
                 pass
 
         if self._http_client:
@@ -530,7 +530,7 @@ class WebhookEventManager(Service):
                         self._retry_queue.get(),
                         timeout=1.0,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 if delivery.next_retry_at:

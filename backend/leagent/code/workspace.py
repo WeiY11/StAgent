@@ -29,9 +29,9 @@ import shutil
 import threading
 import time
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 import structlog
 

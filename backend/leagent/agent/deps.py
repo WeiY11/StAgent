@@ -13,8 +13,9 @@ import binascii as _binascii
 import json
 import os
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import structlog
 
@@ -443,8 +444,8 @@ def _is_retryable_stream_error(exc: Exception) -> bool:
     if isinstance(exc, asyncio.TimeoutError):
         return True
     try:
-        import httpx
         import httpcore
+        import httpx
 
         if isinstance(exc, (httpx.RemoteProtocolError, httpcore.RemoteProtocolError)):
             return True
@@ -543,7 +544,7 @@ class CallModel(Protocol):
         messages: list[dict[str, Any]],
         system_prompt: str,
         tools: list[dict[str, Any]] | None,
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
         temperature: float | None = None,
         max_output_tokens: int | None = None,
         model_provider: str | None = None,
@@ -558,7 +559,7 @@ class Microcompact(Protocol):
     async def __call__(
         self,
         messages: list[dict[str, Any]],
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
     ) -> list[dict[str, Any]]: ...
 
 
@@ -568,7 +569,7 @@ class Autocompact(Protocol):
     async def __call__(
         self,
         messages: list[dict[str, Any]],
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
         system_prompt: str,
     ) -> list[dict[str, Any]]: ...
 
@@ -757,7 +758,7 @@ async def _finalize_pending_tool_calls(
     return events
 
 
-def _make_llm_call_model(llm: "LLMService") -> CallModel:
+def _make_llm_call_model(llm: LLMService) -> CallModel:
     """Wrap ``LLMService.chat_stream`` as a ``CallModel``.
 
     DeepSeek / OpenAI-compatible providers stream OpenAI chunks; we coalesce
@@ -771,7 +772,7 @@ def _make_llm_call_model(llm: "LLMService") -> CallModel:
         messages: list[dict[str, Any]],
         system_prompt: str,
         tools: list[dict[str, Any]] | None,
-        tool_use_context: "ToolUseContext",
+        tool_use_context: ToolUseContext,
         temperature: float | None = None,
         max_output_tokens: int | None = None,
         model_provider: str | None = None,
@@ -830,7 +831,7 @@ def _make_llm_call_model(llm: "LLMService") -> CallModel:
                             saw_stream_event = True
                     except StopAsyncIteration:
                         break
-                    except (asyncio.TimeoutError, TimeoutError):
+                    except TimeoutError:
                         await stream_iter.aclose()
                         raise TimeoutError(
                             f"Model stream produced no events within "
@@ -994,7 +995,7 @@ def _make_llm_call_model(llm: "LLMService") -> CallModel:
 
 
 def production_deps(
-    llm: "LLMService",
+    llm: LLMService,
     *,
     autocompact_token_threshold: int = 0,
     autocompact_keep_recent: int = 0,

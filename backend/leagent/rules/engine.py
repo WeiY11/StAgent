@@ -434,13 +434,12 @@ class RuleEngine:
                 passed, inner_results = await self.evaluate_composite(inner, data)
                 results.extend(inner_results)
                 return not passed, results
-            else:
-                rule = self._condition_to_rule(inner, "not_condition")
-                result = await self._evaluate_rule(rule, data)
-                results.append(result)
-                return not result.passed, results
+            rule = self._condition_to_rule(inner, "not_condition")
+            result = await self._evaluate_rule(rule, data)
+            results.append(result)
+            return not result.passed, results
 
-        elif condition.operator == LogicalOperator.AND:
+        if condition.operator == LogicalOperator.AND:
             all_passed = True
             for cond in condition.conditions:
                 if isinstance(cond, CompositeCondition):
@@ -456,21 +455,20 @@ class RuleEngine:
                         all_passed = False
             return all_passed, results
 
-        else:
-            any_passed = False
-            for cond in condition.conditions:
-                if isinstance(cond, CompositeCondition):
-                    passed, inner_results = await self.evaluate_composite(cond, data)
-                    results.extend(inner_results)
-                    if passed:
-                        any_passed = True
-                else:
-                    rule = self._condition_to_rule(cond, f"or_condition_{len(results)}")
-                    result = await self._evaluate_rule(rule, data)
-                    results.append(result)
-                    if result.passed:
-                        any_passed = True
-            return any_passed, results
+        any_passed = False
+        for cond in condition.conditions:
+            if isinstance(cond, CompositeCondition):
+                passed, inner_results = await self.evaluate_composite(cond, data)
+                results.extend(inner_results)
+                if passed:
+                    any_passed = True
+            else:
+                rule = self._condition_to_rule(cond, f"or_condition_{len(results)}")
+                result = await self._evaluate_rule(rule, data)
+                results.append(result)
+                if result.passed:
+                    any_passed = True
+        return any_passed, results
 
     def _condition_to_rule(
         self,

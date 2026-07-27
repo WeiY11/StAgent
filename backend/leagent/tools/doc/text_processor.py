@@ -913,7 +913,7 @@ class TextFileProcessorTool(SyncTool):
                 "extracted": "\n".join(extracted),
                 "line_count": len(extracted),
             }
-        elif start_marker and end_marker:
+        if start_marker and end_marker:
             start_re = _compile_pattern(start_marker, params.get("regex_flags"))
             end_re = _compile_pattern(end_marker, params.get("regex_flags"))
             extracting = False
@@ -934,7 +934,7 @@ class TextFileProcessorTool(SyncTool):
                 "extracted": "\n".join(extracted),
                 "line_count": len(extracted),
             }
-        elif pattern:
+        if pattern:
             compiled = _compile_pattern(pattern, params.get("regex_flags"))
             matching = [line for line in lines if compiled.search(line)]
             return {
@@ -944,8 +944,7 @@ class TextFileProcessorTool(SyncTool):
                 "extracted": "\n".join(matching),
                 "line_count": len(matching),
             }
-        else:
-            raise ValueError("extract requires start_line+end_line, start_marker+end_marker, or pattern")
+        raise ValueError("extract requires start_line+end_line, start_marker+end_marker, or pattern")
 
     def _split(self, file_path: Path, params: dict[str, Any]) -> dict[str, Any]:
         err = params.get("errors") or "replace"

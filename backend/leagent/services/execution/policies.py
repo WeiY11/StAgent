@@ -29,7 +29,7 @@ class ExecutionPolicy:
     allow_free_shell: bool = False
     #: Optional OS-level sandbox description (bwrap/Seatbelt). ``None``
     #: preserves legacy direct execution.
-    sandbox_spec: "SandboxSpec | None" = None
+    sandbox_spec: SandboxSpec | None = None
     env_allowlist: frozenset[str] = frozenset({
         "PATH", "PYTHONPATH", "PYTHONIOENCODING",
         "LC_ALL", "LC_CTYPE", "LANG", "HOME", "TMPDIR",
@@ -38,7 +38,7 @@ class ExecutionPolicy:
     grace_sec: float = 2.0
 
     @classmethod
-    def agent(cls, **overrides: Any) -> "ExecutionPolicy":
+    def agent(cls, **overrides: Any) -> ExecutionPolicy:
         """Policy for LLM-driven agent tool calls."""
         defaults = {
             "timeout_sec": 120.0,
@@ -53,7 +53,7 @@ class ExecutionPolicy:
         return cls(**{**defaults, **overrides})
 
     @classmethod
-    def cron(cls, **overrides: Any) -> "ExecutionPolicy":
+    def cron(cls, **overrides: Any) -> ExecutionPolicy:
         """Relaxed policy for trusted scheduled jobs."""
         defaults = {
             "timeout_sec": 300.0,
@@ -65,7 +65,7 @@ class ExecutionPolicy:
         return cls(**{**defaults, **overrides})
 
     @classmethod
-    def workflow(cls, **overrides: Any) -> "ExecutionPolicy":
+    def workflow(cls, **overrides: Any) -> ExecutionPolicy:
         """Per-node configurable policy for workflow steps."""
         defaults = {
             "timeout_sec": 180.0,

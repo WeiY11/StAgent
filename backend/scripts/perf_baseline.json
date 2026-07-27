@@ -1,8 +1,15 @@
 {
+  "evidence_kind": "illustrative_sample",
+  "_generated_by": "uv run python scripts/perf_benchmark.py --requests 5 --concurrency 3 --new-session-per-request --output scripts/perf_baseline.json",
+  "_note": "Illustrative single-tier sample (5 requests) against a local backend \u2014 NOT a trusted baseline. A trusted baseline must be produced with --baseline-output (>=100 requests, every stream terminated with data: [DONE], success_rate >= --min-success-rate) and carries \"evidence_kind\": \"measured_baseline\". Provider/model/network dominate absolute numbers, so compare deltas (first_event_ms, throughput_rps) rather than raw values. Multi-tier runs (--concurrency-tiers) emit a top-level 'tiers' array instead of 'summary'/'samples'.",
   "config": {
     "base_url": "http://localhost:7860/api/v1",
     "requests": 5,
     "concurrency": 3,
+    "concurrency_tiers": [
+      3
+    ],
+    "turns_per_session": 1,
     "slow_consumer_ms": 0,
     "new_session_per_request": true
   },
@@ -21,7 +28,11 @@
       "p50": 4279.290756996488,
       "p95": 4584.153553994838,
       "p99": 4584.153553994838
-    }
+    },
+    "error_classification": {
+      "ok": 5
+    },
+    "throughput_rps": 0.6501438482941884
   },
   "samples": [
     {

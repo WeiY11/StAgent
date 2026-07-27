@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from leagent.services.service_manager import ServiceManager
 
 
-def get_service_manager() -> "ServiceManager":
+def get_service_manager() -> ServiceManager:
     """Return the process-wide :class:`ServiceManager` (initialised in ``main`` lifespan)."""
     from leagent.main import get_service_manager as _from_main
 

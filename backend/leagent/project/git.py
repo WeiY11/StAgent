@@ -18,9 +18,10 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
 
 import structlog
 
@@ -129,7 +130,7 @@ async def run_git(
         stdout_b, stderr_b = await asyncio.wait_for(
             proc.communicate(), timeout=timeout
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         try:
             proc.kill()
         except ProcessLookupError:
@@ -173,7 +174,7 @@ async def git_init(cwd: Path) -> dict[str, str]:
 async def git_log(
     cwd: Path,
     *,
-    path: Optional[str] = None,
+    path: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[GitCommit]:
@@ -238,7 +239,7 @@ async def git_diff_for_commit(
     cwd: Path,
     commit: str,
     *,
-    path: Optional[str] = None,
+    path: str | None = None,
 ) -> str:
     """Return the unified diff for ``commit`` (vs its parent).
 
@@ -269,7 +270,7 @@ async def git_diff_for_commit(
     return stdout2
 
 
-async def git_diff_worktree(cwd: Path, *, path: Optional[str] = None) -> str:
+async def git_diff_worktree(cwd: Path, *, path: str | None = None) -> str:
     """Return the working-tree diff vs HEAD."""
     args: list[str] = ["diff", "--no-color", "HEAD"]
     if path:

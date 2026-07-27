@@ -98,7 +98,7 @@ class CodeGenerationPipeline:
         source: str,
         language: str,
         origin_tool: str,
-        context: "ToolContext",
+        context: ToolContext,
         *,
         target_path: str | None = None,
         skip_validation: bool = False,
@@ -183,7 +183,7 @@ class CodeGenerationPipeline:
 
     @staticmethod
     async def _fire_hook(
-        artifact: CodeArtifact, context: "ToolContext"
+        artifact: CodeArtifact, context: ToolContext
     ) -> None:
         """Invoke the on_code_artifact hook if a HookManager is available."""
         extra = getattr(context, "extra", None) or {}
@@ -211,7 +211,7 @@ _CONTEXT_REGISTRY_KEY = "_code_artifact_registry"
 _CONTEXT_ARTIFACT_STORE_KEY = "_session_artifact_store"
 
 
-def get_pipeline(context: "ToolContext") -> CodeGenerationPipeline | None:
+def get_pipeline(context: ToolContext) -> CodeGenerationPipeline | None:
     """Return the pipeline from the tool context, or None if unavailable.
 
     The registry is attached to ``context.extra`` by :class:`QueryEngine`
@@ -231,7 +231,7 @@ def get_pipeline(context: "ToolContext") -> CodeGenerationPipeline | None:
 
 
 def record_operation(
-    context: "ToolContext",
+    context: ToolContext,
     *,
     tool: str,
     kind: str,

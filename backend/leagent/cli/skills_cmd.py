@@ -22,7 +22,6 @@ from leagent.cli.utils import (
 )
 from leagent.config.constants import LEAGENT_HOME
 
-
 SKILLS_DIR = LEAGENT_HOME / "skills"
 
 
@@ -206,8 +205,9 @@ def init_skill(name: str, output: str | None) -> None:
 @click.argument("name")
 def show_skill(name: str) -> None:
     """Show detailed information about a skill."""
-    from leagent.skills.markdown_loader import parse_skill_markdown
     from rich.markdown import Markdown
+
+    from leagent.skills.markdown_loader import parse_skill_markdown
 
     skills = _iter_installed_skills()
     info = next((s for s in skills if s.get("name") == name), None)
@@ -246,8 +246,8 @@ def show_skill(name: str) -> None:
 @click.argument("path", type=click.Path(exists=True))
 def validate_skill(path: str) -> None:
     """Validate a skill directory against the v1.0 spec."""
-    from leagent.skills.loader import SkillLoadError, SkillLoader, SkillValidationError
     from leagent.skills.base import SkillSource
+    from leagent.skills.loader import SkillLoader, SkillLoadError, SkillValidationError
 
     skill_path = Path(path)
     if not skill_path.is_dir():
@@ -308,10 +308,9 @@ def package_skill_cmd(skill_dir: str, output_path: str | None) -> None:
 def lint_skills() -> None:
     """Validate every installed skill and summarise violations."""
     from leagent.skills.base import SkillSource
+    from leagent.skills.bundled import BUILTIN_DIR
     from leagent.skills.discovery import collect_discovery_roots
     from leagent.skills.loader import SkillLoader
-
-    from leagent.skills.bundled import BUILTIN_DIR
 
     try:
         from leagent.cli.config_cmd import find_project_dir

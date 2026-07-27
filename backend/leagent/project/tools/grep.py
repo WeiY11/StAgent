@@ -26,13 +26,13 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     IgnoreMatcher,
     looks_binary,
     select_project_root,
     walk_project,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 
@@ -281,7 +281,7 @@ async def _run_ripgrep(
         stdout, stderr = await asyncio.wait_for(
             proc.communicate(), timeout=45.0,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         return {"error": "ripgrep timed out", "engine": "ripgrep"}
 

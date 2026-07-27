@@ -14,13 +14,13 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 from sqlmodel import Column, SQLModel, Text, col, select
 
-from leagent.services.base import Service, ServiceType, service_factory
 from leagent.db.models.base import BaseModel as DBBaseModel
+from leagent.services.base import Service, ServiceType, service_factory
 
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
-    from leagent.services.cache.service import CacheService
     from leagent.db.service import DatabaseService
+    from leagent.services.cache.service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -165,9 +165,9 @@ class VariableService(Service):
         """Serialize a value based on its type."""
         if var_type == VariableType.JSON:
             return json.dumps(value)
-        elif var_type == VariableType.NUMBER:
+        if var_type == VariableType.NUMBER:
             return str(value)
-        elif var_type == VariableType.BOOLEAN:
+        if var_type == VariableType.BOOLEAN:
             return "true" if value else "false"
         return str(value)
 
@@ -175,7 +175,7 @@ class VariableService(Service):
         """Deserialize a value based on its type."""
         if var_type == VariableType.JSON:
             return json.loads(value)
-        elif var_type == VariableType.NUMBER:
+        if var_type == VariableType.NUMBER:
             try:
                 return int(value)
             except ValueError:

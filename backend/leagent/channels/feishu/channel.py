@@ -7,9 +7,9 @@ for enterprise messaging.
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
-import base64
 import os
 import time
 from datetime import datetime
@@ -545,7 +545,7 @@ class FeishuChannel(BaseChannel):
 
         if receive_id and self.app_id:
             return await self._send_message_api(receive_id, "interactive", card)
-        elif self.webhook_url:
+        if self.webhook_url:
             payload = {"msg_type": "interactive", "card": card}
             return await self._send_webhook(payload)
 

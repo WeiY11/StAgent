@@ -24,7 +24,6 @@ from typing import Any
 
 import structlog
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.project.fs import (
     MAX_TEXT_FILE_BYTES,
     format_lines_with_numbers,
@@ -32,6 +31,7 @@ from leagent.project.fs import (
     resolve_in_project,
     select_project_root,
 )
+from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
 

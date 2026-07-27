@@ -55,6 +55,14 @@ _TRANSIENT_MARKERS = (
 )
 
 
+def _is_cacheable_schema(schema: Any) -> bool:
+    return not (
+        schema.not_idempotent
+        or schema.control_flow
+        or schema.is_output_node
+    )
+
+
 def _is_transient(exc: BaseException) -> bool:
     """Heuristically classify an exception as a transient (retryable) failure."""
     if isinstance(exc, _TRANSIENT_EXCEPTIONS):
@@ -188,7 +196,7 @@ class NodeRunner:
 
         # -------------------- cache lookup (fingerprint-aware) --------------------
         fingerprint: Any = None
-        cacheable = not schema.not_idempotent
+        cacheable = _is_cacheable_schema(schema)
         if cacheable:
             try:
                 fingerprint = instance.fingerprint_inputs(**resolved_inputs)

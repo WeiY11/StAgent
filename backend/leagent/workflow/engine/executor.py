@@ -383,7 +383,7 @@ class WorkflowExecutor:
                 remaining = deadline - time.monotonic()
                 try:
                     results = await asyncio.wait_for(gather_coro, timeout=max(0.0, remaining))
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     errors_list.append("workflow timed out")
                     state.error_stack.append("workflow timed out")
                     state.status = WorkflowStatus.TIMEOUT
@@ -522,14 +522,17 @@ class WorkflowExecutor:
                 state, prompt_id=prompt_id, exec_list=exec_list,
             )
             try:
-                from leagent.runtime.execution_registry import get_execution_run_registry
+                from leagent.runtime.run_store import get_run_store
 
-                exec_run = get_execution_run_registry().get_by_prompt_id(prompt_id)
+                store = get_run_store()
+                exec_run = store.get_by_prompt_id(prompt_id)
                 if exec_run is not None:
                     exec_run.pause(
                         reason=str(output.block_execution or "blocked"),
                         workflow_state_id=state.id,
                     )
+                    # Persist so a shared (cross-worker) store retains the pause.
+                    store.register(exec_run)
             except Exception:
                 logger.debug(
                     "workflow_execution_pause_registration_failed",

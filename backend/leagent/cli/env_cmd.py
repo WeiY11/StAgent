@@ -129,7 +129,7 @@ def list_env(show_all: bool, reveal: bool, as_json: bool) -> None:
         display_vars = all_vars
         source = "environment + .env"
     else:
-        display_vars = {k: v for k, v in file_vars.items()}
+        display_vars = dict(file_vars.items())
         leagent_vars = {k: v for k, v in os.environ.items() if k.startswith("LEAGENT_")}
         display_vars.update(leagent_vars)
         source = str(env_path) if env_path.exists() else "not found"

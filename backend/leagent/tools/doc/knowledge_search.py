@@ -12,9 +12,11 @@ from typing import Any
 from uuid import UUID
 
 import structlog
+from sqlalchemy import update as sa_update
 from sqlmodel import col, select
 
 from leagent.db.models.file import File, LibraryScope
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
 from leagent.library.summary import summarize_extracted_text
 from leagent.tools.base import BaseTool, ToolCapability, ToolCategory, ToolContext
 from leagent.tools.context import resolve_effective_user_id
@@ -28,14 +30,14 @@ _MAX_READ_CHARS = 32_000
 _MAX_CATALOG = 100
 
 
-def _pet_project_library_file_ids_subquery(user_id: UUID):
+def _pet_project_library_file_ids_subquery(session: Any, user_id: UUID):
     from leagent.db.models import PetProject, PetProjectFile
 
     return (
         select(PetProjectFile.file_id)
         .join(PetProject, PetProjectFile.pet_project_id == PetProject.id)
         .where(
-            PetProject.user_id == user_id,
+            uuid_column_equals(session, PetProject.user_id, user_id),
             PetProject.is_deleted == False,  # noqa: E712
         )
     )
@@ -161,22 +163,30 @@ class KnowledgeSearchTool(BaseTool):
             return None
         try:
             async with db.session() as session:
-                fresh = await session.get(File, row.id)
+                fresh = await load_entity_by_id(
+                    session,
+                    File,
+                    row.id,
+                    parent_table="files",
+                )
                 if fresh is not None and not fresh.summary:
-                    fresh.summary = summary
-                    session.add(fresh)
+                    await session.execute(
+                        sa_update(File)
+                        .where(uuid_column_equals(session, File.id, row.id))
+                        .values(summary=summary)
+                    )
             row.summary = summary
         except Exception as exc:  # noqa: BLE001
             logger.warning("knowledge_summary_lazy_write_failed", error=str(exc), file_id=str(row.id))
         return summary
 
     async def _catalog(self, db: Any, user_id: UUID) -> dict[str, Any]:
-        pet_lib = _pet_project_library_file_ids_subquery(user_id)
         async with db.session() as session:
+            pet_lib = _pet_project_library_file_ids_subquery(session, user_id)
             stmt = (
                 select(File)
                 .where(
-                    File.user_id == user_id,
+                    uuid_column_equals(session, File.user_id, user_id),
                     File.is_deleted == False,  # noqa: E712
                     File.library_scope == LibraryScope.KNOWLEDGE,
                     ~File.id.in_(pet_lib),
@@ -230,8 +240,13 @@ class KnowledgeSearchTool(BaseTool):
         results: list[dict[str, Any]] = []
         for hit in hits:
             async with db.session() as session:
-                f = await session.get(File, hit.file_id)
-                if f is None or f.is_deleted or f.user_id != user_id:
+                f = await load_entity_by_id(
+                    session,
+                    File,
+                    hit.file_id,
+                    parent_table="files",
+                )
+                if f is None or f.is_deleted or not same_user_id(f.user_id, user_id):
                     continue
                 if f.library_scope != LibraryScope.KNOWLEDGE:
                     continue
@@ -270,12 +285,17 @@ class KnowledgeSearchTool(BaseTool):
             return {"error": f"invalid file_id: {raw_id}", "action": "read"}
 
         async with db.session() as session:
-            row = await session.get(File, file_id)
+            row = await load_entity_by_id(
+                session,
+                File,
+                file_id,
+                parent_table="files",
+            )
 
         if (
             row is None
             or row.is_deleted
-            or row.user_id != user_id
+            or not same_user_id(row.user_id, user_id)
             or row.library_scope != LibraryScope.KNOWLEDGE
         ):
             return {

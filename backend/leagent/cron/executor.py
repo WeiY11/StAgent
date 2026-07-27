@@ -141,7 +141,7 @@ class CronExecutor:
                 if job.notify_on_complete:
                     await self._notify_complete(job, execution)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 execution.timeout()
                 if job.notify_on_fail:
                     await self._notify_timeout(job, execution)
@@ -190,7 +190,7 @@ class CronExecutor:
 
                 return result
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "cron_execution_timeout",
                     job_id=str(job.id),
@@ -394,7 +394,7 @@ class CronExecutor:
                 async with db.session() as s:
                     await mgr.kill_task(s, task_id)
                     await s.commit()
-                raise asyncio.TimeoutError(
+                raise TimeoutError(
                     f"Cron task {task_id} exceeded {timeout_sec}s"
                 )
             await asyncio.sleep(poll_interval)
@@ -544,7 +544,7 @@ class CronExecutor:
                 process.communicate(),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             raise
 

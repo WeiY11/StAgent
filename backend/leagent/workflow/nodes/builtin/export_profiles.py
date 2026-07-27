@@ -80,7 +80,7 @@ def _unity_meta(entry: _Entry, asset_path: str) -> bytes:
     return (
         f"fileFormatVersion: 2\nguid: {guid}\n{importer}"
         f"  userData: 'leagent:{entry.kind}'\n  assetBundleName: ''\n"
-    ).encode("utf-8")
+    ).encode()
 
 
 def _unreal_import(entry: _Entry) -> bytes:

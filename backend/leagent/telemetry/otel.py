@@ -82,12 +82,12 @@ def setup_otel(config: TelemetryConfig) -> None:
 
     if config.enable_metrics:
         try:
+            from opentelemetry import metrics
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                 OTLPMetricExporter,
             )
             from opentelemetry.sdk.metrics import MeterProvider
             from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-            from opentelemetry import metrics
 
             reader = PeriodicExportingMetricReader(
                 OTLPMetricExporter(endpoint=endpoint, insecure=use_insecure)
@@ -142,7 +142,7 @@ def instrument_all(
 class _NullTracer:
     def start_as_current_span(self, *args: Any, **kwargs: Any) -> Any:
         class _Span:
-            def __enter__(self) -> "_Span":
+            def __enter__(self) -> _Span:
                 return self
 
             def __exit__(self, *_a: Any) -> bool:

@@ -148,9 +148,16 @@ class LLMService:
         self.resolver = fresh.resolver
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(old_registry.aclose())
+            loop.create_task(old_registry.aclose(), name="llm-old-registry-close")
         except RuntimeError:
-            pass
+            # No event loop — best-effort synchronous cleanup
+            with contextlib.suppress(Exception):
+                import threading
+                threading.Thread(
+                    target=lambda: asyncio.run(old_registry.aclose()),
+                    daemon=True,
+                    name="llm-old-registry-close",
+                ).start()
 
     def get_provider(self, name: str) -> Any:
         return self.registry.get_provider(name)
@@ -316,7 +323,7 @@ class LLMService:
                             chunk = await stream_iter.__anext__()
                     except StopAsyncIteration:
                         break
-                    except (asyncio.TimeoutError, TimeoutError):
+                    except TimeoutError:
                         with contextlib.suppress(Exception):
                             await stream_iter.aclose()  # type: ignore[attr-defined]
                         raise LLMTimeoutError(
@@ -373,7 +380,11 @@ class LLMService:
         model: str | None = None,
         **kwargs: Any,
     ) -> EmbeddingResponse:
-        """Generate embeddings via the embedding task."""
+        """Generate embeddings via the embedding task.
+
+        Falls back to another provider if the resolved one does not support
+        embeddings (raises NotImplementedError).
+        """
         if provider and model:
             resolved_provider, resolved_model = provider, model
         else:
@@ -385,7 +396,13 @@ class LLMService:
                 details={"requested": provider, "available": self.registry.list_providers()},
             )
         provider_instance = self.registry.get_provider(resolved_provider)
-        return await provider_instance.embed(texts, model=resolved_model, **kwargs)
+        try:
+            return await provider_instance.embed(texts, model=resolved_model, **kwargs)
+        except NotImplementedError:
+            fallback = self.registry.find_embedding_provider(exclude=resolved_provider)
+            if fallback is None:
+                raise
+            return await fallback.embed(texts, model=resolved_model, **kwargs)
 
     async def generate_image(
         self,

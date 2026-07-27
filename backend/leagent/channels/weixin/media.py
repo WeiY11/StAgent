@@ -12,13 +12,13 @@ from urllib.parse import urlparse
 import structlog
 
 from .client import (
+    ITEM_FILE,
+    ITEM_IMAGE,
+    ITEM_VIDEO,
     MEDIA_FILE,
     MEDIA_IMAGE,
     MEDIA_VIDEO,
     MEDIA_VOICE,
-    ITEM_FILE,
-    ITEM_IMAGE,
-    ITEM_VIDEO,
     WeixinClient,
 )
 from .crypto import aes128_ecb_decrypt, aes128_ecb_encrypt, aes_padded_size, parse_aes_key

@@ -14,6 +14,8 @@ from uuid import UUID
 from leagent.context.types import ContextBlock, ContextScope, RenderTarget
 
 if TYPE_CHECKING:
+    from leagent.code.artifacts import SessionArtifactStore
+    from leagent.code.operations import OperationJournal
     from leagent.context.file_state import FileState
     from leagent.context.working_set import WorkingSet
     from leagent.memory.agent_memory import AgentMemory
@@ -22,8 +24,6 @@ if TYPE_CHECKING:
     from leagent.services.session import SessionManager
     from leagent.skills.manager import SkillsManager
     from leagent.tools.base import ToolPermissionContext
-    from leagent.code.artifacts import SessionArtifactStore
-    from leagent.code.operations import OperationJournal
     from leagent.tools.registry import ToolRegistry
 
 
@@ -42,22 +42,22 @@ class ResolveContext:
     playbook_ids: list[str] = field(default_factory=list)
     agent_id: str = "default"
 
-    tools: "ToolRegistry | None" = None
-    permission_context: "ToolPermissionContext | None" = None
-    skills_manager: "SkillsManager | None" = None
+    tools: ToolRegistry | None = None
+    permission_context: ToolPermissionContext | None = None
+    skills_manager: SkillsManager | None = None
 
-    agent_memory: "AgentMemory | None" = None
-    recall_handle: "RecallProvider | None" = None
+    agent_memory: AgentMemory | None = None
+    recall_handle: RecallProvider | None = None
     recall_limit: int = 5
 
-    session_manager: "SessionManager | None" = None
+    session_manager: SessionManager | None = None
     session_id: UUID | None = None
     user_id: UUID | None = None
     task_id: UUID | None = None
 
-    file_state: "FileState | None" = None
-    working_scratchpad: "WorkingScratchpad | None" = None
-    working_set: "WorkingSet | None" = None
+    file_state: FileState | None = None
+    working_scratchpad: WorkingScratchpad | None = None
+    working_set: WorkingSet | None = None
 
     # Settings pulled from ContextSettings
     project_memory_denylist: list[str] = field(default_factory=list)
@@ -76,10 +76,10 @@ class ResolveContext:
     prompt_registry: Any = None
 
     # Persistent artifact metadata store for cross-turn awareness
-    artifact_store: "SessionArtifactStore | None" = None
+    artifact_store: SessionArtifactStore | None = None
 
     # Ordered operation log for the current session
-    operation_journal: "OperationJournal | None" = None
+    operation_journal: OperationJournal | None = None
 
 
 @runtime_checkable

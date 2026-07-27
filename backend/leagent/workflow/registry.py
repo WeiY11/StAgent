@@ -13,6 +13,8 @@ from uuid import UUID
 
 import structlog
 
+from leagent.db.sqlite_compat import load_entity_by_id
+
 from .io import WorkflowDocument, load
 
 logger = structlog.get_logger(__name__)
@@ -26,12 +28,18 @@ class FlowWorkflowRegistry:
 
     async def get(self, workflow_id: str) -> WorkflowDocument | None:
         from sqlmodel import select
+
         from leagent.db.models.flow import Flow
 
         async with self._db.session() as session:
             try:
                 flow_uuid = UUID(workflow_id)
-                flow = await session.get(Flow, flow_uuid)
+                flow = await load_entity_by_id(
+                    session,
+                    Flow,
+                    flow_uuid,
+                    parent_table="flows",
+                )
             except (ValueError, AttributeError):
                 result = await session.exec(
                     select(Flow).where(Flow.name == workflow_id, Flow.is_deleted == False)

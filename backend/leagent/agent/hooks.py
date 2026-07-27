@@ -24,8 +24,8 @@ from leagent.agent.base import (
 )
 
 if TYPE_CHECKING:
-    from leagent.memory import AgentMemory
     from leagent.code.artifacts import CodeArtifact
+    from leagent.memory import AgentMemory
 
 logger = structlog.get_logger(__name__)
 
@@ -56,7 +56,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             user_input: The user's input message.
         """
-        pass
 
     async def on_step(self, context: AgentContext, step: ExecutionStep) -> None:
         """Called after each execution step.
@@ -65,7 +64,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             step: The step that was just executed.
         """
-        pass
 
     async def on_tool_call(self, context: AgentContext, tool_call: ToolCall) -> None:
         """Called before a tool is executed.
@@ -74,7 +72,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             tool_call: The tool call about to be executed.
         """
-        pass
 
     async def on_tool_result(
         self,
@@ -89,7 +86,6 @@ class AgentHook(ABC):
             tool_call: The tool call that was executed.
             result: The result from the tool.
         """
-        pass
 
     async def on_plan_created(self, context: AgentContext, plan: ExecutionPlan) -> None:
         """Called when a new execution plan is created.
@@ -98,7 +94,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             plan: The newly created plan.
         """
-        pass
 
     async def on_complete(self, context: AgentContext, response: AgentResponse) -> None:
         """Called when agent completes successfully.
@@ -107,7 +102,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             response: The final agent response.
         """
-        pass
 
     async def on_error(self, context: AgentContext, error: Exception) -> None:
         """Called when an error occurs.
@@ -116,7 +110,6 @@ class AgentHook(ABC):
             context: Agent execution context.
             error: The exception that occurred.
         """
-        pass
 
     async def on_cancel(self, context: AgentContext) -> None:
         """Called when execution is cancelled.
@@ -124,15 +117,13 @@ class AgentHook(ABC):
         Args:
             context: Agent execution context.
         """
-        pass
 
-    async def on_code_artifact(self, artifact: "CodeArtifact") -> None:
+    async def on_code_artifact(self, artifact: CodeArtifact) -> None:
         """Called when a code artifact is produced (before execution/write).
 
         Args:
             artifact: The code artifact that was just created.
         """
-        pass
 
     async def on_pre_compact(self, context: AgentContext, reason: str) -> None:
         """Called before transcript compaction runs (Claude ``PreCompact``).
@@ -141,19 +132,16 @@ class AgentHook(ABC):
             context: Agent execution context.
             reason: Why compaction was triggered (e.g. ``"autocompact"``).
         """
-        pass
 
     async def on_subagent_start(
         self, context: AgentContext, agent_name: str, prompt: str
     ) -> None:
         """Called when a sub-agent is delegated (Claude ``SubagentStart``)."""
-        pass
 
     async def on_subagent_stop(
         self, context: AgentContext, agent_name: str, result: dict[str, Any]
     ) -> None:
         """Called when a delegated sub-agent finishes (Claude ``SubagentStop``)."""
-        pass
 
 
 class HookManager:
@@ -270,7 +258,7 @@ class HookManager:
         self._ensure_sorted()
         await self._dispatch("on_cancel", context)
 
-    async def fire_code_artifact(self, artifact: "CodeArtifact") -> None:
+    async def fire_code_artifact(self, artifact: CodeArtifact) -> None:
         """Dispatch on_code_artifact to all hooks."""
         self._ensure_sorted()
         await self._dispatch("on_code_artifact", artifact)
@@ -398,7 +386,7 @@ class LoggingHook(AgentHook):
             elapsed_ms=context.elapsed_ms,
         )
 
-    async def on_code_artifact(self, artifact: "CodeArtifact") -> None:
+    async def on_code_artifact(self, artifact: CodeArtifact) -> None:
         self._log(
             "agent_code_artifact",
             artifact_id=artifact.artifact_id,
@@ -504,7 +492,7 @@ class TaskHistoryHook(AgentHook):
 
     priority = 90
 
-    def __init__(self, agent_memory: "AgentMemory | None" = None) -> None:
+    def __init__(self, agent_memory: AgentMemory | None = None) -> None:
         self.agent_memory = agent_memory
 
     async def on_complete(self, context: AgentContext, response: AgentResponse) -> None:
@@ -653,7 +641,6 @@ class RateLimitHook(AgentHook):
 class RateLimitError(Exception):
     """Raised when rate limit is exceeded."""
 
-    pass
 
 
 class TraceHook(AgentHook):
@@ -703,7 +690,9 @@ class TraceHook(AgentHook):
 
 
 def create_default_hooks(
-    agent_memory: "AgentMemory | None" = None,
+    agent_memory: AgentMemory | None = None,
+    *,
+    enable_harness: bool = True,
 ) -> list[AgentHook]:
     """Create the default hook lineup the controller uses by default.
 
@@ -711,12 +700,21 @@ def create_default_hooks(
     instance has observability. When ``agent_memory`` is provided, the
     ``TaskHistoryHook`` is appended so finished turns become
     :class:`Procedure` rows the planner can rank next time.
+
+    When ``enable_harness`` is True (default), the :class:`HarnessHook` is
+    registered for task-episode lifecycle management, outcome evaluation,
+    finding tracking, and durable report generation.
     """
     hooks: list[AgentHook] = [
         LoggingHook(log_level="info"),
         MetricsHook(),
         TraceHook(),
     ]
+
+    if enable_harness:
+        from leagent.harness.hook import HarnessHook
+
+        hooks.append(HarnessHook())
 
     if agent_memory is not None:
         hooks.append(TaskHistoryHook(agent_memory))

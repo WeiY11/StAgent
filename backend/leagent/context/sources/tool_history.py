@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 import structlog
 
 from leagent.context.sources import SOURCE_REGISTRY

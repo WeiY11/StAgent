@@ -441,7 +441,7 @@ class APIChannel(BaseChannel):
                         attempt=attempt + 1,
                     )
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Callback timeout",
                     url=endpoint.url,

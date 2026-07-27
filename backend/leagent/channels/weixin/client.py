@@ -203,7 +203,7 @@ class WeixinClient:
                 {"get_updates_buf": sync_buf},
                 timeout_ms=LONG_POLL_TIMEOUT_MS,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"ret": 0, "msgs": [], "get_updates_buf": sync_buf}
 
     async def send_text(

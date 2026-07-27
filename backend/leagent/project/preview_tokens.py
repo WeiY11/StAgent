@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 from uuid import UUID
 
 from leagent.config.settings import Settings
-from leagent.services.auth.tokens import mint_token, decode_token, TokenError
+from leagent.services.auth.tokens import TokenError, decode_token, mint_token
 
 PREVIEW_AUDIENCE = "leagent-coding-preview"
 
@@ -32,7 +32,7 @@ def mint_preview_token(
         ttl_seconds = settings.coding_projects.preview_token_ttl_seconds
     ttl_seconds = max(60, int(ttl_seconds))
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     exp = now + timedelta(seconds=ttl_seconds)
     payload: dict[str, Any] = {
         "cpid": str(project_id),

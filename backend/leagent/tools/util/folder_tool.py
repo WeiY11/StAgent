@@ -6,7 +6,17 @@ from typing import Any
 from uuid import UUID
 
 import structlog
+from sqlalchemy import text as sa_text
+from sqlalchemy import update as sa_update
 
+from leagent.db.models.base import utc_now
+from leagent.db.sqlite_compat import (
+    load_entity_by_id,
+    same_user_id,
+    session_dialect_name,
+    sqlite_parent_id_text,
+    uuid_column_equals,
+)
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 
 logger = structlog.get_logger(__name__)
@@ -157,6 +167,7 @@ class FolderOperationsTool(BaseTool):
 
     async def _list_folders(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         from sqlmodel import select
+
         from leagent.db.models.folder import Folder
 
         parent_id = UUID(params["parent_id"]) if params.get("parent_id") else None
@@ -165,9 +176,9 @@ class FolderOperationsTool(BaseTool):
         async with sm.db.session() as session:
             stmt = select(Folder).where(Folder.is_deleted == False)  # noqa: E712
             if uid:
-                stmt = stmt.where(Folder.user_id == uid)
+                stmt = stmt.where(uuid_column_equals(session, Folder.user_id, uid))
             if parent_id is not None:
-                stmt = stmt.where(Folder.parent_id == parent_id)
+                stmt = stmt.where(uuid_column_equals(session, Folder.parent_id, parent_id))
             else:
                 stmt = stmt.where(Folder.parent_id == None)  # noqa: E711
 
@@ -190,6 +201,7 @@ class FolderOperationsTool(BaseTool):
 
     async def _get_tree(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         from sqlmodel import select
+
         from leagent.db.models.folder import Folder
 
         uid = self._user_id(ctx)
@@ -197,7 +209,7 @@ class FolderOperationsTool(BaseTool):
         async with sm.db.session() as session:
             stmt = select(Folder).where(Folder.is_deleted == False)  # noqa: E712
             if uid:
-                stmt = stmt.where(Folder.user_id == uid)
+                stmt = stmt.where(uuid_column_equals(session, Folder.user_id, uid))
             result = await session.exec(stmt)
             all_folders = result.all()
 
@@ -229,13 +241,56 @@ class FolderOperationsTool(BaseTool):
         from leagent.db.models.folder import Folder
 
         new_parent = UUID(params["parent_id"]) if params.get("parent_id") else None
+        uid = self._user_id(ctx)
 
         async with sm.db.session() as session:
-            folder = await session.get(Folder, UUID(folder_id))
+            folder = await load_entity_by_id(
+                session,
+                Folder,
+                UUID(folder_id),
+                parent_table="folders",
+            )
             if not folder or folder.is_deleted:
                 return {"error": "Folder not found"}
-            folder.parent_id = new_parent
-            session.add(folder)
+            if uid and not same_user_id(folder.user_id, uid):
+                return {"error": "Access denied"}
+            if new_parent is not None:
+                parent = await load_entity_by_id(
+                    session,
+                    Folder,
+                    new_parent,
+                    parent_table="folders",
+                )
+                if not parent or parent.is_deleted:
+                    return {"error": "Parent folder not found"}
+                if uid and not same_user_id(parent.user_id, uid):
+                    return {"error": "Access denied"}
+            parent_db_id: UUID | str | None = None
+            if new_parent is not None:
+                parent_db_id = (
+                    await sqlite_parent_id_text(session, "folders", new_parent)
+                    if session_dialect_name(session) == "sqlite"
+                    else new_parent
+                )
+            now = utc_now()
+            if session_dialect_name(session) == "sqlite":
+                await session.execute(
+                    sa_text(
+                        "UPDATE folders SET parent_id = :parent_id, updated_at = :now "
+                        "WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :id_hex"
+                    ),
+                    {
+                        "parent_id": parent_db_id,
+                        "now": now,
+                        "id_hex": UUID(folder_id).hex.lower(),
+                    },
+                )
+            else:
+                await session.execute(
+                    sa_update(Folder)
+                    .where(uuid_column_equals(session, Folder.id, UUID(folder_id)))
+                    .values(parent_id=parent_db_id, updated_at=now)
+                )
             return {"id": str(folder.id), "new_parent_id": str(new_parent) if new_parent else None, "moved": True}
 
     async def _delete_folder(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
@@ -243,16 +298,27 @@ class FolderOperationsTool(BaseTool):
         if not folder_id:
             return {"error": "'folder_id' is required"}
 
-        from datetime import datetime
         from leagent.db.models.folder import Folder
 
+        uid = self._user_id(ctx)
+
         async with sm.db.session() as session:
-            folder = await session.get(Folder, UUID(folder_id))
+            folder = await load_entity_by_id(
+                session,
+                Folder,
+                UUID(folder_id),
+                parent_table="folders",
+            )
             if not folder or folder.is_deleted:
                 return {"error": "Folder not found"}
-            folder.is_deleted = True
-            folder.deleted_at = datetime.utcnow()
-            session.add(folder)
+            if uid and not same_user_id(folder.user_id, uid):
+                return {"error": "Access denied"}
+            now = utc_now()
+            await session.execute(
+                sa_update(Folder)
+                .where(uuid_column_equals(session, Folder.id, UUID(folder_id)))
+                .values(is_deleted=True, deleted_at=now, updated_at=now)
+            )
             return {"id": str(folder.id), "deleted": True}
 
     async def _add_file(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
@@ -262,13 +328,55 @@ class FolderOperationsTool(BaseTool):
             return {"error": "'folder_id' and 'file_id' are required"}
 
         from leagent.db.models.file import File
+        from leagent.db.models.folder import Folder
+
+        uid = self._user_id(ctx)
 
         async with sm.db.session() as session:
-            f = await session.get(File, UUID(file_id))
+            folder = await load_entity_by_id(
+                session,
+                Folder,
+                UUID(folder_id),
+                parent_table="folders",
+            )
+            if not folder or folder.is_deleted:
+                return {"error": "Folder not found"}
+            if uid and not same_user_id(folder.user_id, uid):
+                return {"error": "Access denied"}
+            f = await load_entity_by_id(
+                session,
+                File,
+                UUID(file_id),
+                parent_table="files",
+            )
             if not f or f.is_deleted:
                 return {"error": "File not found"}
-            f.folder_id = UUID(folder_id)
-            session.add(f)
+            if uid and not same_user_id(f.user_id, uid):
+                return {"error": "Access denied"}
+            folder_db_id = (
+                await sqlite_parent_id_text(session, "folders", UUID(folder_id))
+                if session_dialect_name(session) == "sqlite"
+                else UUID(folder_id)
+            )
+            now = utc_now()
+            if session_dialect_name(session) == "sqlite":
+                await session.execute(
+                    sa_text(
+                        "UPDATE files SET folder_id = :folder_id, updated_at = :now "
+                        "WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :id_hex"
+                    ),
+                    {
+                        "folder_id": folder_db_id,
+                        "now": now,
+                        "id_hex": UUID(file_id).hex.lower(),
+                    },
+                )
+            else:
+                await session.execute(
+                    sa_update(File)
+                    .where(uuid_column_equals(session, File.id, UUID(file_id)))
+                    .values(folder_id=folder_db_id, updated_at=now)
+                )
             return {"file_id": file_id, "folder_id": folder_id, "added": True}
 
     async def _remove_file(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
@@ -278,12 +386,24 @@ class FolderOperationsTool(BaseTool):
 
         from leagent.db.models.file import File
 
+        uid = self._user_id(ctx)
+
         async with sm.db.session() as session:
-            f = await session.get(File, UUID(file_id))
+            f = await load_entity_by_id(
+                session,
+                File,
+                UUID(file_id),
+                parent_table="files",
+            )
             if not f or f.is_deleted:
                 return {"error": "File not found"}
-            f.folder_id = None
-            session.add(f)
+            if uid and not same_user_id(f.user_id, uid):
+                return {"error": "Access denied"}
+            await session.execute(
+                sa_update(File)
+                .where(uuid_column_equals(session, File.id, UUID(file_id)))
+                .values(folder_id=None, updated_at=utc_now())
+            )
             return {"file_id": file_id, "removed": True}
 
     async def _search(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
@@ -292,6 +412,7 @@ class FolderOperationsTool(BaseTool):
             return {"error": "'query' is required for search"}
 
         from sqlmodel import select
+
         from leagent.db.models.folder import Folder
 
         uid = self._user_id(ctx)
@@ -303,7 +424,7 @@ class FolderOperationsTool(BaseTool):
                 .where(Folder.name.contains(query))
             )
             if uid:
-                stmt = stmt.where(Folder.user_id == uid)
+                stmt = stmt.where(uuid_column_equals(session, Folder.user_id, uid))
             result = await session.exec(stmt)
             folders = result.all()
             return {
@@ -321,6 +442,7 @@ class FolderOperationsTool(BaseTool):
             return {"error": "'folder_id' is required"}
 
         from sqlmodel import select
+
         from leagent.db.models.file import File
 
         uid = self._user_id(ctx)
@@ -328,11 +450,11 @@ class FolderOperationsTool(BaseTool):
         async with sm.db.session() as session:
             stmt = (
                 select(File)
-                .where(File.folder_id == UUID(folder_id))
+                .where(uuid_column_equals(session, File.folder_id, UUID(folder_id)))
                 .where(File.is_deleted == False)  # noqa: E712
             )
             if uid:
-                stmt = stmt.where(File.user_id == uid)
+                stmt = stmt.where(uuid_column_equals(session, File.user_id, uid))
             result = await session.exec(stmt)
             files = result.all()
 
@@ -363,10 +485,15 @@ class FolderOperationsTool(BaseTool):
         uid = self._user_id(ctx)
 
         async with sm.db.session() as session:
-            f = await session.get(File, UUID(file_id))
+            f = await load_entity_by_id(
+                session,
+                File,
+                UUID(file_id),
+                parent_table="files",
+            )
             if not f or f.is_deleted:
                 return {"error": "File not found"}
-            if uid and f.user_id != uid:
+            if uid and not same_user_id(f.user_id, uid):
                 return {"error": "Access denied"}
 
             if f.extracted_text:

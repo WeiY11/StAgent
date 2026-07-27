@@ -22,11 +22,13 @@ from __future__ import annotations
 import asyncio
 import mimetypes
 import os
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+from leagent.db.sqlite_compat import same_user_id
 from leagent.file.primitives import (
     classify_file_kind,
     sanitize_filename,
@@ -35,6 +37,7 @@ from leagent.services.auth.signed_url import (
     build_download_url,
     build_preview_url,
 )
+from leagent.services.session.paths import SessionPathRegistry
 from leagent.services.session.state import (
     SessionAttachment,
     SessionMessage,
@@ -44,7 +47,6 @@ from leagent.services.session.state import (
     session_todos_from_tool_dicts,
     session_todos_to_tool_dicts,
 )
-from leagent.services.session.paths import SessionPathRegistry
 from leagent.services.session.store import TieredSessionStore
 from leagent.utils.logging import get_logger
 
@@ -53,6 +55,7 @@ if TYPE_CHECKING:
 
     from leagent.config.settings import Settings
     from leagent.db.service import DatabaseService
+    from leagent.services.cache.service import CacheService
 
 logger = get_logger(__name__)
 
@@ -71,18 +74,59 @@ class SessionManager:
         *,
         database: DatabaseService | None,
         file_service: Any | None = None,
+        cache: CacheService | None = None,
     ) -> None:
         self._settings = settings
         self._paths = SessionPathRegistry(settings)
         self._database = database
         self._file_service = file_service
-        self._store = TieredSessionStore(settings, database=database)
+        self._store = TieredSessionStore(settings, database=database, cache=cache)
         self._locks: dict[UUID, asyncio.Lock] = {}
         self._locks_mutex = asyncio.Lock()
 
     @property
     def store(self) -> TieredSessionStore:
         return self._store
+
+    def _ensure_state_owner(
+        self,
+        state: SessionState,
+        user_id: UUID | None,
+        *,
+        claim_unowned: bool = False,
+    ) -> None:
+        """Reject cross-user access to a hydrated session state.
+
+        ``user_id=None`` is reserved for trusted internal/background paths.
+        API-facing paths pass a concrete user id and must not see or mutate a
+        session already bound to another user. ``claim_unowned`` is only used
+        on creation/mutation paths where legacy or in-memory state has no owner
+        yet and the caller has already been authorised by the outer chat layer.
+        """
+        if user_id is None:
+            return
+        if state.user_id is None:
+            if claim_unowned:
+                state.user_id = user_id
+                return
+            raise PermissionError("Session not found")
+        if not same_user_id(state.user_id, user_id):
+            raise PermissionError("Session not found")
+
+    async def _assert_session_owner(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        *,
+        claim_unowned: bool = False,
+    ) -> None:
+        """Best-effort preflight before doing file I/O for a user-bound session."""
+        if user_id is None:
+            return
+        state = await self._store.load(session_id)
+        if state is None:
+            return
+        self._ensure_state_owner(state, user_id, claim_unowned=claim_unowned)
 
     # -- locks ----------------------------------------------------------
 
@@ -136,6 +180,7 @@ class SessionManager:
     ) -> SessionState:
         """Hydrate a session, creating an empty one if necessary."""
         async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
             if state.user_id is None and user_id is not None:
                 state.user_id = user_id
             if state.workspace_id is None and workspace_id is not None:
@@ -147,17 +192,25 @@ class SessionManager:
     async def load(self, session_id: UUID) -> SessionState | None:
         return await self._store.load(session_id)
 
-    async def get_todos(self, session_id: UUID) -> list[SessionTodo]:
+    async def get_todos(
+        self,
+        session_id: UUID,
+        *,
+        user_id: UUID | None = None,
+    ) -> list[SessionTodo]:
         """Return the session-scoped agent todo list."""
         state = await self._store.load(session_id)
         if state is None:
             return []
+        self._ensure_state_owner(state, user_id)
         return list(state.todos)
 
     async def set_todos(
         self,
         session_id: UUID,
         todos: list[SessionTodo] | list[dict[str, Any]],
+        *,
+        user_id: UUID | None = None,
     ) -> list[SessionTodo]:
         """Replace session todos and persist."""
         if not todos:
@@ -168,6 +221,7 @@ class SessionManager:
             normalised = list(todos)  # type: ignore[arg-type]
         normalised = enforce_single_in_progress_todos(normalised)
         async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
             state.todos = normalised
             return list(state.todos)
 
@@ -176,6 +230,8 @@ class SessionManager:
         session_id: UUID,
         todo_id: str,
         status: str,
+        *,
+        user_id: UUID | None = None,
     ) -> list[SessionTodo]:
         """Update one todo status (user or API); demote other in_progress when needed."""
         from leagent.services.session.state import SessionTodoStatus, _utc_now
@@ -192,6 +248,7 @@ class SessionManager:
 
         now = _utc_now()
         async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
             if not state.todos:
                 msg = f"Todo {tid!r} not found"
                 raise ValueError(msg)
@@ -348,6 +405,7 @@ class SessionManager:
         after receiving the multipart form so the attachment IDs are known
         when ``append_user`` records the first turn.
         """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
         persisted: list[SessionAttachment] = []
         max_bytes = max(0, int(self._settings.files.max_upload_bytes))
 
@@ -381,8 +439,7 @@ class SessionManager:
             return persisted
 
         async with self.locked(session_id) as state:
-            if state.user_id is None and user_id is not None:
-                state.user_id = user_id
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
             for att in persisted:
                 state.upsert_attachment(att)
 
@@ -390,7 +447,7 @@ class SessionManager:
 
     @staticmethod
     async def _read_upload_limited(
-        upload: "UploadFile", max_bytes: int, filename: str
+        upload: UploadFile, max_bytes: int, filename: str
     ) -> bytes:
         """Read an upload fully into memory, enforcing the size limit."""
         buf = bytearray()
@@ -483,6 +540,7 @@ class SessionManager:
         the file is added like an upload, with DB rows and signed URLs, so the
         chat workspace and ``/api/v1/files`` stay consistent.
         """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
         from leagent.file.sandbox import _get_allowed_roots, _is_inside
 
         try:
@@ -536,6 +594,7 @@ class SessionManager:
         state = await self._store.load(session_id)
         if state is None:
             return []
+        self._ensure_state_owner(state, user_id)
         attachments = list(state.attachments)
         if user_id is not None:
             for attachment in attachments:
@@ -948,6 +1007,7 @@ class SessionManager:
         user_id: UUID | None = None,
     ) -> dict[str, Any] | None:
         async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id)
             for existing in state.attachments:
                 if existing.id == attachment_id:
                     self._ensure_quality_on_attachment(existing)
@@ -971,6 +1031,7 @@ class SessionManager:
         bytes and the ``File`` row. Optional *source_tool_path* enables the same
         path-alias versioning as :meth:`register_external_file`.
         """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
         import hashlib
 
         from leagent.file.primitives import FileScope
@@ -1106,8 +1167,7 @@ class SessionManager:
         new_extra = extra or {}
         new_src = new_extra.get("source_tool_path")
         async with self.locked(session_id) as state:
-            if state.user_id is None and user_id is not None:
-                state.user_id = user_id
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
             for existing in state.attachments:
                 if existing.id == ref.id:
                     state.upsert_attachment(attachment)
