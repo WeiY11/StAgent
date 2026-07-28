@@ -19,6 +19,19 @@ from leagent.tools.base import SyncTool, ToolCategory, ToolContext
 logger = structlog.get_logger(__name__)
 
 CHART_THEMES: dict[str, dict[str, Any]] = {
+    # Research-paper style (research-paper-writing skill): minimal ink,
+    # serif type, Okabe-Ito colorblind-safe palette, print-quality DPI.
+    "academic": {
+        "figsize": (8, 5),
+        "dpi": 300,
+        "font_family": "serif",
+        "font_size": 11,
+        "title_size": 13,
+        "palette": ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"],
+        "bg_color": "#FFFFFF",
+        "grid_alpha": 0.15,
+        "spine_visible": False,
+    },
     "presentation": {
         "figsize": (12, 7),
         "dpi": 150,
@@ -78,8 +91,8 @@ class ChartGeneratorTool(SyncTool):
     description = (
         "Generate professional charts and visualizations. Supports bar, line, pie, "
         "scatter, heatmap, radar, area, and histogram chart types with built-in "
-        "themes (presentation, report, dashboard, minimal). Returns the chart as "
-        "a saved image file."
+        "themes (academic, presentation, report, dashboard, minimal). Returns the "
+        "chart as a saved image file."
     )
     category = ToolCategory.GEN
     version = "1.0.0"
@@ -155,8 +168,8 @@ class ChartGeneratorTool(SyncTool):
                 },
                 "theme": {
                     "type": "string",
-                    "enum": ["presentation", "report", "dashboard", "minimal"],
-                    "description": "Visual theme (default: presentation).",
+                    "enum": ["academic", "presentation", "report", "dashboard", "minimal"],
+                    "description": "Visual theme (default: academic — minimal-ink research-paper style).",
                 },
                 "output_format": {
                     "type": "string",
@@ -189,13 +202,13 @@ class ChartGeneratorTool(SyncTool):
         title = params.get("title", "")
         x_label = params.get("x_label", "")
         y_label = params.get("y_label", "")
-        theme_name = params.get("theme", "presentation")
+        theme_name = params.get("theme", "academic")
         output_format = params.get("output_format", "png")
         output_path = Path(params["output_path"])
         show_legend = params.get("show_legend")
         stacked = params.get("stacked", False)
 
-        theme = CHART_THEMES.get(theme_name, CHART_THEMES["presentation"])
+        theme = CHART_THEMES.get(theme_name, CHART_THEMES["academic"])
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -395,14 +408,13 @@ class ChartGeneratorTool(SyncTool):
     def _run_in_sandbox(self, script: str, context: ToolContext) -> dict[str, Any]:
         """Execute the chart script via the code_execution subprocess sandbox."""
         try:
+            from leagent.code.execution import build_default_code_execution_config
             from leagent.code.sandbox import SubprocessSandbox
-            from leagent.code.workspace import Workspace, WorkspaceManager
+            from leagent.code.workspace import WorkspaceManager
 
-            workspace_root = "/tmp/leagent-charts"
-            Path(workspace_root).mkdir(parents=True, exist_ok=True)
-            session_id = str(context.session_id or "chart-session")
-            mgr = WorkspaceManager(root=workspace_root)
-            ws = mgr.get_or_create(session_id)
+            cfg = build_default_code_execution_config()
+            mgr = WorkspaceManager(cfg.workspace_root, max_workspace_bytes=cfg.max_workspace_bytes)
+            ws = mgr.get(user_id=context.user_id, session_id=context.session_id or "chart-session")
 
             sandbox = SubprocessSandbox()
             import asyncio

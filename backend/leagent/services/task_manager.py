@@ -151,7 +151,7 @@ class TaskManager:
         short_id = generate_task_id(task_type)
         output_dir = None
         if self._settings:
-            output_dir = getattr(self._settings, "task_output_dir", None)
+            output_dir = self._settings.task_output_dir
 
         ctx = TaskContext(short_id, task_type, output_dir=output_dir)
 
@@ -237,7 +237,7 @@ class TaskManager:
         if ctx is None:
             output_dir = None
             if self._settings:
-                output_dir = getattr(self._settings, "task_output_dir", None)
+                output_dir = self._settings.task_output_dir
             ctx = TaskContext(str(task.id), task.task_type, output_dir=output_dir)
             self._active_contexts[str(task.id)] = ctx
 

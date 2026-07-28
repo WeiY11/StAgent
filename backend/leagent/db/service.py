@@ -117,8 +117,8 @@ class DatabaseService:
 
     async def ensure_identity_stubs(self) -> None:
         """Insert minimal ``users`` / ``workspaces`` rows for FK targets (messages, pet_projects, …)."""
+        from leagent.config.constants import LOCAL_USER_ID
         from leagent.db.models.identity_stub import UserStub, WorkspaceStub
-        from leagent.services.auth.service import LOCAL_USER_ID
 
         async with self.session() as session:
             existing_user = await session.get(UserStub, LOCAL_USER_ID)

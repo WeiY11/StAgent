@@ -10,6 +10,16 @@ from leagent.db.models import (
     Message,
     Task,
 )
+from leagent.db.repositories import (
+    CodingProjectRepository,
+    DbCodingProjectRepository,
+    DbFlowRepository,
+    DbFolderRepository,
+    DbMessageRepository,
+    FlowRepository,
+    FolderRepository,
+    MessageRepository,
+)
 from leagent.db.service import (
     DatabaseService,
     get_database_service,
@@ -44,6 +54,14 @@ __all__ = [
     "Task",
     "File",
     "Folder",
+    "CodingProjectRepository",
+    "DbCodingProjectRepository",
+    "FlowRepository",
+    "DbFlowRepository",
+    "FolderRepository",
+    "DbFolderRepository",
+    "MessageRepository",
+    "DbMessageRepository",
     "session_dialect_name",
     "parse_uuid_stored",
     "same_user_id",

@@ -499,9 +499,10 @@ async def _authenticate_websocket(
     ``None``. When the client offers ``bearer,<jwt>`` via
     ``Sec-WebSocket-Protocol``, the accept subprotocol is ``bearer``.
     """
+    from leagent.config.constants import LOCAL_USER_ID
     from leagent.config.settings import get_settings
     from leagent.services.auth.policy import effective_enforce_auth
-    from leagent.services.auth.service import LOCAL_USER_ID, get_auth_service
+    from leagent.services.auth.service import get_auth_service
 
     token: str | None = None
     accept_subprotocol: str | None = None

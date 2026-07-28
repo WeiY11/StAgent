@@ -99,6 +99,7 @@ class _WrappedDb:
         self._db = db
         self.repositories = types.SimpleNamespace(
             document_chunks=_FakeChunkRepo(hits),
+            files=db.repositories.files,
         )
 
     def session(self):

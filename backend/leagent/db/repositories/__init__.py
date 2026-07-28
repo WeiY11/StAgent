@@ -19,11 +19,21 @@ from leagent.db.repositories.agent_checkpoint import (
     DbCheckpointRepository,
 )
 from leagent.db.repositories.chat import ChatRepository, DbChatRepository
+from leagent.db.repositories.coding_projects import (
+    CodingProjectRepository,
+    DbCodingProjectRepository,
+)
 from leagent.db.repositories.document_chunks import (
     DbDocumentChunkRepository,
     DocumentChunkRepository,
 )
 from leagent.db.repositories.files import DbFileRepository, FileRepository
+from leagent.db.repositories.flows import DbFlowRepository, FlowRepository
+from leagent.db.repositories.folders import DbFolderRepository, FolderRepository
+from leagent.db.repositories.messages import (
+    DbMessageRepository,
+    MessageRepository,
+)
 from leagent.db.repositories.tasks import DbTaskRepository, TaskRepository
 from leagent.db.repositories.workflow_executions import (
     DbWorkflowExecutionRepository,
@@ -45,6 +55,10 @@ class Repositories:
         self._chat: DbChatRepository | None = None
         self._checkpoints: DbCheckpointRepository | None = None
         self._workflow_executions: DbWorkflowExecutionRepository | None = None
+        self._messages: DbMessageRepository | None = None
+        self._flows: DbFlowRepository | None = None
+        self._folders: DbFolderRepository | None = None
+        self._coding_projects: DbCodingProjectRepository | None = None
 
     @property
     def files(self) -> DbFileRepository:
@@ -82,6 +96,30 @@ class Repositories:
             self._workflow_executions = DbWorkflowExecutionRepository(self._db)
         return self._workflow_executions
 
+    @property
+    def messages(self) -> DbMessageRepository:
+        if self._messages is None:
+            self._messages = DbMessageRepository(self._db)
+        return self._messages
+
+    @property
+    def flows(self) -> DbFlowRepository:
+        if self._flows is None:
+            self._flows = DbFlowRepository(self._db)
+        return self._flows
+
+    @property
+    def folders(self) -> DbFolderRepository:
+        if self._folders is None:
+            self._folders = DbFolderRepository(self._db)
+        return self._folders
+
+    @property
+    def coding_projects(self) -> DbCodingProjectRepository:
+        if self._coding_projects is None:
+            self._coding_projects = DbCodingProjectRepository(self._db)
+        return self._coding_projects
+
 
 __all__ = [
     "Repositories",
@@ -89,10 +127,18 @@ __all__ = [
     "DbChatRepository",
     "CheckpointRepository",
     "DbCheckpointRepository",
+    "CodingProjectRepository",
+    "DbCodingProjectRepository",
     "FileRepository",
     "DbFileRepository",
     "DocumentChunkRepository",
     "DbDocumentChunkRepository",
+    "FlowRepository",
+    "DbFlowRepository",
+    "FolderRepository",
+    "DbFolderRepository",
+    "MessageRepository",
+    "DbMessageRepository",
     "TaskRepository",
     "DbTaskRepository",
     "WorkflowExecutionRepository",

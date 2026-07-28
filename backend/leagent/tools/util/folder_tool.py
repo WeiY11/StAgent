@@ -140,32 +140,30 @@ class FolderOperationsTool(BaseTool):
         return UUID(ctx.user_id) if ctx.user_id else None
 
     async def _create_folder(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
-        from leagent.db.models.folder import Folder
-
         name = params.get("name")
         if not name:
             return {"error": "'name' is required for create_folder"}
 
         parent_id = UUID(params["parent_id"]) if params.get("parent_id") else None
 
-        async with sm.db.session() as session:
-            folder = Folder(
-                name=name,
-                description=params.get("description", ""),
-                parent_id=parent_id,
-                user_id=self._user_id(ctx),
-            )
-            session.add(folder)
-            await session.flush()
-            await session.refresh(folder)
-            return {
-                "id": str(folder.id),
-                "name": folder.name,
-                "parent_id": str(folder.parent_id) if folder.parent_id else None,
-                "created": True,
-            }
+        from leagent.db.models.folder import Folder
+
+        folder = Folder(
+            name=name,
+            description=params.get("description", ""),
+            parent_id=parent_id,
+            user_id=self._user_id(ctx),
+        )
+        folder = await sm.db.repositories.folders.create(folder)
+        return {
+            "id": str(folder.id),
+            "name": folder.name,
+            "parent_id": str(folder.parent_id) if folder.parent_id else None,
+            "created": True,
+        }
 
     async def _list_folders(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        # TODO: migrate to FolderRepository.list_for_user when it supports root-only filtering (parent_id IS NULL)
         from sqlmodel import select
 
         from leagent.db.models.folder import Folder
@@ -200,18 +198,11 @@ class FolderOperationsTool(BaseTool):
             }
 
     async def _get_tree(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
-        from sqlmodel import select
-
-        from leagent.db.models.folder import Folder
-
         uid = self._user_id(ctx)
+        if uid is None:
+            return {"tree": []}
 
-        async with sm.db.session() as session:
-            stmt = select(Folder).where(Folder.is_deleted == False)  # noqa: E712
-            if uid:
-                stmt = stmt.where(uuid_column_equals(session, Folder.user_id, uid))
-            result = await session.exec(stmt)
-            all_folders = result.all()
+        all_folders = await sm.db.repositories.folders.list_for_user(uid, limit=10_000)
 
         by_parent: dict[str | None, list[Any]] = {}
         for f in all_folders:
@@ -234,6 +225,7 @@ class FolderOperationsTool(BaseTool):
         return {"tree": build(None)}
 
     async def _move_folder(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        # TODO: migrate to FolderRepository — requires repo support for SQLite parent_id text updates
         folder_id = params.get("folder_id")
         if not folder_id:
             return {"error": "'folder_id' is required"}
@@ -298,30 +290,21 @@ class FolderOperationsTool(BaseTool):
         if not folder_id:
             return {"error": "'folder_id' is required"}
 
-        from leagent.db.models.folder import Folder
-
         uid = self._user_id(ctx)
+        if uid is None:
+            return {"error": "Access denied"}
 
-        async with sm.db.session() as session:
-            folder = await load_entity_by_id(
-                session,
-                Folder,
-                UUID(folder_id),
-                parent_table="folders",
-            )
-            if not folder or folder.is_deleted:
-                return {"error": "Folder not found"}
-            if uid and not same_user_id(folder.user_id, uid):
-                return {"error": "Access denied"}
-            now = utc_now()
-            await session.execute(
-                sa_update(Folder)
-                .where(uuid_column_equals(session, Folder.id, UUID(folder_id)))
-                .values(is_deleted=True, deleted_at=now, updated_at=now)
-            )
-            return {"id": str(folder.id), "deleted": True}
+        folder = await sm.db.repositories.folders.get(UUID(folder_id))
+        if not folder or folder.is_deleted:
+            return {"error": "Folder not found"}
+        if not same_user_id(folder.user_id, uid):
+            return {"error": "Access denied"}
+
+        deleted = await sm.db.repositories.folders.soft_delete(UUID(folder_id), uid)
+        return {"id": str(folder.id), "deleted": deleted}
 
     async def _add_file(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        # TODO: migrate to FileRepository.update — requires repo support for folder_id assignment with SQLite compat
         folder_id = params.get("folder_id")
         file_id = params.get("file_id")
         if not folder_id or not file_id:
@@ -380,6 +363,7 @@ class FolderOperationsTool(BaseTool):
             return {"file_id": file_id, "folder_id": folder_id, "added": True}
 
     async def _remove_file(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
+        # TODO: migrate to FileRepository.update — set folder_id=None via repo
         file_id = params.get("file_id")
         if not file_id:
             return {"error": "'file_id' is required"}
@@ -411,29 +395,18 @@ class FolderOperationsTool(BaseTool):
         if not query:
             return {"error": "'query' is required for search"}
 
-        from sqlmodel import select
-
-        from leagent.db.models.folder import Folder
-
         uid = self._user_id(ctx)
+        if uid is None:
+            return {"error": "Access denied"}
 
-        async with sm.db.session() as session:
-            stmt = (
-                select(Folder)
-                .where(Folder.is_deleted == False)  # noqa: E712
-                .where(Folder.name.contains(query))
-            )
-            if uid:
-                stmt = stmt.where(uuid_column_equals(session, Folder.user_id, uid))
-            result = await session.exec(stmt)
-            folders = result.all()
-            return {
-                "folders": [
-                    {"id": str(f.id), "name": f.name, "description": f.description}
-                    for f in folders
-                ],
-                "count": len(folders),
-            }
+        folders = await sm.db.repositories.folders.search_by_name(uid, query)
+        return {
+            "folders": [
+                {"id": str(f.id), "name": f.name, "description": f.description}
+                for f in folders
+            ],
+            "count": len(folders),
+        }
 
     async def _list_files_in_folder(self, sm: Any, params: dict[str, Any], ctx: ToolContext) -> dict[str, Any]:
         """List all files inside a folder with metadata and text preview."""
@@ -441,22 +414,10 @@ class FolderOperationsTool(BaseTool):
         if not folder_id:
             return {"error": "'folder_id' is required"}
 
-        from sqlmodel import select
-
-        from leagent.db.models.file import File
-
         uid = self._user_id(ctx)
-
-        async with sm.db.session() as session:
-            stmt = (
-                select(File)
-                .where(uuid_column_equals(session, File.folder_id, UUID(folder_id)))
-                .where(File.is_deleted == False)  # noqa: E712
-            )
-            if uid:
-                stmt = stmt.where(uuid_column_equals(session, File.user_id, uid))
-            result = await session.exec(stmt)
-            files = result.all()
+        files = await sm.db.repositories.files.list_for_folder(
+            UUID(folder_id), user_id=uid
+        )
 
         return {
             "files": [
@@ -480,29 +441,21 @@ class FolderOperationsTool(BaseTool):
         if not file_id:
             return {"error": "'file_id' is required"}
 
-        from leagent.db.models.file import File
-
         uid = self._user_id(ctx)
 
-        async with sm.db.session() as session:
-            f = await load_entity_by_id(
-                session,
-                File,
-                UUID(file_id),
-                parent_table="files",
-            )
-            if not f or f.is_deleted:
-                return {"error": "File not found"}
-            if uid and not same_user_id(f.user_id, uid):
-                return {"error": "Access denied"}
+        f = await sm.db.repositories.files.get(UUID(file_id))
+        if not f or f.is_deleted:
+            return {"error": "File not found"}
+        if uid and not same_user_id(f.user_id, uid):
+            return {"error": "Access denied"}
 
-            if f.extracted_text:
-                return {
-                    "id": str(f.id),
-                    "name": f.original_name,
-                    "storage_path": f.storage_path,
-                    "extracted_text": f.extracted_text,
-                }
+        if f.extracted_text:
+            return {
+                "id": str(f.id),
+                "name": f.original_name,
+                "storage_path": f.storage_path,
+                "extracted_text": f.extracted_text,
+            }
 
         # Extracted text absent — process on demand
         if sm.file_processing:
