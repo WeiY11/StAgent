@@ -76,6 +76,7 @@ UI_TREE_SCHEMA: dict[str, Any] = {
                         "Table",
                         "TableRow",
                         "TableCell",
+                        "DataTable",
                         "List",
                         "ListItem",
                         "CodeBlock",
@@ -280,6 +281,21 @@ _COMPONENT_CATALOG: list[dict[str, Any]] = [
     {"kind": "Table", "description": "Data table; children are TableRow", "props": {"headers": "array of string (column headers)", "striped": "boolean", "compact": "boolean"}},
     {"kind": "TableRow", "description": "Table row; children are TableCell", "props": {"highlight": "boolean"}},
     {"kind": "TableCell", "description": "Table cell", "props": {"value": "string", "align": "string (left|center|right)", "bold": "boolean"}},
+    {
+        "kind": "DataTable",
+        "description": (
+            "Array-driven data table — columns + rows go in props (no TableRow children). "
+            "Preferred over Table for tabular datasets; renders at most 50 rows × 20 columns "
+            "and shows a truncation badge beyond that."
+        ),
+        "props": {
+            "title": "string (optional heading)",
+            "columns": "array of string (column headers)",
+            "rows": "array of array of string|number (row-major cell values)",
+            "striped": "boolean (default true)",
+            "compact": "boolean",
+        },
+    },
     {"kind": "List", "description": "Ordered or unordered list; children are ListItem", "props": {"ordered": "boolean", "variant": "string (default|bordered|separated)"}},
     {"kind": "ListItem", "description": "Single list item", "props": {"value": "string", "icon": "string (emoji or icon name)"}},
     {"kind": "CodeBlock", "description": "Syntax-highlighted code block", "props": {"code": "string", "language": "string (python|javascript|json|sql|bash|etc)", "title": "string"}},

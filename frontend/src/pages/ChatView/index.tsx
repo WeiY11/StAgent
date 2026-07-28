@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import { getChatProjectUnlockToken, useChatProjectStore } from '@/stores/chatProjects';
@@ -11,6 +12,7 @@ import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatPinnedStrip } from '@/components/chat/ChatPinnedStrip';
 import { ChatExecutionPanel } from '@/components/chat/ChatExecutionPanel';
 import { ChatInput } from '@/components/chat/ChatInput';
+import { DataAnalysisGuideCard } from '@/components/chat/DataAnalysisGuideCard';
 import { ChatComposerUserInputGate } from '@/components/chat/ChatComposerUserInputGate';
 import { ChatTerminalReasonBanner } from '@/components/chat/ChatTerminalReasonBanner';
 import { ChatFabBar } from '@/components/chat/ChatFabBar';
@@ -159,6 +161,19 @@ export default function ChatView() {
   );
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Deep-link intent (e.g. /chat?intent=data-analysis redirects here with search kept).
+  const [searchParams] = useSearchParams();
+  const dataAnalysisIntent = searchParams.get('intent') === 'data-analysis';
+  const [intentGuideDismissed, setIntentGuideDismissed] = useState(false);
+  // Guide is only for new/empty sessions; it hides once the thread has messages.
+  const sessionEmpty = useChatStore((s) => {
+    const sid = s.currentSessionId;
+    if (!sid) return true;
+    return (s.messages[sid] ?? []).length === 0;
+  });
+  const showDataAnalysisGuide =
+    dataAnalysisIntent && sessionEmpty && !intentGuideDismissed;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -458,6 +473,11 @@ export default function ChatView() {
           )}
           <ChatTerminalReasonBanner />
           <ChatComposerUserInputGate onSubmitAnswers={onAskUserResume} />
+          {showDataAnalysisGuide && (
+            <DataAnalysisGuideCard
+              onDismiss={() => setIntentGuideDismissed(true)}
+            />
+          )}
           <ChatInput onSend={handleSend} onStop={stopStreaming} />
         </div>
       </div>

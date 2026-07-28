@@ -8,12 +8,18 @@
  * Exit 0 on pass, exit 1 on budget exceeded.
  */
 
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIST_DIR = join(import.meta.dirname, '..', 'dist', 'assets');
 const MAX_TOTAL_JS = 16 * 1024 * 1024; // 16 MiB total JS
 const MAX_CHUNK_JS = 3.5 * 1024 * 1024; // 3.5 MiB per chunk (mermaid is ~3.3 MiB)
+const CHAT_DEFERRED_IMPORTS = [
+  /^GenUiInline-/,
+  /^GenUiRegistry-/,
+  /^genUiCaptureDom-/,
+  /^recharts-/,
+];
 
 function formatSize(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
@@ -41,10 +47,33 @@ for (const file of jsFiles) {
   }
 }
 
+let chatGenUiDeferred = false;
+const chatChunks = jsFiles.filter((file) => file.startsWith('ChatView-'));
+if (chatChunks.length !== 1) {
+  violations.push(`  CHAT: expected one ChatView chunk, found ${chatChunks.length}`);
+} else {
+  const chatSource = readFileSync(join(DIST_DIR, chatChunks[0]), 'utf8');
+  const staticImports = Array.from(
+    chatSource.matchAll(/\bimport[^;]+\bfrom["']\.\/([^"']+)["']/g),
+    (match) => match[1],
+  );
+  const eagerGenUiImports = staticImports.filter((file) =>
+    CHAT_DEFERRED_IMPORTS.some((pattern) => pattern.test(file)),
+  );
+  if (eagerGenUiImports.length > 0) {
+    violations.push(
+      `  CHAT: deferred GenUI dependencies became static: ${eagerGenUiImports.join(', ')}`,
+    );
+  } else {
+    chatGenUiDeferred = true;
+  }
+}
+
 console.log(`Bundle budget check:`);
 console.log(`  Total JS: ${formatSize(totalJs)} / ${formatSize(MAX_TOTAL_JS)}`);
 console.log(`  Chunks:   ${jsFiles.length}`);
 console.log(`  Largest:  ${formatSize(Math.max(...jsFiles.map((f) => statSync(join(DIST_DIR, f)).size)))}`);
+console.log(`  Chat GenUI: ${chatGenUiDeferred ? 'deferred' : 'INVALID'}`);
 
 if (totalJs > MAX_TOTAL_JS) {
   violations.push(`  OVER: Total JS ${formatSize(totalJs)} exceeds budget ${formatSize(MAX_TOTAL_JS)}`);

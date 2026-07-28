@@ -334,6 +334,108 @@ export function renderKeyValueList({ node }: RenderArgs): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
+// DataTable — array-driven table (columns + rows live in props, no child
+// nodes). Renders at most 50 rows × 20 columns with a truncation badge and
+// degrades gracefully on missing / malformed data.
+// ---------------------------------------------------------------------------
+
+export const DATA_TABLE_MAX_ROWS = 50;
+export const DATA_TABLE_MAX_COLS = 20;
+
+/** Coerce arbitrary cell payloads to display text without throwing. */
+function cellText(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'object') {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  }
+  return String(v);
+}
+
+export function renderDataTable({ node }: RenderArgs): ReactNode {
+  const p = (node.props || {}) as Record<string, unknown>;
+  const title = s(p.title);
+  const columns = Array.isArray(p.columns) ? (p.columns as unknown[]) : [];
+  // Keep only array-shaped rows; anything else is silently dropped.
+  const rows = Array.isArray(p.rows)
+    ? (p.rows as unknown[]).filter((r): r is unknown[] => Array.isArray(r))
+    : [];
+
+  const totalCols = rows.reduce<number>((m, r) => Math.max(m, r.length), columns.length);
+  const totalRows = rows.length;
+  if (totalCols === 0 && totalRows === 0) {
+    return (
+      <div
+        key={node.nodeId}
+        className={cn(cardSurface('outlined', { radius: 'md' }), 'px-3 py-2 text-xs text-muted-foreground')}
+      >
+        No table data
+      </div>
+    );
+  }
+
+  const colCount = Math.min(totalCols, DATA_TABLE_MAX_COLS);
+  const visibleRows = rows.slice(0, DATA_TABLE_MAX_ROWS);
+  const rowsTruncated = totalRows > DATA_TABLE_MAX_ROWS;
+  const colsTruncated = totalCols > DATA_TABLE_MAX_COLS;
+  const hasHeader = columns.length > 0;
+  const striped = p.striped != null ? b(p.striped) : true;
+  const truncationNote = [
+    rowsTruncated ? `showing ${DATA_TABLE_MAX_ROWS} of ${totalRows} rows` : '',
+    colsTruncated ? `showing ${DATA_TABLE_MAX_COLS} of ${totalCols} columns` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <div key={node.nodeId} className="min-w-0 max-w-full space-y-1.5">
+      {(title || truncationNote) && (
+        <div className="flex items-center justify-between gap-2">
+          {title ? <p className="text-sm font-semibold text-foreground truncate">{title}</p> : <span />}
+          {truncationNote && (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium text-muted-foreground dark:bg-surface-elevated">
+              {truncationNote}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border border-border no-scrollbar">
+        <table className={cn('w-full min-w-0 text-sm', b(p.compact) && 'text-xs')}>
+          {hasHeader && (
+            <thead>
+              <tr className="bg-surface-sunken">
+                {Array.from({ length: colCount }, (_, i) => (
+                  <th
+                    key={i}
+                    className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider break-words [overflow-wrap:anywhere]"
+                  >
+                    {cellText(columns[i])}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody className={cn(striped && '[&>tr:nth-child(even)]:bg-surface-sunken/50')}>
+            {visibleRows.map((row, ri) => (
+              <tr key={ri} className="border-t border-border">
+                {Array.from({ length: colCount }, (_, ci) => (
+                  <td key={ci} className="px-3 py-2 text-foreground break-words [overflow-wrap:anywhere]">
+                    {cellText(row[ci])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ImageGallery — multiple images with lightbox via GenUiImage.
 // ---------------------------------------------------------------------------
 

@@ -1,0 +1,154 @@
+# Demo: 完整 EDA 链 — 画像 → 清洗 → 聚合 → 图表，全部离线内联数据。
+#
+# profile -> clean (trim/fill/dedupe) -> aggregate (region) -> chart (bar)
+#
+# 内联订单数据带三类质量问题（尾部空白 / 缺失 amount / 重复行），
+# data_clean 修复后经 ${var.cleaned.data} 直连 data_aggregate，
+# 最终 chart_generator 输出按区域的销售柱状图。无需任何 API Key。
+id: demo_data_eda
+name: "Demo: Data EDA (profile + clean + aggregate + chart)"
+description: >-
+  Runs the full EDA loop on inline demo order records: data_profile surfaces
+  quality warnings (whitespace, missing amount, duplicate row), data_clean
+  fixes them, data_aggregate summarises amount/qty by region from the cleaned
+  rows, and chart_generator renders a bar chart. Fully offline.
+inputs: []
+outputs:
+  - name: dataset_profile
+    value: "${var.profiled}"
+  - name: cleaned_rows
+    value: "${var.cleaned.data}"
+  - name: region_summary
+    value: "${var.aggregated.data}"
+  - name: chart
+    value: "${var.chart}"
+metadata:
+  category: demo
+  tags:
+    - demo
+    - data-analysis
+    - eda
+    - offline
+nodes:
+  start:
+    class_type: StartNode
+    inputs: {}
+    meta:
+      name: Start
+    control:
+      next: profile
+  profile:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_profile
+      params:
+        # 订单数据：1002 品名带尾部空白，1004 缺 amount，1005 整行重复
+        data:
+          - { order_id: 1001, date: "2026-07-01", region: "North", product: "Laptop", amount: 3200, qty: 2 }
+          - { order_id: 1002, date: "2026-07-01", region: "South", product: "Phone ", amount: 1800, qty: 3 }
+          - { order_id: 1003, date: "2026-07-02", region: "East", product: "Laptop", amount: 1600, qty: 1 }
+          - { order_id: 1004, date: "2026-07-02", region: "North", product: "Tablet", amount: null, qty: 2 }
+          - { order_id: 1005, date: "2026-07-03", region: "South", product: "Laptop", amount: 4800, qty: 3 }
+          - { order_id: 1005, date: "2026-07-03", region: "South", product: "Laptop", amount: 4800, qty: 3 }
+          - { order_id: 1006, date: "2026-07-04", region: "East", product: "Phone", amount: 1200, qty: 2 }
+          - { order_id: 1007, date: "2026-07-04", region: "West", product: "Tablet", amount: 900, qty: 1 }
+          - { order_id: 1008, date: "2026-07-05", region: "West", product: "Phone", amount: 600, qty: 1 }
+          - { order_id: 1009, date: "2026-07-05", region: "North", product: "Phone", amount: 1200, qty: 2 }
+      output: profiled
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Profile orders
+    control:
+      next: clean
+  clean:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_clean
+      params:
+        data:
+          - { order_id: 1001, date: "2026-07-01", region: "North", product: "Laptop", amount: 3200, qty: 2 }
+          - { order_id: 1002, date: "2026-07-01", region: "South", product: "Phone ", amount: 1800, qty: 3 }
+          - { order_id: 1003, date: "2026-07-02", region: "East", product: "Laptop", amount: 1600, qty: 1 }
+          - { order_id: 1004, date: "2026-07-02", region: "North", product: "Tablet", amount: null, qty: 2 }
+          - { order_id: 1005, date: "2026-07-03", region: "South", product: "Laptop", amount: 4800, qty: 3 }
+          - { order_id: 1005, date: "2026-07-03", region: "South", product: "Laptop", amount: 4800, qty: 3 }
+          - { order_id: 1006, date: "2026-07-04", region: "East", product: "Phone", amount: 1200, qty: 2 }
+          - { order_id: 1007, date: "2026-07-04", region: "West", product: "Tablet", amount: 900, qty: 1 }
+          - { order_id: 1008, date: "2026-07-05", region: "West", product: "Phone", amount: 600, qty: 1 }
+          - { order_id: 1009, date: "2026-07-05", region: "North", product: "Phone", amount: 1200, qty: 2 }
+        operations:
+          - type: trim_whitespace
+            columns: [region, product]
+          - type: fill_missing
+            columns: [amount]
+            fill_strategy: value
+            fill_value: 0
+          - type: remove_duplicates
+        output_format: records
+      output: cleaned
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Clean orders
+    control:
+      next: aggregate
+  aggregate:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_aggregate
+      params:
+        operation: groupby
+        group_by: [region]
+        aggregations:
+          amount: sum
+          qty: sum
+        sort_by: amount_sum
+        sort_ascending: false
+        # 清洗结果直连聚合
+        data: "${var.cleaned.data}"
+      output: aggregated
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Aggregate by region
+    control:
+      next: chart
+  chart:
+    class_type: ToolCallNode
+    inputs:
+      tool: chart_generator
+      params:
+        chart_type: bar
+        title: Order Amount by Region (cleaned)
+        x_label: Region
+        y_label: Amount
+        theme: report
+        output_path: demo-eda-chart.png
+        # 数值 = 清洗后按区域聚合的结果
+        data:
+          categories: [South, North, East, West]
+          series:
+            - name: Amount
+              values: [6600, 4400, 2800, 1500]
+      output: chart
+      retry_count: 0
+      retry_delay_sec: 1.0
+    meta:
+      name: Render bar chart
+    control:
+      next: end
+  end:
+    class_type: EndNode
+    inputs: {}
+    meta:
+      name: End
+    control: {}
+control:
+  start: start
+  end: end
+  edges: []
+  timeout_sec: 300
+  max_retries: 1
+  tags:
+    - demo

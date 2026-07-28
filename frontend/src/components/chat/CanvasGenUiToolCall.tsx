@@ -17,7 +17,7 @@ import {
 } from '@/lib/utils/previewUrl';
 import type { ToolCall } from '@/types/chat';
 import { useArtifactStore } from '@/stores/artifact';
-import { GenUiInline } from '@/components/canvas/GenUiInline';
+import { LazyGenUiInline } from '@/components/canvas/LazyGenUiInline';
 
 const GEN_UI_TOOL_NAMES = new Set(['emit_ui_tree', 'emit_ui_patch', 'canvas_publish']);
 
@@ -456,7 +456,7 @@ export const CanvasGenUiToolCall = memo(function CanvasGenUiToolCall({
       )}
 
       {showGenUiInline && sessionId && (
-        <GenUiInline sessionId={sessionId} messageId={messageId} className="mt-2" />
+        <LazyGenUiInline sessionId={sessionId} messageId={messageId} className="mt-2" />
       )}
     </div>
   );

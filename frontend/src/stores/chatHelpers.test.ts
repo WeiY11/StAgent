@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Message, TaskProgressStep } from '@/types/chat';
 import {
   dedupeMessagesByIdPreserveOrder,
   mapApiTodosToSteps,
@@ -8,7 +9,6 @@ import {
   applyTodoStatusUpdate,
   findLatestTodoAnchorMessage,
 } from './chatHelpers';
-import type { Message, TaskProgressStep } from '@/types/chat';
 
 const msg = (id: string, role = 'user'): Message =>
   ({ id, role, content: '', createdAt: '' } as unknown as Message);

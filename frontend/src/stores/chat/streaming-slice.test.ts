@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PendingUserInput } from '@/types/chat';
 import { createStreamingSlice } from './streaming-slice';
 import type { ChatStore } from './types';
 
@@ -30,7 +31,11 @@ function makeStore(overrides: Partial<ChatStore> = {}) {
     state = { ...state, ...patch };
   };
   const get = () => state;
-  const slice = createStreamingSlice(set, get, {} as any);
+  const slice = createStreamingSlice(
+    set,
+    get,
+    {} as Parameters<typeof createStreamingSlice>[2],
+  );
   state = { ...state, ...slice, ...overrides } as ChatStore;
   return { getState: get, actions: slice };
 }
@@ -91,7 +96,12 @@ describe('streaming-slice', () => {
     const { actions, getState } = makeStore();
     actions.setError('oops');
     expect(getState().error).toBe('oops');
-    const payload = { sessionId: 's1', assistantMsgId: 'm1', fields: [] } as any;
+    const payload: PendingUserInput = {
+      sessionId: 's1',
+      assistantMsgId: 'm1',
+      toolCallId: 'tc1',
+      questions: [],
+    };
     actions.setPendingUserInput(payload);
     expect(getState().pendingUserInput).toBe(payload);
     actions.clearPendingUserInput();

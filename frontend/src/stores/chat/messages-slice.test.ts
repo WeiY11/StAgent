@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { ChatSession, Message } from '@/types/chat';
 import { createMessagesSlice } from './messages-slice';
 import type { ChatStore } from './types';
-import type { Message } from '@/types/chat';
 
 function makeStore(overrides: Partial<ChatStore> = {}) {
   let state = {
@@ -16,7 +16,7 @@ function makeStore(overrides: Partial<ChatStore> = {}) {
     state = { ...state, ...(typeof p === 'function' ? p(state) : p) };
   };
   const get = () => state;
-  const slice = createMessagesSlice(set, get, {} as any);
+  const slice = createMessagesSlice(set, get, {} as Parameters<typeof createMessagesSlice>[2]);
   state = { ...state, ...slice, ...overrides } as ChatStore;
   return { getState: get, actions: slice };
 }
@@ -24,10 +24,18 @@ function makeStore(overrides: Partial<ChatStore> = {}) {
 const msg = (id: string, role: 'user' | 'assistant' = 'user', content = 'hi'): Message =>
   ({ id, role, content, createdAt: '' }) as Message;
 
+const session = (id: string, messageCount: number): ChatSession => ({
+  id,
+  title: '',
+  createdAt: '',
+  updatedAt: '',
+  messageCount,
+});
+
 describe('messages-slice', () => {
   it('addMessage appends and updates session count', () => {
     const { actions, getState } = makeStore({
-      sessions: [{ id: 's1', messageCount: 0 } as any],
+      sessions: [session('s1', 0)],
     });
     actions.addMessage('s1', msg('m1'));
     expect(getState().messages['s1']).toHaveLength(1);
@@ -49,7 +57,7 @@ describe('messages-slice', () => {
 
   it('clearMessages resets messages and page state', () => {
     const { actions, getState } = makeStore({
-      sessions: [{ id: 's1', messageCount: 3 } as any],
+      sessions: [session('s1', 3)],
       messages: { s1: [msg('m1'), msg('m2')] },
       messagePages: { s1: { hasOlder: true, nextOlderPage: 3, isLoadingOlder: false } },
     });
@@ -61,7 +69,7 @@ describe('messages-slice', () => {
 
   it('truncateAfterMessageId keeps up to target', () => {
     const { actions, getState } = makeStore({
-      sessions: [{ id: 's1', messageCount: 3 } as any],
+      sessions: [session('s1', 3)],
       messages: { s1: [msg('m1'), msg('m2'), msg('m3')] },
     });
     expect(actions.truncateAfterMessageId('s1', 'm2')).toBe(true);
@@ -86,7 +94,7 @@ describe('messages-slice', () => {
   it('insertSteerMessage inserts before last assistant', () => {
     const { actions, getState } = makeStore({
       messages: { s1: [msg('m1', 'user'), msg('m2', 'assistant')] },
-      sessions: [{ id: 's1', messageCount: 2 } as any],
+      sessions: [session('s1', 2)],
     });
     actions.insertSteerMessage('s1', msg('steer', 'user', 'correction'));
     const msgs = getState().messages['s1']!;
@@ -97,10 +105,13 @@ describe('messages-slice', () => {
   it('finalizeToolCalls marks pending/running as terminal', () => {
     const { actions, getState } = makeStore({
       messages: {
-        s1: [{ ...msg('m1'), toolCalls: [
-          { id: 'tc1', name: 'x', status: 'pending' as const, arguments: {} },
-          { id: 'tc2', name: 'y', status: 'success' as const, arguments: {} },
-        ] } as any],
+        s1: [{
+          ...msg('m1'),
+          toolCalls: [
+            { id: 'tc1', name: 'x', status: 'pending' as const, arguments: {} },
+            { id: 'tc2', name: 'y', status: 'success' as const, arguments: {} },
+          ],
+        }],
       },
     });
     actions.finalizeToolCalls('s1', 'm1', 'error');

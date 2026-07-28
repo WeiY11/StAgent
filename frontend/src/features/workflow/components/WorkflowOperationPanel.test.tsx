@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useExecutionOverlay } from '../store/executionOverlay';
 import { WorkflowOperationPanel } from './WorkflowOperationPanel';
 
-vi.mock('@/components/canvas/GenUiRegistry', () => ({
-  GenUiTreeView: ({ tree }: { tree: { root?: { kind?: string } } }) => (
+vi.mock('@/components/canvas/LazyGenUiTreeView', () => ({
+  LazyGenUiTreeView: ({ tree }: { tree: { root?: { kind?: string } } }) => (
     <div data-testid="genui-tree" data-rootkind={tree?.root?.kind ?? ''} />
   ),
 }));

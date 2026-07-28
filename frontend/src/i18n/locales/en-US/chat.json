@@ -517,6 +517,29 @@
       "failed": "Could not steer the running turn.",
       "queueFailed": "Could not queue the message."
     },
+    "dataUpload": {
+      "hint": "Data file detected — try:",
+      "dismissAria": "Dismiss data suggestions",
+      "chips": {
+        "overview": {
+          "label": "Generate a data overview",
+          "prompt": "Please generate an overview of the data file I just attached: dataset size, column types and distributions, missing values, plus 2-3 directions worth deeper analysis."
+        },
+        "clean": {
+          "label": "Check data quality and clean it",
+          "prompt": "Please check the quality of the data file I just attached (missing values, duplicate rows, outliers, inconsistent formats), explain the issues found, clean the data, and summarize what changed."
+        },
+        "chart": {
+          "label": "Plot key trend charts",
+          "prompt": "Based on the data file I just attached, pick the most informative dimensions, plot the key trend charts, and briefly interpret what the charts show."
+        }
+      }
+    },
+    "dataAnalysisGuide": {
+      "title": "Data analysis",
+      "description": "Upload a CSV / Excel file and I will profile, clean, aggregate and chart it. Or click an example below to fill the composer first:",
+      "dismissAria": "Dismiss data analysis guide"
+    },
     "suggestions": {
       "intro": {
         "label": "What can LeAgent do here?",
