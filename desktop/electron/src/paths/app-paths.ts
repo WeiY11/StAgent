@@ -6,10 +6,11 @@ const __dirname = path.dirname(__filename);
 
 /** Directory containing compiled main-process modules (`dist/`). */
 export function distDir(): string {
-  return __dirname;
+  // This module compiles to dist/paths/, so dist/ is one level up.
+  return path.dirname(__dirname);
 }
 
 export function preloadPath(): string {
   // .cjs: sandboxed preloads must be CommonJS (package is "type": "module").
-  return path.join(__dirname, 'preload.cjs');
+  return path.join(distDir(), 'preload.cjs');
 }

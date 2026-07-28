@@ -52,6 +52,13 @@ LeAgent/
 └── start.sh / start.ps1  # Dev orchestrator (uv + npm)
 ```
 
+## Documentation Hierarchy
+
+- `backend/docs/` — Deep subsystem implementation docs (for backend developers)
+- `docs/technical/` — Architecture-level docs (cross-cutting concerns)
+- `docs/guides/` — User guides and tutorials
+- `docs/_archive/` — Archived/non-core content (interview materials, promotional content, internal plans)
+
 Default database is **SQLite** (zero-config, WAL). Optional PostgreSQL via `DATABASE_URL`, optional Milvus for vector-backed memory. Default ports: backend `:7860` and frontend `:5173` in local dev (`start.sh`); the Docker image serves the API on `:8000`.
 
 ### Execution topology (one kernel, many ingresses)

@@ -268,9 +268,17 @@ function Ensure-LogDir {
 }
 
 # ── Log rotation ──────────────────────────────────────────────
+# Rotate only when the log exceeds a size threshold (default 50 MB)
+# to avoid unbounded growth between restarts.
+$LogRotateMaxMB = if ($env:LEAGENT_LOG_ROTATE_MAX_MB) { [int]$env:LEAGENT_LOG_ROTATE_MAX_MB } else { 50 }
+
 function Rotate-Log([string] $LogPath) {
     if (-not (Test-Path $LogPath)) { return }
-    if ((Get-Item $LogPath).Length -eq 0) { return }
+    $fi = Get-Item $LogPath -ErrorAction SilentlyContinue
+    if (-not $fi -or $fi.Length -eq 0) { return }
+    # Only rotate if the file exceeds the size threshold.
+    $maxBytes = [int64]$LogRotateMaxMB * 1024 * 1024
+    if ($fi.Length -lt $maxBytes) { return }
     for ($i = $LogRetention; $i -gt 0; $i--) {
         $prev = if ($i -eq 1) { $LogPath } else { "$LogPath.$($i - 1)" }
         $curr = "$LogPath.$i"

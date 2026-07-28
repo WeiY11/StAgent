@@ -14,7 +14,7 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
-        files: ^backend/leagent/(runtime|sdk|api/router\.py|config)
+        files: ^backend/leagent/(runtime|sdk|api/router\.py|config|db|file)
         args: [--config-file=backend/pyproject.toml]
         additional_dependencies:
           - pydantic>=2.10.0
