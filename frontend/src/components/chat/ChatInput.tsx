@@ -49,6 +49,7 @@ import { matchComposerTriggerToken } from '@/lib/chat/composerTriggerToken';
 import { normalizeLocalFolderPathForGrant } from '@/lib/utils/localFolderPath';
 import { AttachmentStrip } from './composer/AttachmentStrip';
 import { ComposerReferenceStrip } from './composer/ComposerReferenceStrip';
+import { DataFileSuggestionChips } from './composer/DataFileSuggestionChips';
 import { ModelSelector } from './composer/ModelSelector';
 import {
   SlashCommandPalette,
@@ -845,6 +846,9 @@ export const ChatInput = memo(function ChatInput({
           ))}
         </div>
       )}
+
+      {/* Analysis suggestions for staged CSV/Excel attachments */}
+      <DataFileSuggestionChips files={files} />
 
       {/* Composer card */}
       <div

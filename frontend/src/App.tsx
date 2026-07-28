@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from './stores/theme';
@@ -75,6 +75,12 @@ function ChatSessionRoute() {
   return <Navigate to="/home" replace />;
 }
 
+/** `/chat` lives at `/home`; keep the query string so deep links like `?intent=` survive. */
+function ChatRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: '/home', search: location.search }} replace />;
+}
+
 export default function App() {
   const initializeTheme = useThemeStore((s) => s.initializeTheme);
 
@@ -105,7 +111,7 @@ export default function App() {
               <Route index element={<Navigate to="/home" replace />} />
 
               <Route path="home" element={<ChatView />} />
-              <Route path="chat" element={<Navigate to="/home" replace />} />
+              <Route path="chat" element={<ChatRedirect />} />
 
               <Route path="overview" element={<HomePage />} />
               <Route path="dashboard" element={<DashboardPage />} />

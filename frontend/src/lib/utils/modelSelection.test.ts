@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeComposerModelId, parseComposerModelId, formatModelDisplayLabel, resolveAutoAvailableModel } from './modelSelection';
 import type { AvailableModel, DefaultModelConfig } from '@/types/admin';
+import { normalizeComposerModelId, parseComposerModelId, formatModelDisplayLabel, resolveAutoAvailableModel } from './modelSelection';
 
 const am = (provider: string, model: string, kind = 'chat'): AvailableModel =>
   ({ provider_name: provider, model_name: model, kind, label: model } as unknown as AvailableModel);

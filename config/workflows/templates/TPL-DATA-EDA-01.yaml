@@ -1,0 +1,151 @@
+# TPL-DATA-EDA-01 — 完整 EDA 流：画像 → 清洗 → 聚合 → 图表。
+#
+# data_profile 先发现内联示例数据的质量问题（前导空白 / 缺失 sales / 整行重复），
+# data_clean 依次修复，data_aggregate 按区域汇总清洗后的数据，
+# chart_generator 输出对比柱状图。离线可跑，无需凭据。
+id: TPL-DATA-EDA-01
+name: 数据探索分析（EDA：画像 → 清洗 → 聚合 → 图表）
+description: >-
+  对内联销售数据执行完整 EDA 流：data_profile 生成数据集画像与质量告警，
+  data_clean 去空白、补缺失、去重，data_aggregate 按区域聚合销售额与销量，
+  chart_generator 渲染柱状图。
+inputs:
+  - name: chart_path
+    type: string
+    description: 输出图表路径（相对会话工作区）
+    required: false
+    default: eda-sales-chart.png
+outputs:
+  - name: profile
+    value: "${var.profiled}"
+  - name: cleaned_rows
+    value: "${var.cleaned.data}"
+  - name: aggregated
+    value: "${var.aggregated.data}"
+  - name: chart
+    value: "${var.chart}"
+metadata:
+  category: data_analysis
+  tags:
+    - data-analysis
+    - eda
+    - cleaning
+    - chart
+    - offline
+nodes:
+  start:
+    class_type: StartNode
+    inputs: {}
+    meta:
+      name: Start
+    control:
+      next: profile
+  profile:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_profile
+      params:
+        # 原始数据带三类质量问题：前导空白、缺失 sales、整行重复
+        data:
+          - { region: " North", product: "Widget", sales: 120, units: 40 }
+          - { region: "North", product: "Gadget", sales: 85, units: 25 }
+          - { region: "South", product: "Widget", sales: 95, units: 32 }
+          - { region: "South", product: "Gadget", sales: null, units: 20 }
+          - { region: "East", product: "Widget", sales: 140, units: 55 }
+          - { region: "East", product: "Widget", sales: 140, units: 55 }
+          - { region: "East", product: "Gadget", sales: 60, units: 18 }
+      output: profiled
+    meta:
+      name: 数据画像
+      description: 形状、列统计与质量告警
+    control:
+      next: clean
+  clean:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_clean
+      params:
+        data:
+          - { region: " North", product: "Widget", sales: 120, units: 40 }
+          - { region: "North", product: "Gadget", sales: 85, units: 25 }
+          - { region: "South", product: "Widget", sales: 95, units: 32 }
+          - { region: "South", product: "Gadget", sales: null, units: 20 }
+          - { region: "East", product: "Widget", sales: 140, units: 55 }
+          - { region: "East", product: "Widget", sales: 140, units: 55 }
+          - { region: "East", product: "Gadget", sales: 60, units: 18 }
+        operations:
+          - type: trim_whitespace
+            columns: [region, product]
+          - type: fill_missing
+            columns: [sales]
+            fill_strategy: value
+            fill_value: 0
+          - type: remove_duplicates
+        output_format: records
+      output: cleaned
+    meta:
+      name: 数据清洗
+      description: 去空白 → 补缺失 → 去重
+    control:
+      next: aggregate
+  aggregate:
+    class_type: ToolCallNode
+    inputs:
+      tool: data_aggregate
+      params:
+        operation: groupby
+        group_by: [region]
+        aggregations:
+          sales: sum
+          units: sum
+        sort_by: sales_sum
+        sort_ascending: false
+        # 直接消费上游清洗结果，形成画像→清洗→聚合的数据链
+        data: "${var.cleaned.data}"
+      output: aggregated
+    meta:
+      name: 按区域聚合
+      description: 清洗后数据按区域汇总销售额与销量
+    control:
+      next: chart
+  chart:
+    class_type: ToolCallNode
+    inputs:
+      tool: chart_generator
+      params:
+        chart_type: bar
+        title: Sales & Units by Region (cleaned)
+        x_label: Region
+        y_label: Amount
+        theme: report
+        show_legend: true
+        output_path: ${input.chart_path}
+        # 数值与内联数据清洗聚合后的结果一致（沿用 TPL-DATA-ANALYSIS 的固定值写法）
+        data:
+          categories: [North, East, South]
+          series:
+            - name: Sales
+              values: [205, 200, 95]
+            - name: Units
+              values: [65, 73, 52]
+      output: chart
+    meta:
+      name: 生成柱状图
+      description: ''
+    control:
+      next: end
+  end:
+    class_type: EndNode
+    inputs: {}
+    meta:
+      name: End
+    control: {}
+control:
+  start: start
+  end: end
+  edges: []
+  timeout_sec: 1800
+  max_retries: 0
+  tags:
+    - data-analysis
+    - eda

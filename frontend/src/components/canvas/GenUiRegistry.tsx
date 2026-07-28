@@ -18,6 +18,7 @@ const GenUiThreeJsFrame = lazy(() => import('@/components/canvas/genUi/GenUiThre
 import { IconGlyph } from '@/components/canvas/genUi/IconGlyph';
 import { SlideDeckPlayer } from '@/components/canvas/genUi/SlideDeckPlayer';
 import {
+  renderDataTable,
   renderFeatureGrid,
   renderImageGallery,
   renderKeyValueList,
@@ -1192,6 +1193,9 @@ function renderNode(node: GenUiNode, depth: number, ctx: GenUiRenderContextValue
 
     case 'KeyValueList':
       return renderKeyValueList({ node, depth, renderChild: (c, d) => renderNode(c, d, ctx) });
+
+    case 'DataTable':
+      return renderDataTable({ node, depth, renderChild: (c, d) => renderNode(c, d, ctx) });
 
     default:
       return <UnknownNode key={node.nodeId} node={node} />;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { pickCanvasHtmlPreview } from './canvasStreamPreview';
 import { STREAM_PREVIEW_FALLBACK_CHARS } from '../stream/streamPreviewLimits';
+import { pickCanvasHtmlPreview } from './canvasStreamPreview';
 
 describe('pickCanvasHtmlPreview', () => {
   it('uses STREAM_PREVIEW_FALLBACK_CHARS when html key is missing', () => {

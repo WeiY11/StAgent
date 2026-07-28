@@ -25,7 +25,7 @@ import { apiClient } from '@/api/client';
 import { queryClient } from '@/lib/utils/queryClient';
 import { useChatStore } from '@/stores/chat';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
-import { GenUiInline } from '@/components/canvas/GenUiInline';
+import { LazyGenUiInline } from '@/components/canvas/LazyGenUiInline';
 import {
   CanvasGenUiToolCall,
   isGenerativeCanvasTool,
@@ -535,7 +535,7 @@ function AgentMessageInner({
       ) : null}
 
       {sessionId && !showAnchoredGenUi ? (
-        <GenUiInline sessionId={sessionId} messageId={message.id} />
+        <LazyGenUiInline sessionId={sessionId} messageId={message.id} />
       ) : null}
 
       {/* Artifacts */}

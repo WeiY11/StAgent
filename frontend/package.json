@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "build:prod": "tsc -b && vite build --mode production",
     "preview": "vite preview",
-    "lint": "eslint . --max-warnings 320",
+    "lint": "eslint . --max-warnings 0",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

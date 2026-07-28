@@ -2,7 +2,7 @@ import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, Images, Loader2, MessageCircleQuestion, SquareActivity } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { GenUiTreeView } from '@/components/canvas/GenUiRegistry';
+import { LazyGenUiTreeView } from '@/components/canvas/LazyGenUiTreeView';
 import {
   listAssetHistoryTrees,
   listOrderedNodeAssets,
@@ -238,7 +238,7 @@ export function WorkflowOperationPanel({
             <MessageCircleQuestion className="h-3.5 w-3.5" />
             {t('runPanel.waiting', 'Waiting for your input')}
           </header>
-          <GenUiTreeView tree={blockedTree} sessionId={sessionId} messageId={messageId} />
+          <LazyGenUiTreeView tree={blockedTree} sessionId={sessionId} messageId={messageId} />
         </section>
       ) : null}
 
@@ -255,7 +255,7 @@ export function WorkflowOperationPanel({
             ) : null}
           </header>
           {assetEntries.map(({ id, tree }) => (
-            <GenUiTreeView key={id} tree={tree} sessionId={sessionId} messageId={messageId} />
+            <LazyGenUiTreeView key={id} tree={tree} sessionId={sessionId} messageId={messageId} />
           ))}
         </section>
       ) : null}
@@ -267,7 +267,7 @@ export function WorkflowOperationPanel({
             <SquareActivity className="h-3.5 w-3.5" />
             {t('runPanel.results', 'Results')}
           </header>
-          <GenUiTreeView tree={outputTree} sessionId={sessionId} messageId={messageId} />
+          <LazyGenUiTreeView tree={outputTree} sessionId={sessionId} messageId={messageId} />
         </section>
       ) : null}
 

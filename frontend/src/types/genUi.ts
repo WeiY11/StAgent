@@ -32,6 +32,7 @@ export type GenUiNodeKind =
   | 'Table'
   | 'TableRow'
   | 'TableCell'
+  | 'DataTable'
   | 'List'
   | 'ListItem'
   | 'CodeBlock'

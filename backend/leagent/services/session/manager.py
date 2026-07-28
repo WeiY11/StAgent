@@ -48,6 +48,7 @@ from leagent.services.session.state import (
     session_todos_to_tool_dicts,
 )
 from leagent.services.session.store import TieredSessionStore
+from leagent.services.session.tabular_snapshot import build_tabular_snapshot
 from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -522,8 +523,24 @@ class SessionManager:
             size=ref.size,
             sha256=ref.checksum,
         )
+        snapshot = await self._build_tabular_snapshot(raw, filename, content_type)
+        if snapshot is not None:
+            attachment.extra["tabular_snapshot"] = snapshot
         self._populate_urls(attachment, user_id=user_id)
         return attachment
+
+    @staticmethod
+    async def _build_tabular_snapshot(
+        raw: bytes, filename: str, content_type: str
+    ) -> dict[str, Any] | None:
+        """Run the snapshot builder off-loop; never let it break an upload."""
+        try:
+            return await asyncio.to_thread(
+                build_tabular_snapshot, raw, filename, content_type
+            )
+        except Exception:  # noqa: BLE001 - snapshots are strictly best-effort
+            logger.debug("tabular_snapshot_failed", extra={"filename": filename})
+            return None
 
     async def register_external_file(
         self,
