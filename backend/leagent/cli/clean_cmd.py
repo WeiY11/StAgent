@@ -24,6 +24,7 @@ from leagent.config.constants import (
     LEAGENT_HOME,
     LOG_DIR,
     OUTPUT_DIR,
+    TASK_OUTPUT_DIR,
     TEMP_DIR,
     UPLOAD_DIR,
 )
@@ -326,6 +327,7 @@ def prune_cmd(yes: bool) -> None:
         ("Orphaned temp files", _prune_temp),
         ("Expired cache entries", _prune_cache),
         ("Old log files (>30 days)", _prune_logs),
+        ("Old task logs (>7 days)", _prune_task_logs),
     ]
 
     if not yes:
@@ -414,6 +416,28 @@ def _prune_logs() -> int:
     freed = 0
 
     for entry in LOG_DIR.rglob("*.log*"):
+        if entry.is_file():
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    freed += entry.stat().st_size
+                    entry.unlink()
+            except (OSError, PermissionError):
+                pass
+
+    return freed
+
+
+def _prune_task_logs() -> int:
+    """Prune task output logs older than 7 days."""
+    import time
+
+    if not TASK_OUTPUT_DIR.exists():
+        return 0
+
+    cutoff = time.time() - (7 * 86400)
+    freed = 0
+
+    for entry in TASK_OUTPUT_DIR.rglob("*"):
         if entry.is_file():
             try:
                 if entry.stat().st_mtime < cutoff:

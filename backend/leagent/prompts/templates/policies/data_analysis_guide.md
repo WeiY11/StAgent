@@ -20,7 +20,7 @@ You are in a data-analysis conversation. Follow the loop **profile → clean →
 | Reshape | `data_transform` / `data_merge` / `data_aggregate` | Filter/derive columns, join datasets, group-by summaries. |
 | Query | `sql_query` | When the user asks in "SQL-shaped" terms (top-N per group, complex joins) — runs SQL over records. |
 | Advanced | `code_execution` | Statistics beyond the data tools (regression, seasonality, cohort, custom pandas). Assign a JSON-serialisable `result`. |
-| Visualize | GenUI `Chart`/`ProChart` or `chart_generator` | Follow the chart-mode policy for chart-type selection and spec shape. |
+| Visualize | GenUI `Chart`/`ProChart` or `chart_generator` | Follow the chart-mode policy for chart-type selection and spec shape. Static exports default to the `academic` theme (research-paper minimal-ink style). |
 
 ### Passing data between stages
 

@@ -351,7 +351,7 @@ class TieredSessionStore:
                     # rather than failing the whole save with IntegrityError.
                     owner_id = state.user_id
                     if owner_id is None:
-                        from leagent.services.auth.service import LOCAL_USER_ID
+                        from leagent.config.constants import LOCAL_USER_ID
 
                         owner_id = LOCAL_USER_ID
                         state.user_id = owner_id

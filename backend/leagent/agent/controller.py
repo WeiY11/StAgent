@@ -15,10 +15,8 @@ import asyncio
 from collections import OrderedDict
 from collections.abc import AsyncIterator  # noqa: TC003
 from contextlib import suppress
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4  # noqa: TC003
 
@@ -41,8 +39,6 @@ from leagent.agent.base import (
     ToolResult,
 )
 from leagent.agent.query import (
-    ASK_USER_PENDING_TOOL_JSON,
-    ASK_USER_TOOL_NAME,
     _inject_pending_ask_user_tool_stubs,
     drop_orphan_tool_messages,
     inject_missing_tool_result_stubs,
@@ -50,6 +46,7 @@ from leagent.agent.query import (
 from leagent.agent.transitions import TerminalReason
 from leagent.exceptions.base import LeAgentError
 from leagent.file.attachment_context import build_tool_extra_for_attachment_paths
+from leagent.sdk.kernel.session_registry import SessionTaskRegistry
 from leagent.services.session.artifacts import (
     ArtifactRegistrar,
     attachment_dicts,
@@ -72,19 +69,8 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
-
-@dataclass
-class AgentRunTaskRecord:
-    """In-process metadata for one concurrent agent HTTP/stream run."""
-
-    task_id: UUID
-    session_id: UUID
-    user_id: UUID | None
-    started_at: datetime
-    updated_at: datetime
-    phase: str = "starting"
-    tool_name: str | None = None
-    status: str = "running"
+# Re-export for backward compatibility (tests, tools/context.py, etc.)
+from leagent.sdk.kernel.session_registry import AgentRunTaskRecord  # noqa: E402
 
 
 class AgentController:
@@ -96,12 +82,12 @@ class AgentController:
     3. Hybrid: Automatic selection based on task complexity
     """
 
-    _session_tasks: dict[UUID, dict[UUID, asyncio.Event]] = {}
-    _session_task_records: dict[UUID, dict[UUID, AgentRunTaskRecord]] = {}
-    # Durable checkpoint id written on abort / resumable terminal — readable by
-    # POST /cancel before the SSE complete frame reaches a disconnected client.
-    _session_last_checkpoint: dict[UUID, str] = {}
-    _session_checkpoint_events: dict[UUID, asyncio.Event] = {}
+    # Backward-compatible class attributes pointing to the registry's state.
+    # External code (tests, tools/context.py, api/v1/chat) reads these directly.
+    _session_tasks = SessionTaskRegistry._session_tasks
+    _session_task_records = SessionTaskRegistry._session_task_records
+    _session_last_checkpoint = SessionTaskRegistry._session_last_checkpoint
+    _session_checkpoint_events = SessionTaskRegistry._session_checkpoint_events
 
     @classmethod
     def _register_session_task(
@@ -111,37 +97,16 @@ class AgentController:
         abort_event: asyncio.Event,
         user_id: UUID | None,
     ) -> None:
-        now = datetime.utcnow()
-        cls._session_tasks.setdefault(session_id, {})[task_id] = abort_event
-        cls._session_task_records.setdefault(session_id, {})[task_id] = AgentRunTaskRecord(
-            task_id=task_id,
-            session_id=session_id,
-            user_id=user_id,
-            started_at=now,
-            updated_at=now,
-            phase="starting",
-            tool_name=None,
-            status="running",
-        )
-        # Fresh wait handle for this turn's checkpoint (cancel may await it).
-        cls._session_last_checkpoint.pop(session_id, None)
-        cls._session_checkpoint_events[session_id] = asyncio.Event()
+        SessionTaskRegistry.register(session_id, task_id, abort_event, user_id)
 
     @classmethod
     def stash_session_checkpoint(cls, session_id: UUID, checkpoint_id: str | None) -> None:
         """Record a durable checkpoint id for a session (abort / pause)."""
-        if not checkpoint_id or not session_id:
-            return
-        cls._session_last_checkpoint[session_id] = checkpoint_id
-        ev = cls._session_checkpoint_events.get(session_id)
-        if ev is None:
-            ev = asyncio.Event()
-            cls._session_checkpoint_events[session_id] = ev
-        ev.set()
+        SessionTaskRegistry.stash_checkpoint(session_id, checkpoint_id)
 
     @classmethod
     def peek_session_checkpoint(cls, session_id: UUID) -> str | None:
-        return cls._session_last_checkpoint.get(session_id)
+        return SessionTaskRegistry.peek_checkpoint(session_id)
 
     @classmethod
     async def wait_session_checkpoint(
@@ -151,30 +116,11 @@ class AgentController:
         timeout: float = 2.0,
     ) -> str | None:
         """Wait briefly for an in-flight abort path to persist a checkpoint."""
-        existing = cls._session_last_checkpoint.get(session_id)
-        if existing:
-            return existing
-        ev = cls._session_checkpoint_events.get(session_id)
-        if ev is None:
-            return None
-        try:
-            await asyncio.wait_for(ev.wait(), timeout=max(0.0, timeout))
-        except TimeoutError:
-            pass
-        return cls._session_last_checkpoint.get(session_id)
+        return await SessionTaskRegistry.wait_checkpoint(session_id, timeout=timeout)
 
     @classmethod
     def _unregister_session_task(cls, session_id: UUID, task_id: UUID) -> None:
-        sess = cls._session_tasks.get(session_id)
-        if sess and task_id in sess:
-            sess.pop(task_id)
-            if not sess:
-                cls._session_tasks.pop(session_id, None)
-        recs = cls._session_task_records.get(session_id)
-        if recs and task_id in recs:
-            recs.pop(task_id)
-            if not recs:
-                cls._session_task_records.pop(session_id, None)
+        SessionTaskRegistry.unregister(session_id, task_id)
 
     @classmethod
     def _update_task_phase(
@@ -184,60 +130,26 @@ class AgentController:
         phase: str,
         tool_name: str | None = None,
     ) -> None:
-        recs = cls._session_task_records.get(session_id)
-        if not recs:
-            return
-        rec = recs.get(task_id)
-        if rec is None:
-            return
-        rec.phase = phase
-        rec.updated_at = datetime.utcnow()
-        if tool_name is not None:
-            rec.tool_name = tool_name
+        SessionTaskRegistry.update_phase(session_id, task_id, phase, tool_name)
 
     @classmethod
     def cancel_session(cls, session_id: UUID) -> bool:
         """Signal abort on every in-flight task for this session."""
-        tasks = cls._session_tasks.get(session_id)
-        if not tasks:
-            return False
-        for ev in list(tasks.values()):
-            ev.set()
-        cls._session_tasks.pop(session_id, None)
-        cls._session_task_records.pop(session_id, None)
-        return True
+        return SessionTaskRegistry.cancel_session(session_id)
 
     @classmethod
     def cancel_task(cls, session_id: UUID, task_id: UUID) -> bool:
         """Abort a single agent task within a session."""
-        sess = cls._session_tasks.get(session_id)
-        if not sess:
-            return False
-        ev = sess.get(task_id)
-        if ev is None:
-            return False
-        ev.set()
-        sess.pop(task_id, None)
-        if not sess:
-            cls._session_tasks.pop(session_id, None)
-        recs = cls._session_task_records.get(session_id)
-        if recs and task_id in recs:
-            recs.pop(task_id)
-            if not recs:
-                cls._session_task_records.pop(session_id, None)
-        return True
+        return SessionTaskRegistry.cancel_task(session_id, task_id)
 
     @classmethod
     def list_agent_tasks_for_session(cls, session_id: UUID) -> list[AgentRunTaskRecord]:
         """Return snapshots of running agent tasks for ``session_id`` (this process only)."""
-        recs = cls._session_task_records.get(session_id)
-        if not recs:
-            return []
-        return sorted(recs.values(), key=lambda r: r.started_at)
+        return SessionTaskRegistry.list_tasks(session_id)
 
     @classmethod
     def is_session_active(cls, session_id: UUID) -> bool:
-        return bool(cls._session_tasks.get(session_id))
+        return SessionTaskRegistry.is_active(session_id)
 
     def __init__(
         self,
@@ -1051,10 +963,6 @@ class AgentController:
         AgentController._update_task_phase(
             context.session_id, context.task_id, "llm",
         )
-        streaming_phase_marked = False
-
-        response_text = ""
-        reasoning_acc = ""
 
         formatted_attachments = normalized_attachments if normalized_attachments else attachments
         query_input = self._format_user_message(
@@ -1084,6 +992,7 @@ class AgentController:
         # StreamHandler mapping (and therefore the SSE wire contract) is
         # unchanged, while chat now gains a ``RunState`` + turn-pause
         # checkpointing and single-site tool hooks.
+        from leagent.sdk.kernel.event_mapper import KernelEventMapper
         from leagent.sdk.kernel.loop import run_loop
         from leagent.sdk.kernel.state import RunState
 
@@ -1098,6 +1007,18 @@ class AgentController:
         loop_prompt = (
             resume_hint if (skip_user_append and not resume_checkpoint_id) else query_input
         )
+
+        # Event mapper: translates kernel events → StreamHandler calls +
+        # conversation mutations. The controller drives the loop; the mapper
+        # handles the per-event compat mapping.
+        event_mapper = KernelEventMapper(
+            handler=handler,
+            conversation=conversation,
+            context=context,
+            update_task_phase=AgentController._update_task_phase,
+            stash_checkpoint=AgentController.stash_session_checkpoint,
+        )
+
         async for event in run_loop(
             engine,
             loop_prompt,
@@ -1111,153 +1032,13 @@ class AgentController:
                 engine.abort()
                 break
 
-            mtype = event.type
-            data = event.data
-
-            if mtype == "stream_delta":
-                if not streaming_phase_marked:
-                    AgentController._update_task_phase(
-                        context.session_id, context.task_id, "streaming",
-                    )
-                    streaming_phase_marked = True
-                token = data.get("content", "")
-                if isinstance(token, str) and token:
-                    response_text += token
-                    await handler.on_token(token)
-                rd = data.get("reasoning_delta")
-                if isinstance(rd, str) and rd:
-                    reasoning_acc += rd
-                    await handler.on_thinking(reasoning_acc)
-            elif mtype == "tool_call_delta":
-                if isinstance(data, dict):
-                    await handler.on_tool_call_delta(data)
-            elif mtype == "tool_use":
-                tc = ToolCall(
-                    id=data.get("id", ""),
-                    name=data.get("name", ""),
-                    arguments=data.get("input") or {},
-                )
-                AgentController._update_task_phase(
-                    context.session_id,
-                    context.task_id,
-                    "tool",
-                    tool_name=tc.name or None,
-                )
-                await handler.on_tool_call(tc)
-                # ``on_tool_call`` / ``on_tool_result`` hooks are dispatched
-                # from the single kernel site (see ``run_loop``); the controller
-                # only drives the SSE handler + step bookkeeping here.
-                context.record_step(
-                    ExecutionStep(type=StepType.TOOL_CALL, tool_call=tc)
-                )
-            elif mtype == "tool_result":
-                res = self._tool_result_from_query_sdk(
-                    data if isinstance(data, dict) else {}
-                )
-                await handler.on_tool_result(res)
-                context.record_step(
-                    ExecutionStep(type=StepType.TOOL_RESULT, tool_result=res)
-                )
-                conversation.append_tool_result(res.tool_call_id, res.name, res.content)
-            elif mtype == "workspace_attachments":
-                attachments_payload = data.get("attachments") if isinstance(data, dict) else None
-                if isinstance(attachments_payload, list):
-                    await handler.on_workspace_attachments(
-                        [item for item in attachments_payload if isinstance(item, dict)]
-                    )
-                paths_payload = data.get("paths") if isinstance(data, dict) else None
-                if isinstance(paths_payload, list):
-                    for path in paths_payload:
-                        if isinstance(path, str) and path:
-                            context.add_output_file(path)
-            elif mtype == "assistant_tools":
-                text = str(data.get("content") or "")
-                if text:
-                    response_text = text
-                tcs = data.get("tool_calls")
-                rc = data.get("reasoning_content")
-                reasoning = rc if isinstance(rc, str) and rc.strip() else None
-                if isinstance(tcs, list):
-                    conversation.append_assistant_message(
-                        text, tool_calls=tcs, reasoning_content=reasoning
-                    )
-            elif mtype == "assistant":
-                text = data.get("content") or ""
-                if text and text not in response_text:
-                    response_text = text
-                rc = data.get("reasoning_content")
-                reasoning = rc if isinstance(rc, str) and rc.strip() else None
-                conversation.append_assistant_message(text, reasoning_content=reasoning)
-            elif mtype == "steer":
-                # Mid-turn user steer injected at a tool-batch boundary:
-                # persist it in the conversation as a regular user message.
-                steer_text = str(data.get("content") or "")
-                if steer_text:
-                    conversation.append_user_message(steer_text)
-            elif mtype == "result":
-                reason = str(data.get("reason", "completed"))
-                result_checkpoint_id = data.get("checkpoint_id")
-                if isinstance(result_checkpoint_id, str) and result_checkpoint_id:
-                    self._last_checkpoint_id = result_checkpoint_id
-                    AgentController.stash_session_checkpoint(
-                        context.session_id, result_checkpoint_id,
-                    )
-                usage = data.get("usage", {}) or {}
-                if reason == TerminalReason.AWAITING_USER_INPUT.value:
-                    meta = data.get("meta") or {}
-                    tool_call = meta.get("tool_call") or {}
-                    questions = meta.get("questions") or []
-                    last_tcs: list[dict[str, Any]] | None = None
-                    if conversation.messages:
-                        last = conversation.messages[-1]
-                        if last.role == "assistant":
-                            last_tcs = last.tool_calls
-                    await handler.on_user_input_request(
-                        {
-                            "tool_call": tool_call,
-                            "questions": questions,
-                            "assistant_tool_calls": last_tcs,
-                            "checkpoint_id": result_checkpoint_id,
-                        },
-                    )
-                    _tid = str(tool_call.get("id") or "").strip()
-                    if _tid:
-                        conversation.append_tool_result(
-                            _tid,
-                            str(tool_call.get("name") or ASK_USER_TOOL_NAME),
-                            ASK_USER_PENDING_TOOL_JSON,
-                        )
-                    response = context.finalize_turn(
-                        text=response_text,
-                        reason=reason,
-                        conversation=conversation,
-                        turn_message_start=turn_message_start,
-                        usage=usage,
-                        checkpoint_id=result_checkpoint_id,
-                        partial=True,
-                        metadata={
-                            "awaiting_user_input": True,
-                            "tool_call": tool_call,
-                            "questions": questions,
-                            "assistant_tool_calls": last_tcs,
-                            "checkpoint_id": result_checkpoint_id,
-                        },
-                    )
-                    await handler.on_complete(response)
-                    return response
-
-                response = context.finalize_turn(
-                    text=response_text,
-                    reason=reason,
-                    conversation=conversation,
-                    turn_message_start=turn_message_start,
-                    error=data.get("error"),
-                    usage=usage,
-                    checkpoint_id=result_checkpoint_id,
-                    partial=reason != TerminalReason.COMPLETED.value,
-                )
-                await handler.on_complete(response)
-                return response
+            result = await event_mapper.process_event(
+                event, turn_message_start=turn_message_start,
+            )
+            if result is not None:
+                # A ``result`` event produced a final response.
+                self._last_checkpoint_id = event_mapper.last_checkpoint_id
+                return result
 
         # Loop exited without a result frame — typically a user abort.
         if self._abort_event.is_set() or context.is_cancelled:
@@ -1268,7 +1049,7 @@ class AgentController:
                 agent_name=definition.name,
             )
             response = context.finalize_turn(
-                text=response_text,
+                text=event_mapper.response_text,
                 reason=TerminalReason.ABORTED_STREAMING.value,
                 conversation=conversation,
                 turn_message_start=turn_message_start,
@@ -1280,7 +1061,7 @@ class AgentController:
             return response
 
         response = context.finalize_turn(
-            text=response_text,
+            text=event_mapper.response_text,
             reason=TerminalReason.COMPLETED.value,
             conversation=conversation,
             turn_message_start=turn_message_start,
@@ -1322,44 +1103,6 @@ class AgentController:
         except Exception:  # noqa: BLE001
             logger.warning("abort_checkpoint_save_failed", exc_info=True)
             return None
-
-    def _tool_result_from_query_sdk(self, data: dict[str, Any]) -> ToolResult:
-        """Reconstruct a :class:`ToolResult` from :class:`QueryEngine` tool_result data."""
-        env = data.get("envelope")
-        if isinstance(env, dict):
-            try:
-                base = SimpleNamespace(
-                    success=bool(env.get("success", True)),
-                    data=env.get("data"),
-                    error=env.get("error"),
-                    metadata=dict(env.get("metadata") or {}),
-                    duration_ms=int(env.get("duration_ms", 0) or 0),
-                )
-                return ToolResult.from_base(
-                    base,
-                    tool_call_id=str(data.get("tool_use_id", "")),
-                    name=str(data.get("name", "")),
-                )
-            except Exception:  # noqa: BLE001
-                logger.debug("query_sdk_envelope_reconstruct_failed", exc_info=True)
-        tool_content = str(data.get("content", ""))
-        is_success = bool(data.get("success", True))
-        if is_success:
-            return ToolResult(
-                tool_call_id=str(data.get("tool_use_id", "")),
-                name=str(data.get("name", "")),
-                success=True,
-                data=tool_content,
-            )
-        error_text = tool_content
-        if error_text.startswith("Error: "):
-            error_text = error_text[7:]
-        return ToolResult(
-            tool_call_id=str(data.get("tool_use_id", "")),
-            name=str(data.get("name", "")),
-            success=False,
-            error=error_text or "Unknown error",
-        )
 
     async def _ingest_produced_path_for_workspace(
         self,

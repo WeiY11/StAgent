@@ -49,6 +49,16 @@ class FileRepository(Protocol):
         """Soft-delete a file owned by *user_id*; return whether it changed."""
         ...
 
+    async def list_for_folder(
+        self, folder_id: UUID, *, user_id: UUID | None = None
+    ) -> list[File]:
+        """Return non-deleted files in *folder_id*, optionally filtered by owner."""
+        ...
+
+    async def update(self, file: File) -> File:
+        """Persist changes to an existing file row."""
+        ...
+
 
 class DbFileRepository:
     """``DatabaseService``-backed :class:`FileRepository`."""
@@ -106,3 +116,24 @@ class DbFileRepository:
                 )
             )
             return bool(cast("CursorResult[Any]", result).rowcount)
+
+    async def list_for_folder(
+        self, folder_id: UUID, *, user_id: UUID | None = None
+    ) -> list[File]:
+        async with self._db.session() as session:
+            stmt = (
+                select(File)
+                .where(uuid_column_equals(session, File.folder_id, folder_id))
+                .where(col(File.is_deleted).is_(False))
+            )
+            if user_id is not None:
+                stmt = stmt.where(uuid_column_equals(session, File.user_id, user_id))
+            result = await session.exec(stmt)
+            return list(result.all())
+
+    async def update(self, file: File) -> File:
+        async with self._db.session() as session:
+            session.add(file)
+            await session.flush()
+            await session.refresh(file)
+            return file

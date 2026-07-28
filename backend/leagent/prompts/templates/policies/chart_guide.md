@@ -16,7 +16,9 @@ requires_tools:
    3D, or needing zoom/tooltips: GenUI **`ProChart`** via `emit_ui_tree` with `props.spec` (Chart Spec v1).
 3. **Static export** — the user wants a file (PNG/SVG/PDF), a document figure, or print quality:
    **`chart_generator`** with the same `spec`, then show the image with `Image` (`preview_path`)
-   or markdown `![caption](preview_url)` — never inline base64.
+   or markdown `![caption](preview_url)` — never inline base64. Default `theme` is `academic`
+   (research-paper style from the `research-paper-writing` skill: minimal ink, serif type,
+   colorblind-safe palette); only switch theme when the user asks for slides/dashboard looks.
 
 Before authoring a non-trivial spec, call **`list_chart_types`** for the exact data shape per type.
 The server validates every spec and computes statistics (bins, quartiles, KDE, regression fit,
@@ -97,6 +99,9 @@ violin/ecdf), `matrix` + `rowLabels`/`colLabels` (heatmap/contour/surface_3d/bar
 
 ### Professional chart rules
 
+- Default visual style is **academic / minimal-ink** (research-paper-writing skill): no chart
+  junk, no redundant gridlines or borders, restrained highlighting — emphasis only where it
+  carries meaning. Label metric direction and units so every chart reads standalone.
 - Every chart MUST have a `title`; add axis `label`s and `valuePrefix`/`valueSuffix` units so it
   reads standalone. Multi-series charts keep the legend on.
 - Use `options.referenceLines` (`[{value, label, tone}]`) for targets/thresholds instead of prose.

@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 
-from leagent.services.auth.service import LOCAL_USER_ID
+from leagent.config.constants import LOCAL_USER_ID
 
 LOCAL_USER_ID_VALUE = LOCAL_USER_ID
 

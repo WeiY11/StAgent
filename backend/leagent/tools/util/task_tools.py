@@ -155,42 +155,35 @@ class TaskGetTool(BaseTool):
     async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
         try:
             from leagent.db import get_database_service
-            from leagent.db.models import Task, is_terminal_task_status
-            from leagent.db.sqlite_compat import load_entity_by_id
+            from leagent.db.models import is_terminal_task_status
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
             mgr = get_task_manager()
             task_id = UUID(params["task_id"])
 
-            async with db.session() as session:
-                task = await load_entity_by_id(
-                    session,
-                    Task,
-                    task_id,
-                    parent_table="tasks",
-                )
-                if not task:
-                    return {"error": f"Task {task_id} not found"}
+            task = await db.repositories.tasks.get(task_id)
+            if not task:
+                return {"error": f"Task {task_id} not found"}
 
-                return {
-                    "task_id": str(task.id),
-                    "name": task.name,
-                    "status": task.status.value,
-                    "task_type": task.task_type.value,
-                    "description": task.description,
-                    "progress": task.progress,
-                    "progress_message": task.progress_message,
-                    "created_at": str(task.created_at),
-                    "started_at": str(task.started_at) if task.started_at else None,
-                    "completed_at": str(task.completed_at) if task.completed_at else None,
-                    "duration_ms": task.duration_ms,
-                    "error": task.error,
-                    "output_file": task.output_file,
-                    "is_terminal": is_terminal_task_status(task.status),
-                    "is_running": mgr.is_running(str(task.id)),
-                    "parent_id": str(task.parent_id) if task.parent_id else None,
-                }
+            return {
+                "task_id": str(task.id),
+                "name": task.name,
+                "status": task.status.value,
+                "task_type": task.task_type.value,
+                "description": task.description,
+                "progress": task.progress,
+                "progress_message": task.progress_message,
+                "created_at": str(task.created_at),
+                "started_at": str(task.started_at) if task.started_at else None,
+                "completed_at": str(task.completed_at) if task.completed_at else None,
+                "duration_ms": task.duration_ms,
+                "error": task.error,
+                "output_file": task.output_file,
+                "is_terminal": is_terminal_task_status(task.status),
+                "is_running": mgr.is_running(str(task.id)),
+                "parent_id": str(task.parent_id) if task.parent_id else None,
+            }
         except Exception as e:
             return {"error": str(e)}
 
@@ -243,11 +236,8 @@ class TaskListTool(BaseTool):
 
     async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
         try:
-            from sqlmodel import select
-
             from leagent.db import get_database_service
-            from leagent.db.models import Task, TaskStatus, TaskType, is_terminal_task_status
-            from leagent.db.sqlite_compat import uuid_column_equals
+            from leagent.db.models import TaskStatus, TaskType, is_terminal_task_status
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
@@ -257,45 +247,54 @@ class TaskListTool(BaseTool):
             type_filter = params.get("task_type")
             include_terminal = params.get("include_terminal", True)
 
-            async with db.session() as session:
-                query = select(Task)
-                if context.user_id:
-                    query = query.where(
-                        uuid_column_equals(
-                            session,
-                            Task.user_id,
-                            UUID(context.user_id),
-                        )
-                    )
-                if status_filter:
-                    query = query.where(Task.status == TaskStatus(status_filter))
-                if type_filter:
-                    query = query.where(Task.task_type == TaskType(type_filter))
-                query = query.limit(limit)
+            user_id = UUID(context.user_id) if context.user_id else None
+            status_enum = TaskStatus(status_filter) if status_filter else None
+            type_enum = TaskType(type_filter) if type_filter else None
 
-                result = await session.exec(query)
-                tasks = result.all()
+            if user_id:
+                tasks = await db.repositories.tasks.list_for_user_filtered(
+                    user_id,
+                    status=status_enum,
+                    task_type=type_enum,
+                    limit=limit,
+                )
+            else:
+                # TODO: migrate to repository — needs a list_all method
+                from sqlmodel import select
 
-                if not include_terminal:
-                    tasks = [t for t in tasks if not is_terminal_task_status(t.status)]
+                from leagent.db.models import Task
+                from leagent.db.sqlite_compat import uuid_column_equals
 
-                return {
-                    "tasks": [
-                        {
-                            "task_id": str(t.id),
-                            "name": t.name,
-                            "status": t.status.value,
-                            "task_type": t.task_type.value,
-                            "progress": t.progress,
-                            "is_terminal": is_terminal_task_status(t.status),
-                            "is_running": mgr.is_running(str(t.id)),
-                            "created_at": str(t.created_at),
-                        }
-                        for t in tasks
-                    ],
-                    "count": len(tasks),
-                    "active_count": mgr.active_task_count,
-                }
+                async with db.session() as session:
+                    query = select(Task)
+                    if status_enum:
+                        query = query.where(Task.status == status_enum)
+                    if type_enum:
+                        query = query.where(Task.task_type == type_enum)
+                    query = query.limit(limit)
+                    result = await session.exec(query)
+                    tasks = list(result.all())
+
+            if not include_terminal:
+                tasks = [t for t in tasks if not is_terminal_task_status(t.status)]
+
+            return {
+                "tasks": [
+                    {
+                        "task_id": str(t.id),
+                        "name": t.name,
+                        "status": t.status.value,
+                        "task_type": t.task_type.value,
+                        "progress": t.progress,
+                        "is_terminal": is_terminal_task_status(t.status),
+                        "is_running": mgr.is_running(str(t.id)),
+                        "created_at": str(t.created_at),
+                    }
+                    for t in tasks
+                ],
+                "count": len(tasks),
+                "active_count": mgr.active_task_count,
+            }
         except Exception as e:
             return {"error": str(e)}
 
@@ -338,56 +337,43 @@ class TaskUpdateTool(BaseTool):
         try:
             from datetime import datetime
 
-            from sqlalchemy import update as sa_update
-
             from leagent.db import get_database_service
-            from leagent.db.models import Task, TaskStatus, is_terminal_task_status
-            from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
+            from leagent.db.models import TaskStatus, is_terminal_task_status
 
             db = get_database_service()
             task_id = UUID(params["task_id"])
 
-            async with db.session() as session:
-                task = await load_entity_by_id(
-                    session,
-                    Task,
-                    task_id,
-                    parent_table="tasks",
-                )
-                if not task:
-                    return {"error": f"Task {task_id} not found"}
+            task = await db.repositories.tasks.get(task_id)
+            if not task:
+                return {"error": f"Task {task_id} not found"}
 
-                if is_terminal_task_status(task.status):
-                    return {
-                        "error": f"Cannot update task in terminal state: {task.status.value}",
-                        "task_id": str(task.id),
-                        "status": task.status.value,
-                    }
-
-                values: dict[str, Any] = {"updated_at": datetime.utcnow()}
-                if "status" in params:
-                    values["status"] = TaskStatus(params["status"])
-                if "progress" in params:
-                    values["progress"] = int(params["progress"])
-                if "progress_message" in params:
-                    values["progress_message"] = params["progress_message"]
-                if "output_data" in params:
-                    values["output_data"] = json.dumps(params["output_data"])
-                if "error_message" in params:
-                    values["error"] = params["error_message"]
-
-                await session.execute(
-                    sa_update(Task)
-                    .where(uuid_column_equals(session, Task.id, task_id))
-                    .values(**values)
-                )
-
+            if is_terminal_task_status(task.status):
                 return {
+                    "error": f"Cannot update task in terminal state: {task.status.value}",
                     "task_id": str(task.id),
-                    "status": values.get("status", task.status).value,
-                    "progress": int(values.get("progress", task.progress)),
-                    "updated": True,
+                    "status": task.status.value,
                 }
+
+            if "status" in params:
+                task.status = TaskStatus(params["status"])
+            if "progress" in params:
+                task.progress = int(params["progress"])
+            if "progress_message" in params:
+                task.progress_message = params["progress_message"]
+            if "output_data" in params:
+                task.output_data = json.dumps(params["output_data"])
+            if "error_message" in params:
+                task.error = params["error_message"]
+            task.updated_at = datetime.utcnow()
+
+            updated = await db.repositories.tasks.update(task)
+
+            return {
+                "task_id": str(updated.id),
+                "status": updated.status.value,
+                "progress": int(updated.progress),
+                "updated": True,
+            }
         except Exception as e:
             return {"error": str(e)}
 
@@ -487,8 +473,7 @@ class TaskOutputTool(BaseTool):
     async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
         try:
             from leagent.db import get_database_service
-            from leagent.db.models import Task, is_terminal_task_status
-            from leagent.db.sqlite_compat import load_entity_by_id
+            from leagent.db.models import is_terminal_task_status
             from leagent.services.task_manager import get_task_manager
 
             db = get_database_service()
@@ -497,15 +482,9 @@ class TaskOutputTool(BaseTool):
 
             output = mgr.read_output(params["task_id"], offset=offset)
 
-            async with db.session() as session:
-                task = await load_entity_by_id(
-                    session,
-                    Task,
-                    UUID(params["task_id"]),
-                    parent_table="tasks",
-                )
-                status = task.status.value if task else "unknown"
-                is_done = is_terminal_task_status(task.status) if task else True
+            task = await db.repositories.tasks.get(UUID(params["task_id"]))
+            status = task.status.value if task else "unknown"
+            is_done = is_terminal_task_status(task.status) if task else True
 
             return {
                 "task_id": params["task_id"],

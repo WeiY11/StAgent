@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from sqlalchemy import update as sa_update
 from sqlmodel import col, select
 
-from leagent.db.models.task import Task, TaskStatus
+from leagent.db.models.task import Task, TaskStatus, TaskType
 from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
 
 if TYPE_CHECKING:
@@ -37,6 +37,21 @@ class TaskRepository(Protocol):
 
     async def update_status(self, task_id: UUID, status: TaskStatus) -> bool:
         """Update a task's status; return whether the row existed."""
+        ...
+
+    async def update(self, task: Task) -> Task:
+        """Persist changes to an existing task row."""
+        ...
+
+    async def list_for_user_filtered(
+        self,
+        user_id: UUID,
+        *,
+        status: TaskStatus | None = None,
+        task_type: TaskType | None = None,
+        limit: int = 100,
+    ) -> list[Task]:
+        """Return tasks for *user_id* with optional status and task_type filters."""
         ...
 
 
@@ -76,3 +91,28 @@ class DbTaskRepository:
                 .values(status=status)
             )
             return bool(cast("CursorResult[Any]", result).rowcount)
+
+    async def update(self, task: Task) -> Task:
+        async with self._db.session() as session:
+            session.add(task)
+            await session.flush()
+            await session.refresh(task)
+            return task
+
+    async def list_for_user_filtered(
+        self,
+        user_id: UUID,
+        *,
+        status: TaskStatus | None = None,
+        task_type: TaskType | None = None,
+        limit: int = 100,
+    ) -> list[Task]:
+        async with self._db.session() as session:
+            stmt = select(Task).where(uuid_column_equals(session, Task.user_id, user_id))
+            if status is not None:
+                stmt = stmt.where(Task.status == status)
+            if task_type is not None:
+                stmt = stmt.where(Task.task_type == task_type)
+            stmt = stmt.order_by(col(Task.created_at).desc()).limit(limit)
+            result = await session.exec(stmt)
+            return list(result.all())

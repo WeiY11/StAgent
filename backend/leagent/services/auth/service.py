@@ -14,13 +14,12 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from leagent.config.constants import LOCAL_USER_ID  # re-exported for backward compat
 from leagent.services.auth.secrets import is_weak_secret, resolve_signing_secret
 from leagent.services.auth.store import get_security_store
 from leagent.services.auth.tokens import TokenError, decode_token, mint_token
 from leagent.utils.crypto import hash_password as _hash_password
 from leagent.utils.crypto import verify_password as _verify_password
-
-LOCAL_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 _DEFAULT_ACCESS_TTL = 12 * 60 * 60  # 12 hours
 _DEFAULT_REFRESH_TTL = 7 * 24 * 60 * 60

@@ -40,6 +40,8 @@ class WorkflowListTool(SchemaWorkflowTool):
     }
 
     async def _execute(self, context: ToolContext, **kwargs: Any) -> ToolResult:
+        # TODO: migrate to FlowRepository.list_for_user when agent-facing tool should scope by user_id.
+        # Currently lists all non-deleted flows regardless of owner.
         from sqlmodel import select
 
         from leagent.db.models.flow import Flow

@@ -81,6 +81,11 @@ class WorkflowSaveTool(SchemaWorkflowTool):
             canonical["ui"] = ui
 
         try:
+            # TODO: migrate to FlowRepository — this method uses complex SQLite-specific raw SQL
+            # (hex ID formatting, parent_id text lookups, raw INSERT/UPDATE) that cannot be easily
+            # expressed through the repository pattern. Requires FlowRepository extensions for
+            # SQLite-compatible upsert and parent_id text resolution.
+            from leagent.config.constants import LOCAL_USER_ID
             from leagent.db.models.base import utc_now
             from leagent.db.models.flow import Flow, FlowStatus, FlowType
             from leagent.db.sqlite_compat import (
@@ -89,7 +94,6 @@ class WorkflowSaveTool(SchemaWorkflowTool):
                 session_dialect_name,
                 sqlite_parent_id_text,
             )
-            from leagent.services.auth.service import LOCAL_USER_ID
             from leagent.services.service_manager import get_service_manager
 
             sm = get_service_manager()
