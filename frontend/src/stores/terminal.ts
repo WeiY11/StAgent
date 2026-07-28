@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { getAccessToken } from '@/api/client';
-import { getMachineFingerprint } from '@/lib/machineFingerprint';
+import { getMachineFingerprint } from '@/lib/auth/machineFingerprint';
 
 export interface TerminalChunk {
   tool_call_id: string;

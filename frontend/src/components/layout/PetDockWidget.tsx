@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PetSceneStage } from '@/components/pet/PetSceneStage';
 
 interface PetDockWidgetProps {

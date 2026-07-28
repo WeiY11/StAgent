@@ -1,7 +1,7 @@
 import { forwardRef, useState, useMemo, type HTMLAttributes } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 
 interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onSelect'> {

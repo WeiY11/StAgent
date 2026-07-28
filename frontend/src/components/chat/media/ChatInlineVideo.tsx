@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /** Inline responsive video for Markdown links to ``.mp4`` / ``.webm`` etc. */
 export function ChatInlineVideo({ src, title }: { src: string; title?: string }) {

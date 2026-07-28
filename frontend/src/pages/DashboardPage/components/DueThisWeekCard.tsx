@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle, Clock, GitBranch } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { useDashboardTasks } from '@/hooks/useDashboard';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils/utils';
 import type { Task } from '@/types/admin';
 
 function formatDuration(ms: number): string {

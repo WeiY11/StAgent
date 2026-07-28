@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import { apiClient, type ApiError } from '@/api/client';
-import { openAuthedWebSocket } from '@/lib/authedTransport';
+import { openAuthedWebSocket } from '@/lib/auth/authedTransport';
 import { URL_KEYS } from '../../helpers/constants';
 import type {
   WorkflowExecutionDetail,

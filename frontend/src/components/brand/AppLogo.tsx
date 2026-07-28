@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /** Default sidebar / app mark — `public/brand/logo.svg` (synced from repo `file.svg`, same pixels as `favicon.svg`). */
 export const DEFAULT_BRAND_LOGO_SRC = '/brand/logo.svg';

@@ -13,7 +13,7 @@ import {
 import { apiClient } from '@/api/client';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { ChatWorkflowSpecModel } from '@/types/chat';
 import { WorkflowsHubToolbar } from './WorkflowsHubToolbar';
 

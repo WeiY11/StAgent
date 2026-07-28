@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { isPetBuiltinAppearance, PET_BUILTIN_APPEARANCES, type PetBuiltinAppearance } from '@/lib/builtinPets';
-import { isPetRenderableImageRow } from '@/lib/petAppearanceMime';
+import { isPetBuiltinAppearance, PET_BUILTIN_APPEARANCES, type PetBuiltinAppearance } from '@/lib/pet/builtinPets';
+import { isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
 import type { PetProjectFileRow } from '@/api/petSpace';
 import { Button } from '@/components/ui';
-import type { PetClipBinding, PetClipState, PetSettings } from '@/lib/petSettings';
-import { normalizeClipBinding, type PetSettingsClipPatch } from '@/lib/petSettings';
+import type { PetClipBinding, PetClipState, PetSettings } from '@/lib/pet/petSettings';
+import { normalizeClipBinding, type PetSettingsClipPatch } from '@/lib/pet/petSettings';
 
 type PatchMut = {
   isPending: boolean;

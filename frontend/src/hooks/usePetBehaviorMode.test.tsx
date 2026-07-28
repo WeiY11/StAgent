@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { usePetBehaviorMode } from '@/hooks/usePetBehaviorMode';
-import { defaultBehaviorSettings } from '@/lib/petSettings';
+import { defaultBehaviorSettings } from '@/lib/pet/petSettings';
 
 describe('usePetBehaviorMode', () => {
   it('returns override visual when provided', () => {

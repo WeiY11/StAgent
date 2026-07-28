@@ -49,8 +49,8 @@ import {
   type SkillHubItem,
   type SkillInfo,
 } from '@/hooks/useSkills';
-import { parseGitHubSkillsRepoUrl, type ParsedGitHubSkillsRepo } from '@/lib/parseGitHubRepoUrl';
-import { cn } from '@/lib/utils';
+import { parseGitHubSkillsRepoUrl, type ParsedGitHubSkillsRepo } from '@/lib/utils/parseGitHubRepoUrl';
+import { cn } from '@/lib/utils/utils';
 
 const SKILLS_HUB_CATALOG_STORAGE_KEY = 'leagent.skills.hubCatalogRepoUrl';
 const DEFAULT_SKILLS_CATALOG_REPO_URL = 'https://github.com/anthropics/skills';

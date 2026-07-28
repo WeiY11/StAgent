@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
-import { cn, formatRelativeTime } from '@/lib/utils';
+import { cn, formatRelativeTime } from '@/lib/utils/utils';
 import type { ChatProject, ChatSession } from '@/types/chat';
 
 interface ChatHistoryPanelProps {

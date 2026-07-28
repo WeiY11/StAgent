@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Play, Pause, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui';
 import { useActivityFeed } from '@/hooks/useDashboard';
-import { formatRelativeTime } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils/utils';
+import { cn } from '@/lib/utils/utils';
 
 type ActivityType = 'task_completed' | 'task_failed' | 'task_started' | 'workflow_paused' | 'warning';
 

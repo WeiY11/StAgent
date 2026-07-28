@@ -5,7 +5,7 @@ import {
   setPersistIdentity,
   clearNamespacedStores,
   __resetForTests,
-} from '@/lib/persistNamespace';
+} from '@/lib/utils/persistNamespace';
 
 describe('persistNamespace', () => {
   beforeEach(() => {

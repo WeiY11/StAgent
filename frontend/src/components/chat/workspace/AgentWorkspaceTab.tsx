@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FileCode2 } from 'lucide-react';
 import { ChatTraceInspector } from '@/components/chat/ChatTraceInspector';
 import { useChangeReviews } from '@/hooks/useChangeReviews';
-import { EMPTY_MESSAGE_LIST } from '@/lib/emptyChatMessages';
+import { EMPTY_MESSAGE_LIST } from '@/lib/chat/emptyChatMessages';
 import {
   collectAgentSessionEvents,
   collectArtifacts,
@@ -12,8 +12,8 @@ import {
   summarizeSessionEvents,
   type AgentEventKind,
   type AgentSessionEvent,
-} from '@/lib/agentSessionEvents';
-import { cn } from '@/lib/utils';
+} from '@/lib/agent/agentSessionEvents';
+import { cn } from '@/lib/utils/utils';
 import { useChatStore } from '@/stores/chat';
 import { useCodeArtifactStore, type CodeArtifactEntry } from '@/stores/codeArtifact';
 import { useExecutionSessionStore } from '@/stores/executionSession';

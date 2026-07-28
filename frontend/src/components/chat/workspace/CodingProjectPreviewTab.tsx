@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { EMPTY_MESSAGE_LIST } from '@/lib/emptyChatMessages';
+import { EMPTY_MESSAGE_LIST } from '@/lib/chat/emptyChatMessages';
 import {
   buildCodingProjectLoopbackPreviewUrl,
   findLatestCodingProjectRunPreview,
-} from '@/lib/projectToolEnvelope';
+} from '@/lib/agent/projectToolEnvelope';
 import { useChatStore } from '@/stores/chat';
 import { useCodingProjectStatus } from '@/hooks/useCodingProjects';
 

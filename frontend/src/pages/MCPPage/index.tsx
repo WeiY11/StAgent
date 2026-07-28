@@ -25,7 +25,7 @@ import {
 import { PageShell } from '@/components/layout/PageShell';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PageLoader } from '@/components/common/PageLoader';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   useMCPServers,
   useMCPServerDetail,

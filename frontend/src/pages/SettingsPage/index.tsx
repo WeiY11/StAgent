@@ -62,14 +62,14 @@ import {
   getMinimalBrandTitleStyle,
   isMinimalBackdrop,
   MINIMAL_BRAND_MARK_SRC,
-} from '@/lib/brandingBackdrop';
+} from '@/lib/utils/brandingBackdrop';
 import { AppLogo } from '@/components/brand/AppLogo';
 import {
   useBrandingStore,
   LOGO_BACKDROP_PRESETS,
   BRAND_FONT_PRESETS,
 } from '@/stores/branding';
-import { fileToBrandingIconDataUrl } from '@/lib/brandingIcon';
+import { fileToBrandingIconDataUrl } from '@/lib/utils/brandingIcon';
 import {
   useProviders,
   useUpdateProvider,
@@ -80,7 +80,7 @@ import {
 import { adminApi } from '@/api/admin';
 import { apiClient, HttpError } from '@/api/client';
 import { SectionHeader } from '@/components/common/SectionHeader';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PageLoader } from '@/components/common/PageLoader';
 import { useToast } from '@/components/ui/Toaster';
 import {

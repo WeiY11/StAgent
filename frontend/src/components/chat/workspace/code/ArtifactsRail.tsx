@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { ChatImage } from '@/components/chat/media/ChatImage';
-import type { AgentImageArtifact } from '@/lib/agentImageArtifacts';
+import type { AgentImageArtifact } from '@/lib/agent/agentImageArtifacts';
 
 interface ArtifactsRailProps {
   artifacts: AgentImageArtifact[];

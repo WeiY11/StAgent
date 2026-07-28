@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Toast, type ToastVariant } from './Toast';
 
 export interface ToastItem {

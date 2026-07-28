@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 
 export interface FeatureFlags {
   enablePlayground: boolean;

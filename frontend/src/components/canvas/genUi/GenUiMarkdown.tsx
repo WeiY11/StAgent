@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { GenUiNode } from '@/types/genUi';
 
 const s = (v: unknown): string => (typeof v === 'string' ? v : v != null ? String(v) : '');

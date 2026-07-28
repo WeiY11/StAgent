@@ -6,8 +6,8 @@ import { genUiTreeKey, useGenUiStore } from '@/stores/genUi';
 import { CameraCaptureModal } from '@/components/chat/CameraCaptureModal';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toaster';
-import { cn } from '@/lib/utils';
-import { downloadImageBlob } from '@/lib/canvasScreenshot';
+import { cn } from '@/lib/utils/utils';
+import { downloadImageBlob } from '@/lib/canvas/canvasScreenshot';
 import { exportGenUiTreeToPdf } from '@/components/canvas/genUi/useGenUiExportPdf';
 import { GenUiInlineToolbar } from '@/components/canvas/genUi/GenUiInlineToolbar';
 import {

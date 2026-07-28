@@ -16,9 +16,9 @@ import {
   formatModelDisplayLabel,
   normalizeComposerModelId,
   resolveAutoAvailableModel,
-} from '@/lib/modelSelection';
+} from '@/lib/utils/modelSelection';
 import { useChatDraftStore } from '@/stores/chatDraft';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface ModelOption {
   id: string;

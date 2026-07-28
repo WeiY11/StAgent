@@ -10,12 +10,12 @@ import {
   Square,
   Wrench,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   extractDocProcessorPreviewText,
   extractDocProcessorPath,
   isDocProcessorTool,
-} from '@/lib/docProcessorStreamPreview';
+} from '@/lib/canvas/docProcessorStreamPreview';
 import {
   changedFilesList,
   extractCodingProjectId,
@@ -23,7 +23,7 @@ import {
   isProjectFamilyTool,
   parseActivity,
   strArg,
-} from '@/lib/projectToolEnvelope';
+} from '@/lib/agent/projectToolEnvelope';
 import type { ToolCall } from '@/types/chat';
 import {
   type CodingProjectStatus,

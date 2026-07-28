@@ -3,7 +3,7 @@ import { usePetSceneController } from '@/hooks/usePetSceneController';
 import { usePetAppearancePreview, type PetAppearanceProjectContext } from '@/hooks/usePetAppearancePreview';
 import { usePetDockPreview } from '@/hooks/usePetDockPreview';
 import { BrandMascot } from '@/components/brand/BrandMascot';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   DEFAULT_DOCK_FLOOR_Y_PX,
   DEFAULT_DOCK_SHADOW_OFFSET_Y_PX,
@@ -13,7 +13,7 @@ import {
   DOCK_SHADOW_OFFSET_Y_MIN,
   resolvedNest,
   type PetSettings,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 
 export type PetSceneSurface = 'dock' | 'hero' | 'chatEmpty';
 

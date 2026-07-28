@@ -1,6 +1,6 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export interface BaseModalProps {
   isOpen: boolean;

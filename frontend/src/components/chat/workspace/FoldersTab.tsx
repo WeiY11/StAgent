@@ -15,7 +15,7 @@ import { useFolderTree, useFolderItems, type FolderTreeNode } from '@/hooks/useF
 import { useChatDraftStore } from '@/stores/chatDraft';
 import { useFoldersStore } from '@/stores/foldersStore';
 import { Badge } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 function isExpandable(node: FolderTreeNode): boolean {
   return (

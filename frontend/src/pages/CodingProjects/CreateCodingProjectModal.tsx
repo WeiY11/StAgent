@@ -6,7 +6,7 @@
 import { useTranslation } from 'react-i18next';
 import { Save, X } from 'lucide-react';
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { TemplateInfo } from '@/hooks/useCodingProjects';
 
 export interface CreateCodingProjectModalProps {

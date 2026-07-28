@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { MessageSquareText, Workflow } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { WorkflowsHubTab } from './workflowsHubTab';
 
 interface WorkflowsHubTabBarProps {

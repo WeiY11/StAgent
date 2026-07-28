@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { escapeHtml, highlightCode } from '@/lib/highlight';
-import { cn } from '@/lib/utils';
+import { escapeHtml, highlightCode } from '@/lib/utils/highlight';
+import { cn } from '@/lib/utils/utils';
 
 interface CodeSurfaceProps {
   /** Plain code body. Mutually exclusive with `diff`. */

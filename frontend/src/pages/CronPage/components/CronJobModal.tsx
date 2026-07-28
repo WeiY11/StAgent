@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Save } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Input, Select, Textarea, Button, Switch } from '@/components/ui';
 import { useCronJobNextRuns, type CronJobDetail, type CreateCronJobInput } from '@/controllers/API/queries/cron';
 import { useGetFlows } from '@/controllers/API/queries/flows';

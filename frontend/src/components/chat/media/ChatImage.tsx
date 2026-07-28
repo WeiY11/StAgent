@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import {
   extractApiFilePreviewId,

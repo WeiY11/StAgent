@@ -13,7 +13,7 @@ import {
   type Query,
 } from '@tanstack/react-query';
 import { apiClient, getAccessToken } from '@/api/client';
-import { getMachineFingerprint } from '@/lib/machineFingerprint';
+import { getMachineFingerprint } from '@/lib/auth/machineFingerprint';
 
 // ---------------------------------------------------------------------------
 // Schemas (mirror the Python Pydantic models)

@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { GitBranch } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   WorkflowMiniGraphCore,
   type TemplatePreviewUi,

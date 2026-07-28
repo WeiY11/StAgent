@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAccessToken } from '@/api/client';
-import { resolveEffectiveMime } from '@/lib/mimeForPreview';
+import { resolveEffectiveMime } from '@/lib/utils/mimeForPreview';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 

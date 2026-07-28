@@ -14,7 +14,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PageShell } from '@/components/layout/PageShell';
 import { Input } from '@/components/ui';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -24,7 +24,7 @@ import { useToast } from '@/components/ui/Toaster';
 import {
   CategoryIconBadge,
   CategoryInlineIcon,
-} from '@/lib/categoryIcons';
+} from '@/lib/utils/categoryIcons';
 import {
   useTemplates,
   useTemplateCategories,

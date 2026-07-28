@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client';
-import { parseStoredFlowData } from '@/lib/parseFlowDataFromApi';
+import { parseStoredFlowData } from '@/lib/workflow/parseFlowDataFromApi';
 
 export interface FlowData {
   id: string;

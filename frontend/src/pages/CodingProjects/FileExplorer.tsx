@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, ClipboardCopy, Copy, FileText, Folder, Loader2 } from 'lucide-react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { Badge, Button } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   useCodingProjectFile,
   useCodingProjectTree,

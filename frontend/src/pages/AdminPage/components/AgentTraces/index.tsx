@@ -9,7 +9,7 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 import { PageLoader } from '@/components/common/PageLoader';
 import { Paginator } from '@/components/common/Paginator';
 import { ChatTraceInspector } from '@/components/chat/ChatTraceInspector';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 type SubTab = 'runs' | 'byModel' | 'compare';
 

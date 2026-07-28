@@ -12,7 +12,7 @@ import {
   SkipForward,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { ResponsiveBreakpoint } from '@/components/ui/Button';
 
 type StatusType =

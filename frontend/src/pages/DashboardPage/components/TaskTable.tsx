@@ -16,7 +16,7 @@ import {
 import { Card, Button, Input, Badge, Select } from '@/components/ui';
 import type { Task, TaskType, TaskStatus } from '@/types/admin';
 import { useDashboardTasks } from '@/hooks/useDashboard';
-import { formatRelativeTime, cn } from '@/lib/utils';
+import { formatRelativeTime, cn } from '@/lib/utils/utils';
 
 const taskTypeConfig: Record<
   TaskType,

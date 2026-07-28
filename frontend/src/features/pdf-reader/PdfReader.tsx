@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Languages, Loader2, MessageSquarePlus, Sparkles, X } from 'lucide-react';
 import { useToast } from '@/components/ui/Toaster';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { usePdfDocument } from './usePdfDocument';
 import { usePdfResearchStore } from './store/pdfResearchStore';
 import { PdfToolbar } from './PdfToolbar';

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Code2, Pencil, Maximize2, Check, X, RotateCcw, Plus, Minus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   Dialog,
   DialogContent,

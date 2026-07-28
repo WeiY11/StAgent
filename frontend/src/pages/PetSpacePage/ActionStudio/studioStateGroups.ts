@@ -1,4 +1,4 @@
-import { type PetClipState, type PetIdleAnimation } from '@/lib/petSettings';
+import { type PetClipState, type PetIdleAnimation } from '@/lib/pet/petSettings';
 
 export const STUDIO_IDLE_SUBS: PetIdleAnimation[] = ['none', 'breath', 'blink', 'float', 'tailWag', 'hop'];
 

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export type BrandMascotSize = 'xs' | 'sm' | 'md' | 'lg';
 

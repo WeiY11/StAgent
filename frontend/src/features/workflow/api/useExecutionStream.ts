@@ -4,7 +4,7 @@ import {
   patchAssetTreeFileRef,
 } from '@/components/canvas/genUi/genUiMedia';
 import type { GenUiTreeV1 } from '@/types/genUi';
-import { openAuthedWebSocket } from '@/lib/authedTransport';
+import { openAuthedWebSocket } from '@/lib/auth/authedTransport';
 import {
   useExecutionOverlay,
   type NodeRunStatus,

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface AttachmentStripProps {
   files: File[];

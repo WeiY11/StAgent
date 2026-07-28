@@ -17,7 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { GenUiNode } from '@/types/genUi';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /** Fallback series hues when CSS vars are unavailable; readable on light + dark surfaces. */
 const SERIES_FALLBACK = [

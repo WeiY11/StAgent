@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { isAdminUser, userHasAnyPermission, userHasPermissions } from '@/lib/authUser';
+import { isAdminUser, userHasAnyPermission, userHasPermissions } from '@/lib/auth/authUser';
 import { useAuthStore } from '@/stores/auth';
 
 export function usePermissions() {

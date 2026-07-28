@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface PageLoaderProps extends HTMLAttributes<HTMLDivElement> {

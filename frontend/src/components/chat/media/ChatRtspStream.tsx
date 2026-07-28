@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/api/client';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
 

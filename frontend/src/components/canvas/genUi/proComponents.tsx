@@ -8,7 +8,7 @@
 
 import type { ReactNode } from 'react';
 import { Check, Loader2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { GenUiImage } from '@/components/canvas/genUi/GenUiImage';
 import { IconGlyph } from '@/components/canvas/genUi/IconGlyph';
 import { cardSurface, SHADOW_TOKENS } from '@/components/canvas/genUi/styles';

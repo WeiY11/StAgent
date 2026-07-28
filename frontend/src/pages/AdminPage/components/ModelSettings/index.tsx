@@ -11,7 +11,7 @@ import {
   useUsageTrends,
   useRequestLogs,
 } from '@/hooks/useAdmin';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { ModelUsageOverview } from './ModelUsageOverview';
 import { ModelUsageCharts } from './ModelUsageCharts';
 import { ModelUsageTables } from './ModelUsageTables';

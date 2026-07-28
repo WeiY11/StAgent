@@ -6,7 +6,7 @@ import { getChatProjectUnlockToken, useChatProjectStore } from '@/stores/chatPro
 import { buildComposerSendParams, getComposerModelMode, resetComposerAfterSend } from '@/stores/chatDraft';
 import { useArtifactStore } from '@/stores/artifact';
 import { useLayoutStore } from '@/stores/layout';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatPinnedStrip } from '@/components/chat/ChatPinnedStrip';
 import { ChatExecutionPanel } from '@/components/chat/ChatExecutionPanel';
@@ -20,11 +20,11 @@ import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { RightPanel } from '@/components/chat/RightPanel';
 import { ResearchPanel, usePdfResearchStore } from '@/features/pdf-reader';
 import type { Message, SendMessageParams } from '@/types/chat';
-import { handleChatStreamFailure, runChatStream } from '@/lib/runChatStream';
+import { handleChatStreamFailure, runChatStream } from '@/lib/stream/runChatStream';
 import { useAskUserResume } from '@/hooks/useAskUserResume';
 import { useMediaQuery } from '@/hooks/useMobile';
 import { extractApiFileDownloadId } from '@/components/chat/media/chatMediaUtils';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 
 /** Matches Tailwind `lg` — keep chat column mounted once (see ChatView layout). */
 const LG_MIN = '(min-width: 1024px)';

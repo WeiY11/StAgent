@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Info, X } from 'lucide-react';
 import { Button, Card, CardContent } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useProductMeta } from '@/hooks/useProductMeta';
 
 interface AboutDialogProps {

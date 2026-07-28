@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { petSpaceApi, type PetProject, type PetProjectFileRow } from '@/api/petSpace';
-import { isPetBuiltinAppearance, type PetBuiltinAppearance } from '@/lib/builtinPets';
-import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/petAppearanceMime';
-import { parsePetSettings, type PetSettings } from '@/lib/petSettings';
+import { isPetBuiltinAppearance, type PetBuiltinAppearance } from '@/lib/pet/builtinPets';
+import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
+import { parsePetSettings, type PetSettings } from '@/lib/pet/petSettings';
 import { usePetSpaceUiStore } from '@/stores/petSpaceUiStore';
 
 export interface PetDockPreview {

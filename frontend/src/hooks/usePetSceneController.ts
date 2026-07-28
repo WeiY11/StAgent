@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chat';
 import { usePrefersReducedMotion } from '@/hooks/useMobile';
-import type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
+import type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
 import {
   PET_SCENE_ACTION_KEYS,
   type PetSceneActionKey,
@@ -10,7 +10,7 @@ import {
   resolveActionWeights,
   resolvedBehavior,
   roamRangeFraction,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 
 const JUMP_MS = 700;
 const HAPPY_MS = 1200;

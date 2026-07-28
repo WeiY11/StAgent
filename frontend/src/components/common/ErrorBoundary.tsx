@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '../ui/Button';
 
 interface ErrorBoundaryProps {

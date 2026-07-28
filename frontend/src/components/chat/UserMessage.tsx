@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Check, Pencil, FileText, Puzzle, Pin } from 'lucide-react';
-import { cn, formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/Button';
-import { parseUserMessageRefs } from '@/lib/parseUserMessageRefs';
+import { parseUserMessageRefs } from '@/lib/chat/parseUserMessageRefs';
 import { useChatStore } from '@/stores/chat';
 import type { Message } from '@/types/chat';
 import { AttachmentCard } from './AttachmentCard';

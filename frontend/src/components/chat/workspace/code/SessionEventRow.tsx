@@ -10,8 +10,8 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { AgentSessionEvent } from '@/lib/agentSessionEvents';
+import { cn } from '@/lib/utils/utils';
+import type { AgentSessionEvent } from '@/lib/agent/agentSessionEvents';
 import { eventKindMeta } from './eventMeta';
 import { CodeSurface } from './CodeSurface';
 

@@ -18,11 +18,11 @@ import {
   Pin,
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { cn, formatDate } from '@/lib/utils';
-import { redactLargeRawToolArguments } from '@/lib/toolCallArgsDisplay';
-import { isProjectFamilyTool } from '@/lib/projectToolEnvelope';
+import { cn, formatDate } from '@/lib/utils/utils';
+import { redactLargeRawToolArguments } from '@/lib/agent/toolCallArgsDisplay';
+import { isProjectFamilyTool } from '@/lib/agent/projectToolEnvelope';
 import { apiClient } from '@/api/client';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient } from '@/lib/utils/queryClient';
 import { useChatStore } from '@/stores/chat';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { GenUiInline } from '@/components/canvas/GenUiInline';
@@ -35,9 +35,9 @@ import { ChatAgentRolePet } from '@/components/chat/ChatAgentRolePet';
 import { PetSpeechBubble } from '@/components/chat/PetSpeechBubble';
 import { useArtifactStore } from '@/stores/artifact';
 import { useGenUiStore, genUiTreeKey } from '@/stores/genUi';
-import { regenerateAssistantReply } from '@/lib/regenerateAssistantReply';
-import { collectAgentImageArtifacts } from '@/lib/agentImageArtifacts';
-import { selectVisibleMessageAttachments } from '@/lib/chatAttachments';
+import { regenerateAssistantReply } from '@/lib/chat/regenerateAssistantReply';
+import { collectAgentImageArtifacts } from '@/lib/agent/agentImageArtifacts';
+import { selectVisibleMessageAttachments } from '@/lib/chat/chatAttachments';
 import type {
   Attachment,
   Message,

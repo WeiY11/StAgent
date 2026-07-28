@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 
 export interface NodeParameter {

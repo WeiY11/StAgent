@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Menu, Bell, Sun, Moon, Monitor, Globe } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useThemeStore } from '@/stores/theme';
 import { changeAppLanguage } from '@/i18n';
 import { Button } from '../ui/Button';

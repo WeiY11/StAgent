@@ -13,8 +13,8 @@ import {
   CircleDashed,
   Loader2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { AgentSessionEvent } from '@/lib/agentSessionEvents';
+import { cn } from '@/lib/utils/utils';
+import type { AgentSessionEvent } from '@/lib/agent/agentSessionEvents';
 import { eventKindMeta } from './eventMeta';
 
 interface RunGroupsViewProps {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { defaultBehaviorSettings, mergePetSettings, parsePetSettings, roamRangeFraction } from '@/lib/petSettings';
+import { defaultBehaviorSettings, mergePetSettings, parsePetSettings, roamRangeFraction } from '@/lib/pet/petSettings';
 import { usePetSceneController } from './usePetSceneController';
 
 const streamingRef = { current: false };

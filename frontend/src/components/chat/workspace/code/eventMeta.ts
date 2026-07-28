@@ -17,7 +17,7 @@ import {
   Terminal,
   type LucideIcon,
 } from 'lucide-react';
-import type { AgentEventKind } from '@/lib/agentSessionEvents';
+import type { AgentEventKind } from '@/lib/agent/agentSessionEvents';
 
 export interface EventKindMeta {
   icon: LucideIcon;

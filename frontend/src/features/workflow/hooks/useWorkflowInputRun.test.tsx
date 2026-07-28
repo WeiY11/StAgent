@@ -5,7 +5,7 @@ import {
   runChatWorkflowStep,
   startChatWorkflowEmbedRun,
 } from '@/components/chat/workflow/chatWorkflowRunActions';
-import { dispatchGenUiAction } from '@/lib/genUiActionBus';
+import { dispatchGenUiAction } from '@/lib/canvas/genUiActionBus';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import { useWorkflowInputRun } from './useWorkflowInputRun';
 
@@ -18,7 +18,7 @@ vi.mock('@/components/chat/workflow/chatWorkflowRunActions', () => ({
   runChatWorkflowStep: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@/lib/genUiActionBus', () => ({
+vi.mock('@/lib/canvas/genUiActionBus', () => ({
   dispatchGenUiAction: vi.fn(),
 }));
 

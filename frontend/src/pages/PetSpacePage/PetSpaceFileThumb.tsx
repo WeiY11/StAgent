@@ -1,8 +1,8 @@
 import { Image as ImageIcon, FileIcon } from 'lucide-react';
 import type { PetProjectFileRow } from '@/api/petSpace';
 import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
-import { cn } from '@/lib/utils';
-import { isPetRenderableImageRow } from '@/lib/petAppearanceMime';
+import { cn } from '@/lib/utils/utils';
+import { isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
 
 export function FileThumb({
   row,

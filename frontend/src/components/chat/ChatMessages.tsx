@@ -2,7 +2,7 @@ import { Fragment, memo, useEffect, useRef, useState, useCallback, useMemo } fro
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { BookOpen, LayoutTemplate, BarChart3, PawPrint, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useDailyChatGreetings } from '@/hooks/useDailyChatGreetings';
 import { PetSceneStage } from '@/components/pet/PetSceneStage';
 import { useChatStore } from '@/stores/chat';

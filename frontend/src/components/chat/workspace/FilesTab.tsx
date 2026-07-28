@@ -13,21 +13,21 @@ import {
   FileText,
 } from 'lucide-react';
 import { apiClient } from '@/api/client';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { useDocuments, usePromoteToKnowledge } from '@/hooks/useKnowledge';
-import { getOrCreateKnowledgeSessionId } from '@/lib/knowledgeSession';
+import { getOrCreateKnowledgeSessionId } from '@/lib/knowledge/knowledgeSession';
 import { useChatDraftStore } from '@/stores/chatDraft';
 import { useChatStore } from '@/stores/chat';
 import { useChatProjectStore } from '@/stores/chatProjects';
 import { useArtifactStore } from '@/stores/artifact';
 import { useRealtimeFileSync } from '@/hooks/useRealtimeFileSync';
-import { cn, isUuid } from '@/lib/utils';
+import { cn, isUuid } from '@/lib/utils/utils';
 import type { ArtifactType } from '@/types/artifact';
 import { UniversalFilePreview } from '@/components/files/UniversalFilePreview';
 import type { Attachment, Message } from '@/types/chat';
 import { normalizeAttachmentList } from '@/types/chat';
-import { collectSessionEditPaths } from '@/lib/sessionProjectEdits';
-import { canvasIframeSandbox, withCanvasPreviewJs } from '@/lib/canvasPreviewJs';
+import { collectSessionEditPaths } from '@/lib/chat/sessionProjectEdits';
+import { canvasIframeSandbox, withCanvasPreviewJs } from '@/lib/canvas/canvasPreviewJs';
 import type { FolderFileItem } from '@/hooks/useFolders';
 import { getFileExtensionIcon } from './artifactIcon';
 import { DocGenerationLivePreview } from './DocGenerationLivePreview';

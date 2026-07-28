@@ -1,6 +1,6 @@
 import { Fragment, forwardRef, useMemo, type ReactNode, type HTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { NAV_RAIL_FLOAT_CLASSES } from '@/components/layout/navRailLayout';
 import { useLayoutStore } from '@/stores/layout';
 import { useMobile } from '@/hooks/useMobile';

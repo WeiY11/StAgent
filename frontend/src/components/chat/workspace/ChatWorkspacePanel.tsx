@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { EMPTY_MESSAGE_LIST } from '@/lib/emptyChatMessages';
-import { countProjectFamilyToolCalls } from '@/lib/projectToolEnvelope';
+import { cn } from '@/lib/utils/utils';
+import { EMPTY_MESSAGE_LIST } from '@/lib/chat/emptyChatMessages';
+import { countProjectFamilyToolCalls } from '@/lib/agent/projectToolEnvelope';
 import { isWorkspaceTab, useLayoutStore } from '@/stores/layout';
 import { useSnippetsStore } from '@/stores/snippets';
 import { useChatStore } from '@/stores/chat';

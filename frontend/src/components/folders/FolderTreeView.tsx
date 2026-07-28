@@ -8,7 +8,7 @@ import {
   Plus,
   MoreHorizontal,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui';
 import type { FolderTreeNode } from '@/hooks/useFolders';
 

@@ -1,5 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export type ResponsiveBreakpoint = 'sm' | 'md' | 'lg' | 'xl';
 

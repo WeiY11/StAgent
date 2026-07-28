@@ -8,11 +8,11 @@ import {
   Library,
   Puzzle,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useFolderList } from '@/hooks/useFolders';
 import { useArtifactStore } from '@/stores/artifact';
 import { useDocuments } from '@/hooks/useKnowledge';
-import { buildKnowledgeChatToken } from '@/lib/knowledgeChatToken';
+import { buildKnowledgeChatToken } from '@/lib/chat/knowledgeChatToken';
 
 export interface MentionItem {
   id: string;

@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronsDownUp, ChevronsUpDown, ClipboardCopy, WrapText } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui';
-import type { AgentEventKind, SessionEventSummary } from '@/lib/agentSessionEvents';
+import type { AgentEventKind, SessionEventSummary } from '@/lib/agent/agentSessionEvents';
 import { eventKindMeta } from './eventMeta';
 
 interface SessionHeaderProps {

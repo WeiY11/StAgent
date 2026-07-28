@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, expect, afterEach, it } from 'vitest';
-import type { AuthUser } from '@/lib/authUser';
+import type { AuthUser } from '@/lib/auth/authUser';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/auth';
 

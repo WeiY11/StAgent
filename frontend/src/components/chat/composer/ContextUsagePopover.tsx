@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient } from '@/lib/utils/queryClient';
 import { useChatStore } from '@/stores/chat';
 import { usePromptPreview } from '@/hooks/usePromptPreview';
 import { useDefaultModel, useProviders } from '@/hooks/useAdmin';
-import { resolveContextBudgetTokens } from '@/lib/contextBudget';
+import { resolveContextBudgetTokens } from '@/lib/utils/contextBudget';
 import { apiClient } from '@/api/client';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Button } from '@/components/ui/Button';
 import type { Message } from '@/types/chat';

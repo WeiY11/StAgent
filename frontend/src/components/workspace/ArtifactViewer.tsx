@@ -12,7 +12,7 @@ import {
 import { useState, useRef, lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useArtifactStore } from '@/stores/artifact';
 import { getArtifactIcon } from '@/components/chat/workspace/artifactIcon';
 import { Markdown } from '@/components/chat/markdown/Markdown';

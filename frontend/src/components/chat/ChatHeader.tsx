@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useChatStore } from '@/stores/chat';
 import { useLayoutStore } from '@/stores/layout';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface ChatHeaderProps {
   onNewSession: () => void;

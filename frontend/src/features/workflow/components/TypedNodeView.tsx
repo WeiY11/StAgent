@@ -12,7 +12,7 @@ import {
   type GenUiMediaItem,
 } from '@/components/canvas/genUi/genUiMedia';
 import { extractApiFilePreviewId } from '@/components/chat/media/chatMediaUtils';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useNodeDefinition } from '../graph/registryContext';
 import type { InputSlot } from '../graph/objectInfo';
 import type { WorkflowNodeData } from '../graph/serialization';

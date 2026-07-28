@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Route,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useChatStore } from '@/stores/chat';
 import { useAgentMemorySnapshot } from '@/hooks/useAgentMemorySnapshot';
 import { usePromptPreview } from '@/hooks/usePromptPreview';

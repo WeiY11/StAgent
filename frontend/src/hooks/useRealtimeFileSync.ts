@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAccessToken } from '@/api/client';
-import { getMachineFingerprint } from '@/lib/machineFingerprint';
+import { getMachineFingerprint } from '@/lib/auth/machineFingerprint';
 
 type RealtimeFileEvent =
   | 'uploaded'

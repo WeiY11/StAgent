@@ -8,7 +8,7 @@ import {
   useCallback,
 } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface AccordionContextValue {
   value: string | string[];

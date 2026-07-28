@@ -34,7 +34,7 @@ import {
 import { PageShell } from '@/components/layout/PageShell';
 import { useToolsStore } from '@/stores/tools';
 import { useToolsList, useToolDetail, useToggleTool, useUpdateToolConfig } from '@/hooks/useTools';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PageLoader } from '@/components/common/PageLoader';
 import type { ToolCategory } from '@/types/admin';
 

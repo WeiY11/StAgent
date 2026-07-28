@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 
 export interface FileItem {

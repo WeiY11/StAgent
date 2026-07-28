@@ -1,8 +1,8 @@
 import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { usePetDockPreview } from '@/hooks/usePetDockPreview';
 import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
-import { resolvedNest } from '@/lib/petSettings';
+import { resolvedNest } from '@/lib/pet/petSettings';
 
 interface PetNestProps {
   active: boolean;

@@ -15,7 +15,7 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { GenUiNode, GenUiTreeV1 } from '@/types/genUi';
 import type { GenUiRenderContextValue } from '@/components/canvas/genUi/GenUiRenderContext';
 import { exportGenUiTreeToPdf } from '@/components/canvas/genUi/useGenUiExportPdf';

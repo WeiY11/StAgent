@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Brain, FileCode2, FileText, Monitor, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { WorkspaceTab } from '@/stores/layout';
 
 interface WorkspaceTabBarProps {

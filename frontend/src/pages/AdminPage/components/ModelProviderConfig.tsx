@@ -68,7 +68,7 @@ import type {
   SpeedTestResult,
 } from '@/types/admin';
 import { adminApi } from '@/api/admin';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   formatCompactNumber,
   StatCard,

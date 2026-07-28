@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type MessageStatus = 'pending' | 'streaming' | 'complete' | 'error';

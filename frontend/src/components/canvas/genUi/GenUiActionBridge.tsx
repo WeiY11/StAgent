@@ -6,11 +6,11 @@ import { getChatProjectUnlockToken, useChatProjectStore } from '@/stores/chatPro
 import { useArtifactStore } from '@/stores/artifact';
 import { useGenUiStore } from '@/stores/genUi';
 import { getComposerModelMode } from '@/stores/chatDraft';
-import { generateId } from '@/lib/utils';
-import { handleChatStreamFailure, runChatStream } from '@/lib/runChatStream';
-import { registerGenUiActionAdapters } from '@/lib/genUiActionBus';
+import { generateId } from '@/lib/utils/utils';
+import { handleChatStreamFailure, runChatStream } from '@/lib/stream/runChatStream';
+import { registerGenUiActionAdapters } from '@/lib/canvas/genUiActionBus';
 import { apiClient } from '@/api/client';
-import { openAuthenticatedFilePreview } from '@/lib/downloadAuthenticatedFile';
+import { openAuthenticatedFilePreview } from '@/lib/auth/downloadAuthenticatedFile';
 import { resumeWorkflowExecution } from '@/hooks/useExecutionResume';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { useExecutionSessionStore } from '@/stores/executionSession';

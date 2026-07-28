@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, ExternalLink, GitBranch } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { Message } from '@/types/chat';
 import { useExecutionStream } from '@/features/workflow/api/useExecutionStream';
 import { WorkflowOperationPanel } from '@/features/workflow/components/WorkflowOperationPanel';

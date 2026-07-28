@@ -9,8 +9,8 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAccessToken } from '@/api/client';
-import { cn } from '@/lib/utils';
-import type { OfficePreviewRoute } from '@/lib/mimeForPreview';
+import { cn } from '@/lib/utils/utils';
+import type { OfficePreviewRoute } from '@/lib/utils/mimeForPreview';
 
 export type OfficeOoxmlLayout = 'default' | 'fill';
 

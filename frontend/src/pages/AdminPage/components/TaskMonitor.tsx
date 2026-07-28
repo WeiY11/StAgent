@@ -19,7 +19,7 @@ import {
   useRetryTask,
 } from '@/hooks/useAdmin';
 import type { Task, TaskStatus } from '@/types/admin';
-import { formatDate, formatRelativeTime } from '@/lib/utils';
+import { formatDate, formatRelativeTime } from '@/lib/utils/utils';
 
 const STATUS_VARIANTS: Record<
   TaskStatus,

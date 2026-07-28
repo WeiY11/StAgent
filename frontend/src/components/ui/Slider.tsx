@@ -1,5 +1,5 @@
 import { forwardRef, useState, useRef, useCallback, type HTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface SliderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'defaultValue'> {
   value?: number[];

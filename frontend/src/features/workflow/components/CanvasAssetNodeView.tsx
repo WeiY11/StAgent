@@ -2,7 +2,7 @@ import { memo, useCallback, useRef, useState } from 'react';
 import { Handle, NodeResizer, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { Box, FileText, File as FileIcon, Minus, Plus, RotateCcw, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import {
   extractApiFilePreviewId,

@@ -15,8 +15,8 @@ import {
   resolveMarkdownImageSrcFromAttachments,
   rewriteMarkdownDataImages,
 } from '@/components/chat/media/chatMediaUtils';
-import { resolveCodingProjectPreviewHref } from '@/lib/previewUrl';
-import { cn } from '@/lib/utils';
+import { resolveCodingProjectPreviewHref } from '@/lib/utils/previewUrl';
+import { cn } from '@/lib/utils/utils';
 import type { Attachment } from '@/types/chat';
 import { CodeBlock } from './CodeBlock';
 import { MermaidDiagram } from './MermaidDiagram';

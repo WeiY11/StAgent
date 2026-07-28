@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 
 type ConfirmationType = 'info' | 'warning' | 'danger';

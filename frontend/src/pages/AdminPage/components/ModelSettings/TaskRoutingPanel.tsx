@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardContent, Button, Select } from '@/components/ui';
 import { PageLoader } from '@/components/common/PageLoader';
 import { useTaskRouting, useSetTaskRouting } from '@/hooks/useAdmin';
-import { TASK_KEYS } from '@/lib/modelTasks';
+import { TASK_KEYS } from '@/lib/utils/modelTasks';
 import type { ModelProvider, ModelTaskKey, TaskBinding } from '@/types/admin';
 
 interface TaskRoutingPanelProps {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Clock, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Input } from '@/components/ui';
 import { usePreviewNextRuns } from '@/controllers/API/queries/cron';
 

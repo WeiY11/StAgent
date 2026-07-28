@@ -1,7 +1,7 @@
 import { Suspense, lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import type { LucideProps } from 'lucide-react';
 import dynamicIconImports from 'lucide-react/dynamicIconImports';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { GenUiNode } from '@/types/genUi';
 
 const imports = dynamicIconImports as Record<

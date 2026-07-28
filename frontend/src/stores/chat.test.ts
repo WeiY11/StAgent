@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TFunction } from 'i18next';
 import type { ChatSession, Message } from '@/types/chat';
 import { apiClient } from '@/api/client';
-import { applyChatStreamEvent } from '@/lib/chatStreamEvents';
+import { applyChatStreamEvent } from '@/lib/stream/chatStreamEvents';
 import { dedupeMessagesByIdPreserveOrder, useChatStore } from './chat';
 import { useExecutionSessionStore } from './executionSession';
 

@@ -4,8 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { Button, Input } from '@/components/ui';
 import { petSpaceApi, type PetProjectFileRow } from '@/api/petSpace';
 import { fetchAuthedFilePreviewBlob } from '@/hooks/useAuthedFileBlobUrl';
-import { isPetRenderableImageRow } from '@/lib/petAppearanceMime';
-import { loadImageElement, spriteSheetToGifBlob, type SpriteSheetGifMeta } from '@/lib/spriteSheetToGif';
+import { isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
+import { loadImageElement, spriteSheetToGifBlob, type SpriteSheetGifMeta } from '@/lib/pet/spriteSheetToGif';
 
 export function SpriteSheetGifTool({
   projectId,

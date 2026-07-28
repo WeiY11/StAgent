@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/ui/Toaster';
-import { downloadAuthenticatedFile, openAuthenticatedFilePreview } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile, openAuthenticatedFilePreview } from '@/lib/auth/downloadAuthenticatedFile';
 
 export function useFilePreviewActions(
   fileId: string,

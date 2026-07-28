@@ -14,7 +14,7 @@ import {
   isValidElement,
   useCallback,
 } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface PopoverContextValue {
   open: boolean;

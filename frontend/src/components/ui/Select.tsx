@@ -1,6 +1,6 @@
 import { forwardRef, type SelectHTMLAttributes } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
   error?: string;

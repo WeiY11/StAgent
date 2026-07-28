@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 export type AlertPosition = 'top' | 'top-right' | 'top-left' | 'bottom' | 'bottom-right' | 'bottom-left';

@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import type { Attachment } from '@/types/chat';
 import { AttachmentCard } from './AttachmentCard';
 import { ChatImage } from './media/ChatImage';
