@@ -17,3 +17,8 @@ updates:
       npm-deps:
         patterns:
           - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/desktop/electron"
+    schedule:
+      interval: "weekly"

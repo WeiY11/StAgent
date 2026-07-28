@@ -1,0 +1,49 @@
+name: Fast Backend Contracts
+
+on:
+  workflow_call:
+    inputs:
+      run:
+        type: boolean
+        default: true
+
+jobs:
+  fast-contracts:
+    name: Fast Backend Contracts
+    if: inputs.run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+        working-directory: backend
+
+      - name: Run fast contracts
+        env:
+          SECRET_KEY: test-secret-key
+        run: >-
+          uv run pytest
+          tests/test_run_store_redis.py
+          tests/test_execution_run_registry_lifecycle.py
+          tests/test_bm25.py
+          tests/test_memory_maintenance_bulk.py
+          tests/workflow/test_execution_list.py
+          tests/test_api_manifest.py
+          tests/test_router.py
+          tests/test_openapi_schema.py
+          tests/test_execution_topology_invariants.py
+          -q
+        working-directory: backend

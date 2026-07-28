@@ -1,0 +1,57 @@
+name: Backend Tests
+
+on:
+  workflow_call:
+    inputs:
+      run:
+        type: boolean
+        default: true
+      coverage:
+        type: boolean
+        default: false
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    if: inputs.run
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+        working-directory: backend
+
+      - name: Run tests (with coverage)
+        if: inputs.coverage
+        env:
+          SECRET_KEY: test-secret-key
+        run: uv run python scripts/run_default_tests.py --fail-fast --cov --cov-fail-under 60 --cov-report-xml coverage.xml -- -q --durations=40
+        working-directory: backend
+
+      - name: Run tests
+        if: ${{ !inputs.coverage }}
+        env:
+          SECRET_KEY: test-secret-key
+        run: uv run python scripts/run_default_tests.py --fail-fast -- -q --durations=40
+        working-directory: backend
+
+      - name: Upload coverage
+        if: inputs.coverage && always() && hashFiles('backend/coverage.xml') != ''
+        uses: codecov/codecov-action@v7
+        with:
+          files: backend/coverage.xml
+          flags: backend

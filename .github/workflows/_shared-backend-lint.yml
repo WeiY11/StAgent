@@ -1,0 +1,54 @@
+name: Backend Lint
+
+on:
+  workflow_call:
+    inputs:
+      run:
+        type: boolean
+        default: true
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    if: inputs.run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+        working-directory: backend
+
+      # ── Blocking gates ─────────────────────────────────────────────
+
+      - name: "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
+        run: uv run ruff check leagent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
+        working-directory: backend
+
+      - name: "Mypy (runtime · sdk · api · config · db · file)"
+        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py leagent/config leagent/db leagent/file
+        working-directory: backend
+
+      # ── Advisory reports (non-blocking) ─────────────────────────────
+
+      - name: "Ruff full report (advisory)"
+        run: uv run ruff check leagent/ --output-format concise
+        working-directory: backend
+        continue-on-error: true
+
+      - name: "Ruff format report (advisory)"
+        run: uv run ruff format --check leagent/
+        working-directory: backend
+        continue-on-error: true

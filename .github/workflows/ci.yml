@@ -39,262 +39,48 @@ jobs:
     name: Backend Lint
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-        working-directory: backend
-
-      # ── Blocking gates ─────────────────────────────────────────────
-      # These steps fail the job on violation. Expand --select as debt is
-      # cleaned up (track via `ruff check --statistics`).
-
-      - name: "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
-        run: uv run ruff check leagent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
-        working-directory: backend
-
-      - name: "Mypy (runtime · sdk · api · config · db · file)"
-        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py leagent/config leagent/db leagent/file
-        working-directory: backend
-
-      # ── Advisory reports ────────────────────────────────────────────
-      # Rationale: remaining violations across TC/SIM/N/B/W categories
-      # (style + modernisation debt, not correctness bugs).
-      # Kept non-blocking while subsystems progressively fix.
-
-      - name: "Ruff full report (advisory)"
-        run: uv run ruff check leagent/ --output-format concise
-        working-directory: backend
-        continue-on-error: true
-
-      - name: "Ruff format report (advisory)"
-        run: uv run ruff format --check leagent/
-        working-directory: backend
-        continue-on-error: true
+    uses: ./.github/workflows/_shared-backend-lint.yml
 
   fast-contracts:
     name: Fast Backend Contracts
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-        working-directory: backend
-
-      - name: Run fast contracts
-        env:
-          SECRET_KEY: test-secret-key
-        run: >-
-          uv run pytest
-          tests/test_run_store_redis.py
-          tests/test_execution_run_registry_lifecycle.py
-          tests/test_bm25.py
-          tests/test_memory_maintenance_bulk.py
-          tests/workflow/test_execution_list.py
-          tests/test_api_manifest.py
-          tests/test_router.py
-          tests/test_openapi_schema.py
-          tests/test_execution_topology_invariants.py
-          -q
-        working-directory: backend
+    uses: ./.github/workflows/_shared-fast-contracts.yml
 
   backend-test:
     name: Backend Tests
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-        working-directory: backend
-
-      - name: Run tests
-        env:
-          SECRET_KEY: test-secret-key
-        run: uv run python scripts/run_default_tests.py --fail-fast --cov --cov-fail-under 60 --cov-report-xml coverage.xml -- -q --durations=40
-        working-directory: backend
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v7
-        if: always() && hashFiles('backend/coverage.xml') != ''
-        with:
-          files: backend/coverage.xml
-          flags: backend
+    uses: ./.github/workflows/_shared-backend-test.yml
+    with:
+      coverage: true
 
   postgres-contract:
     name: PostgreSQL Contract
     needs: changes
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: leagent
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: leagent
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U leagent"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
-      SECRET_KEY: test-secret-key
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v8.3.2
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: uv sync --extra dev --extra postgres
-        working-directory: backend
-      - run: uv run pytest tests/integration/test_postgres_smoke.py -q --run-live
-        working-directory: backend
+    uses: ./.github/workflows/_shared-postgres-contract.yml
 
-  frontend-lint:
-    name: Frontend Lint
+  security-scan:
+    name: Security Scan
+    needs: changes
+    if: >-
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.frontend == 'true' ||
+      needs.changes.outputs.ci == 'true'
+    uses: ./.github/workflows/_shared-security-scan.yml
+    with:
+      audit-python: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true' }}
+      audit-node: ${{ needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true' }}
+
+  frontend:
+    name: Frontend
     needs: changes
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-
-      - name: Run ESLint
-        run: npm run lint
-        working-directory: frontend
-
-      - name: Run TypeScript check
-        run: npm run type-check
-        working-directory: frontend
-
-  frontend-test:
-    name: Frontend Tests
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-
-      - name: Run tests
-        run: npm run test -- --run --coverage
-        working-directory: frontend
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v7
-        if: always() && hashFiles('frontend/coverage/lcov.info') != ''
-        with:
-          files: frontend/coverage/lcov.info
-          flags: frontend
-
-  frontend-build:
-    name: Frontend Build
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-
-      - name: Build
-        run: npm run build
-        working-directory: frontend
-
-      - name: Check bundle budget
-        run: npm run check:bundle
-        working-directory: frontend
-
-      - name: Verify non-empty CSS in dist
-        run: |
-          set -e
-          test -d frontend/dist
-          count=$(find frontend/dist -type f -name '*.css' ! -empty | wc -l)
-          test "$count" -ge 1
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: frontend-build
-          path: frontend/dist/
-          if-no-files-found: error
+    uses: ./.github/workflows/_shared-frontend.yml
+    with:
+      coverage: true
+      upload-build: true
 
   desktop-test:
     name: Desktop Tests
@@ -325,7 +111,6 @@ jobs:
 
   docker-build:
     name: Docker Build
-    runs-on: ubuntu-latest
     needs:
       - changes
       - backend-lint
@@ -333,116 +118,11 @@ jobs:
       - backend-test
       - postgres-contract
       - security-scan
-      - frontend-lint
-      - frontend-build
-      - frontend-test
+      - frontend
       - desktop-test
     if: >-
       always() &&
       !failure() &&
       !cancelled() &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true')
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/Dockerfile
-          target: production
-          push: false
-          load: true
-          tags: leagent:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Start built image
-        run: |
-          docker run -d --name leagent-smoke \
-            -p 127.0.0.1:18000:8000 \
-            -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
-            -e LEAGENT_SECURITY_ENFORCE_AUTH=false \
-            leagent:test
-
-      - name: Wait for /health and /api/v1/health/ready
-        run: |
-          set -e
-          for path in /health /api/v1/health/ready; do
-            for i in $(seq 1 60); do
-              if curl -fsS "http://127.0.0.1:18000${path}" >/dev/null; then
-                echo "ok: ${path}"
-                break
-              fi
-              if [ "$i" -eq 60 ]; then
-                echo "timed out waiting for ${path}" >&2
-                exit 1
-              fi
-              sleep 2
-            done
-          done
-
-      - name: Verify runtime imports inside the image
-        run: |
-          docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
-
-      - name: Container logs and cleanup
-        if: always()
-        run: |
-          docker logs leagent-smoke || true
-          docker rm -f leagent-smoke || true
-
-  security-scan:
-    name: Security Scan
-    needs: changes
-    if: >-
-      needs.changes.outputs.backend == 'true' ||
-      needs.changes.outputs.frontend == 'true' ||
-      needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-
-      - name: Set up Python
-        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install pip-audit
-        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-        run: python -m pip install pip-audit
-
-      - name: Export Python production requirements
-        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-        run: uv export --frozen --no-hashes --no-dev --no-emit-project --output-file requirements-audit.txt
-        working-directory: backend
-
-      - name: Audit Python production dependencies
-        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
-        run: pip-audit --requirement requirements-audit.txt --desc
-        working-directory: backend
-
-      - name: Set up Node.js
-        if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Audit npm dependencies
-        if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
-        run: npm audit --audit-level=critical
-        working-directory: frontend
+    uses: ./.github/workflows/_shared-docker-smoke.yml
