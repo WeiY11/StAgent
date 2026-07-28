@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAccessToken } from '@/api/client';
-import { injectCanvasPreviewBase } from '@/lib/canvasPreviewDoc';
+import { injectCanvasPreviewBase } from '@/lib/canvas/canvasPreviewDoc';
 
 export type CanvasPreviewDocState = {
   /** Fetched HTML suitable for iframe ``srcDoc`` (API canvas preview). */

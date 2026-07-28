@@ -5,7 +5,7 @@ import {
   extractApiFileDownloadId,
   extractApiFilePreviewId,
 } from '@/components/chat/media/chatMediaUtils';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { CanvasMesh3DPreview } from '@/features/workflow/components/CanvasMesh3DPreview';
 import { useResolvedSrc } from './NodeMediaPreview';
 

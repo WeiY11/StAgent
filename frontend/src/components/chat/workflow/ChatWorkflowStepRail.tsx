@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Loader2, Check, AlertCircle, Circle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useExecutionStream } from '@/features/workflow/api/useExecutionStream';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import type { ChatWorkflowStepModel, ChatWorkflowStepRunRecord } from '@/types/chat';

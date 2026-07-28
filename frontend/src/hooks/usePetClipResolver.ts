@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PetProjectFileRow } from '@/api/petSpace';
 import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
-import { builtinPetSvgUrl, isPetBuiltinAppearance } from '@/lib/builtinPets';
-import { effectivePetImageMime } from '@/lib/petAppearanceMime';
-import { resolvePetClip, type PetClipBinding, type PetClipBehaviorKey, type PetClipState, type PetSettings } from '@/lib/petSettings';
-import type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
-import type { PetIdleAnimation } from '@/lib/petSettings';
+import { builtinPetSvgUrl, isPetBuiltinAppearance } from '@/lib/pet/builtinPets';
+import { effectivePetImageMime } from '@/lib/pet/petAppearanceMime';
+import { resolvePetClip, type PetClipBinding, type PetClipBehaviorKey, type PetClipState, type PetSettings } from '@/lib/pet/petSettings';
+import type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
+import type { PetIdleAnimation } from '@/lib/pet/petSettings';
 
 const ONCE_FALLBACK_MS = 2_800;
 

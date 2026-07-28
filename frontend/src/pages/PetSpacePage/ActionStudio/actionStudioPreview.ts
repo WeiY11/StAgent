@@ -1,8 +1,8 @@
-import { previewInputForVisual } from '@/lib/petActionCatalog';
-import type { PetClipState } from '@/lib/petSettings';
-import type { PetBehaviorSettings, PetIdleAnimation } from '@/lib/petSettings';
-import type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
-import { PET_ACTION_VISUALS } from '@/lib/petActionCatalog';
+import { previewInputForVisual } from '@/lib/pet/petActionCatalog';
+import type { PetClipState } from '@/lib/pet/petSettings';
+import type { PetBehaviorSettings, PetIdleAnimation } from '@/lib/pet/petSettings';
+import type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
+import { PET_ACTION_VISUALS } from '@/lib/pet/petActionCatalog';
 import { STUDIO_IDLE_SUBS } from './studioStateGroups';
 
 /**

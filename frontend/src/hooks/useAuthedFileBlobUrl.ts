@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAccessToken } from '@/api/client';
-import { effectivePetImageMime } from '@/lib/petAppearanceMime';
+import { effectivePetImageMime } from '@/lib/pet/petAppearanceMime';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 

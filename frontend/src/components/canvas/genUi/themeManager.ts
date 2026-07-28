@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { cardSurface, type CardSurfaceVariant } from '@/components/canvas/genUi/styles';
 
 export type { CardSurfaceVariant };

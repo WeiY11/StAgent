@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useContext, useMemo, useState, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowRight, ArrowUp, Minus, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 import type { GenUiNode, GenUiTreeV1 } from '@/types/genUi';
 import type { GenUiRenderContextValue } from '@/components/canvas/genUi/GenUiRenderContext';
@@ -32,7 +32,7 @@ import {
   getThemedCardContentClassName,
   type CardSurfaceVariant,
 } from '@/components/canvas/genUi/themeManager';
-import { dispatchGenUiAction } from '@/lib/genUiActionBus';
+import { dispatchGenUiAction } from '@/lib/canvas/genUiActionBus';
 import {
   GenUiForm,
   GenUiFormField,

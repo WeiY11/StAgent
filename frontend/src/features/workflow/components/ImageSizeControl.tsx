@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Link2, Link2Off } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { InputSlot } from '../graph/objectInfo';
 
 interface RatioPreset {

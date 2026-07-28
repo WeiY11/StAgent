@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GitCommit as GitCommitIcon, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button, Sheet, SheetContent } from '@/components/ui';
 import {
   useProjectGitDiff,

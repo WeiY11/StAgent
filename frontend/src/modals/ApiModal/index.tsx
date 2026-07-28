@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 
 interface ApiModalProps {

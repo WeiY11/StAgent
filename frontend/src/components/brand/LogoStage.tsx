@@ -1,14 +1,14 @@
 import { memo, useEffect, useState, useMemo, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   getLogoBackdropStyle,
   getMinimalBrandMarkStyle,
   getMinimalBrandTitleStyle,
   isMinimalBackdrop,
   MINIMAL_BRAND_MARK_SRC,
-} from '@/lib/brandingBackdrop';
+} from '@/lib/utils/brandingBackdrop';
 import { useTheme } from '@/hooks/useTheme';
 import { useBrandingStore, resolveDisplayName, type BrandFontPreset } from '@/stores/branding';
 import { AppLogo } from './AppLogo';

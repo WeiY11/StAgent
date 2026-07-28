@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { ProductMetaProvider } from '@/hooks/useProductMeta';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient } from '@/lib/utils/queryClient';
 import App from './App';
 import { initI18n } from './i18n';
 /** Global Tailwind layers first so route-level CSS (e.g. React Flow, code highlight) can override when needed. */

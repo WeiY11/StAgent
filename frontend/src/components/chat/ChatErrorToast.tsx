@@ -1,6 +1,6 @@
 import { X, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface ChatErrorToastProps {
   message: string;

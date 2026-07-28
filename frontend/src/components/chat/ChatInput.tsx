@@ -28,13 +28,13 @@ import {
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import { getQueuedForSession, useSteerQueueStore } from '@/stores/steerQueue';
 import { useChatDraftStore, buildComposerSendParams } from '@/stores/chatDraft';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 import type { Message } from '@/types/chat';
 import { useLayoutStore } from '@/stores/layout';
 import { useFoldersStore } from '@/stores/foldersStore';
 import { useArtifactStore } from '@/stores/artifact';
-import { formatAgentPathLabel } from '@/lib/agentPathDisplay';
-import { cn } from '@/lib/utils';
+import { formatAgentPathLabel } from '@/lib/agent/agentPathDisplay';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/Button';
 import { Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import { MAX_CHAT_UPLOAD_BYTES } from '@/constants/uploads';
@@ -44,9 +44,9 @@ import {
   useSessionAuthorizedPaths,
 } from '@/hooks/useChat';
 import { useSkillsList } from '@/hooks/useSkills';
-import { buildSkillChatToken } from '@/lib/skillChatToken';
-import { matchComposerTriggerToken } from '@/lib/composerTriggerToken';
-import { normalizeLocalFolderPathForGrant } from '@/lib/localFolderPath';
+import { buildSkillChatToken } from '@/lib/chat/skillChatToken';
+import { matchComposerTriggerToken } from '@/lib/chat/composerTriggerToken';
+import { normalizeLocalFolderPathForGrant } from '@/lib/utils/localFolderPath';
 import { AttachmentStrip } from './composer/AttachmentStrip';
 import { ComposerReferenceStrip } from './composer/ComposerReferenceStrip';
 import { ModelSelector } from './composer/ModelSelector';

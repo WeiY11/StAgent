@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useDesktop } from '@/hooks/useDesktop';
 import { useThemeStore, resolveTheme } from '@/stores/theme';
 

@@ -1,8 +1,8 @@
 import { forwardRef, useState, type HTMLAttributes, useEffect, useMemo } from 'react';
 import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { escapeHtml, highlightCode } from '@/lib/highlight';
-import { cn } from '@/lib/utils';
+import { escapeHtml, highlightCode } from '@/lib/utils/highlight';
+import { cn } from '@/lib/utils/utils';
 
 /** Above this line count, skip per-line highlight table (keeps large files responsive). */
 const PER_LINE_HIGHLIGHT_MAX = 400;

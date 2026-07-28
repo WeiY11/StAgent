@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui';
 import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   PET_SCENE_ACTION_KEYS,
   type PetSettingsClipPatch,
@@ -12,7 +12,7 @@ import {
   type PetRoamRange,
   type PetSceneActionKey,
   type PetSettings,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 
 type PatchMut = {
   isPending: boolean;

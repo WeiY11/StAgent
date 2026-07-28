@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { petSpaceApi, type PetProjectFileRow } from '@/api/petSpace';
 import { fetchAuthedFilePreviewBlob } from '@/hooks/useAuthedFileBlobUrl';
-import { isPetRenderableImageRow } from '@/lib/petAppearanceMime';
-import { loadImageElement, spriteSheetToGifBlob } from '@/lib/spriteSheetToGif';
-import { mergePetSettings, type PetClipState } from '@/lib/petSettings';
+import { isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
+import { loadImageElement, spriteSheetToGifBlob } from '@/lib/pet/spriteSheetToGif';
+import { mergePetSettings, type PetClipState } from '@/lib/pet/petSettings';
 import { Button, Input } from '@/components/ui';
 import { STUDIO_STATE_GROUPS } from './studioStateGroups';
 

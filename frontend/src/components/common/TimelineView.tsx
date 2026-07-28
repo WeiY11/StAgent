@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { CheckCircle, XCircle, Clock, Loader2, AlertTriangle, Circle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export interface TimelineItem {
   id: string;

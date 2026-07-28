@@ -3,7 +3,7 @@ import { useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from './stores/theme';
 import { useChatStore } from './stores/chat';
-import { isUuid } from './lib/utils';
+import { isUuid } from './lib/utils/utils';
 import { AppShell } from './components/layout/AppShell';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { PageLoader } from './components/common/PageLoader';

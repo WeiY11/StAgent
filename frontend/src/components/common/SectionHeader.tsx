@@ -1,5 +1,5 @@
 import { type ElementType, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface SectionHeaderProps {
   title: ReactNode;

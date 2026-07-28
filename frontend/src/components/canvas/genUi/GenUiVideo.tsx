@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { VideoOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
 import {
   extractApiFilePreviewId,

@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Markdown } from '@/components/chat/markdown/Markdown';
 import {
   fetchPdfCitations,

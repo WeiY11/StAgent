@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { apiClient } from '@/api/client';
 import { useChatStore } from '@/stores/chat';
 import { normalizeAttachment, type Attachment } from '@/types/chat';

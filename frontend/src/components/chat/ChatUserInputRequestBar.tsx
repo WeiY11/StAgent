@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MessageCircleQuestion, Send, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import type { UserInputQuestion } from '@/types/chat';
 

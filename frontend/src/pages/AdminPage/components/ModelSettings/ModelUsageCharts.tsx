@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import type { ModelUsageRow, UsageSummary, UsageTrendRow } from '@/types/admin';
-import { parseApiDateTime } from '@/lib/utils';
+import { parseApiDateTime } from '@/lib/utils/utils';
 import {
   formatCompactNumber,
   formatLatencyAxisTick,

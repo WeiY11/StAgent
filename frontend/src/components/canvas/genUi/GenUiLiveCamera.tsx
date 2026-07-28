@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Camera, VideoOff } from 'lucide-react';
 import { useChatDraftStore } from '@/stores/chatDraft';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 import type { GenUiNode } from '@/types/genUi';
 

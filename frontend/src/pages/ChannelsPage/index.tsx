@@ -31,7 +31,7 @@ import {
   Badge,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/Toaster';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   useChannelsList,
   useChannelDetail,

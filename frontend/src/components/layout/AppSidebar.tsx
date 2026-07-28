@@ -23,9 +23,9 @@ import {
   Radio,
   ScrollText,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useAuthStore } from '@/stores/auth';
-import { isAdminUser } from '@/lib/authUser';
+import { isAdminUser } from '@/lib/auth/authUser';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar';
 import {
   DropdownMenu,

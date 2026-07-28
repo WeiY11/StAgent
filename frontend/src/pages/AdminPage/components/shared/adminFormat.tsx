@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui';
-import { cn, parseApiDateTime } from '@/lib/utils';
+import { cn, parseApiDateTime } from '@/lib/utils/utils';
 
 export function formatCompactNumber(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '0';

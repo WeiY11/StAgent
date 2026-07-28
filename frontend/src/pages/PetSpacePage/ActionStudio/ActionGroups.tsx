@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
-import type { PetClipState } from '@/lib/petSettings';
-import { cn } from '@/lib/utils';
+import type { PetClipState } from '@/lib/pet/petSettings';
+import { cn } from '@/lib/utils/utils';
 import { ACTION_STUDIO_MAIN_COLUMN_HEIGHT_CLASS } from './actionStudioConstants';
 import { STUDIO_STATE_GROUPS } from './studioStateGroups';
 import { ActionSlot } from './ActionSlot';

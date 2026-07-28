@@ -21,7 +21,7 @@ import { PageShell } from '@/components/layout/PageShell';
 import { PageLoader } from '@/components/common/PageLoader';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useRecentFlows, useHomeStats } from '@/hooks/useHome';
-import { formatRelativeTime, cn } from '@/lib/utils';
+import { formatRelativeTime, cn } from '@/lib/utils/utils';
 
 type ViewMode = 'grid' | 'list';
 

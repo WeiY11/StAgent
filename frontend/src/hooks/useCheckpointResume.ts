@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import { apiClient } from '@/api/client';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
-import { runChatStream, handleChatStreamFailure } from '@/lib/runChatStream';
+import { runChatStream, handleChatStreamFailure } from '@/lib/stream/runChatStream';
 import { getComposerModelMode } from '@/stores/chatDraft';
-import { generateId } from '@/lib/utils';
+import { generateId } from '@/lib/utils/utils';
 import type { Message } from '@/types/chat';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';

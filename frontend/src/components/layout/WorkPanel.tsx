@@ -3,11 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BrandMascot } from '@/components/brand/BrandMascot';
 import { LogoStageMobile } from '@/components/brand/LogoStage';
 import { usePetAppearancePreview } from '@/hooks/usePetAppearancePreview';
-import { resolvedNest } from '@/lib/petSettings';
+import { resolvedNest } from '@/lib/pet/petSettings';
 
 interface WorkPanelProps {
   className?: string;

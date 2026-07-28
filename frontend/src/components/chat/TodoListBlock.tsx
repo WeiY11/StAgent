@@ -12,7 +12,7 @@ import {
   PinOff,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { TaskProgressStatus, TaskProgressStep } from '@/types/chat';
 import { nextTodoStatusOnClick, todoStatusI18nKey } from './todoStatusUtils';
 

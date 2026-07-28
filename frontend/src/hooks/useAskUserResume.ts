@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
-import { runChatStream, handleChatStreamFailure } from '@/lib/runChatStream';
+import { runChatStream, handleChatStreamFailure } from '@/lib/stream/runChatStream';
 import { getComposerModelMode } from '@/stores/chatDraft';
 
 /**

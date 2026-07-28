@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Code, FileText, Table, GitBranch, Image, ExternalLink, Layout, Download } from 'lucide-react';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
-import { cn } from '@/lib/utils';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
+import { cn } from '@/lib/utils/utils';
 import { useArtifactStore } from '@/stores/artifact';
 import type { Artifact, ArtifactType } from '@/types/artifact';
 

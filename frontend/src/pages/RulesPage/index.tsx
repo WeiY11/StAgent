@@ -25,7 +25,7 @@ import { apiClient } from '@/api/client';
 import { PageShell } from '@/components/layout/PageShell';
 import { useRulesStore } from '@/stores/rules';
 import { useRulesList, useCreateRuleSet, useUpdateRuleSet, useEvaluateRuleSet } from '@/hooks/useRules';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PageLoader } from '@/components/common/PageLoader';
 import { EmptyState } from '@/components/common/EmptyState';
 import type { RuleSetInfo, RuleEvaluateResponse as RuleEvalResponse } from '@/types/admin';

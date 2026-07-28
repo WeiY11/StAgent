@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenRgbOnWhite } from '@/lib/spriteSheetToGif';
+import { flattenRgbOnWhite } from '@/lib/pet/spriteSheetToGif';
 
 describe('flattenRgbOnWhite', () => {
   it('returns white for fully transparent input', () => {

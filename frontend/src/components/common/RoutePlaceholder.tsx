@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /**
  * RoutePlaceholder — skeleton shown while a lazy route chunk loads.

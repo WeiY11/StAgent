@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export interface CategoryFilterItem {
   /** Stable identifier. Used to control selection. */

@@ -16,8 +16,8 @@ import {
   Textarea,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/Toaster';
-import { cn } from '@/lib/utils';
-import { shouldShowProviderNudge } from '@/lib/deepseekSetupNudge';
+import { cn } from '@/lib/utils/utils';
+import { shouldShowProviderNudge } from '@/lib/utils/deepseekSetupNudge';
 import type { PresetInfo, ProviderModelInfo, ProviderType, ModelProviderFormData } from '@/types/admin';
 
 type NudgePhase = 'loading' | 'show' | 'hide';

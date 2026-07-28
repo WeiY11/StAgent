@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import type { AgentSessionEvent } from '@/lib/agentSessionEvents';
+import { cn } from '@/lib/utils/utils';
+import type { AgentSessionEvent } from '@/lib/agent/agentSessionEvents';
 import { SessionEventRow } from './SessionEventRow';
 
 interface AgentSessionTimelineProps {

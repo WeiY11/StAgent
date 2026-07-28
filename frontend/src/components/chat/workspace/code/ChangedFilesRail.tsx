@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { getFileExtensionIcon } from '@/components/chat/workspace/artifactIcon';
-import type { TouchedFile } from '@/lib/agentSessionEvents';
+import type { TouchedFile } from '@/lib/agent/agentSessionEvents';
 import { eventKindMeta } from './eventMeta';
 
 interface ChangedFilesRailProps {

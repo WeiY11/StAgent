@@ -4,14 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toaster';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { petSpaceApi, type PetProject } from '@/api/petSpace';
 import {
   PET_PERSONALITY_MAX_CHARS,
   resolvedPersonalityDocument,
   type PetSettings,
   type PetSettingsClipPatch,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 
 export interface PersonalityEditorProps {
   project: PetProject;

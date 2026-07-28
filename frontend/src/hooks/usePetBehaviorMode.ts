@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chat';
 import { usePrefersReducedMotion } from '@/hooks/useMobile';
-import type { PetAutoReactivity, PetBehaviorSettings, PetSettings } from '@/lib/petSettings';
-import { parsePetSettings, resolvedBehavior } from '@/lib/petSettings';
-import { resolvePetVisual, type PetBehaviorVisual } from '@/lib/petBehaviorVisual';
+import type { PetAutoReactivity, PetBehaviorSettings, PetSettings } from '@/lib/pet/petSettings';
+import { parsePetSettings, resolvedBehavior } from '@/lib/pet/petSettings';
+import { resolvePetVisual, type PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
 
-export type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
+export type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
 
 /**
  * Sidebar / chat chip behavior: streaming → working; brief happy after a stream ends (unless manual focus);

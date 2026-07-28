@@ -2,33 +2,33 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { PetProject, PetProjectFileRow } from '@/api/petSpace';
 import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
 import { usePetClipResolver } from '@/hooks/usePetClipResolver';
 import { BrandMascot } from '@/components/brand/BrandMascot';
 import { usePrefersReducedMotion } from '@/hooks/useMobile';
-import type { PetNestSettings, PetSettings } from '@/lib/petSettings';
+import type { PetNestSettings, PetSettings } from '@/lib/pet/petSettings';
 import {
   appearanceGifBindMotionActive,
   parsePetSettings,
   resolvedBehavior,
   resolvedNest,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 import {
   petClipMotionStyleVars,
   petMotionStyleVars,
   pickPetClipAppearanceClass,
   resolvePetVisual,
-} from '@/lib/petBehaviorVisual';
-import { builtinPetSvgUrl, isPetBuiltinAppearance } from '@/lib/builtinPets';
-import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/petAppearanceMime';
+} from '@/lib/pet/petBehaviorVisual';
+import { builtinPetSvgUrl, isPetBuiltinAppearance } from '@/lib/pet/builtinPets';
+import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
 import {
   mergeShowcasePreviewSettings,
   PET_SHOWCASE_PRESETS,
   pickPreviewAppearanceFileId,
   type PetShowcasePreset,
-} from '@/lib/petShowcasePresets';
+} from '@/lib/pet/petShowcasePresets';
 
 export type PetShowcasePresetLayout = 'chips' | 'grid';
 

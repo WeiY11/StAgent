@@ -1,7 +1,7 @@
 import { useState, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Check, Download } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface CodeBlockProps {
   children: ReactNode;

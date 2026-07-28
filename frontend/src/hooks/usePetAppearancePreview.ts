@@ -3,16 +3,16 @@ import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
 import { usePetClipResolver } from '@/hooks/usePetClipResolver';
 import { usePetBehaviorMode } from '@/hooks/usePetBehaviorMode';
 import { usePetDockPreview } from '@/hooks/usePetDockPreview';
-import { builtinPetSvgUrl } from '@/lib/builtinPets';
-import type { PetBuiltinAppearance } from '@/lib/builtinPets';
-import { cn } from '@/lib/utils';
-import { appearanceGifBindMotionActive, type PetSettings } from '@/lib/petSettings';
+import { builtinPetSvgUrl } from '@/lib/pet/builtinPets';
+import type { PetBuiltinAppearance } from '@/lib/pet/builtinPets';
+import { cn } from '@/lib/utils/utils';
+import { appearanceGifBindMotionActive, type PetSettings } from '@/lib/pet/petSettings';
 import {
   petClipMotionStyleVars,
   petMotionStyleVars,
   pickPetClipAppearanceClass,
-} from '@/lib/petBehaviorVisual';
-import type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
+} from '@/lib/pet/petBehaviorVisual';
+import type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
 
 export interface PetAppearanceProjectContext {
   settings: PetSettings;

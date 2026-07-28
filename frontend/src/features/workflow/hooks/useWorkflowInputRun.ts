@@ -4,7 +4,7 @@ import {
   runChatWorkflowStep,
   startChatWorkflowEmbedRun,
 } from '@/components/chat/workflow/chatWorkflowRunActions';
-import { dispatchGenUiAction } from '@/lib/genUiActionBus';
+import { dispatchGenUiAction } from '@/lib/canvas/genUiActionBus';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import type { OperationRunTarget } from '../components/WorkflowOperationPanel';
 import {

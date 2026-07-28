@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'warning' | 'info';
 

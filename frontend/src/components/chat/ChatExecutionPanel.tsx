@@ -17,7 +17,7 @@ import { apiClient } from '@/api/client';
 import { useExecutionStream } from '@/features/workflow/api/useExecutionStream';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { useExecutionResume } from '@/hooks/useExecutionResume';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   getSessionProjectHeaders,
   isChatStreamBusyForSession,

@@ -10,11 +10,11 @@ import {
   Sparkles,
   MessageCircleQuestion,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { redactLargeRawToolArguments } from '@/lib/toolCallArgsDisplay';
+import { cn } from '@/lib/utils/utils';
+import { redactLargeRawToolArguments } from '@/lib/agent/toolCallArgsDisplay';
 import {
   pickCanvasPreviewPathFromMetadata,
-} from '@/lib/previewUrl';
+} from '@/lib/utils/previewUrl';
 import type { ToolCall } from '@/types/chat';
 import { useArtifactStore } from '@/stores/artifact';
 import { GenUiInline } from '@/components/canvas/GenUiInline';

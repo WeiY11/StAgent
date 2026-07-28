@@ -11,7 +11,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { tracesApi, type TraceDetail, type TraceSpan, type TraceSummary } from '@/api/traces';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface ChatTraceInspectorProps {
   sessionId: string;

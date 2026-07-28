@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, BarChart3, GitBranch, Rocket, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /** Bump the version segment to re-show the tour after a major FTUE redesign. */
 const FTUE_STORAGE_KEY = 'leagent.ftue.v1.done';

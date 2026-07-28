@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AuthUser } from '@/lib/authUser';
-import { mapApiUser } from '@/lib/authUser';
+import type { AuthUser } from '@/lib/auth/authUser';
+import { mapApiUser } from '@/lib/auth/authUser';
 import { apiClient, clearAuthTokens, getAccessToken, setAuthTokens } from '@/api/client';
 import { URL_KEYS } from '@/controllers/API/helpers/constants';
 

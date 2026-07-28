@@ -12,7 +12,7 @@ import {
   registerGenUiActionAdapters,
   type ResumeWorkflowActionPayload,
   type RunWorkflowActionPayload,
-} from '@/lib/genUiActionBus';
+} from '@/lib/canvas/genUiActionBus';
 import { resumeWorkflowExecution } from '@/hooks/useExecutionResume';
 import { useExecutionOverlay } from '../store/executionOverlay';
 import { coerceFormValues, missingRequiredInputs, type WorkflowInputSpec } from './inputsToGenUiTree';

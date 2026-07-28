@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { CodeBlock } from '@/components/common/CodeBlock';
-import { findActiveDocProcessorStream } from '@/lib/docProcessorStreamPreview';
-import { EMPTY_MESSAGE_LIST } from '@/lib/emptyChatMessages';
+import { findActiveDocProcessorStream } from '@/lib/canvas/docProcessorStreamPreview';
+import { EMPTY_MESSAGE_LIST } from '@/lib/chat/emptyChatMessages';
 import { useChatStore } from '@/stores/chat';
 
 /**

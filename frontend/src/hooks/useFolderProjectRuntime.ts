@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { apiClient, getAccessToken } from '@/api/client';
-import { getMachineFingerprint } from '@/lib/machineFingerprint';
+import { getMachineFingerprint } from '@/lib/auth/machineFingerprint';
 import { useCodingProjectTemplates } from '@/hooks/useCodingProjects';
 
 export interface FolderProjectRunResponse {

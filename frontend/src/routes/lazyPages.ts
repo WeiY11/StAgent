@@ -1,6 +1,6 @@
 import { lazy, useEffect, type ComponentType, type LazyExoticComponent } from 'react';
-import { lazyImportWithRetry } from '@/lib/lazyImportWithRetry';
-import { queryClient } from '@/lib/queryClient';
+import { lazyImportWithRetry } from '@/lib/utils/lazyImportWithRetry';
+import { queryClient } from '@/lib/utils/queryClient';
 import { QUERY_KEYS } from '@/controllers/API/helpers/constants';
 import { fetchFlow } from '@/pages/WorkflowsPage/fetchFlow';
 

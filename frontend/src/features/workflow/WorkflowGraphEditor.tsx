@@ -42,7 +42,7 @@ import {
 import { apiClient } from '@/api/client';
 import { Button } from '@/components/ui';
 import { PageLoader } from '@/components/common/PageLoader';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useShortcutsStore, initializeShortcutListener } from '@/stores/shortcutsStore';
 import { NodeRegistryProvider } from './graph/registryContext';
 import { useGraphHistory } from './graph/useGraphHistory';

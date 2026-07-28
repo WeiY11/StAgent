@@ -11,7 +11,7 @@
  */
 
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useGenUiFormsStore } from '@/stores/genUiForms';
 import type { GenUiNode } from '@/types/genUi';
 import type { GenUiRenderContextValue } from '@/components/canvas/genUi/GenUiRenderContext';

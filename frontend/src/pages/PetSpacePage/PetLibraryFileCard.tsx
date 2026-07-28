@@ -2,7 +2,7 @@ import { ExternalLink, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { PetProjectFileRow } from '@/api/petSpace';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { FileThumb } from './PetSpaceFileThumb';
 
 type PetLibraryFileCardBase = {

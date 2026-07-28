@@ -11,24 +11,24 @@ import {
   RefreshCw,
   Video,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { Artifact } from '@/types/artifact';
 import { useGenUiStore, genUiTreeKey } from '@/stores/genUi';
 import { useChatStore } from '@/stores/chat';
 import {
   pickCanvasPreviewPathFromMetadata,
   resolveCanvasPreviewUrl,
-} from '@/lib/previewUrl';
-import { canvasIframeAllow, resolveCanvasPreviewIframeSandbox, withCanvasPreviewFlags } from '@/lib/canvasPreviewJs';
-import { isEmbeddedAppBrowser } from '@/lib/canvasPreviewDoc';
+} from '@/lib/utils/previewUrl';
+import { canvasIframeAllow, resolveCanvasPreviewIframeSandbox, withCanvasPreviewFlags } from '@/lib/canvas/canvasPreviewJs';
+import { isEmbeddedAppBrowser } from '@/lib/canvas/canvasPreviewDoc';
 import { useCanvasPreviewDoc } from '@/hooks/useCanvasPreviewDoc';
-import { getCameraAccessIssue, localhostPreviewUrl, stopIframeMediaTracks } from '@/lib/cameraAccess';
+import { getCameraAccessIssue, localhostPreviewUrl, stopIframeMediaTracks } from '@/lib/utils/cameraAccess';
 import {
   downloadImageBlob,
   extractCanvasPreviewToken,
   fetchCanvasPreviewScreenshot,
   refreshCanvasPreviewToken,
-} from '@/lib/canvasScreenshot';
+} from '@/lib/canvas/canvasScreenshot';
 import {
   deckScreenshotDimensions,
   documentScreenshotDimensions,

@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BrandMascot } from '@/components/brand/BrandMascot';
 import { usePetAppearancePreview } from '@/hooks/usePetAppearancePreview';
-import type { PetBehaviorVisual } from '@/lib/petBehaviorVisual';
+import type { PetBehaviorVisual } from '@/lib/pet/petBehaviorVisual';
 
 export type ChatAgentRolePetVariant = 'rail' | 'inline';
 

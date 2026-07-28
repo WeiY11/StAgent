@@ -11,7 +11,7 @@ import {
   Trophy,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { PaperSidebar } from './PaperSidebar';
 import { fetchPdfSummary } from './api/pdfReaderApi';
 import { usePdfResearchStore } from './store/pdfResearchStore';

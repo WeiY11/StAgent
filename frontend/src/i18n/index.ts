@@ -6,7 +6,11 @@ export type SupportedLng = 'zh-CN' | 'en-US';
 const COOKIE_NAME = 'leagent-lang';
 const STORAGE_KEY = 'leagent-language';
 
-/** Namespaced bundle files merged into the single `translation` namespace (matches legacy `t('settings.title')`). */
+/**
+ * All translation bundle file names.
+ * Each file is loaded as its own i18next namespace AND merged into the shared
+ * `translation` namespace so that legacy `t('chat.xxx')` calls keep working.
+ */
 export const TRANSLATION_BUNDLE_FILES = [
   'common',
   'nav',
@@ -30,11 +34,39 @@ export const TRANSLATION_BUNDLE_FILES = [
 
 export type TranslationBundleName = (typeof TRANSLATION_BUNDLE_FILES)[number];
 
+/**
+ * Core namespaces that are eagerly loaded at init.
+ * They cover the most common UX paths (navigation, auth, shared widgets, errors).
+ */
+export const CORE_BUNDLES: ReadonlySet<TranslationBundleName> = new Set([
+  'common',
+  'nav',
+  'auth',
+  'errors',
+]);
+
+/**
+ * Non-core namespaces that are lazy-loaded after the initial render.
+ */
+export const NON_CORE_BUNDLES: TranslationBundleName[] =
+  TRANSLATION_BUNDLE_FILES.filter((b) => !CORE_BUNDLES.has(b));
+
+/** All bundle names as a plain array (used for i18next `ns` config). */
+const ALL_NS: string[] = [...TRANSLATION_BUNDLE_FILES];
+
+/** Languages that have been fully loaded (all core + non-core bundles). */
 const loadedLanguages = new Set<string>();
+
+/** Tracks bundles that have been loaded to avoid duplicate imports. */
+const loadedBundleKeys = new Set<string>();
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1')}=([^;]*)`));
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1')}=([^;]*)`),
+  );
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
@@ -59,7 +91,8 @@ function migrateLegacyLanguage(): void {
 }
 
 /**
- * Detection order (aligned with i18next-browser-languagedetector): cookie → localStorage → navigator → html lang.
+ * Detection order (aligned with i18next-browser-languagedetector):
+ * cookie → localStorage → navigator → html lang.
  */
 export function resolveInitialLanguage(): SupportedLng {
   migrateLegacyLanguage();
@@ -98,27 +131,75 @@ function syncDocumentMeta(): void {
   if (meta) meta.setAttribute('content', desc);
 }
 
-async function mergeTranslationBundles(lng: SupportedLng): Promise<Record<string, unknown>> {
-  const merged: Record<string, unknown> = {};
+// ─── bundle loading ─────────────────────────────────────────────────────────
+
+/**
+ * Import bundle JSON files and return a map of { name → data }.
+ * Does NOT touch i18next — caller decides how to register the resources.
+ */
+async function importBundles(
+  lng: SupportedLng,
+  bundles: readonly TranslationBundleName[],
+): Promise<Map<TranslationBundleName, Record<string, unknown>>> {
+  const results = new Map<TranslationBundleName, Record<string, unknown>>();
   await Promise.all(
-    TRANSLATION_BUNDLE_FILES.map(async (name) => {
+    bundles.map(async (name) => {
       const mod = await import(`./locales/${lng}/${name}.json`);
-      Object.assign(merged, mod.default as object);
-    })
+      results.set(name, (mod.default ?? mod) as Record<string, unknown>);
+    }),
   );
-  return merged;
+  return results;
 }
 
-/** Ensures all bundle JSON for `lng` is merged into the `translation` namespace (idempotent). */
+/**
+ * Register loaded bundle data into i18next: each file as its own namespace
+ * AND merged into the shared `translation` namespace.
+ */
+function registerBundles(
+  lng: SupportedLng,
+  bundles: Map<TranslationBundleName, Record<string, unknown>>,
+): void {
+  for (const [name, data] of bundles) {
+    const key = `${lng}:${name}`;
+    if (loadedBundleKeys.has(key)) continue;
+    loadedBundleKeys.add(key);
+    // Register as own namespace
+    i18n.addResourceBundle(lng, name, data, true, true);
+    // Also merge into the shared `translation` namespace
+    i18n.addResourceBundle(lng, 'translation', data, true, true);
+  }
+}
+
+/**
+ * Dynamically import a single bundle file and register it in both:
+ *  - its own namespace (e.g. `chat`)
+ *  - the merged `translation` namespace (for backward-compatible `t('chat.xxx')` calls)
+ */
+export async function loadTranslationBundle(
+  lng: SupportedLng,
+  name: TranslationBundleName,
+): Promise<void> {
+  const key = `${lng}:${name}`;
+  if (loadedBundleKeys.has(key)) return;
+  const bundles = await importBundles(lng, [name]);
+  registerBundles(lng, bundles);
+}
+
+// ─── public API ─────────────────────────────────────────────────────────────
+
+/**
+ * Ensures **all** bundles (core + non-core) for `lng` are loaded (idempotent).
+ */
 export async function ensureTranslationForLanguage(lng: SupportedLng): Promise<void> {
   if (loadedLanguages.has(lng)) return;
-  const translation = await mergeTranslationBundles(lng);
-  i18n.addResourceBundle(lng, 'translation', translation, true, true);
+  const bundles = await importBundles(lng, TRANSLATION_BUNDLE_FILES);
+  registerBundles(lng, bundles);
   loadedLanguages.add(lng);
 }
 
 /**
- * Loads resources for `lng` if needed, then switches language (use from Settings / Header instead of bare `changeLanguage`).
+ * Loads resources for `lng` if needed, then switches language
+ * (use from Settings / Header instead of bare `changeLanguage`).
  */
 export async function changeAppLanguage(rawLng: string): Promise<void> {
   const lng = normalizeLanguageCode(rawLng) as SupportedLng;
@@ -131,6 +212,20 @@ export async function ensureLocaleLoaded(lng: string): Promise<void> {
   await ensureTranslationForLanguage(normalizeLanguageCode(lng) as SupportedLng);
 }
 
+/**
+ * Lazy-load a single namespace on demand.
+ * Useful for route-level code-splitting:
+ * ```ts
+ * await loadNamespace('admin');
+ * ```
+ */
+export async function loadNamespace(ns: TranslationBundleName): Promise<void> {
+  const lng = i18n.language as SupportedLng;
+  await loadTranslationBundle(lng, ns);
+}
+
+// ─── init ───────────────────────────────────────────────────────────────────
+
 let initPromise: Promise<void> | null = null;
 
 /** Idempotent — safe for main entry and Vitest (same module instance). */
@@ -138,20 +233,37 @@ export function initI18n(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     const initialLng = resolveInitialLanguage();
-    const translation = await mergeTranslationBundles(initialLng);
 
-    loadedLanguages.add(initialLng);
+    // 1. Eagerly load core bundles (common, nav, auth, errors) first.
+    const coreBundles = await importBundles(initialLng, [
+      ...CORE_BUNDLES,
+    ] as TranslationBundleName[]);
+
+    // Build the initial merged `translation` resource from core bundles.
+    const coreTranslation: Record<string, unknown> = {};
+    for (const data of coreBundles.values()) {
+      Object.assign(coreTranslation, data);
+    }
 
     await i18n.use(initReactI18next).init({
       lng: initialLng,
       fallbackLng: 'zh-CN',
       supportedLngs: ['zh-CN', 'en-US'],
       load: 'currentOnly',
-      ns: ['translation'],
+
+      // Every bundle file is its own namespace; `translation` holds the merged
+      // content for backward-compatible cross-namespace `t('chat.xxx')` calls.
+      ns: [...ALL_NS, 'translation'],
       defaultNS: 'translation',
+
       resources: {
-        [initialLng]: { translation },
+        [initialLng]: {
+          translation: coreTranslation,
+          // Register core bundles as their own namespaces too.
+          ...Object.fromEntries(coreBundles),
+        },
       },
+
       interpolation: {
         escapeValue: false,
       },
@@ -161,6 +273,11 @@ export function initI18n(): Promise<void> {
       debug: import.meta.env.DEV,
     });
 
+    // Mark core bundles as loaded.
+    for (const name of CORE_BUNDLES) {
+      loadedBundleKeys.add(`${initialLng}:${name}`);
+    }
+
     syncDocumentMeta();
 
     i18n.on('languageChanged', () => {
@@ -169,6 +286,13 @@ export function initI18n(): Promise<void> {
     });
 
     persistLanguageChoice(i18n.language);
+
+    // 2. Lazy-load non-core bundles after init (each is a separate Vite chunk).
+    //    They are registered as their own namespaces AND merged into `translation`.
+    const nonCoreBundles = await importBundles(initialLng, NON_CORE_BUNDLES);
+    registerBundles(initialLng, nonCoreBundles);
+
+    loadedLanguages.add(initialLng);
   })();
 
   return initPromise;

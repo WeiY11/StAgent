@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
-import type { PetClipState } from '@/lib/petSettings';
+import { cn } from '@/lib/utils/utils';
+import type { PetClipState } from '@/lib/pet/petSettings';
 
 export function ActionSlot({
   state,

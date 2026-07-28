@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
 import { Badge } from '@/components/ui/Badge';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 
 export interface FlowSettings {

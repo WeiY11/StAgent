@@ -20,12 +20,12 @@ import {
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useChatStore } from '@/stores/chat';
 import { useChatDraftStore } from '@/stores/chatDraft';
 import { useTerminalStore, selectSessionChunks, type TerminalChunk } from '@/stores/terminal';
 import { useCodingProjectLogs } from '@/hooks/useCodingProjects';
-import type { AgentSessionEvent } from '@/lib/agentSessionEvents';
+import type { AgentSessionEvent } from '@/lib/agent/agentSessionEvents';
 
 interface SessionTerminalDockProps {
   events: AgentSessionEvent[];

@@ -11,12 +11,12 @@ import {
   FileVideo,
   File as FileIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { Attachment } from '@/types/chat';
 import { ChatImage } from '@/components/chat/media/ChatImage';
 import { extractApiFileDownloadId, extractApiFilePreviewId, isInvalidApiFilePreviewRef, managedFilePreviewHasSignedToken } from '@/components/chat/media/chatMediaUtils';
 import { useChatFileBlobUrl } from '@/hooks/useChatFileBlobUrl';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 
 interface AttachmentCardProps {
   attachment: Attachment;

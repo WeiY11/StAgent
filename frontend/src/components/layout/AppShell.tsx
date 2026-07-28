@@ -1,7 +1,7 @@
 import { lazy, useCallback, useState, useEffect, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useLayoutStore } from '@/stores/layout';
 import { useMobile } from '@/hooks/useMobile';
 import { RoutePlaceholder } from '@/components/common/RoutePlaceholder';

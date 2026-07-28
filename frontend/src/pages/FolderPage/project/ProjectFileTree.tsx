@@ -9,7 +9,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useProjectTree, type ProjectTreeEntry } from '@/hooks/useProjectFolder';
 
 interface ProjectFileTreeProps {

@@ -18,7 +18,7 @@ import {
 } from '@/components/files/OfficeOoxmlPreview';
 import { useFilePreviewActions } from '@/components/files/useFilePreviewActions';
 import { Button } from '@/components/ui';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
   resolveEffectiveMime,
   isTextLikeMime,
@@ -29,8 +29,8 @@ import {
   isOfficeDocumentMime,
   hasOfficePreviewExtension,
   getOfficePreviewRoute,
-} from '@/lib/mimeForPreview';
-import { parseCsvForPreview } from '@/lib/parseCsvForPreview';
+} from '@/lib/utils/mimeForPreview';
+import { parseCsvForPreview } from '@/lib/utils/parseCsvForPreview';
 
 const PdfReader = lazy(() =>
   import('@/features/pdf-reader/PdfReader').then((m) => ({ default: m.PdfReader })),

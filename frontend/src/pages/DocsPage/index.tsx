@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Button, Card, CardContent } from '@/components/ui';
 import { PageShell, PageSection } from '@/components/layout/PageShell';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 const REPO_FALLBACK = 'https://github.com/vixues/LeAgent';
 

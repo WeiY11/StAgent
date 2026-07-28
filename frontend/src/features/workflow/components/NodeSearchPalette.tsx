@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Fuse from 'fuse.js';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { NodeDefinition, ObjectInfo } from '../graph/objectInfo';
 import { typesCompatible } from '../graph/socketTypes';
 

@@ -12,7 +12,7 @@ import {
   useStopFolderProject,
   useFolderProjectLogs,
 } from '@/hooks/useFolderProjectRuntime';
-import { resolveCodingProjectPreviewHref } from '@/lib/previewUrl';
+import { resolveCodingProjectPreviewHref } from '@/lib/utils/previewUrl';
 import { CodingProjectStatusBadge } from '@/pages/CodingProjects/CodingProjectStatusBadge';
 import type { CodingProjectStatus } from '@/hooks/useCodingProjects';
 

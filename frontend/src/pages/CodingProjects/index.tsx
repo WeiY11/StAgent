@@ -27,7 +27,7 @@ import {
   useCreateCodingProject,
   useDeleteCodingProject,
 } from '@/hooks/useCodingProjects';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { CreateCodingProjectModal } from './CreateCodingProjectModal';
 import { CodingProjectStatusBadge } from './CodingProjectStatusBadge';
 import { ProjectWorkspace } from './ProjectWorkspace';

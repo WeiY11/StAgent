@@ -4,7 +4,7 @@ import { apiClient } from '@/api/client';
 import {
   namespacedPersistName,
   registerNamespacedStore,
-} from '@/lib/persistNamespace';
+} from '@/lib/utils/persistNamespace';
 import type { ChatProject } from '@/types/chat';
 
 const CHAT_PROJECTS_STORE_BASE = 'leagent-chat-projects';

@@ -8,7 +8,7 @@ import {
   listOrderedNodeAssets,
 } from '@/components/canvas/genUi/genUiMedia';
 import { AppLogo } from '@/components/brand/AppLogo';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { Attachment } from '@/types/chat';
 import { blockedToGenUiTree } from '../genui/blockedToGenUiTree';
 import { type WorkflowInputSpec } from '../genui/inputsToGenUiTree';

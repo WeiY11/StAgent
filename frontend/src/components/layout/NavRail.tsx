@@ -22,9 +22,9 @@ import {
   Radio,
   ScrollText,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useAuthStore } from '@/stores/auth';
-import { isAdminUser } from '@/lib/authUser';
+import { isAdminUser } from '@/lib/auth/authUser';
 import { prefetchRoute } from '@/routes/lazyPages';
 import { useLayoutStore } from '@/stores/layout';
 import { ChatHistoryPanel } from '@/components/chat/ChatHistoryPanel';

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 /**
  * Full-viewport tech-style blurred gradient backdrop for splash-equivalent loading states.

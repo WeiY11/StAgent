@@ -23,8 +23,8 @@ import {
 import {
   buildCodingProjectIframePreviewSrc,
   codingProjectRunPreviewInfoFromUnknown,
-} from '@/lib/projectToolEnvelope';
-import { resolveCodingProjectPreviewHref } from '@/lib/previewUrl';
+} from '@/lib/agent/projectToolEnvelope';
+import { resolveCodingProjectPreviewHref } from '@/lib/utils/previewUrl';
 import { CodingProjectStatusBadge } from './CodingProjectStatusBadge';
 
 interface Props {

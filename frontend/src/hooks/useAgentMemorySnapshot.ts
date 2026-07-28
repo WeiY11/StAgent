@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, HttpError } from '@/api/client';
-import { isUuid } from '@/lib/utils';
+import { isUuid } from '@/lib/utils/utils';
 import {
   getSessionProjectHeaders,
   isSessionProjectUnlocked,

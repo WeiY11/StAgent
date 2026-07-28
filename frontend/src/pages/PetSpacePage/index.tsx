@@ -6,16 +6,16 @@ import { PageShell } from '@/components/layout/PageShell';
 import { Button, Input } from '@/components/ui';
 import { PRIMARY_SOFT_CTA_CLASSNAME } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toaster';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { petSpaceApi, type PetProject, type PetProjectFileRow } from '@/api/petSpace';
 import { usePetSpaceUiStore } from '@/stores/petSpaceUiStore';
 import { useAuthedFileBlobUrl } from '@/hooks/useAuthedFileBlobUrl';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { usePetClipResolver } from '@/hooks/usePetClipResolver';
 import { BrandMascot } from '@/components/brand/BrandMascot';
 import { usePrefersReducedMotion } from '@/hooks/useMobile';
-import { builtinPetSvgUrl, isPetBuiltinAppearance, PET_BUILTIN_APPEARANCES } from '@/lib/builtinPets';
-import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/petAppearanceMime';
+import { builtinPetSvgUrl, isPetBuiltinAppearance, PET_BUILTIN_APPEARANCES } from '@/lib/pet/builtinPets';
+import { effectivePetImageMime, isPetRenderableImageRow } from '@/lib/pet/petAppearanceMime';
 import {
   appearanceGifBindMotionActive,
   DEFAULT_DOCK_FLOOR_Y_PX,
@@ -39,22 +39,22 @@ import {
   type PetSettings,
   type PetClipState,
   type PetSettingsClipPatch,
-} from '@/lib/petSettings';
+} from '@/lib/pet/petSettings';
 import {
   petClipMotionStyleVars,
   petMotionStyleVars,
   pickPetClipAppearanceClass,
   pickPetMotionClass,
   resolvePetVisual,
-} from '@/lib/petBehaviorVisual';
-import { PET_PRESET_SAMPLE_FILES, petPresetPublicUrl } from '@/lib/petPresetSamples';
+} from '@/lib/pet/petBehaviorVisual';
+import { PET_PRESET_SAMPLE_FILES, petPresetPublicUrl } from '@/lib/pet/petPresetSamples';
 import {
   PET_ACTION_VISUALS,
   presetStateKind,
   previewInputForVisual,
   type PetActionPreviewId,
-} from '@/lib/petActionCatalog';
-import { findPresetManifestPet, loadPetPresetManifest } from '@/lib/petPresetManifest';
+} from '@/lib/pet/petActionCatalog';
+import { findPresetManifestPet, loadPetPresetManifest } from '@/lib/pet/petPresetManifest';
 import { PetSceneStage } from '@/components/pet/PetSceneStage';
 import { PetShowcaseSection } from './PetShowcaseSection';
 import { ActionStudioPanel } from './ActionStudio';

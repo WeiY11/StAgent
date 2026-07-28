@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import type { TaskProgressStep } from '@/types/chat';
 import { TodoListBlock } from './TodoListBlock';

@@ -1,4 +1,4 @@
-import { getMachineFingerprint } from '@/lib/machineFingerprint';
+import { getMachineFingerprint } from '@/lib/auth/machineFingerprint';
 import { formatHttpErrorDetail } from './formatApiError';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAvailableModels } from '@/hooks/useAdmin';
-import { formatModelDisplayLabel } from '@/lib/modelSelection';
+import { formatModelDisplayLabel } from '@/lib/utils/modelSelection';
 
 const FIELD =
   'nodrag w-full rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground disabled:opacity-50';

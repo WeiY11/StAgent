@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Code2, RefreshCw, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import type { Artifact } from '@/types/artifact';
-import { srcDocIframeSandbox } from '@/lib/canvasPreviewJs';
+import { srcDocIframeSandbox } from '@/lib/canvas/canvasPreviewJs';
 
 interface SandboxedPreviewProps {
   artifact: Artifact;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Sparkles, Send, Edit2, Trash2, Check, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/Button';
 import { useSnippetsStore, type PromptSnippet } from '@/stores/snippets';
 import { useChatDraftStore } from '@/stores/chatDraft';

@@ -46,16 +46,16 @@ import {
   KNOWLEDGE_SEARCH_LIMIT,
   normalizeKnowledgeQuery,
   shouldAutoSearch,
-} from '@/lib/knowledgeSearch';
-import { formatDate, formatRelativeTime } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+} from '@/lib/knowledge/knowledgeSearch';
+import { formatDate, formatRelativeTime } from '@/lib/utils/utils';
+import { cn } from '@/lib/utils/utils';
 import { PageLoader } from '@/components/common/PageLoader';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SearchInput } from '@/components/common/SearchInput';
 import { apiClient } from '@/api/client';
 import { useRealtimeFileSync } from '@/hooks/useRealtimeFileSync';
 import { UniversalFilePreview } from '@/components/files/UniversalFilePreview';
-import { downloadAuthenticatedFile } from '@/lib/downloadAuthenticatedFile';
+import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { useToast } from '@/components/ui/Toaster';
 import {
   type DocumentSearchResponse,

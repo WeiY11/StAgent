@@ -9,7 +9,7 @@ import {
   Paperclip,
   Puzzle,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export interface SlashCommand {
   id: string;

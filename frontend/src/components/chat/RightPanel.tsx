@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { X, Layers } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useArtifactStore } from '@/stores/artifact';
 import { useLayoutStore } from '@/stores/layout';
 import { ArtifactViewer } from '@/components/workspace/ArtifactViewer';

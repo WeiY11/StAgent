@@ -25,7 +25,7 @@ import {
   useUserTasks,
 } from '@/hooks/useTasks';
 import type { Task, TaskPriority, TaskStatus, TaskType } from '@/types/admin';
-import { cn, formatDate, formatRelativeTime } from '@/lib/utils';
+import { cn, formatDate, formatRelativeTime } from '@/lib/utils/utils';
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus | 'all'; label: string }> = [
   { value: 'all', label: 'All' },

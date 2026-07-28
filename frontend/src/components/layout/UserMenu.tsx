@@ -12,7 +12,7 @@ import {
   Info as InfoIcon,
   ChevronRight,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore, type ThemePreference } from '@/stores/theme';
 import { changeAppLanguage } from '@/i18n';

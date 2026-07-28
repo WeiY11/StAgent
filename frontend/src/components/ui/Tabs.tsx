@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, forwardRef, type ReactNode, type HTMLAttributes } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface TabsContextType {
   activeTab: string;

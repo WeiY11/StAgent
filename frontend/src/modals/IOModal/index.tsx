@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { BaseModal } from '../BaseModal';
 import { ChatViewWrapper, type ChatMessage } from './ChatViewWrapper';
 import { SessionView, type Session } from './SessionView';
