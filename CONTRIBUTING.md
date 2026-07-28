@@ -139,7 +139,7 @@ Closes #123
 - Follow PEP 8 style guide
 - Use type hints for function signatures
 - Maximum line length: 100 characters
-- Use `black` for formatting
+- Use `ruff format` for formatting
 - Use `ruff` for linting
 
 ```bash

@@ -54,6 +54,9 @@ MANIFEST
 # Local locks
 .leagent.lock
 
+# Backend local state (task logs, DB, etc.)
+backend/.leagent/
+
 # Testing
 .tox/
 .nox/
@@ -136,6 +139,7 @@ docker-compose.override.yml
 # Temporary files
 /tmp/
 /temp/
+/.tmp/
 *.tmp
 *.temp
 *.bak
@@ -143,6 +147,11 @@ docker-compose.override.yml
 # Cache
 .cache/
 *.cache
+/.uv-cache/
+
+# Project-specific ignores
+/backend/.leagent/
+/.codeartsdoer/
 
 # MinIO data
 minio_data/

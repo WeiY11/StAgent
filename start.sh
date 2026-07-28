@@ -254,10 +254,21 @@ _kill_stray_log_tails() {
 }
 
 # ── Log rotation ────────────────────────────────────────────────
+# Rotate only when the log exceeds a size threshold (default 50 MB)
+# to avoid unbounded growth between restarts.
+LOG_ROTATE_MAX_BYTES="${LEAGENT_LOG_ROTATE_MAX_MB:-50}"
+LOG_ROTATE_MAX_BYTES=$(( LOG_ROTATE_MAX_BYTES * 1024 * 1024 ))
+
 _rotate_log() {
     local logfile="$1"
     [ -f "$logfile" ] || return 0
     [ -s "$logfile" ] || return 0
+    # Only rotate if the file exceeds the size threshold.
+    local filesize
+    filesize="$(wc -c < "$logfile" 2>/dev/null || echo 0)"
+    if [ "$filesize" -lt "$LOG_ROTATE_MAX_BYTES" ]; then
+        return 0
+    fi
     local i="$LOG_RETENTION"
     while [ "$i" -gt 0 ]; do
         local prev=$((i - 1))

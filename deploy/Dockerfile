@@ -60,7 +60,7 @@ RUN playwright install chromium && \
 FROM python:3.11-slim-bookworm AS production
 
 ARG LEAGENT_VERSION=dev
-LABEL maintainer="Cheng Yuanqi <vixues@gamil.com>" \
+LABEL maintainer="Cheng Yuanqi <vixues@gmail.com>" \
       version="${LEAGENT_VERSION}" \
       description="LeAgent - Intelligent Office Agent Platform"
 
