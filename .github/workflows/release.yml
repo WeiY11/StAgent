@@ -58,245 +58,55 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   # 2. Tests gate every downstream artifact.
   # ─────────────────────────────────────────────────────────────
-  backend-tests:
-    name: Backend Tests
-    runs-on: ubuntu-latest
+  backend-lint:
+    name: Backend Lint
     needs: validate-version
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: uv sync --extra dev
-        working-directory: backend
-      - name: Run tests
-        env:
-          SECRET_KEY: test-secret-key
-        run: uv run python scripts/run_default_tests.py --fail-fast -- -q --durations=40
-        working-directory: backend
+    uses: ./.github/workflows/_shared-backend-lint.yml
 
-  backend-quality:
-    name: Backend Quality Gates
-    runs-on: ubuntu-latest
+  backend-test:
+    name: Backend Tests
     needs: validate-version
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: uv sync --extra dev
-        working-directory: backend
-      - name: "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
-        run: uv run ruff check leagent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
-        working-directory: backend
-      - name: "Mypy (runtime · sdk · api · config · db · file)"
-        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py leagent/config leagent/db leagent/file
-        working-directory: backend
-      - name: Run fast contracts
-        env:
-          SECRET_KEY: test-secret-key
-        run: >-
-          uv run pytest
-          tests/test_run_store_redis.py
-          tests/test_execution_run_registry_lifecycle.py
-          tests/test_bm25.py
-          tests/test_memory_maintenance_bulk.py
-          tests/workflow/test_execution_list.py
-          tests/test_api_manifest.py
-          tests/test_router.py
-          tests/test_openapi_schema.py
-          tests/test_execution_topology_invariants.py
-          -q
-        working-directory: backend
+    uses: ./.github/workflows/_shared-backend-test.yml
+
+  fast-contracts:
+    name: Fast Backend Contracts
+    needs: validate-version
+    uses: ./.github/workflows/_shared-fast-contracts.yml
 
   postgres-contract:
     name: PostgreSQL Contract
-    runs-on: ubuntu-latest
     needs: validate-version
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: leagent
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: leagent
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U leagent"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
-      SECRET_KEY: test-secret-key
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v8.3.2
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - run: uv sync --extra dev --extra postgres
-        working-directory: backend
-      - run: uv run pytest tests/integration/test_postgres_smoke.py -q --run-live
-        working-directory: backend
+    uses: ./.github/workflows/_shared-postgres-contract.yml
 
-  frontend-tests:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    needs: validate-version
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-      - name: Lint and type-check
-        run: |
-          npm run lint
-          npm run type-check
-        working-directory: frontend
-      - name: Run tests
-        run: npm run test -- --run
-        working-directory: frontend
-
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    needs: validate-version
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-      - name: Build
-        run: npm run build
-        working-directory: frontend
-      - name: Check bundle budget
-        run: npm run check:bundle
-        working-directory: frontend
-      - name: Verify non-empty CSS in dist
-        run: |
-          set -e
-          test -d frontend/dist
-          count=$(find frontend/dist -type f -name '*.css' ! -empty | wc -l)
-          test "$count" -ge 1
-
-  # ─────────────────────────────────────────────────────────────
-  # 3. Build the backend wheel (immutable artifact, no publish yet).
-  # ─────────────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
-    runs-on: ubuntu-latest
     needs: validate-version
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "backend/uv.lock"
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install pip-audit
-        run: python -m pip install pip-audit
-      - name: Export Python production requirements
-        run: uv export --frozen --no-hashes --no-dev --no-emit-project --output-file requirements-audit.txt
-        working-directory: backend
-      - name: Audit Python production dependencies
-        run: pip-audit --requirement requirements-audit.txt --desc
-        working-directory: backend
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Audit npm dependencies
-        run: npm audit --audit-level=critical
-        working-directory: frontend
+    uses: ./.github/workflows/_shared-security-scan.yml
 
+  frontend:
+    name: Frontend
+    needs: validate-version
+    uses: ./.github/workflows/_shared-frontend.yml
+    with:
+      coverage: false
+      build: true
+      upload-build: false
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. Docker smoke test.
+  # ─────────────────────────────────────────────────────────────
   docker-smoke:
     name: Docker Smoke
-    runs-on: ubuntu-latest
-    needs: [backend-quality, backend-tests, postgres-contract, security-scan, frontend-tests, frontend-build]
-    steps:
-      - uses: actions/checkout@v7
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Build Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/Dockerfile
-          target: production
-          push: false
-          load: true
-          tags: leagent:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Start built image
-        run: |
-          docker run -d --name leagent-smoke \
-            -p 127.0.0.1:18000:8000 \
-            -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
-            -e LEAGENT_SECURITY_ENFORCE_AUTH=false \
-            leagent:test
-      - name: Wait for /health and /api/v1/health/ready
-        run: |
-          set -e
-          for path in /health /api/v1/health/ready; do
-            for i in $(seq 1 60); do
-              if curl -fsS "http://127.0.0.1:18000${path}" >/dev/null; then
-                echo "ok: ${path}"
-                break
-              fi
-              if [ "$i" -eq 60 ]; then
-                echo "timed out waiting for ${path}" >&2
-                exit 1
-              fi
-              sleep 2
-            done
-          done
-      - name: Verify runtime imports inside the image
-        run: |
-          docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
-      - name: Container logs and cleanup
-        if: always()
-        run: |
-          docker logs leagent-smoke || true
-          docker rm -f leagent-smoke || true
+    needs: [backend-lint, backend-test, fast-contracts, postgres-contract, security-scan, frontend]
+    uses: ./.github/workflows/_shared-docker-smoke.yml
 
+  # ─────────────────────────────────────────────────────────────
+  # 4. Build the backend wheel (immutable artifact, no publish yet).
+  # ─────────────────────────────────────────────────────────────
   build-wheel:
     name: Build Wheel
     runs-on: ubuntu-latest
-    needs: [backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    needs: [backend-lint, backend-test, fast-contracts, postgres-contract, security-scan, docker-smoke, frontend]
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -318,12 +128,12 @@ jobs:
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
-  # 4. Build the three desktop installer sets (no publish yet).
+  # 5. Build the three desktop installer sets (no publish yet).
   # ─────────────────────────────────────────────────────────────
   desktop-linux:
     name: Desktop Installer (Linux)
     runs-on: ubuntu-latest
-    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    needs: [validate-version, backend-lint, backend-test, fast-contracts, postgres-contract, security-scan, docker-smoke, frontend]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -349,7 +159,7 @@ jobs:
   desktop-macos:
     name: Desktop Installer (macOS)
     runs-on: macos-latest
-    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    needs: [validate-version, backend-lint, backend-test, fast-contracts, postgres-contract, security-scan, docker-smoke, frontend]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -377,7 +187,7 @@ jobs:
   desktop-windows:
     name: Desktop Installer (Windows)
     runs-on: windows-latest
-    needs: [validate-version, backend-quality, backend-tests, postgres-contract, security-scan, docker-smoke, frontend-tests, frontend-build]
+    needs: [validate-version, backend-lint, backend-test, fast-contracts, postgres-contract, security-scan, docker-smoke, frontend]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -401,7 +211,7 @@ jobs:
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────
-  # 5. Only now — after every required artifact exists — publish.
+  # 6. Only now — after every required artifact exists — publish.
   #    The GitHub Release page is created as a draft, filled, and
   #    only flipped public once PyPI publication has also succeeded.
   # ─────────────────────────────────────────────────────────────

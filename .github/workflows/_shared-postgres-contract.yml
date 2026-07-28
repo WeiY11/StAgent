@@ -1,0 +1,41 @@
+name: PostgreSQL Contract
+
+on:
+  workflow_call:
+    inputs:
+      run:
+        type: boolean
+        default: true
+
+jobs:
+  postgres-contract:
+    name: PostgreSQL Contract
+    if: inputs.run
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: leagent
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: leagent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leagent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
+      SECRET_KEY: test-secret-key
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.3.2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --extra postgres
+        working-directory: backend
+      - run: uv run pytest tests/integration/test_postgres_smoke.py -q --run-live
+        working-directory: backend
