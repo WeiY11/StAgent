@@ -68,9 +68,32 @@ in chat history (which may be compacted).
 1. **Locate.** On an unfamiliar tree, start with `project_tree`
    (depth 3–4), then `project_glob` for relevant file types
    (`**/*.ts`, `**/test_*.py`) and `project_grep` for the symbols the
-   task mentions. For Python, `project_outline` lists top-level defs
-   without reading entire files. Finish with `project_read` on the
-   smallest range that exposes the line numbers you need.
+   task mentions. For Python/TypeScript/JavaScript, `project_outline`
+   returns `summary` plus a bounded `symbol_index` without reading entire
+   files into the prompt. When you know the symbol name, pass
+   `symbol_query` and `include_files=false` first; when you need a compact
+   file- or directory-level map, add `include_file_index=true` or
+   `include_directory_index=true` and optionally `file_query` /
+   `directory_query` to scan paths, languages, symbols, imports, exports,
+   and diagnostics without full per-file outlines. Use `directory_index_depth=1`
+   or `2` for a top-level or two-level directory overview before drilling
+   into a subdirectory. `symbol_query` also matches symbol
+   kinds, containers, decorators, and bases, so it can locate classes by
+   `BaseModel`/`Component`-style cues. When tracing dependencies, pass
+   `import_query` (module, imported name, alias, or resolved path) and
+   `include_files=false` first and prefer `resolved_path` when present,
+   including Python pyproject/setup.cfg source-root layout, TS/JS
+   `tsconfig`/`jsconfig` aliases, package `#imports`, and package
+   self-reference exports; when locating public APIs or barrel/CommonJS
+   exports, pass `export_query` (exported name, alias, module, declaration
+   kind, or resolved path) and `include_files=false` first. On large
+   projects, keep `max_index_symbols`/`max_index_imports`/`max_index_exports`
+   bounded and page with `symbol_index_offset`, `import_index_offset`, or
+   `export_index_offset`; use `*_index_total_matches` to decide whether more
+   pages are needed. Use those
+   paths/lines to
+   finish with `project_read` on the smallest range that exposes the code you
+   need.
 2. **Plan.** Write 1–6 bullets naming the files you'll change, the
    order, and how you'll verify. Detect the toolchain from
    `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`,
@@ -104,6 +127,7 @@ in chat history (which may be compacted).
 | Generate a chart / visualisation **as evidence** | `code_execution` → save figures and use `images` / `produced_files` |
 | One-off probe (parse a CSV, sanity-check JSON, math) | `code_execution` |
 | Verify with lint / tests / build / git | `project_shell` |
+| Parse code symbols/imports/exports | `project_outline` |
 | Parse-only syntax check | `syntax_validator` |
 | DeepSeek fill-in-the-middle | `deepseek_fim` |
 

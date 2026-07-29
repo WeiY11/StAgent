@@ -869,7 +869,9 @@
       "analyze": "解析",
       "analyzeFormulaPrompt": "请深入解析论文中的这个公式{{page}}：定义每一个符号，解释它计算什么、为什么这样设计，并指出其假设或局限。",
       "summaryFailed": "无法为该章节生成摘要。",
-      "wholePaper": "全文"
+      "wholePaper": "全文",
+      "loadFailed": "加载失败，请检查网络或稍后重试。",
+      "retry": "重试"
     },
     "dock": {
       "title": "智能体",

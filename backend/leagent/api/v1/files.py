@@ -23,6 +23,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
 
+from leagent.api.v1.folder_items import _decrement_owned_folder_count
 from leagent.config.constants import MAX_UPLOAD_SIZE_BYTES
 from leagent.config.settings import get_settings
 from leagent.db import DatabaseService, get_database_service
@@ -979,7 +980,10 @@ async def delete_file(
         if _session_dialect_name(session) == "sqlite":
             id_txt = await sqlite_parent_id_text(session, "files", file_id)
             r = await session.execute(
-                text("SELECT user_id, is_deleted FROM files WHERE CAST(id AS TEXT) = :id"),
+                text(
+                    "SELECT user_id, is_deleted, folder_id FROM files "
+                    "WHERE CAST(id AS TEXT) = :id"
+                ),
                 {"id": id_txt},
             )
             row = r.mappings().first()
@@ -1001,6 +1005,8 @@ async def delete_file(
                 ),
                 {"d": now, "u": now, "id": id_txt},
             )
+            folder_id = UUID(str(row["folder_id"])) if row["folder_id"] else None
+            await _decrement_owned_folder_count(session, folder_id, user_id)
             return
 
         file = await session.get(FileModel, file_id)
@@ -1017,6 +1023,7 @@ async def delete_file(
                 detail="Access denied to this file",
             )
 
+        await _decrement_owned_folder_count(session, file.folder_id, user_id)
         file.is_deleted = True
         file.deleted_at = datetime.utcnow()
         file.updated_at = datetime.utcnow()

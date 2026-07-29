@@ -29,6 +29,7 @@ class DocumentChunk(BaseModel, table=True):
     start_offset: int = Field(default=0)
     end_offset: int = Field(default=0)
     text: str = Field(sa_column=Column(Text))
+    text_hash: str | None = Field(default=None, max_length=64)
 
 
 class DocumentChunkRead(SQLModel):

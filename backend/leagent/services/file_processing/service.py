@@ -2,62 +2,41 @@
 
 Auto-detects file type by MIME/extension and delegates to the appropriate
 tool for text extraction. Updates File.status through the processing pipeline.
+
+Handler resolution is delegated to :class:`HandlerRegistry`
+(``leagent.services.file_processing.registry``), which supports extension
+and MIME-type based resolution with priority ordering and runtime extensibility.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-EXTENSION_HANDLER_MAP: dict[str, str] = {
-    ".pdf": "pdf_reader",
-    ".doc": "word_reader",
-    ".docx": "word_reader",
-    ".xls": "excel_reader",
-    ".xlsx": "excel_reader",
-    ".csv": "csv_processor",
-    ".tsv": "csv_processor",
-    ".md": "markdown_processor",
-    ".markdown": "markdown_processor",
-    ".html": "html_processor",
-    ".htm": "html_processor",
-    ".json": "config_file",
-    ".yaml": "config_file",
-    ".yml": "config_file",
-    ".toml": "config_file",
-    ".txt": "text_processor",
-    ".log": "text_processor",
-    ".cfg": "text_processor",
-    ".ini": "text_processor",
-    ".py": "text_processor",
-    ".js": "text_processor",
-    ".ts": "text_processor",
-    ".java": "text_processor",
-    ".c": "text_processor",
-    ".cpp": "text_processor",
-    ".h": "text_processor",
-    ".rs": "text_processor",
-    ".go": "text_processor",
-    ".rb": "text_processor",
-    ".sh": "text_processor",
-    ".sql": "text_processor",
-    ".xml": "text_processor",
-    ".css": "text_processor",
-    ".zip": "archive_manager",
-    ".tar": "archive_manager",
-    ".gz": "archive_manager",
-    ".bz2": "archive_manager",
-    ".xz": "archive_manager",
-    ".tgz": "archive_manager",
-    ".png": "image_ocr",
-    ".jpg": "image_ocr",
-    ".jpeg": "image_ocr",
-    ".tiff": "image_ocr",
-    ".bmp": "image_ocr",
-}
+
+def _build_legacy_ext_map() -> dict[str, str]:
+    """Build the legacy EXTENSION_HANDLER_MAP from the HandlerRegistry.
+
+    Kept for backward compatibility with existing tests and callers that
+    import ``EXTENSION_HANDLER_MAP`` from this module.
+    """
+    from leagent.services.file_processing.registry import get_handler_registry
+
+    registry = get_handler_registry()
+    ext_map: dict[str, str] = {}
+    for h in registry.list_handlers():
+        for ext in h.extensions:
+            ext_map[ext] = h.name
+    return ext_map
+
+
+# Backward-compatible extension → handler map, derived from the
+# HandlerRegistry. Tests and external callers may import this directly.
+EXTENSION_HANDLER_MAP: dict[str, str] = _build_legacy_ext_map()
 
 
 class FileProcessingService:
@@ -110,34 +89,12 @@ class FileProcessingService:
         mime_type: str | None,
         original_name: str | None,
     ) -> str | None:
-        ext = path.suffix.lower()
-        if not ext and original_name:
-            ext = Path(original_name).suffix.lower()
+        from leagent.services.file_processing.registry import get_handler_registry
 
-        handler = EXTENSION_HANDLER_MAP.get(ext)
-        if handler:
-            return handler
-
-        if mime_type:
-            mime_ext_map = {
-                "application/pdf": "pdf_reader",
-                "application/msword": "word_reader",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "word_reader",
-                "application/vnd.ms-excel": "excel_reader",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "excel_reader",
-                "text/csv": "csv_processor",
-                "text/markdown": "markdown_processor",
-                "text/html": "html_processor",
-                "application/json": "config_file",
-                "text/plain": "text_processor",
-                "application/zip": "archive_manager",
-                "application/x-tar": "archive_manager",
-                "image/png": "image_ocr",
-                "image/jpeg": "image_ocr",
-            }
-            return mime_ext_map.get(mime_type)
-
-        return None
+        registry = get_handler_registry()
+        return registry.resolve_name(
+            path=path, mime_type=mime_type, original_name=original_name
+        )
 
     async def _run_handler(self, handler_name: str, path: Path) -> dict[str, Any]:
         from leagent.tools.base import ToolContext
@@ -152,9 +109,13 @@ class FileProcessingService:
 
         if handler_name == "archive_manager":
             params = {"operation": "info", "archive_path": str(path)}
-        elif handler_name in ("csv_processor", "text_processor", "markdown_processor", "html_processor"):
-            params = {"operation": "read", "file_path": str(path)}
-        elif handler_name == "config_file":
+        elif handler_name in (
+            "csv_processor",
+            "text_processor",
+            "markdown_processor",
+            "html_processor",
+            "config_file",
+        ):
             params = {"operation": "read", "file_path": str(path)}
         elif handler_name == "image_ocr":
             params = {"image_path": str(path)}
@@ -186,130 +147,301 @@ class FileProcessingService:
         mime_type: str | None = None,
         original_name: str | None = None,
     ) -> dict[str, Any]:
-        """Process a file and update the database File record."""
-        from datetime import datetime
-        from uuid import UUID
+        """Process a file and update the database File record.
+
+        Extracted text is written to the ``file_contents`` table (separated
+        from the ``files`` catalog row to avoid bloat).  When the content
+        hash is unchanged, chunk re-indexing is skipped entirely.
+        """
+        import hashlib
 
         from leagent.db.models.file import FileStatus
         from leagent.services.service_manager import get_service_manager
 
-        result = await self.process_file(file_path, mime_type, original_name)
-
         sm = get_service_manager()
         if sm.db is None:
+            return await self.process_file(file_path, mime_type, original_name)
+
+        await self._update_file_record(
+            file_id,
+            status=FileStatus.PROCESSING,
+            is_indexed=False,
+        )
+        try:
+            result = await self.process_file(file_path, mime_type, original_name)
+        except Exception:
+            await self._update_file_record(
+                file_id,
+                status=FileStatus.FAILED,
+                is_indexed=False,
+            )
+            raise
+        if result.get("error"):
+            await self._update_file_record(
+                file_id,
+                status=FileStatus.FAILED,
+                is_indexed=False,
+            )
+            raise RuntimeError(str(result["error"]))
+
+        extracted = result.get("extracted_text")
+        if not isinstance(extracted, str) or not extracted.strip():
+            await self._update_file_record(
+                file_id,
+                status=FileStatus.PROCESSED,
+                is_indexed=False,
+                summary=None,
+            )
+            # Clear stale FileContent if any.
+            await self._upsert_file_content(file_id, None, None)
+            return result
+
+        content_hash = hashlib.sha256(extracted.encode("utf-8")).hexdigest()[:16]
+
+        # Write extracted_text to the dedicated FileContent table instead of
+        # bloating the files row.  The legacy File.extracted_text column is
+        # still set for backward compatibility (read paths that haven't been
+        # migrated yet).
+        await self._upsert_file_content(file_id, extracted, content_hash)
+
+        await self._update_file_record(
+            file_id,
+            status=FileStatus.PROCESSING,
+            extracted_text=extracted,
+            is_indexed=False,
+            summary=None,
+        )
+
+        # Skip chunk re-indexing when content is unchanged.
+        if await self._content_unchanged(file_id, content_hash):
+            await self._update_file_record(
+                file_id,
+                status=FileStatus.PROCESSED,
+                is_indexed=True,
+            )
+            result["_index_skipped"] = True
             return result
 
         try:
-            from sqlalchemy import text
-
-            from leagent.db.models.file import File
-            from leagent.db.sqlite_compat import load_entity_by_id, sqlite_parent_id_text
-
-            async with sm.db.session() as session:
-                bind = session.get_bind()
-                dialect = getattr(getattr(bind, "dialect", None), "name", "") or ""
-                logical = UUID(file_id)
-                if dialect == "sqlite":
-                    id_txt = await sqlite_parent_id_text(session, "files", logical)
-                    now = datetime.utcnow()
-                    if result.get("extracted_text"):
-                        st = FileStatus.PROCESSED.value
-                        await session.execute(
-                            text(
-                                "UPDATE files SET extracted_text=:xt, status=:st, updated_at=:u "
-                                "WHERE CAST(id AS TEXT) = :id"
-                            ),
-                            {
-                                "xt": result["extracted_text"],
-                                "st": st,
-                                "u": now,
-                                "id": id_txt,
-                            },
-                        )
-                    elif result.get("error"):
-                        await session.execute(
-                            text(
-                                "UPDATE files SET status=:st, updated_at=:u "
-                                "WHERE CAST(id AS TEXT) = :id"
-                            ),
-                            {"st": FileStatus.FAILED.value, "u": now, "id": id_txt},
-                        )
-                    else:
-                        await session.execute(
-                            text(
-                                "UPDATE files SET status=:st, updated_at=:u "
-                                "WHERE CAST(id AS TEXT) = :id"
-                            ),
-                            {"st": FileStatus.PROCESSED.value, "u": now, "id": id_txt},
-                        )
-                else:
-                    f = await load_entity_by_id(
-                        session,
-                        File,
-                        logical,
-                        parent_table="files",
-                    )
-                    if f:
-                        if result.get("extracted_text"):
-                            f.extracted_text = result["extracted_text"]
-                            f.status = FileStatus.PROCESSED
-                        elif result.get("error"):
-                            f.status = FileStatus.FAILED
-                        else:
-                            f.status = FileStatus.PROCESSED
-                        f.updated_at = datetime.utcnow()
-                        session.add(f)
-        except Exception as exc:
-            logger.warning("Failed to update file record: %s", exc)
-
-        await self._index_chunks(file_id, result)
+            await self._index_chunks(file_id, result)
+        except Exception:
+            await self._update_file_record(
+                file_id,
+                status=FileStatus.FAILED,
+                is_indexed=False,
+            )
+            raise
 
         return result
 
+    async def _update_file_record(self, file_id: str, **values: Any) -> None:
+        """Update one file using the cross-dialect UUID comparison contract."""
+        from uuid import UUID
+
+        from sqlalchemy import update as sa_update
+
+        from leagent.db.models.file import File
+        from leagent.db.sqlite_compat import uuid_column_equals
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return
+        logical_id = UUID(file_id)
+        values["updated_at"] = datetime.utcnow()
+        async with sm.db.session() as session:
+            await session.execute(
+                sa_update(File).where(uuid_column_equals(session, File.id, logical_id)).values(**values)
+            )
+
+    async def _upsert_file_content(
+        self,
+        file_id: str,
+        extracted_text: str | None,
+        content_hash: str | None,
+    ) -> None:
+        """Insert or update the ``file_contents`` row for *file_id*."""
+        from uuid import UUID, uuid4
+
+        import sqlalchemy as sa
+        from sqlmodel import select
+
+        from leagent.db.models.file_content import FileContent
+        from leagent.db.sqlite_compat import (
+            load_entity_by_id,
+            session_dialect_name,
+            sqlite_parent_id_text,
+            uuid_column_equals,
+        )
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return
+        logical_id = UUID(file_id)
+        async with sm.db.session() as session:
+            from leagent.db.models.file import File
+
+            file_row = await load_entity_by_id(
+                session, File, logical_id, parent_table="files"
+            )
+            user_id = file_row.user_id if file_row else None
+
+            # Cross-dialect upsert: select then update-or-insert.
+            existing = (
+                await session.exec(
+                    select(FileContent).where(
+                        uuid_column_equals(session, FileContent.file_id, logical_id)
+                    )
+                )
+            ).first()
+
+            now = datetime.utcnow()
+            if existing is not None:
+                existing.extracted_text = extracted_text
+                existing.text_char_count = len(extracted_text) if extracted_text else 0
+                existing.text_hash = content_hash
+                existing.updated_at = now
+                session.add(existing)
+            elif session_dialect_name(session) == "sqlite":
+                # Raw insert preserving the exact parent-id text so the FK
+                # check passes for both dashed and hex stored file ids.
+                parent_id_text = await sqlite_parent_id_text(
+                    session, "files", logical_id
+                )
+                await session.execute(
+                    sa.text(
+                        "INSERT INTO file_contents "
+                        "(created_at, updated_at, id, file_id, user_id, "
+                        "extracted_text, text_char_count, text_hash) "
+                        "VALUES (:created_at, :updated_at, :id, :file_id, "
+                        ":user_id, :extracted_text, :text_char_count, :text_hash)"
+                    ),
+                    {
+                        "created_at": now,
+                        "updated_at": now,
+                        "id": str(uuid4()),
+                        "file_id": parent_id_text,
+                        "user_id": str(user_id) if user_id else None,
+                        "extracted_text": extracted_text,
+                        "text_char_count": len(extracted_text) if extracted_text else 0,
+                        "text_hash": content_hash,
+                    },
+                )
+            else:
+                session.add(
+                    FileContent(
+                        file_id=logical_id,
+                        user_id=user_id,
+                        extracted_text=extracted_text,
+                        text_char_count=len(extracted_text) if extracted_text else 0,
+                        text_hash=content_hash,
+                    )
+                )
+
+    async def _content_unchanged(
+        self, file_id: str, new_hash: str
+    ) -> bool:
+        """True when the existing FileContent hash matches *new_hash*.
+
+        Also returns False if the file has no indexed chunks yet (first upload).
+        """
+        from uuid import UUID
+
+        from leagent.db.models.file_content import FileContent
+        from leagent.db.sqlite_compat import uuid_column_equals
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return False
+        logical_id = UUID(file_id)
+        async with sm.db.session() as session:
+            from sqlmodel import select
+
+            result = await session.exec(
+                select(FileContent.text_hash).where(
+                    uuid_column_equals(session, FileContent.file_id, logical_id)
+                )
+            )
+            existing_hash = result.first()
+            if existing_hash is None:
+                return False
+
+            # Also check that chunks actually exist (may be empty on first
+            # upload if indexing previously failed).
+            from leagent.db.models.document_chunk import DocumentChunk
+
+            chunk_count = (
+                await session.exec(
+                    select(DocumentChunk.id)
+                    .where(
+                        uuid_column_equals(
+                            session, DocumentChunk.file_id, logical_id
+                        )
+                    )
+                    .limit(1)
+                )
+            ).first()
+            if chunk_count is None:
+                return False
+
+            return existing_hash == new_hash
+
     async def _index_chunks(self, file_id: str, result: dict[str, Any]) -> None:
-        """Chunk extracted text and persist to the knowledge storage layer."""
+        """Chunk extracted text and persist to the knowledge storage layer.
+
+        Uses :func:`chunk_auto` for Markdown-aware chunking when the source
+        file is detected as Markdown.  Also writes chunk embeddings to the
+        vector index when available.
+        """
         extracted = result.get("extracted_text")
         if not extracted or not isinstance(extracted, str) or not extracted.strip():
             return
-        try:
-            from uuid import UUID
+        from uuid import UUID
 
-            from leagent.library.chunking import chunk_text
-            from leagent.library.summary import summarize_extracted_text
-            from leagent.services.service_manager import get_service_manager
+        from leagent.db.models.file import File, FileStatus
+        from leagent.db.sqlite_compat import load_entity_by_id
+        from leagent.library.chunking import chunk_auto
+        from leagent.library.summary import summarize_extracted_text
+        from leagent.services.service_manager import get_service_manager
 
-            sm = get_service_manager()
-            if sm.db is None:
-                return
+        sm = get_service_manager()
+        if sm.db is None:
+            return
 
-            logical_id = UUID(file_id)
-            user_id: UUID | None = None
-            from leagent.db.models.file import File
-            from leagent.db.sqlite_compat import load_entity_by_id, uuid_column_equals
-
-            summary = summarize_extracted_text(extracted)
-
-            async with sm.db.session() as session:
-                row = await load_entity_by_id(
-                    session,
-                    File,
-                    logical_id,
-                    parent_table="files",
-                )
-                if row is None:
-                    return
-                user_id = row.user_id
-                from sqlalchemy import update as sa_update
-
-                await session.execute(
-                    sa_update(File)
-                    .where(uuid_column_equals(session, File.id, logical_id))
-                    .values(is_indexed=True, summary=summary)
-                )
-
-            chunks = chunk_text(extracted)
-            await sm.db.repositories.document_chunks.replace_for_file(
-                logical_id, user_id, chunks
+        logical_id = UUID(file_id)
+        async with sm.db.session() as session:
+            row = await load_entity_by_id(
+                session,
+                File,
+                logical_id,
+                parent_table="files",
             )
-        except Exception as exc:
-            logger.warning("chunk_index_failed for %s: %s", file_id, exc)
+            if row is None:
+                return
+            user_id = row.user_id
+            file_mime = row.mime_type
+            file_name = row.original_name or row.name
+
+        chunks = chunk_auto(
+            extracted, mime_type=file_mime, filename=file_name
+        )
+        await sm.db.repositories.document_chunks.replace_for_file(logical_id, user_id, chunks)
+
+        # Write embeddings to the vector index (best-effort, graceful degradation).
+        try:
+            from leagent.knowledge.vector_index import get_knowledge_vector_index
+
+            vi = get_knowledge_vector_index()
+            if vi is not None and vi.available:
+                await vi.upsert_chunks(logical_id, user_id, chunks)
+        except Exception:  # noqa: BLE001
+            logger.debug("vector_index_upsert_skipped", file_id=file_id)
+
+        await self._update_file_record(
+            file_id,
+            status=FileStatus.PROCESSED,
+            is_indexed=True,
+            summary=summarize_extracted_text(extracted),
+        )

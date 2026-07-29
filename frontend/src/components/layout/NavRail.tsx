@@ -15,6 +15,7 @@ import {
   Settings,
   Shield,
   Clock,
+  MessageSquareWarning,
   LayoutTemplate,
   Plug,
   Zap,
@@ -145,6 +146,7 @@ const NavRail = ({
     { id: 'playground', label: t('nav.playground'), icon: PlayCircle, href: '/playground' },
     { id: 'templates', label: t('nav.templates'), icon: LayoutTemplate, href: '/templates' },
     { id: 'cron', label: t('nav.cron'), icon: Clock, href: '/cron' },
+    { id: 'complaints', label: t('nav.complaints'), icon: MessageSquareWarning, href: '/complaints' },
   ], [t]);
 
   const resourceNavItems = useMemo<NavItem[]>(() => [

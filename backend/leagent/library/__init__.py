@@ -15,7 +15,15 @@ Entry-Oriented Knowledge Architecture (EOKA).
 from __future__ import annotations
 
 from leagent.library.chunking import Chunk, chunk_text
-from leagent.library.fts import FTS_DDL, FTS_DROP_DDL, escape_fts_query
+from leagent.library.fts import (
+    FTS_DDL,
+    FTS_DROP_DDL,
+    TRIGRAM_DDL,
+    TRIGRAM_DROP_DDL,
+    TRIGRAM_TABLE,
+    escape_fts_query,
+    escape_trigram_query,
+)
 from leagent.library.summary import summarize_extracted_text
 
 __all__ = [
@@ -23,6 +31,10 @@ __all__ = [
     "chunk_text",
     "FTS_DDL",
     "FTS_DROP_DDL",
+    "TRIGRAM_DDL",
+    "TRIGRAM_DROP_DDL",
+    "TRIGRAM_TABLE",
     "escape_fts_query",
+    "escape_trigram_query",
     "summarize_extracted_text",
 ]

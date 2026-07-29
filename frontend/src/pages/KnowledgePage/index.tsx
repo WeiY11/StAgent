@@ -11,6 +11,8 @@ import {
   Eye,
   FolderPlus,
   PanelLeft,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Card,
@@ -30,7 +32,11 @@ import {
   useKnowledgeStore,
   type KnowledgeDocument,
 } from '@/stores/knowledge';
-import { useDocuments, useUploadDocument } from '@/hooks/useKnowledge';
+import {
+  useDocuments,
+  useReindexDocument,
+  useUploadDocument,
+} from '@/hooks/useKnowledge';
 import {
   useFolderTree,
   useCreateFolder,
@@ -66,6 +72,8 @@ import {
   findFolderPath,
 } from './components/knowledgeHelpers';
 
+const KNOWLEDGE_PAGE_SIZE = 20;
+
 export default function KnowledgePage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -78,6 +86,7 @@ export default function KnowledgePage() {
   } = useKnowledgeStore();
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
   /** Local draft — updates every keystroke without triggering remote search. */
   const [draftQuery, setDraftQuery] = useState('');
@@ -122,16 +131,25 @@ export default function KnowledgePage() {
     return (path ?? []).map((n) => ({ id: n.id, name: n.name }));
   }, [knowledgeTree, currentFolderId]);
 
-  const { data: documentsData, isLoading: listLoading } = useDocuments({
+  const {
+    data: documentsData,
+    isLoading: listLoading,
+    isError: listError,
+    refetch: refetchList,
+  } = useDocuments({
     enabled: !isSearchMode,
     folder_id: currentFolderId ?? undefined,
     unfiled: currentFolderId == null,
+    page,
+    page_size: KNOWLEDGE_PAGE_SIZE,
   });
 
   const {
     data: searchData,
     isLoading: searchLoading,
     isFetching: searchFetching,
+    isError: searchError,
+    refetch: refetchSearch,
   } = useQuery({
     queryKey: ['documents', 'search', committedQuery],
     queryFn: () =>
@@ -164,6 +182,26 @@ export default function KnowledgePage() {
     return (searchData?.results ?? []).map(mapSearchResultToDocument);
   }, [isSearchMode, documentsData, searchData]);
 
+  const previewDocument = useMemo(() => {
+    if (!selectedDocument) return null;
+    return (
+      displayDocuments.find((document) => document.id === selectedDocument.id) ??
+      selectedDocument
+    );
+  }, [displayDocuments, selectedDocument]);
+
+  const documentTotal = isSearchMode
+    ? (searchData?.total ?? displayDocuments.length)
+    : (documentsData?.total ?? displayDocuments.length);
+  const listHasError = isSearchMode ? searchError : listError;
+  const previewStatus = previewDocument
+    ? deriveIndexStatus(previewDocument.status, previewDocument.isIndexed)
+    : null;
+  const reindexLabel =
+    previewStatus === 'indexed'
+      ? t('knowledge.reindex')
+      : t('knowledge.retryIndex');
+
   // First remote search: show loader. Refetches keep previous hits visible.
   const listBusy = isSearchMode
     ? searchLoading && !searchData
@@ -172,6 +210,7 @@ export default function KnowledgePage() {
   const showEmpty = !listBusy && displayDocuments.length === 0;
 
   const commitSearch = useCallback((value: string, force = false) => {
+    setPage(1);
     setCommittedQuery(commitKnowledgeSearchQuery(value, { force }));
   }, []);
 
@@ -191,15 +230,21 @@ export default function KnowledgePage() {
   );
 
   const uploadDocument = useUploadDocument();
+  const reindexDocument = useReindexDocument();
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
 
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    completed: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   const navigateToFolder = useCallback(
     (id: string | null) => {
       setCurrentFolderId(id);
+      setPage(1);
       setSelectedDocument(null);
       setPreviewOpen(false);
       setMobileTreeOpen(false);
@@ -263,23 +308,52 @@ export default function KnowledgePage() {
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    setUploadProgress(0);
+    const selectedFiles = Array.from(files);
+    let failed = 0;
     try {
-      for (const file of Array.from(files)) {
-        await uploadDocument.mutateAsync({
-          file,
-          folder_id: currentFolderId ?? undefined,
+      for (const [index, file] of selectedFiles.entries()) {
+        setUploadProgress({
+          completed: index,
+          total: selectedFiles.length,
+          fileName: file.name,
+        });
+        try {
+          await uploadDocument.mutateAsync({
+            file,
+            folder_id: currentFolderId ?? undefined,
+          });
+        } catch {
+          failed += 1;
+        }
+        setUploadProgress({
+          completed: index + 1,
+          total: selectedFiles.length,
+          fileName: file.name,
         });
       }
     } finally {
       setUploadProgress(null);
+    }
+    if (failed > 0) {
+      toast({
+        title: t('knowledge.uploadPartial', {
+          succeeded: selectedFiles.length - failed,
+          failed,
+        }),
+        variant: 'warning',
+      });
+    } else {
+      toast({
+        title: t('knowledge.uploadComplete', { count: selectedFiles.length }),
+        variant: 'success',
+      });
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    handleFileSelect(e.dataTransfer.files);
+    void handleFileSelect(e.dataTransfer.files);
   };
 
   const handleDelete = async (id: string) => {
@@ -287,6 +361,7 @@ export default function KnowledgePage() {
       try {
         await apiClient.delete(`/files/${id}`);
         await queryClient.invalidateQueries({ queryKey: ['documents'] });
+        await queryClient.invalidateQueries({ queryKey: ['folders'] });
       } catch {
         window.alert(t('knowledge.deleteUnavailable'));
         return;
@@ -295,6 +370,27 @@ export default function KnowledgePage() {
         setSelectedDocument(null);
         setPreviewOpen(false);
       }
+    }
+  };
+
+  const handleReindex = async (document: KnowledgeDocument) => {
+    try {
+      await reindexDocument.mutateAsync(document.id);
+      setSelectedDocument({
+        ...document,
+        status: 'processing',
+        isIndexed: false,
+        summary: null,
+      });
+      toast({
+        title: t('knowledge.reindexQueued'),
+        variant: 'success',
+      });
+    } catch {
+      toast({
+        title: t('knowledge.reindexFailed'),
+        variant: 'error',
+      });
     }
   };
 
@@ -409,7 +505,10 @@ export default function KnowledgePage() {
             type="file"
             multiple
             className="hidden"
-            onChange={(e) => handleFileSelect(e.target.files)}
+            onChange={(e) => {
+              void handleFileSelect(e.target.files);
+              e.currentTarget.value = '';
+            }}
             accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.png,.jpg,.jpeg"
           />
           <Button
@@ -449,7 +548,7 @@ export default function KnowledgePage() {
                 {t('knowledge.documents')}
               </h2>
               <span className="text-sm text-muted-foreground shrink-0">
-                {`${displayDocuments.length} ${t('knowledge.items')}`}
+                {`${documentTotal} ${t('knowledge.items')}`}
               </span>
             </div>
 
@@ -473,12 +572,24 @@ export default function KnowledgePage() {
                 <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary-500 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-300"
-                    style={{ width: `${uploadProgress}%` }}
+                    style={{
+                      width: `${Math.round(
+                        (uploadProgress.completed / uploadProgress.total) * 100,
+                      )}%`,
+                    }}
                   />
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  {t('knowledge.uploading')}
-                </span>
+                <div className="min-w-0 text-right">
+                  <p className="text-sm text-foreground">
+                    {t('knowledge.uploadProgress', {
+                      completed: uploadProgress.completed,
+                      total: uploadProgress.total,
+                    })}
+                  </p>
+                  <p className="max-w-48 truncate text-xs text-muted-foreground">
+                    {uploadProgress.fileName}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -488,6 +599,18 @@ export default function KnowledgePage() {
               <div className="flex items-center justify-center py-12">
                 <PageLoader message={t('common.loading')} />
               </div>
+            ) : listHasError ? (
+              <EmptyState
+                type="error"
+                title={t('knowledge.loadFailed')}
+                description={t('knowledge.loadFailedHint')}
+                action={{
+                  label: t('common.retry'),
+                  onClick: () => {
+                    void (isSearchMode ? refetchSearch() : refetchList());
+                  },
+                }}
+              />
             ) : !showEmpty ? (
               <div className="divide-y divide-border">
                 {displayDocuments.map((doc) => {
@@ -503,63 +626,70 @@ export default function KnowledgePage() {
                     <div
                       key={doc.id}
                       className={cn(
-                        'flex items-start gap-4 p-4 cursor-pointer transition-colors',
+                        'flex items-start gap-2 p-2 transition-colors',
                         isSelected
                           ? 'bg-primary-50 dark:bg-primary-900/20'
                           : 'hover:bg-surface-sunken/80',
                       )}
-                      onClick={() => {
-                        setSelectedDocument(doc);
-                        setPreviewOpen(true);
-                      }}
                     >
-                      <div className="flex-shrink-0 w-10 h-10 mt-0.5 rounded-lg bg-surface-sunken flex items-center justify-center">
-                        <FileIcon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {doc.name}
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-start gap-4 rounded-md p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                        onClick={() => {
+                          setSelectedDocument(doc);
+                          setPreviewOpen(true);
+                        }}
+                        aria-pressed={isSelected}
+                        aria-label={t('knowledge.openDocument', { name: doc.name })}
+                      >
+                        <div className="flex-shrink-0 w-10 h-10 mt-0.5 rounded-lg bg-surface-sunken flex items-center justify-center">
+                          <FileIcon className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="font-medium text-foreground truncate">
+                              {doc.name}
+                            </p>
+                            <Badge
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0"
+                            >
+                              {getFileTypeLabel(doc.type)}
+                            </Badge>
+                          </div>
+                          <p
+                            className={cn(
+                              'text-sm line-clamp-2',
+                              doc.summary || doc.preview
+                                ? 'text-muted-foreground'
+                                : 'text-muted-foreground/70 italic',
+                            )}
+                          >
+                            {blurb}
                           </p>
-                          <Badge
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0"
-                          >
-                            {getFileTypeLabel(doc.type)}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <Badge
+                              variant={indexStatusBadgeVariant(statusKey)}
+                              size="sm"
+                            >
+                              {isSearchMode
+                                ? t('knowledge.searchMatch')
+                                : t(`knowledge.status.${statusKey}`)}
+                            </Badge>
+                            {!isSearchMode && (
+                              <>
+                                <span>{formatFileSize(doc.size)}</span>
+                                <span aria-hidden>·</span>
+                                <span>
+                                  {formatRelativeTime(doc.createdAt)}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p
-                          className={cn(
-                            'text-sm line-clamp-2',
-                            doc.summary || doc.preview
-                              ? 'text-muted-foreground'
-                              : 'text-muted-foreground/70 italic',
-                          )}
-                        >
-                          {blurb}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <Badge
-                            variant={indexStatusBadgeVariant(statusKey)}
-                            size="sm"
-                          >
-                            {isSearchMode
-                              ? t('knowledge.searchMatch')
-                              : t(`knowledge.status.${statusKey}`)}
-                          </Badge>
-                          {!isSearchMode && (
-                            <>
-                              <span>{formatFileSize(doc.size)}</span>
-                              <span aria-hidden>·</span>
-                              <span>
-                                {formatRelativeTime(doc.createdAt)}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      </button>
+                      <div className="mt-2 flex items-center gap-1 shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -567,6 +697,12 @@ export default function KnowledgePage() {
                             e.stopPropagation();
                             handleDownloadDocument(doc.id, doc.name);
                           }}
+                          aria-label={t('knowledge.downloadDocument', {
+                            name: doc.name,
+                          })}
+                          title={t('knowledge.downloadDocument', {
+                            name: doc.name,
+                          })}
                         >
                           <Download className="w-4 h-4" />
                         </Button>
@@ -578,6 +714,12 @@ export default function KnowledgePage() {
                             void handleDelete(doc.id);
                           }}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          aria-label={t('knowledge.deleteDocument', {
+                            name: doc.name,
+                          })}
+                          title={t('knowledge.deleteDocument', {
+                            name: doc.name,
+                          })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -612,6 +754,37 @@ export default function KnowledgePage() {
               />
             )}
           </CardContent>
+          {!isSearchMode && !listHasError && documentsData && documentTotal > 0 && (
+            <div className="flex flex-shrink-0 items-center justify-between border-t border-border px-4 py-3 text-sm">
+              <span className="text-muted-foreground">
+                {t('knowledge.pageStatus', {
+                  page: documentsData.page,
+                  total: Math.max(
+                    1,
+                    Math.ceil(documentTotal / documentsData.page_size),
+                  ),
+                })}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!documentsData.has_prev}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  {t('common.previousPage')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!documentsData.has_next}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  {t('common.nextPage')}
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         <div className="min-h-0 lg:min-h-[min(100%,calc(100dvh-8rem))]">
@@ -622,11 +795,11 @@ export default function KnowledgePage() {
               </h2>
             </div>
             <CardContent className="flex flex-col min-h-0 flex-1 overflow-hidden">
-              {selectedDocument ? (
+              {previewDocument ? (
                 <div className="flex flex-col min-h-0 flex-1 gap-4 overflow-hidden">
                   <div className="flex flex-shrink-0 items-center gap-3">
                     {(() => {
-                      const FileIcon = getFileIcon(selectedDocument.type);
+                      const FileIcon = getFileIcon(previewDocument.type);
                       return (
                         <div className="w-12 h-12 rounded-lg bg-surface-sunken flex items-center justify-center">
                           <FileIcon className="w-6 h-6 text-muted-foreground" />
@@ -635,27 +808,17 @@ export default function KnowledgePage() {
                     })()}
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-foreground truncate">
-                        {selectedDocument.name}
+                        {previewDocument.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {getFileTypeLabel(selectedDocument.type)}
+                        {getFileTypeLabel(previewDocument.type)}
                       </p>
                     </div>
                     <Badge
-                      variant={indexStatusBadgeVariant(
-                        deriveIndexStatus(
-                          selectedDocument.status,
-                          selectedDocument.isIndexed,
-                        ),
-                      )}
+                      variant={indexStatusBadgeVariant(previewStatus ?? 'pending')}
                       size="sm"
                     >
-                      {t(
-                        `knowledge.status.${deriveIndexStatus(
-                          selectedDocument.status,
-                          selectedDocument.isIndexed,
-                        )}`,
-                      )}
+                      {t(`knowledge.status.${previewStatus ?? 'pending'}`)}
                     </Badge>
                   </div>
 
@@ -665,7 +828,7 @@ export default function KnowledgePage() {
                         {t('knowledge.size')}:
                       </span>
                       <span className="text-foreground">
-                        {formatFileSize(selectedDocument.size)}
+                        {formatFileSize(previewDocument.size)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -673,7 +836,7 @@ export default function KnowledgePage() {
                         {t('knowledge.created')}:
                       </span>
                       <span className="text-foreground">
-                        {formatDate(selectedDocument.createdAt)}
+                        {formatDate(previewDocument.createdAt)}
                       </span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -681,21 +844,16 @@ export default function KnowledgePage() {
                         {t('knowledge.indexStatus')}:
                       </span>
                       <span className="text-foreground">
-                        {t(
-                          `knowledge.status.${deriveIndexStatus(
-                            selectedDocument.status,
-                            selectedDocument.isIndexed,
-                          )}`,
-                        )}
+                        {t(`knowledge.status.${previewStatus ?? 'pending'}`)}
                       </span>
                     </div>
-                    {selectedDocument.chunks != null && (
+                    {previewDocument.chunks != null && (
                       <div className="flex justify-between gap-3">
                         <span className="text-muted-foreground">
                           {t('knowledge.chunks')}:
                         </span>
                         <span className="text-foreground">
-                          {selectedDocument.chunks}
+                          {previewDocument.chunks}
                         </span>
                       </div>
                     )}
@@ -708,30 +866,58 @@ export default function KnowledgePage() {
                     <p
                       className={cn(
                         'text-sm line-clamp-6',
-                        selectedDocument.summary || selectedDocument.preview
+                        previewDocument.summary || previewDocument.preview
                           ? 'text-foreground'
                           : 'text-muted-foreground italic',
                       )}
                     >
-                      {selectedDocument.summary?.trim() ||
-                        selectedDocument.preview?.trim() ||
-                        (deriveIndexStatus(
-                          selectedDocument.status,
-                          selectedDocument.isIndexed,
-                        ) === 'processing'
+                      {previewDocument.summary?.trim() ||
+                        previewDocument.preview?.trim() ||
+                        (previewStatus === 'processing'
                           ? t('knowledge.indexing')
                           : t('knowledge.noSummary'))}
                     </p>
                   </div>
 
+                  {previewStatus && previewStatus !== 'indexed' && (
+                    <div
+                      className={cn(
+                        'flex flex-shrink-0 items-start gap-2 rounded-lg border px-3 py-2 text-sm',
+                        previewStatus === 'failed'
+                          ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200'
+                          : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200',
+                      )}
+                      role="status"
+                    >
+                      {previewStatus === 'failed' ? (
+                        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <RefreshCw className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      )}
+                      <p>{t(`knowledge.statusHelp.${previewStatus}`)}</p>
+                    </div>
+                  )}
+
                   <div className="flex flex-shrink-0 gap-2">
+                    {previewStatus !== 'processing' && (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => void handleReindex(previewDocument)}
+                        leftIcon={<RefreshCw className="w-4 h-4" />}
+                        loading={reindexDocument.isPending}
+                        aria-label={reindexLabel}
+                      >
+                        {reindexLabel}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="flex-1"
                       onClick={() =>
                         handleDownloadDocument(
-                          selectedDocument.id,
-                          selectedDocument.name,
+                          previewDocument.id,
+                          previewDocument.name,
                         )
                       }
                       leftIcon={<Download className="w-4 h-4" />}
@@ -741,10 +927,10 @@ export default function KnowledgePage() {
                   </div>
                   <div className="min-h-0 flex-1 flex flex-col overflow-hidden border border-border rounded-lg bg-surface-sunken/30">
                     <UniversalFilePreview
-                      fileId={selectedDocument.id}
-                      fileName={selectedDocument.name}
-                      mimeType={selectedDocument.type}
-                      sizeBytes={selectedDocument.size}
+                      fileId={previewDocument.id}
+                      fileName={previewDocument.name}
+                      mimeType={previewDocument.type}
+                      sizeBytes={previewDocument.size}
                       showActions={false}
                       layout="fill"
                       className="min-h-0 flex-1"

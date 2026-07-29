@@ -8,9 +8,11 @@ remain a shortcut for whole-file mounts.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import sqlalchemy as sa
 import structlog
 from sqlmodel import col, select
 
@@ -152,23 +154,60 @@ class KnowledgeSearchTool(BaseTool):
             return await self._search(db, user_id, query, limit=limit)
         return await self._read(db, user_id, params)
 
-    async def _ensure_summary(self, db: Any, row: File) -> str | None:
-        if row.summary:
-            return row.summary
-        if not row.extracted_text:
-            return None
-        summary = summarize_extracted_text(row.extracted_text)
-        if summary is None:
-            return None
+    async def _batch_ensure_summaries(
+        self, db: Any, rows: list[File]
+    ) -> dict[UUID, str | None]:
+        """Generate and persist missing summaries in a single batch.
+
+        Returns a mapping of ``file_id → summary`` for all rows. Files that
+        already have a summary or lack extracted text are returned as-is
+        without extra queries.
+        """
+        result: dict[UUID, str | None] = {}
+        to_update: list[tuple[UUID, str]] = []
+
+        for row in rows:
+            if row.summary:
+                result[row.id] = row.summary
+                continue
+            if not row.extracted_text:
+                result[row.id] = None
+                continue
+            summary = summarize_extracted_text(row.extracted_text)
+            result[row.id] = summary
+            if summary is not None:
+                to_update.append((row.id, summary))
+                row.summary = summary
+
+        if not to_update:
+            return result
+
+        # Persist all new summaries in a single batch update.
         try:
-            fresh = await db.repositories.files.get(row.id)
-            if fresh is not None and not fresh.summary:
-                fresh.summary = summary
-                await db.repositories.files.update(fresh)
-            row.summary = summary
+            now = datetime.utcnow()
+            async with db.session() as session:
+                for file_id, summary in to_update:
+                    await session.execute(
+                        sa.text(
+                            "UPDATE files SET summary = :summary, "
+                            "updated_at = :now "
+                            "WHERE lower(replace(CAST(id AS TEXT), '-', '')) "
+                            "= :file_hex"
+                        ),
+                        {
+                            "summary": summary,
+                            "now": now,
+                            "file_hex": str(file_id).replace("-", "").lower(),
+                        },
+                    )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("knowledge_summary_lazy_write_failed", error=str(exc), file_id=str(row.id))
-        return summary
+            logger.warning(
+                "knowledge_batch_summary_write_failed",
+                error=str(exc),
+                count=len(to_update),
+            )
+
+        return result
 
     async def _catalog(self, db: Any, user_id: UUID) -> dict[str, Any]:
         # TODO: migrate to FileRepository — catalog query requires subquery against PetProjectFile
@@ -188,16 +227,18 @@ class KnowledgeSearchTool(BaseTool):
             )
             rows = list((await session.exec(stmt)).all())
 
+        # Batch-ensure summaries for all rows in one pass.
+        summary_map = await self._batch_ensure_summaries(db, rows)
+
         documents: list[dict[str, Any]] = []
         for row in rows:
-            summary = await self._ensure_summary(db, row)
             documents.append(
                 {
                     "file_id": str(row.id),
                     "name": row.original_name or row.name,
                     "file_type": row.file_type.value if hasattr(row.file_type, "value") else str(row.file_type),
                     "is_indexed": bool(row.is_indexed),
-                    "summary": summary,
+                    "summary": summary_map.get(row.id),
                 }
             )
 
@@ -223,28 +264,35 @@ class KnowledgeSearchTool(BaseTool):
         *,
         limit: int,
     ) -> dict[str, Any]:
-        hits = await db.repositories.document_chunks.search(
-            user_id,
-            query,
+        from leagent.library.retrieval import (
+            KnowledgeRetrievalPipeline,
+            SearchOptions,
+            get_knowledge_retrieval_pipeline,
+        )
+
+        pipeline = get_knowledge_retrieval_pipeline()
+        if pipeline is None:
+            pipeline = KnowledgeRetrievalPipeline(db)
+
+        options = SearchOptions(
+            query=query,
+            user_id=user_id,
             limit=limit,
             library_scope=LibraryScope.KNOWLEDGE.value,
         )
+        retrieval_results = await pipeline.search(options)
+
         results: list[dict[str, Any]] = []
-        for hit in hits:
-            f = await db.repositories.files.get(hit.file_id)
-            if f is None or f.is_deleted or not same_user_id(f.user_id, user_id):
-                continue
-            if f.library_scope != LibraryScope.KNOWLEDGE:
-                continue
+        for r in retrieval_results:
             results.append(
                 {
-                    "file_id": str(hit.file_id),
-                    "name": hit.file_name,
-                    "score": hit.score,
-                    "snippet": hit.snippet,
-                    "chunk_id": str(hit.chunk_id),
-                    "start_offset": hit.start_offset,
-                    "end_offset": hit.end_offset,
+                    "file_id": str(r.file_id),
+                    "name": r.file_name,
+                    "score": r.score,
+                    "snippet": r.snippet,
+                    "chunk_id": str(r.chunk_id),
+                    "start_offset": r.start_offset,
+                    "end_offset": r.end_offset,
                 }
             )
 
@@ -284,7 +332,8 @@ class KnowledgeSearchTool(BaseTool):
                 "file_id": raw_id,
             }
 
-        text = row.extracted_text
+        # Prefer FileContent table; fall back to legacy File.extracted_text.
+        text = await self._load_extracted_text(db, file_id) or row.extracted_text
         if not text or not str(text).strip():
             return {
                 "error": "no extracted text available; file may still be processing or unsupported",
@@ -305,7 +354,8 @@ class KnowledgeSearchTool(BaseTool):
             max_chars = max(1, min(max_chars, _MAX_READ_CHARS))
             end = min(len(text), start + max_chars)
 
-        summary = await self._ensure_summary(db, row)
+        summary_map = await self._batch_ensure_summaries(db, [row])
+        summary = summary_map.get(row.id)
         window = text[start:end]
         truncated = end < len(text)
 
@@ -325,3 +375,22 @@ class KnowledgeSearchTool(BaseTool):
                 else None
             ),
         }
+
+    @staticmethod
+    async def _load_extracted_text(db: Any, file_id: UUID) -> str | None:
+        """Load extracted text from FileContent table (preferred) or return None."""
+        from sqlmodel import select
+
+        from leagent.db.models.file_content import FileContent
+        from leagent.db.sqlite_compat import uuid_column_equals
+
+        try:
+            async with db.session() as session:
+                result = await session.exec(
+                    select(FileContent.extracted_text).where(
+                        uuid_column_equals(session, FileContent.file_id, file_id)
+                    )
+                )
+                return result.first()
+        except Exception:
+            return None

@@ -68,6 +68,7 @@ _CURATED_UTIL_TOOL_PATHS: tuple[tuple[str, str], ...] = (
     ("leagent.tools.util.cron_tools", "CronDeleteTool"),
     ("leagent.tools.util.cron_tools", "CronListTool"),
     ("leagent.tools.util.folder_tool", "FolderOperationsTool"),
+    ("leagent.tools.util.complaint_tool", "ComplaintTool"),
     ("leagent.tools.util.file_ops", "FileOpsTool"),
     ("leagent.tools.util.json_parser", "JsonParserTool"),
     ("leagent.tools.util.ask_user", "AskUserTool"),

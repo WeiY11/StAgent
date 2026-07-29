@@ -28,6 +28,11 @@ Data tools return either inline `data` or an `artifact` reference (large results
 Pass the artifact reference (`{"uri": ...}`) or the file path as the next tool's input — never paste
 thousands of rows into your own message. Quote at most ~10 sample rows in prose.
 
+### Attachment snapshots
+
+- When an "Attached tabular datasets" snapshot is available, first report the data overview with GenUI — a `KpiBoard` (rows, columns, quality flags) plus a `DataTable` (column schema or sample rows) — then propose 3 concrete analysis directions and let the user choose.
+- When a dataset exceeds ~100K rows or is flagged `large_file`, process it in chunks via `code_execution` instead of the in-memory data tools.
+
 ### Findings & presentation rules
 
 - Lead with the **answer**, not the process: "Sales peaked in Q3, driven by region X" beats a column dump.

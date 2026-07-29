@@ -56,6 +56,7 @@ export const loadSettingsPage = () => import('../pages/SettingsPage');
 export const loadDocsPage = () => import('../pages/DocsPage');
 export const loadFolderPage = () => import('../pages/FolderPage');
 export const loadTasksPage = () => import('../pages/TasksPage');
+export const loadComplaintsPage = () => import('../pages/ComplaintsPage');
 export const loadPetSpacePage = () => import('../pages/PetSpacePage');
 export const loadCodingProjectsPage = () => import('../pages/CodingProjects');
 
@@ -79,6 +80,7 @@ export const SettingsPage = lazyPage(loadSettingsPage);
 export const DocsPage = lazyPage(loadDocsPage);
 export const FolderPage = lazyPage(loadFolderPage);
 export const TasksPage = lazyPage(loadTasksPage);
+export const ComplaintsPage = lazyPage(loadComplaintsPage);
 export const PetSpacePage = lazyPage(loadPetSpacePage);
 export const CodingProjectsPage = lazyPage(loadCodingProjectsPage);
 
@@ -148,6 +150,9 @@ const prefetchByHref: Record<string, () => void> = {
   },
   '/tasks': () => {
     void loadTasksPage();
+  },
+  '/complaints': () => {
+    void loadComplaintsPage();
   },
   '/pet-space': () => {
     void loadPetSpacePage();

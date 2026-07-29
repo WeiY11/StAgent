@@ -432,11 +432,13 @@ export default function FolderPage() {
         </SheetContent>
       </Sheet>
 
-      {/* File preview dialog — replaces the old inline right-side panel */}
+      {/* File preview dialog — replaces the old inline right-side panel. Wide + tall so
+          the PDF research reader (sidebar + document) has room to breathe. */}
       <Modal
         isOpen={Boolean(previewFile)}
         onClose={() => setPreviewFile(null)}
-        size="md"
+        size="5xl"
+        className="flex h-[90vh] flex-col"
       >
         <ModalHeader onClose={() => setPreviewFile(null)}>
           {t('folders.preview')}

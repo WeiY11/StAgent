@@ -46,6 +46,7 @@ def _lazy_load() -> None:
         environment,
         gated_policy,
         identity,
+        knowledge_context,
         playbooks,
         policies,
         project_memory,

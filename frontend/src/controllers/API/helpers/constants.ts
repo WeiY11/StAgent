@@ -107,6 +107,11 @@ export const URL_KEYS = {
   CRON_STATS: '/cron/stats',
   CRON_PREVIEW_NEXT_RUNS: '/cron/preview-next-runs',
 
+  // Complaints
+  COMPLAINTS: '/complaints',
+  COMPLAINT_BY_ID: (id: string) => `/complaints/${id}`,
+  COMPLAINT_STATS: '/complaints/stats',
+
   // Workflow Executions
   FLOW_EXECUTIONS: (flowId: string) => `/workflow/flows/${flowId}/executions`,
   FLOW_EXECUTION_BY_ID: (execId: string) => `/workflow/executions/${execId}`,
@@ -171,6 +176,10 @@ export const QUERY_KEYS = {
   CRON_JOB_NEXT_RUNS: (id: string) => ['cron', id, 'next-runs'] as const,
   CRON_HEALTH: ['cron', 'health'] as const,
   CRON_STATS: ['cron', 'stats'] as const,
+
+  COMPLAINTS: ['complaints'] as const,
+  COMPLAINT: (id: string) => ['complaints', id] as const,
+  COMPLAINT_STATS: ['complaints', 'stats'] as const,
 
   EXECUTIONS: (flowId: string) => ['flows', flowId, 'executions'] as const,
   EXECUTION: (execId: string) => ['executions', execId] as const,

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   HelpCircle,
   Clock,
+  MessageSquareWarning,
   LayoutTemplate,
   Server,
   Zap,
@@ -99,6 +100,12 @@ const AppSidebar = ({ collapsed = false, onCollapsedChange }: AppSidebarProps) =
       label: t('nav.cron'),
       icon: <Clock className="w-5 h-5" />,
       href: '/cron',
+    },
+    {
+      id: 'complaints',
+      label: t('nav.complaints'),
+      icon: <MessageSquareWarning className="w-5 h-5" />,
+      href: '/complaints',
     },
   ];
 

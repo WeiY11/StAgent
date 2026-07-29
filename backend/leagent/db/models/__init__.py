@@ -33,6 +33,12 @@ from leagent.db.models.coding_project import (
     CodingProjectStatus,
     CodingProjectUpdate,
 )
+from leagent.db.models.complaint import (
+    Complaint,
+    ComplaintCreate,
+    ComplaintRead,
+    ComplaintUpdate,
+)
 from leagent.db.models.cron import (
     CronExecutionModel,
     CronJobModel,
@@ -51,6 +57,10 @@ from leagent.db.models.file import (
     FileUpdate,
     InboxState,
     LibraryScope,
+)
+from leagent.db.models.file_content import (
+    FileContent,
+    FileContentRead,
 )
 from leagent.db.models.flow import (
     Flow,
@@ -201,4 +211,9 @@ __all__ = [
     "CodingProjectRuntimeKind",
     "CodingProjectStatus",
     "CodingProjectUpdate",
+    # Complaint
+    "Complaint",
+    "ComplaintCreate",
+    "ComplaintUpdate",
+    "ComplaintRead",
 ]

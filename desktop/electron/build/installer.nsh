@@ -21,13 +21,31 @@
 !macroend
 
 !macro customRemoveFiles
-  ; Ask whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION \
-    "Remove LeAgent user data (settings, databases, logs)?$\n$\nUser data location: $APPDATA\LeAgent" \
-    IDNO skip_data_removal
+  ; App files: replicate electron-builder's default removal
+  ; (atomic move on update so a locked file can abort + restore)
+  ${if} ${isUpdated}
+    CreateDirectory "$PLUGINSDIR\old-install"
+    Push ""
+    Call un.atomicRMDir
+    Pop $R0
+    ${if} $R0 != 0
+      DetailPrint "File is busy, aborting: $R0"
+      Push ""
+      Call un.restoreFiles
+      Pop $R0
+      Abort `Can't rename "$INSTDIR" to "$PLUGINSDIR\old-install".`
+    ${endif}
+  ${endif}
+  SetOutPath $TEMP
+  RMDir /r $INSTDIR
 
-  RMDir /r "$APPDATA\LeAgent"
-  RMDir /r "$LOCALAPPDATA\LeAgent"
-
-  skip_data_removal:
+  ; User data: never removed on updates or silent uninstalls (/SD IDNO);
+  ; only an interactive full uninstall may ask.
+  ${ifNot} ${isUpdated}
+    MessageBox MB_YESNO|MB_ICONQUESTION \
+      "Remove LeAgent user data (settings, databases, logs)?$\n$\nUser data location: $APPDATA\LeAgent" \
+      /SD IDNO IDNO skip_data_removal
+    RMDir /r "$APPDATA\LeAgent"
+    skip_data_removal:
+  ${endif}
 !macroend

@@ -23,7 +23,7 @@ from leagent.db.sqlite_compat import (
     uuid_column_equals,
 )
 from leagent.library.chunking import Chunk
-from leagent.library.fts import FTS_TABLE, escape_fts_query
+from leagent.library.fts import FTS_TABLE, TRIGRAM_TABLE, escape_fts_query, escape_trigram_query
 from leagent.memory.lexical_backend import session_dialect
 
 if TYPE_CHECKING:
@@ -73,42 +73,171 @@ class DbDocumentChunkRepository:
     async def replace_for_file(
         self, file_id: UUID, user_id: UUID | None, chunks: list[Chunk]
     ) -> int:
+        """Persist *chunks* for *file_id* using diff-based incremental indexing.
+
+        When every incoming chunk carries a ``text_hash`` (SHA-256 prefix), the
+        method queries existing chunks and only deletes/inserts the rows whose
+        content actually changed.  Legacy rows without a hash trigger a
+        full-replace fallback to maintain correctness.
+        """
         async with self._db.session() as session:
             if session_dialect_name(session) == "sqlite":
-                file_db_id = await sqlite_parent_id_text(session, "files", file_id)
-                file_hex = file_id.hex.lower()
+                return await self._replace_sqlite(
+                    session, file_id, user_id, chunks
+                )
+            return await self._replace_generic(
+                session, file_id, user_id, chunks
+            )
+
+    # ── SQLite fast-path (raw SQL + hex UUID comparison) ──────────
+
+    async def _replace_sqlite(
+        self,
+        session: AsyncSession,
+        file_id: UUID,
+        user_id: UUID | None,
+        chunks: list[Chunk],
+    ) -> int:
+        file_db_id = await sqlite_parent_id_text(session, "files", file_id)
+        file_hex = file_id.hex.lower()
+
+        # New hash set — if any chunk is unhashed, fall back to full replace.
+        new_hashes = {c.text_hash for c in chunks if c.text_hash}
+        if len(new_hashes) != len(chunks):
+            # Legacy path: full delete + insert.
+            return await self._full_replace_sqlite(
+                session, file_hex, file_db_id, user_id, chunks
+            )
+
+        # Fetch existing chunk ids grouped by text_hash.
+        rows = (
+            await session.execute(
+                sa.text(
+                    "SELECT id, text_hash FROM document_chunks "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                ),
+                {"file_hex": file_hex},
+            )
+        ).fetchall()
+
+        old_map: dict[str, list[str]] = {}  # hash → [chunk_id, …]
+        for row in rows:
+            old_map.setdefault(row.text_hash or "", []).append(row.id)
+
+        old_hashes = set(old_map.keys())
+
+        # Three-way diff.
+        to_delete_ids: list[str] = []
+        for h in old_hashes - new_hashes:
+            to_delete_ids.extend(old_map[h])
+        to_insert = [c for c in chunks if c.text_hash not in old_hashes]
+
+        deleted = len(to_delete_ids)
+        inserted = len(to_insert)
+
+        # Apply deletes.
+        if to_delete_ids:
+            # Batch delete by primary key — no UUID comparison needed.
+            id_list = ", ".join(f"'{cid}'" for cid in to_delete_ids)
+            await session.execute(
+                sa.text(f"DELETE FROM document_chunks WHERE id IN ({id_list})")
+            )
+
+        # Apply inserts.
+        if to_insert:
+            now = utc_now()
+            for chunk in to_insert:
                 await session.execute(
                     sa.text(
-                        "DELETE FROM document_chunks "
-                        "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                        "INSERT INTO document_chunks "
+                        "(created_at, updated_at, id, file_id, user_id, seq, "
+                        "start_offset, end_offset, text, text_hash) "
+                        "VALUES (:created_at, :updated_at, :id, :file_id, "
+                        ":user_id, :seq, :start_offset, :end_offset, :text, "
+                        ":text_hash)"
                     ),
-                    {"file_hex": file_hex},
+                    {
+                        "created_at": now,
+                        "updated_at": now,
+                        "id": str(uuid4()),
+                        "file_id": file_db_id,
+                        "user_id": str(user_id) if user_id else None,
+                        "seq": chunk.seq,
+                        "start_offset": chunk.start_offset,
+                        "end_offset": chunk.end_offset,
+                        "text": chunk.text,
+                        "text_hash": chunk.text_hash,
+                    },
                 )
-                if chunks:
-                    now = utc_now()
-                    for chunk in chunks:
-                        await session.execute(
-                            sa.text(
-                                "INSERT INTO document_chunks "
-                                "(created_at, updated_at, id, file_id, user_id, seq, "
-                                "start_offset, end_offset, text) "
-                                "VALUES (:created_at, :updated_at, :id, :file_id, "
-                                ":user_id, :seq, :start_offset, :end_offset, :text)"
-                            ),
-                            {
-                                "created_at": now,
-                                "updated_at": now,
-                                "id": str(uuid4()),
-                                "file_id": file_db_id,
-                                "user_id": str(user_id) if user_id else None,
-                                "seq": chunk.seq,
-                                "start_offset": chunk.start_offset,
-                                "end_offset": chunk.end_offset,
-                                "text": chunk.text,
-                            },
-                        )
-                return len(chunks)
 
+        if deleted or inserted:
+            from leagent.db.models.base import utc_now as _now
+
+            await session.execute(
+                sa.text(
+                    "UPDATE files SET updated_at = :now "
+                    "WHERE lower(replace(CAST(id AS TEXT), '-', '')) = :file_hex"
+                ),
+                {"now": _now(), "file_hex": file_hex},
+            )
+
+        return len(chunks)
+
+    async def _full_replace_sqlite(
+        self,
+        session: AsyncSession,
+        file_hex: str,
+        file_db_id: str | None,
+        user_id: UUID | None,
+        chunks: list[Chunk],
+    ) -> int:
+        """Legacy full delete + insert (used when chunks lack text_hash)."""
+        await session.execute(
+            sa.text(
+                "DELETE FROM document_chunks "
+                "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+            ),
+            {"file_hex": file_hex},
+        )
+        if chunks:
+            now = utc_now()
+            for chunk in chunks:
+                await session.execute(
+                    sa.text(
+                        "INSERT INTO document_chunks "
+                        "(created_at, updated_at, id, file_id, user_id, seq, "
+                        "start_offset, end_offset, text, text_hash) "
+                        "VALUES (:created_at, :updated_at, :id, :file_id, "
+                        ":user_id, :seq, :start_offset, :end_offset, :text, "
+                        ":text_hash)"
+                    ),
+                    {
+                        "created_at": now,
+                        "updated_at": now,
+                        "id": str(uuid4()),
+                        "file_id": file_db_id,
+                        "user_id": str(user_id) if user_id else None,
+                        "seq": chunk.seq,
+                        "start_offset": chunk.start_offset,
+                        "end_offset": chunk.end_offset,
+                        "text": chunk.text,
+                        "text_hash": chunk.text_hash,
+                    },
+                )
+        return len(chunks)
+
+    # ── Generic (PostgreSQL) path ────────────────────────────────
+
+    async def _replace_generic(
+        self,
+        session: AsyncSession,
+        file_id: UUID,
+        user_id: UUID | None,
+        chunks: list[Chunk],
+    ) -> int:
+        new_hashes = {c.text_hash for c in chunks if c.text_hash}
+        if len(new_hashes) != len(chunks):
+            # Full replace fallback.
             await session.exec(
                 delete(DocumentChunk).where(
                     uuid_column_equals(session, DocumentChunk.file_id, file_id)
@@ -119,14 +248,50 @@ class DbDocumentChunkRepository:
                     DocumentChunk(
                         file_id=file_id,
                         user_id=user_id,
-                        seq=chunk.seq,
-                        start_offset=chunk.start_offset,
-                        end_offset=chunk.end_offset,
-                        text=chunk.text,
+                        seq=c.seq,
+                        start_offset=c.start_offset,
+                        end_offset=c.end_offset,
+                        text=c.text,
+                        text_hash=c.text_hash,
                     )
-                    for chunk in chunks
+                    for c in chunks
                 ])
             return len(chunks)
+
+        # Diff-based update.
+        existing = (
+            await session.exec(
+                select(DocumentChunk.id, DocumentChunk.text_hash).where(
+                    uuid_column_equals(session, DocumentChunk.file_id, file_id)
+                )
+            )
+        ).all()
+        old_map: dict[str, list[Any]] = {}
+        for chunk_id, th in existing:
+            old_map.setdefault(th or "", []).append(chunk_id)
+        old_hashes = set(old_map.keys())
+
+        to_delete_ids = [cid for h in (old_hashes - new_hashes) for cid in old_map[h]]
+        to_insert = [c for c in chunks if c.text_hash not in old_hashes]
+
+        if to_delete_ids:
+            await session.exec(
+                delete(DocumentChunk).where(col(DocumentChunk.id).in_(to_delete_ids))
+            )
+        if to_insert:
+            session.add_all([
+                DocumentChunk(
+                    file_id=file_id,
+                    user_id=user_id,
+                    seq=c.seq,
+                    start_offset=c.start_offset,
+                    end_offset=c.end_offset,
+                    text=c.text,
+                    text_hash=c.text_hash,
+                )
+                for c in to_insert
+            ])
+        return len(chunks)
 
     async def delete_for_file(self, file_id: UUID) -> int:
         async with self._db.session() as session:
@@ -149,6 +314,15 @@ class DbDocumentChunkRepository:
                         ),
                         {"file_hex": file_hex},
                     )
+                # Drop the associated extracted-text payload as well so the
+                # file_contents table does not accumulate orphans.
+                await session.execute(
+                    sa.text(
+                        "DELETE FROM file_contents "
+                        "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :file_hex"
+                    ),
+                    {"file_hex": file_hex},
+                )
                 return int(count)
 
             result = await session.exec(
@@ -163,6 +337,13 @@ class DbDocumentChunkRepository:
                         uuid_column_equals(session, DocumentChunk.file_id, file_id)
                     )
                 )
+            from leagent.db.models.file_content import FileContent
+
+            await session.exec(
+                delete(FileContent).where(
+                    uuid_column_equals(session, FileContent.file_id, file_id)
+                )
+            )
             return len(ids)
 
     async def search(
@@ -182,8 +363,17 @@ class DbDocumentChunkRepository:
                 hits = await self._search_fts(
                     session, user_id, query, limit, library_scope
                 )
-                if hits is not None:
+                if hits:
                     return hits
+                # Trigram fallback for CJK substring matching when BM25
+                # returns no results (e.g. multi-character Chinese phrases
+                # that the unicode61 tokenizer splits into single chars).
+                if await self._trigram_available(session):
+                    trigram_hits = await self._search_trigram(
+                        session, user_id, query, limit, library_scope
+                    )
+                    if trigram_hits:
+                        return trigram_hits
             return await self._search_lexical(
                 session, user_id, query, limit, library_scope
             )
@@ -266,6 +456,95 @@ class DbDocumentChunkRepository:
         except Exception:
             return None
         return [self._row_to_hit(row, score=-float(row.score)) for row in result]
+
+    async def _trigram_available(self, session: AsyncSession) -> bool:
+        """True when the supplementary trigram FTS5 index exists."""
+        try:
+            result = await session.execute(
+                sa.text(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name=:name"
+                ),
+                {"name": TRIGRAM_TABLE},
+            )
+            return result.first() is not None
+        except Exception:
+            return False
+
+    async def _search_trigram(
+        self,
+        session: AsyncSession,
+        user_id: UUID | None,
+        query: str,
+        limit: int,
+        library_scope: str | None,
+    ) -> list[ChunkHit]:
+        """Trigram-based fallback for CJK substring matching.
+
+        The trigram tokenizer does not support BM25 ranking, so results are
+        returned with a flat score of 1.0 (ordered by chunk sequence). This is
+        acceptable as a *rescue* path when the main BM25 index misses CJK
+        multi-character queries.
+        """
+        match_expr = escape_trigram_query(query)
+        if not match_expr:
+            return []
+        user_id_dashed = str(user_id) if user_id else None
+        user_id_hex = user_id_dashed.replace("-", "") if user_id_dashed else None
+        scope_value, scope_name = _scope_variants(library_scope)
+        sql = sa.text(
+            f"""
+            SELECT dc.id AS chunk_id, dc.file_id AS file_id, dc.seq AS seq,
+                   dc.start_offset AS start_offset, dc.end_offset AS end_offset,
+                   dc.text AS text,
+                   f.name AS file_name,
+                   1.0 AS score,
+                   dc.text AS snippet
+            FROM {TRIGRAM_TABLE}
+            JOIN document_chunks dc ON dc.rowid = {TRIGRAM_TABLE}.rowid
+            JOIN files f ON f.id = dc.file_id
+            WHERE {TRIGRAM_TABLE} MATCH :match
+              AND f.is_deleted = 0
+              AND (
+                    :user_id_dashed IS NULL
+                    OR lower(replace(CAST(dc.user_id AS TEXT), '-', ''))
+                       = lower(:user_id_hex)
+                  )
+              AND (
+                    :user_id_dashed IS NULL
+                    OR lower(replace(CAST(f.user_id AS TEXT), '-', ''))
+                       = lower(:user_id_hex)
+                  )
+              AND (
+                    :scope_value IS NULL
+                    OR f.library_scope = :scope_value
+                    OR f.library_scope = :scope_name
+                  )
+            LIMIT :limit
+            """
+        )
+        try:
+            result = await session.execute(
+                sql,
+                {
+                    "match": match_expr,
+                    "user_id_dashed": user_id_dashed,
+                    "user_id_hex": user_id_hex,
+                    "scope_value": scope_value,
+                    "scope_name": scope_name,
+                    "limit": limit,
+                },
+            )
+        except Exception:
+            return []
+        hits = [
+            self._row_to_hit(row, score=float(row.score))
+            for row in result
+        ]
+        # Trigram has no BM25 ranking — build a snippet from the query.
+        for hit in hits:
+            hit.snippet = _lexical_snippet(hit.text, query)
+        return hits
 
     async def _search_lexical(
         self,

@@ -23,6 +23,10 @@ from leagent.db.repositories.coding_projects import (
     CodingProjectRepository,
     DbCodingProjectRepository,
 )
+from leagent.db.repositories.complaints import (
+    ComplaintRepository,
+    DbComplaintRepository,
+)
 from leagent.db.repositories.document_chunks import (
     DbDocumentChunkRepository,
     DocumentChunkRepository,
@@ -59,6 +63,7 @@ class Repositories:
         self._flows: DbFlowRepository | None = None
         self._folders: DbFolderRepository | None = None
         self._coding_projects: DbCodingProjectRepository | None = None
+        self._complaints: DbComplaintRepository | None = None
 
     @property
     def files(self) -> DbFileRepository:
@@ -120,6 +125,12 @@ class Repositories:
             self._coding_projects = DbCodingProjectRepository(self._db)
         return self._coding_projects
 
+    @property
+    def complaints(self) -> DbComplaintRepository:
+        if self._complaints is None:
+            self._complaints = DbComplaintRepository(self._db)
+        return self._complaints
+
 
 __all__ = [
     "Repositories",
@@ -129,6 +140,8 @@ __all__ = [
     "DbCheckpointRepository",
     "CodingProjectRepository",
     "DbCodingProjectRepository",
+    "ComplaintRepository",
+    "DbComplaintRepository",
     "FileRepository",
     "DbFileRepository",
     "DocumentChunkRepository",

@@ -869,7 +869,9 @@
       "analyze": "Analyze",
       "analyzeFormulaPrompt": "Analyze this formula from the paper{{page}} in depth: define every symbol, explain what it computes and why, and note assumptions or limitations.",
       "summaryFailed": "Could not generate a summary for this section.",
-      "wholePaper": "Whole paper"
+      "wholePaper": "Whole paper",
+      "loadFailed": "Failed to load — check your connection or try again.",
+      "retry": "Retry"
     },
     "dock": {
       "title": "Agent",

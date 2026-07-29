@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Annotated, Any
-from uuid import UUID
+from uuid import UUID  # noqa: TC003 - FastAPI resolves endpoint annotations at runtime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
+from sqlalchemy import update as sa_update
 from sqlmodel import col, func, select
 
 from leagent.config.settings import get_settings
@@ -26,10 +28,10 @@ from leagent.db.models import (
 from leagent.db.models import (
     File as FileModel,
 )
-from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals
+from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals, uuid_column_in
 from leagent.file.primitives import classify_file_kind
 from leagent.schema.api import PaginatedResponse
-from leagent.services.auth import CurrentUserId
+from leagent.services.auth import CurrentUserId  # noqa: TC001 - FastAPI dependency alias
 
 router = APIRouter()
 
@@ -69,10 +71,7 @@ def _is_system_knowledge_storage_path(storage_path: str | None) -> bool:
     if not storage_path:
         return False
     nf = os.path.normpath(storage_path)
-    for root in _knowledge_storage_roots_norm():
-        if nf == root or nf.startswith(root + os.sep):
-            return True
-    return False
+    return any(nf == root or nf.startswith(root + os.sep) for root in _knowledge_storage_roots_norm())
 
 
 def _storage_path_under_system_knowledge_sql():
@@ -131,6 +130,13 @@ class DocumentSearchResult(BaseModel):
     id: UUID
     name: str
     file_type: FileType
+    mime_type: str | None
+    size: int
+    status: FileStatus
+    is_indexed: bool
+    summary: str | None = None
+    created_at: datetime
+    folder_id: UUID | None = None
     score: float
     snippet: str | None = None
     chunk_id: UUID | None = None
@@ -144,6 +150,15 @@ class DocumentSearchResponse(BaseModel):
     query: str
     results: list[DocumentSearchResult]
     total: int
+
+
+class DocumentReindexResponse(BaseModel):
+    """Accepted document re-index job and its reset catalog state."""
+
+    id: UUID
+    status: FileStatus
+    is_indexed: bool
+    task_id: str | None = None
 
 
 class PromoteToKnowledgeRequest(BaseModel):
@@ -262,7 +277,7 @@ async def upload_document(
             library_scope=LibraryScope.KNOWLEDGE,
             inbox_state=InboxState.NEW,
             origin_type="upload",
-            is_indexed=index_for_search,
+            is_indexed=False,
         )
         session.add(db_file)
         if folder is not None:
@@ -284,14 +299,14 @@ async def upload_document(
     )
 
     return DocumentUploadResponse(
-            id=db_file.id,
-            name=db_file.name,
-            original_name=db_file.original_name,
-            file_type=db_file.file_type,
-            mime_type=db_file.mime_type,
-            size=db_file.size,
-            status=db_file.status,
-        )
+        id=db_file.id,
+        name=db_file.name,
+        original_name=db_file.original_name,
+        file_type=db_file.file_type,
+        mime_type=db_file.mime_type,
+        size=db_file.size,
+        status=db_file.status,
+    )
 
 
 @router.post("/promote", response_model=PromoteToKnowledgeResponse)
@@ -335,29 +350,19 @@ async def promote_to_knowledge(
                 parent_table="files",
             )
             if src is None or src.is_deleted:
-                skipped.append(
-                    SkippedPromoteFile(id=raw_id, reason="not_found")
-                )
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="not_found"))
                 continue
             if not same_user_id(src.user_id, user_id):
-                skipped.append(
-                    SkippedPromoteFile(id=raw_id, reason="forbidden")
-                )
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="forbidden"))
                 continue
             if src.library_scope == LibraryScope.KNOWLEDGE:
-                skipped.append(
-                    SkippedPromoteFile(id=raw_id, reason="already_in_knowledge")
-                )
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="already_in_knowledge"))
                 continue
             if not src.storage_path or not os.path.isfile(src.storage_path):
-                skipped.append(
-                    SkippedPromoteFile(id=raw_id, reason="missing_on_disk")
-                )
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="missing_on_disk"))
                 continue
             if src.size > MAX_FILE_SIZE:
-                skipped.append(
-                    SkippedPromoteFile(id=raw_id, reason="too_large")
-                )
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="too_large"))
                 continue
 
             with open(src.storage_path, "rb") as rf:
@@ -412,7 +417,7 @@ async def promote_to_knowledge(
                 inbox_state=InboxState.NEW,
                 origin_type="promote",
                 origin_ref=str(raw_id),
-                is_indexed=True,
+                is_indexed=False,
             )
             session.add(db_new)
             if folder is not None:
@@ -465,7 +470,7 @@ async def list_documents(
         pet_lib = _pet_project_library_file_ids_subquery(session, user_id)
         query = select(FileModel).where(
             uuid_column_equals(session, FileModel.user_id, user_id),
-            FileModel.is_deleted == False,
+            FileModel.is_deleted == False,  # noqa: E712
             FileModel.library_scope == LibraryScope.KNOWLEDGE,
             ~FileModel.id.in_(pet_lib),
         )
@@ -515,37 +520,68 @@ async def search_documents(
     if file_types:
         type_filter = [FileType(t.strip()) for t in file_types.split(",") if t.strip()]
 
-    chunk_hits = await db.repositories.document_chunks.search(
-        user_id,
-        query,
-        limit=limit,
-        library_scope=LibraryScope.KNOWLEDGE.value,
-    )
+    candidate_limit = max(limit * 4, 8)
+    max_candidate_limit = 2_000
+    best_hits: dict[UUID, Any] = {}
+    while True:
+        chunk_hits = await db.repositories.document_chunks.search(
+            user_id,
+            query,
+            limit=candidate_limit,
+            library_scope=LibraryScope.KNOWLEDGE.value,
+        )
+        best_hits.clear()
+        for hit in chunk_hits:
+            previous = best_hits.get(hit.file_id)
+            if previous is None or hit.score > previous.score:
+                best_hits[hit.file_id] = hit
+        if (
+            len(best_hits) >= limit
+            or len(chunk_hits) < candidate_limit
+            or candidate_limit >= max_candidate_limit
+        ):
+            break
+        candidate_limit = min(candidate_limit * 2, max_candidate_limit)
 
     search_results: list[DocumentSearchResult] = []
-    for hit in chunk_hits:
-        file_type = FileType.OTHER
+    ranked_hits = sorted(best_hits.values(), key=lambda item: item.score, reverse=True)
+    # Batch load all file metadata in a single query instead of N+1
+    file_ids = [hit.file_id for hit in ranked_hits]
+    files_by_id: dict[UUID, Any] = {}
+    if file_ids:
         async with db.session() as session:
-            f = await load_entity_by_id(
-                session,
-                FileModel,
-                hit.file_id,
-                parent_table="files",
+            batch_stmt = (
+                select(FileModel)
+                .where(FileModel.is_deleted == False)  # noqa: E712
+                .where(uuid_column_equals(session, FileModel.user_id, user_id))
+                .where(FileModel.library_scope == LibraryScope.KNOWLEDGE)
+                .where(FileModel.is_indexed == True)  # noqa: E712
+                .where(uuid_column_in(session, FileModel.id, file_ids))
             )
-            if f is None or f.is_deleted or not same_user_id(f.user_id, user_id):
-                continue
-            if f.library_scope != LibraryScope.KNOWLEDGE:
-                continue
-            if type_filter and f.file_type not in type_filter:
-                continue
-            if folder_id is not None and not same_user_id(f.folder_id, folder_id):
-                continue
-            file_type = f.file_type
+            result = await session.exec(batch_stmt)
+            for f in result.all():
+                files_by_id[f.id] = f
+
+    for hit in ranked_hits:
+        f = files_by_id.get(hit.file_id)
+        if f is None:
+            continue
+        if type_filter and f.file_type not in type_filter:
+            continue
+        if folder_id is not None and not same_user_id(f.folder_id, folder_id):
+            continue
         search_results.append(
             DocumentSearchResult(
                 id=hit.file_id,
-                name=hit.file_name,
-                file_type=file_type,
+                name=f.original_name,
+                file_type=f.file_type,
+                mime_type=f.mime_type,
+                size=f.size,
+                status=f.status,
+                is_indexed=f.is_indexed,
+                summary=f.summary,
+                created_at=f.created_at,
+                folder_id=f.folder_id,
                 score=hit.score,
                 snippet=hit.snippet,
                 chunk_id=hit.chunk_id,
@@ -553,9 +589,88 @@ async def search_documents(
                 end_offset=hit.end_offset,
             )
         )
+        if len(search_results) >= limit:
+            break
 
     return DocumentSearchResponse(
         query=query,
         results=search_results,
         total=len(search_results),
+    )
+
+
+@router.post("/{file_id}/reindex", response_model=DocumentReindexResponse)
+async def reindex_document(
+    file_id: UUID,
+    user_id: CurrentUserId,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+) -> DocumentReindexResponse:
+    """Reset and enqueue one owned knowledge document for extraction/indexing."""
+    async with db.session() as session:
+        file = await load_entity_by_id(
+            session,
+            FileModel,
+            file_id,
+            parent_table="files",
+        )
+        if (
+            file is None
+            or file.is_deleted
+            or not same_user_id(file.user_id, user_id)
+            or file.library_scope != LibraryScope.KNOWLEDGE
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Knowledge document not found",
+            )
+        if not file.storage_path or not os.path.isfile(file.storage_path):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Document source file is unavailable",
+            )
+
+        storage_path = file.storage_path
+        mime_type = file.mime_type
+        original_name = file.original_name
+        session_id = file.session_id
+        await session.execute(
+            sa_update(FileModel)
+            .where(uuid_column_equals(session, FileModel.id, file_id))
+            .values(
+                status=FileStatus.PROCESSING,
+                is_indexed=False,
+                summary=None,
+                updated_at=datetime.utcnow(),
+            )
+        )
+
+    from leagent.tasks.jobs import enqueue_file_processing
+
+    try:
+        task_id = await enqueue_file_processing(
+            db,
+            file_id=str(file_id),
+            storage_path=storage_path,
+            mime_type=mime_type,
+            original_name=original_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    except Exception:
+        async with db.session() as session:
+            await session.execute(
+                sa_update(FileModel)
+                .where(uuid_column_equals(session, FileModel.id, file_id))
+                .values(
+                    status=FileStatus.FAILED,
+                    is_indexed=False,
+                    updated_at=datetime.utcnow(),
+                )
+            )
+        raise
+    return DocumentReindexResponse(
+        id=file_id,
+        status=FileStatus.PROCESSING,
+        is_indexed=False,
+        task_id=task_id,
     )

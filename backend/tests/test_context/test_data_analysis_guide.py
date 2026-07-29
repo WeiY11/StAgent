@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Any
+from uuid import UUID, uuid4
+
+import pytest
+
 from leagent.context.recipe import RECIPE_REGISTRY
 from leagent.context.sources import SOURCE_REGISTRY
+from leagent.context.sources.base import ResolveContext
 from leagent.context.sources.gated_policy import DataAnalysisGuideSource
 
 GATE = DataAnalysisGuideSource.gate
@@ -41,3 +47,105 @@ def test_policy_template_exists_in_registry():
     policy = get_prompt_registry().get("policies/data_analysis_guide", variant="default")
     assert "Data analysis mode" in policy.body
     assert "data_profile" in policy.requires_tools
+
+
+# -- tabular-attachment opt-in + snapshot summary injection -----------------
+
+
+class _Attachment:
+    """Minimal stand-in for SessionAttachment (only fields the source reads)."""
+
+    def __init__(self, filename: str, extra: dict[str, Any] | None = None) -> None:
+        self.filename = filename
+        self.extra = extra or {}
+
+
+class _FakeSessionManager:
+    def __init__(self, attachments: list[_Attachment]) -> None:
+        self._attachments = attachments
+
+    async def list_attachments(self, session_id: UUID, *, user_id: UUID | None = None) -> list[_Attachment]:
+        return self._attachments
+
+
+_CSV_SNAPSHOT: dict[str, Any] = {
+    "columns": [
+        {"name": "region", "dtype": "object", "null_pct": 0.0},
+        {"name": "revenue", "dtype": "float64", "null_pct": 7.0},
+    ],
+    "row_count_estimate": 1234,
+    "sample_rows": [{"region": "east", "revenue": 10.5}],
+    "truncated": True,
+}
+
+
+def _ctx(attachments: list[_Attachment] | None, query: str) -> ResolveContext:
+    from leagent.prompts.registry import get_prompt_registry
+
+    sm = _FakeSessionManager(attachments) if attachments is not None else None
+    return ResolveContext(
+        query=query,
+        session_manager=sm,
+        session_id=uuid4() if sm is not None else None,
+        prompt_registry=get_prompt_registry(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_tabular_attachment_forces_gate_open_without_keywords():
+    ctx = _ctx([_Attachment("sales.csv", {"tabular_snapshot": _CSV_SNAPSHOT})], "hello")
+    block = await DataAnalysisGuideSource().resolve(ctx)
+    assert block is not None
+    assert "Data analysis mode" in block.body
+    assert block.metadata["tabular_snapshots"] == 1
+
+
+@pytest.mark.asyncio
+async def test_no_attachments_and_no_keywords_skips_source():
+    ctx = _ctx([], "write a poem about the sea")
+    assert await DataAnalysisGuideSource().resolve(ctx) is None
+    # Also with no session manager wired at all.
+    assert await DataAnalysisGuideSource().resolve(_ctx(None, "hello")) is None
+
+
+@pytest.mark.asyncio
+async def test_non_tabular_attachment_does_not_open_gate():
+    ctx = _ctx([_Attachment("photo.png", {})], "hello")
+    assert await DataAnalysisGuideSource().resolve(ctx) is None
+
+
+@pytest.mark.asyncio
+async def test_snapshot_summary_appears_in_resolved_block():
+    ctx = _ctx([_Attachment("sales.csv", {"tabular_snapshot": _CSV_SNAPSHOT})], "分析一下")
+    block = await DataAnalysisGuideSource().resolve(ctx)
+    assert block is not None
+    assert "### Attached tabular datasets" in block.body
+    assert "sales.csv" in block.body
+    assert "~1234 rows" in block.body
+    assert "region(object)" in block.body
+    assert "revenue(float64)" in block.body
+
+
+@pytest.mark.asyncio
+async def test_large_file_snapshot_summary_hints_chunked_processing():
+    snapshot = {"file_size": 60 * 1024 * 1024, "truncated": True, "hint": "large_file"}
+    ctx = _ctx([_Attachment("big.csv", {"tabular_snapshot": snapshot})], "hello")
+    block = await DataAnalysisGuideSource().resolve(ctx)
+    assert block is not None
+    assert "big.csv" in block.body
+    assert "large file" in block.body
+    assert "code_execution" in block.body
+
+
+def test_summary_line_capped_at_400_chars():
+    from leagent.context.sources.gated_policy import _summarise_tabular_snapshot
+
+    wide = {
+        "columns": [{"name": f"column_{i}_with_a_long_name", "dtype": "float64", "null_pct": 0.0} for i in range(60)],
+        "row_count_estimate": 999_999,
+        "sample_rows": [],
+        "truncated": False,
+    }
+    line = _summarise_tabular_snapshot("wide.csv", wide)
+    assert len(line) <= 400
+    assert line.startswith("- wide.csv:")

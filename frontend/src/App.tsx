@@ -17,6 +17,7 @@ import {
   WorkflowsPage,
   ExecutionPage,
   CronPage,
+  ComplaintsPage,
   TemplatesPage,
   PlaygroundPage,
   KnowledgePage,
@@ -129,6 +130,7 @@ export default function App() {
               <Route path="executions/:executionId" element={<ExecutionPage />} />
               <Route path="templates" element={<TemplatesPage />} />
               <Route path="cron" element={<CronPage />} />
+              <Route path="complaints" element={<ComplaintsPage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tasks/:taskId" element={<TasksPage />} />
               <Route path="playground" element={<PlaygroundPage />} />

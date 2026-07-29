@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import update as sa_update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -37,15 +38,16 @@ async def _decrement_owned_folder_count(
 ) -> None:
     if folder_id is None:
         return
-    folder = await load_entity_by_id(session, Folder, folder_id, parent_table="folders")
-    if (
-        folder is not None
-        and not folder.is_deleted
-        and same_user_id(folder.user_id, user_id)
-        and folder.file_count > 0
-    ):
-        folder.file_count -= 1
-        session.add(folder)
+    statement = (
+        sa_update(Folder)
+        .where(uuid_column_equals(session, Folder.id, folder_id))
+        .where(uuid_column_equals(session, Folder.user_id, user_id))
+        .where(Folder.is_deleted == False)  # noqa: E712
+        .where(Folder.file_count > 0)
+        .values(file_count=Folder.file_count - 1, updated_at=datetime.utcnow())
+        .execution_options(synchronize_session=False)
+    )
+    await session.execute(statement)
 
 
 class FolderItemResponse(BaseModel):

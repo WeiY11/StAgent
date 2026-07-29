@@ -19,6 +19,7 @@ Domain-specific tools have been moved to dedicated packages:
 """
 
 from leagent.tools.util.cache_manager import CacheManagerTool
+from leagent.tools.util.complaint_tool import ComplaintTool
 from leagent.tools.util.conversation_history import ConversationHistoryTool
 from leagent.tools.util.cron_tools import CronCreateTool, CronDeleteTool, CronListTool
 from leagent.tools.util.date_calculator import DateCalculatorTool
@@ -31,6 +32,7 @@ from leagent.tools.util.text_splitter import TextSplitterTool
 
 __all__ = [
     "CacheManagerTool",
+    "ComplaintTool",
     "ConversationHistoryTool",
     "CronCreateTool",
     "CronDeleteTool",

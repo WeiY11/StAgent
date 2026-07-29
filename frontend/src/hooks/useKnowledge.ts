@@ -30,6 +30,18 @@ interface PaginatedDocuments {
   has_prev: boolean;
 }
 
+export function shouldPollDocuments(
+  documents: Array<Pick<DocumentFile, 'status' | 'is_indexed'>>,
+): boolean {
+  return documents.some((document) => {
+    const status = document.status.toLowerCase();
+    return (
+      !document.is_indexed &&
+      (status === 'uploaded' || status === 'processing')
+    );
+  });
+}
+
 export function useDocuments(params: {
   search?: string;
   file_type?: string;
@@ -74,6 +86,8 @@ export function useDocuments(params: {
       };
     },
     enabled: params.enabled !== false,
+    refetchInterval: (query) =>
+      shouldPollDocuments(query.state.data?.items ?? []) ? 2_500 : false,
   });
 }
 
@@ -91,6 +105,26 @@ export function useUploadDocument() {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
       emitRealtimeFileEvent('uploaded');
+    },
+  });
+}
+
+export interface ReindexDocumentResponse {
+  id: string;
+  status: string;
+  is_indexed: boolean;
+  task_id?: string | null;
+}
+
+export function useReindexDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      apiClient.post<ReindexDocumentResponse>(`/documents/${documentId}/reindex`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      emitRealtimeFileEvent('updated');
     },
   });
 }

@@ -34,6 +34,7 @@ class AttachmentKind(str, Enum):
     WORKING_SET = "working_set"
     TOOL_HISTORY = "tool_history"
     RECENT_READS = "recent_reads"
+    CONTEXT = "context"
 
 
 class ProjectMemoryOrigin(str, Enum):

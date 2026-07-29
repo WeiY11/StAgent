@@ -97,6 +97,11 @@ CORE_ROUTERS: tuple[RouterSpec, ...] = (
     ),
     RouterSpec("leagent.api.v1.canvas", prefix="/canvas", tags=("v1-canvas",)),
     RouterSpec("leagent.api.v1.tasks", prefix="/tasks", tags=("v1-tasks",)),
+    RouterSpec(
+        "leagent.api.v1.complaints",
+        prefix="/complaints",
+        tags=("v1-complaints",),
+    ),
     RouterSpec("leagent.workflow.server", tags=("v1-workflow",)),
     RouterSpec("leagent.api.v1.documents", prefix="/documents", tags=("v1-documents",)),
     RouterSpec(

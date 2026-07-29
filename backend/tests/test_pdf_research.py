@@ -80,6 +80,47 @@ def test_extract_structure(paper_pdf: Path) -> None:
     assert "table 1" in fig_labels
 
 
+def test_derive_sections_ieee_roman_headings(tmp_path: Path) -> None:
+    """IEEE Roman-numeral headings are detected; prose false-positives rejected."""
+    import fitz
+
+    from leagent.tools.doc.pdf_research_core import extract_structure
+
+    path = tmp_path / "ieee.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text(
+        (72, 72),
+        "Proactive Anomaly Detection\n\n"
+        # Prose lines that used to be mis-detected as sections:
+        "14 July 2026. The research work is supported in part by the Ministry.\n"
+        "0.5 Furthermore, the average wireless latency from UEs to the base.\n\n"
+        "I. INTRODUCTION\n"
+        "Network slicing enhances flexibility.\n\n"
+        "II. RELATED WORK\n"
+        "Existing methods are hard to apply.\n\n"
+        "III. SYSTEM MODEL AND PROBLEM FORMULATION\n"
+        "We formulate the problem.\n\n"
+        "VI. CONCLUSION AND FUTURE WORK\n"
+        "Slicing works.",
+    )
+    doc.save(str(path))
+    doc.close()
+
+    sections = extract_structure(str(path))["sections"]
+    titles = [s["title"] for s in sections]
+    lower = " | ".join(t.lower() for t in titles)
+    assert "introduction" in lower
+    assert "related work" in lower
+    assert "system model" in lower
+    assert "conclusion" in lower
+    # Roman-numeral headings are top-level.
+    assert all(s["level"] == 1 for s in sections)
+    # Prose / date lines must NOT leak into the outline.
+    assert not any("july 2026" in t.lower() for t in titles)
+    assert not any("furthermore" in t.lower() for t in titles)
+
+
 def test_extract_page_text_range(paper_pdf: Path) -> None:
     from leagent.tools.doc.pdf_research_core import extract_page_text
 

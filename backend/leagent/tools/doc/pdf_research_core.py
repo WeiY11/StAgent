@@ -40,6 +40,8 @@ _SECTION_KEYWORDS = (
 
 # Numbered headings like "3", "3.1", "3.1.2" followed by a title.
 _NUMBERED_HEADING_RE = re.compile(r"^(\d+(?:\.\d+){0,2})\.?\s+([A-Z][^\n]{2,80})$")
+# IEEE-style Roman-numeral headings: "I. INTRODUCTION", "IV. FRAMEWORK DESIGN".
+_ROMAN_HEADING_RE = re.compile(r"^([IVXLC]{1,6})\.\s+([A-Z][^\n]{2,80})$")
 _FIGURE_RE = re.compile(r"\b(Fig(?:ure)?|Table)\s*\.?\s*([0-9]+|[IVX]+)\b", re.IGNORECASE)
 _DOI_RE = re.compile(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 _URL_RE = re.compile(r"https?://[^\s)]+", re.IGNORECASE)
@@ -68,6 +70,39 @@ def _heading_level(title: str, numbering: str | None) -> int:
     if numbering:
         return min(3, numbering.count(".") + 1)
     return 1
+
+
+# Roman numerals I–XX (covers the section count of virtually any paper).
+_ROMAN_NUMERALS = {
+    "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+    "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX",
+}
+
+
+def _looks_like_heading(title: str) -> bool:
+    """Reject prose/dates that merely start with a number or Roman-looking token.
+
+    A real section heading is a short noun phrase (≤10 words) with no mid-line
+    sentence break — this filters lines such as "14 July 2026. The research work
+    is supported..." or "0.5 Furthermore, the average wireless latency...".
+    """
+    t = title.strip()
+    if not t:
+        return False
+    words = t.split()
+    if len(words) > 10:
+        return False
+    # A period (or other sentence punctuation) followed by more text signals prose.
+    if re.search(r"[.;]\s+\S", t):
+        return False
+    # Trailing conjunction/punctuation → a wrapped sentence, not a heading.
+    return not t.rstrip().endswith((",", ";", ":"))
+
+
+def _display_title(title: str, numbering: str | None) -> str:
+    """Prettify an all-caps heading; keep numbering prefix when present."""
+    body = title.title() if title.isupper() else title
+    return (f"{numbering} {body}" if numbering else body).strip()
 
 
 def extract_structure(file_path: str) -> dict[str, Any]:
@@ -119,7 +154,10 @@ def _derive_sections(doc, outline: list[dict[str, Any]], page_count: int) -> lis
         if sections:
             return sections[:80]
 
-    # Heuristic scan (text-only papers without embedded bookmarks).
+    # Heuristic scan (text-only papers without embedded bookmarks). Recognises
+    # IEEE Roman-numeral headings ("I. INTRODUCTION"), decimal-numbered headings
+    # ("3.1 Methods"), and bare section keywords, while filtering out prose lines
+    # that merely start with a number/Roman-looking token.
     seen: set[str] = set()
     idx = 0
     scan_pages = min(page_count, 40)
@@ -129,29 +167,39 @@ def _derive_sections(doc, outline: list[dict[str, Any]], page_count: int) -> lis
             line = raw.strip()
             if not line or len(line) > 90:
                 continue
-            match = _NUMBERED_HEADING_RE.match(line)
-            numbering = None
-            title = None
-            if match:
-                numbering, title = match.group(1), match.group(2).strip()
-            elif line.lower() in _SECTION_KEYWORDS or (
-                line.isupper() and 3 <= len(line) <= 40 and line.lower() in _SECTION_KEYWORDS
-            ):
+            numbering: str | None = None
+            title: str | None = None
+            level = 1
+
+            roman_match = _ROMAN_HEADING_RE.match(line)
+            num_match = _NUMBERED_HEADING_RE.match(line)
+            if roman_match and roman_match.group(1) in _ROMAN_NUMERALS:
+                candidate = roman_match.group(2).strip()
+                if _looks_like_heading(candidate):
+                    numbering, title, level = roman_match.group(1) + ".", candidate, 1
+            elif num_match and not num_match.group(1).startswith("0"):
+                candidate = num_match.group(2).strip()
+                if _looks_like_heading(candidate):
+                    numbering = num_match.group(1)
+                    title, level = candidate, _heading_level(candidate, numbering)
+            elif line.lower() in _SECTION_KEYWORDS:
                 title = line.title() if line.isupper() else line
             elif line.lower().rstrip(":") in _SECTION_KEYWORDS:
                 title = line.rstrip(":")
+
             if not title:
                 continue
-            key = title.lower()
+            display = _display_title(title, numbering)
+            key = display.lower()
             if key in seen:
                 continue
             seen.add(key)
             sections.append(
                 {
                     "id": f"sec-{idx}",
-                    "title": (f"{numbering} {title}" if numbering else title).strip(),
+                    "title": display,
                     "page": p + 1,
-                    "level": _heading_level(title, numbering),
+                    "level": level,
                 }
             )
             idx += 1

@@ -14,6 +14,7 @@ export const PROTECTED_STATIC_PATHS = [
   '/workflows/new',
   '/templates',
   '/cron',
+  '/complaints',
   '/playground',
   '/knowledge',
   '/folders',

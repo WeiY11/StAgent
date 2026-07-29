@@ -30,6 +30,16 @@ from leagent.code.operations import (
     PatchedFile,
 )
 from leagent.code.packages import UvPipInstallTool
+from leagent.code.parsing import (
+    SUPPORTED_CODE_SUFFIXES,
+    CodeDiagnostic,
+    CodeImport,
+    CodeLanguage,
+    CodeParseResult,
+    CodeSymbol,
+    detect_code_language,
+    parse_code_source,
+)
 from leagent.code.pipeline import CodeGenerationPipeline, get_pipeline
 from leagent.code.syntax import SyntaxValidatorTool
 from leagent.code.workspace_edit import CodeWorkspaceEditTool
@@ -43,6 +53,11 @@ __all__ = [
     "CodeExecutionEnvelope",
     "CodeExecutionTool",
     "CodeGenerationPipeline",
+    "CodeDiagnostic",
+    "CodeImport",
+    "CodeLanguage",
+    "CodeParseResult",
+    "CodeSymbol",
     "CodeWorkspaceEditTool",
     "DeepSeekFimTool",
     "ErrorType",
@@ -52,8 +67,11 @@ __all__ = [
     "JournalEntry",
     "OperationJournal",
     "PatchedFile",
+    "SUPPORTED_CODE_SUFFIXES",
     "SyntaxValidatorTool",
     "UvPipInstallTool",
     "build_default_code_execution_config",
+    "detect_code_language",
     "get_pipeline",
+    "parse_code_source",
 ]

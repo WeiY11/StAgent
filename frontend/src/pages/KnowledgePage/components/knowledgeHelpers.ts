@@ -5,6 +5,13 @@ export interface DocumentSearchResult {
   id: string;
   name: string;
   file_type: string;
+  mime_type?: string | null;
+  size?: number;
+  status?: string;
+  is_indexed?: boolean;
+  summary?: string | null;
+  created_at?: string;
+  folder_id?: string | null;
   score: number;
   snippet?: string | null;
   chunk_id?: string | null;
@@ -51,7 +58,7 @@ export function indexStatusBadgeVariant(
 
 export function mapSearchResultToDocument(r: DocumentSearchResult): KnowledgeDocument {
   const ft = r.file_type;
-  const typeStr =
+  const inferredType =
     ft === 'image'
       ? 'image/png'
       : ft === 'document'
@@ -59,17 +66,18 @@ export function mapSearchResultToDocument(r: DocumentSearchResult): KnowledgeDoc
         : ft === 'data'
           ? 'application/vnd.ms-excel'
           : 'application/octet-stream';
+  const typeStr = r.mime_type ?? inferredType;
   return {
     id: String(r.id),
     name: r.name,
     type: typeStr,
-    size: 0,
+    size: r.size ?? 0,
     url: `/api/v1/files/${r.id}`,
     preview: r.snippet ?? undefined,
-    summary: r.snippet ?? null,
-    isIndexed: true,
-    status: 'processed',
-    createdAt: new Date().toISOString(),
+    summary: r.summary ?? null,
+    isIndexed: r.is_indexed ?? true,
+    status: r.status ?? 'processed',
+    createdAt: r.created_at ?? new Date().toISOString(),
   };
 }
 

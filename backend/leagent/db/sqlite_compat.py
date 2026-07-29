@@ -46,6 +46,7 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
         "notifications",
         "coding_projects",
         "workflow_executions",
+        "complaints",
     }
 )
 

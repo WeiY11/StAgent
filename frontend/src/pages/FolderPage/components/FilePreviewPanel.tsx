@@ -48,34 +48,36 @@ export default function FilePreviewPanel({
   const Icon = FILE_TYPE_ICONS[file.file_type] || File;
 
   return (
-    <div className="flex flex-col">
-      <div className="px-5 py-6 flex flex-col items-center gap-3 border-b border-border">
-        <div className="w-16 h-16 rounded-2xl bg-surface-sunken flex items-center justify-center">
-          <Icon className="w-8 h-8 text-muted-foreground-tertiary" />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="px-5 py-4 flex flex-shrink-0 items-center gap-3 border-b border-border">
+        <div className="w-11 h-11 rounded-2xl bg-surface-sunken flex flex-shrink-0 items-center justify-center">
+          <Icon className="w-6 h-6 text-muted-foreground-tertiary" />
         </div>
-        <h3 className="text-sm font-semibold text-foreground text-center break-all max-w-full">
+        <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground break-all">
           {file.file_name}
         </h3>
       </div>
 
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-5 py-4 border-b border-border">
+      <dl className="grid flex-shrink-0 grid-cols-1 sm:grid-cols-2 gap-4 px-5 py-4 border-b border-border">
         <DetailRow label={t('folders.detailType')} value={file.file_type} />
         <DetailRow label={t('folders.detailSize')} value={formatSize(file.size)} />
         <DetailRow label={t('folders.detailFileId')} value={file.file_id} mono />
         <DetailRow label={t('folders.detailFolderId')} value={file.folder_id} mono />
       </dl>
 
-      <div className="px-5 py-4 border-b border-border">
+      <div className="flex min-h-0 flex-1 flex-col px-5 py-4 border-b border-border">
         <UniversalFilePreview
           fileId={file.file_id}
           fileName={file.file_name}
           mimeType={file.mime_type ?? undefined}
           sizeBytes={file.size}
           showActions={false}
+          layout="fill"
+          className="min-h-0 flex-1"
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 px-5 py-4">
+      <div className="flex flex-shrink-0 flex-col sm:flex-row gap-3 px-5 py-4">
         {/*
           Wrap the native <a> in <Button asChild> via composition: since our
           Button doesn't support `asChild`, we render an anchor with the same

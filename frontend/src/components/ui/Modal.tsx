@@ -10,7 +10,7 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
   /**
    * When true, the backdrop and dialog use the full viewport. Default matches the main work area
    * (to the right of the nav rail) so modals are not covered by the sidebar and are centered
@@ -25,6 +25,9 @@ const sizeMap = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-4xl',
+  '3xl': 'max-w-5xl',
+  '4xl': 'max-w-6xl',
+  '5xl': 'max-w-7xl',
 };
 
 const Modal = ({

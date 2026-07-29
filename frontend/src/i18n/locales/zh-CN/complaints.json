@@ -1,0 +1,90 @@
+{
+  "complaints": {
+    "title": "客诉管理",
+    "description": "登记、跟进并解决客户投诉工单。",
+    "newComplaint": "新建客诉",
+    "stats": {
+      "open": "待处理",
+      "inProgress": "处理中",
+      "resolved": "已解决",
+      "total": "总数"
+    },
+    "filters": {
+      "allStatuses": "全部状态",
+      "allCategories": "全部分类",
+      "allSeverities": "全部严重度",
+      "searchPlaceholder": "搜索标题或客户…"
+    },
+    "table": {
+      "title": "标题",
+      "customer": "客户",
+      "category": "分类",
+      "severity": "严重度",
+      "status": "状态",
+      "source": "来源",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    },
+    "status": {
+      "open": "待处理",
+      "in_progress": "处理中",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    },
+    "category": {
+      "product": "产品",
+      "service": "服务",
+      "billing": "账单",
+      "logistics": "物流",
+      "other": "其他"
+    },
+    "severity": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急"
+    },
+    "source": {
+      "manual": "手动录入",
+      "chat": "对话提交"
+    },
+    "empty": {
+      "title": "暂无客诉",
+      "description": "点击\"新建客诉\"登记第一条客户投诉。"
+    },
+    "modal": {
+      "createTitle": "新建客诉",
+      "editTitle": "编辑客诉",
+      "titleLabel": "标题",
+      "titlePlaceholder": "简要描述客诉问题",
+      "descriptionLabel": "详细描述",
+      "descriptionPlaceholder": "补充客诉的详细情况…",
+      "customerNameLabel": "客户姓名",
+      "customerContactLabel": "联系方式",
+      "categoryLabel": "分类",
+      "severityLabel": "严重度",
+      "cancel": "取消",
+      "create": "创建",
+      "save": "保存"
+    },
+    "detail": {
+      "title": "客诉详情",
+      "customer": "客户",
+      "contact": "联系方式",
+      "description": "问题描述",
+      "resolution": "处理结论",
+      "resolutionPlaceholder": "填写处理结论…",
+      "resolvedAt": "解决时间",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "session": "会话",
+      "startProgress": "开始处理",
+      "markResolved": "标记解决",
+      "close": "关闭工单",
+      "reopen": "重新打开",
+      "edit": "编辑",
+      "delete": "删除",
+      "confirmDelete": "确定删除该客诉？此操作会将其移入回收状态。"
+    }
+  }
+}

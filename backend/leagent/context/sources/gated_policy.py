@@ -14,6 +14,7 @@ on every turn.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import structlog
@@ -229,9 +230,7 @@ def resolve_canvas_intent_max_output_tokens(
     Uses :class:`CanvasGuideSource`'s keyword gate, plus a light transcript scan
     so ``优化一下设计`` after a prior ``canvas_publish`` still gets the 32k cap.
     """
-    hit = CanvasGuideSource.gate.matches(query or "") or _messages_imply_canvas_followup(
-        messages
-    )
+    hit = CanvasGuideSource.gate.matches(query or "") or _messages_imply_canvas_followup(messages)
     if not hit:
         return base
     if base is None:
@@ -298,8 +297,59 @@ class ChartGuideSource(GatedPolicySource):
     )
 
 
+# Per-attachment summary line cap and how many attachments we summarise at most.
+_TABULAR_SUMMARY_MAX_CHARS = 400
+_TABULAR_SUMMARY_MAX_ATTACHMENTS = 10
+
+
+async def _load_tabular_snapshots(ctx: ResolveContext) -> list[tuple[str, dict[str, Any]]]:
+    """Collect ``(filename, tabular_snapshot)`` pairs for the current session.
+
+    Snapshots are built at upload time by the session manager
+    (``SessionAttachment.extra["tabular_snapshot"]``); this only reads them.
+    """
+    if ctx.session_manager is None or ctx.session_id is None:
+        return []
+    try:
+        attachments = await ctx.session_manager.list_attachments(ctx.session_id, user_id=ctx.user_id)
+    except Exception:
+        logger.debug("tabular_snapshot_lookup_failed", exc_info=True)
+        return []
+    pairs: list[tuple[str, dict[str, Any]]] = []
+    for att in attachments:
+        extra = getattr(att, "extra", None)
+        snapshot = extra.get("tabular_snapshot") if isinstance(extra, dict) else None
+        if isinstance(snapshot, dict):
+            pairs.append((getattr(att, "filename", "") or "attachment", snapshot))
+    return pairs[:_TABULAR_SUMMARY_MAX_ATTACHMENTS]
+
+
+def _summarise_tabular_snapshot(filename: str, snapshot: dict[str, Any]) -> str:
+    """Render a one-line dataset summary, capped at 400 chars per attachment."""
+    if snapshot.get("hint") == "large_file":
+        size = snapshot.get("file_size")
+        size_txt = f"~{size / (1024 * 1024):.0f}MB" if isinstance(size, (int, float)) else "oversized"
+        line = f"- {filename}: large file ({size_txt}), snapshot skipped — process in chunks via code_execution."
+        return line[:_TABULAR_SUMMARY_MAX_CHARS]
+    columns = snapshot.get("columns") or []
+    col_parts = [f"{c.get('name')}({c.get('dtype')})" for c in columns if isinstance(c, dict)]
+    approx = "~" if snapshot.get("truncated") else ""
+    line = f"- {filename}: {approx}{snapshot.get('row_count_estimate')} rows; {len(col_parts)} columns: " + ", ".join(
+        col_parts
+    )
+    if len(line) > _TABULAR_SUMMARY_MAX_CHARS:
+        line = line[: _TABULAR_SUMMARY_MAX_CHARS - 1] + "…"
+    return line
+
+
 class DataAnalysisGuideSource(GatedPolicySource):
-    """Data-analysis conversation mode guide, loaded for tabular-data turns."""
+    """Data-analysis conversation mode guide, loaded for tabular-data turns.
+
+    Besides the keyword/opt-in gate, a session that carries tabular attachments
+    (CSV/Excel uploads with a ``tabular_snapshot``) deterministically opens the
+    gate, and the upload-time schema summaries are appended to the block so the
+    agent sees each dataset's shape without re-reading the files.
+    """
 
     id = "data_analysis_guide"
     priority = 1145
@@ -345,6 +395,39 @@ class DataAnalysisGuideSource(GatedPolicySource):
         ),
         opt_in_keys=("data_analysis_guide", "enable_data_analysis"),
     )
+
+    async def resolve(self, ctx: ResolveContext) -> ContextBlock | None:
+        snapshots = await _load_tabular_snapshots(ctx)
+        if snapshots:
+            # Tabular attachments force the gate open regardless of query
+            # wording. Copy template_vars so concurrent sources are unaffected.
+            ctx = replace(
+                ctx,
+                template_vars={**ctx.template_vars, "enable_data_analysis": True},
+            )
+        block = await super().resolve(ctx)
+        if block is None or not snapshots:
+            return block
+
+        summary = "\n".join(_summarise_tabular_snapshot(name, snap) for name, snap in snapshots)
+        body = (
+            f"{block.body}\n\n### Attached tabular datasets\n"
+            "Upload-time snapshots (schema + row estimate) of this session's "
+            "tabular attachments:\n"
+            f"{summary}"
+        )
+        return ContextBlock(
+            source_id=block.source_id,
+            kind=block.kind,
+            render_target=block.render_target,
+            body=body,
+            tokens=ContextBlock.approx_tokens(body),
+            cost=ContextBlock.approx_tokens(body),
+            signature=ContextBlock.content_signature(self.id, body),
+            priority=block.priority,
+            weight=block.weight,
+            metadata={**block.metadata, "tabular_snapshots": len(snapshots)},
+        )
 
 
 class DocumentFontsSource(GatedPolicySource):

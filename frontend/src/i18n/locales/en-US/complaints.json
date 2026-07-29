@@ -1,0 +1,90 @@
+{
+  "complaints": {
+    "title": "Complaints",
+    "description": "Register, track, and resolve customer complaint tickets.",
+    "newComplaint": "New complaint",
+    "stats": {
+      "open": "Open",
+      "inProgress": "In progress",
+      "resolved": "Resolved",
+      "total": "Total"
+    },
+    "filters": {
+      "allStatuses": "All statuses",
+      "allCategories": "All categories",
+      "allSeverities": "All severities",
+      "searchPlaceholder": "Search title or customer…"
+    },
+    "table": {
+      "title": "Title",
+      "customer": "Customer",
+      "category": "Category",
+      "severity": "Severity",
+      "status": "Status",
+      "source": "Source",
+      "createdAt": "Created",
+      "actions": "Actions"
+    },
+    "status": {
+      "open": "Open",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "category": {
+      "product": "Product",
+      "service": "Service",
+      "billing": "Billing",
+      "logistics": "Logistics",
+      "other": "Other"
+    },
+    "severity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "source": {
+      "manual": "Manual",
+      "chat": "Chat"
+    },
+    "empty": {
+      "title": "No complaints",
+      "description": "Click \"New complaint\" to register the first customer complaint."
+    },
+    "modal": {
+      "createTitle": "New complaint",
+      "editTitle": "Edit complaint",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Briefly describe the issue",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Add more details about the complaint…",
+      "customerNameLabel": "Customer name",
+      "customerContactLabel": "Contact",
+      "categoryLabel": "Category",
+      "severityLabel": "Severity",
+      "cancel": "Cancel",
+      "create": "Create",
+      "save": "Save"
+    },
+    "detail": {
+      "title": "Complaint details",
+      "customer": "Customer",
+      "contact": "Contact",
+      "description": "Description",
+      "resolution": "Resolution",
+      "resolutionPlaceholder": "Describe how it was resolved…",
+      "resolvedAt": "Resolved at",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "session": "Session",
+      "startProgress": "Start progress",
+      "markResolved": "Mark resolved",
+      "close": "Close ticket",
+      "reopen": "Reopen",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirmDelete": "Delete this complaint? It will be moved to the recycled state."
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BookOpenText,
@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Quote,
+  RefreshCw,
   Sigma,
   Sparkles,
   X,
@@ -61,26 +62,28 @@ export function PaperSidebar({
   const [tab, setTab] = useState<SidebarTab>('outline');
   const [structure, setStructure] = useState<PdfStructureResponse | null>(null);
   const [structureLoading, setStructureLoading] = useState(false);
+  const [structureError, setStructureError] = useState(false);
   const [citations, setCitations] = useState<PaperCitation[] | null>(null);
   const [citationsLoading, setCitationsLoading] = useState(false);
+  const [citationsError, setCitationsError] = useState(false);
   const [formulas, setFormulas] = useState<PaperFormula[] | null>(null);
   const [formulasLoading, setFormulasLoading] = useState(false);
+  const [formulasError, setFormulasError] = useState(false);
   const [summarizing, setSummarizing] = useState<string | null>(null);
 
   const focusFigure = onFocusFigure ?? ((f: PaperFigure) => onJumpToPage(f.page));
 
-  useEffect(() => {
+  const loadStructure = useCallback(() => {
     let cancelled = false;
     setStructureLoading(true);
+    setStructureError(false);
     setStructure(null);
-    setCitations(null);
-    setFormulas(null);
     fetchPdfStructure(fileId)
       .then((res) => {
         if (!cancelled) setStructure(res);
       })
       .catch(() => {
-        if (!cancelled) setStructure(null);
+        if (!cancelled) setStructureError(true);
       })
       .finally(() => {
         if (!cancelled) setStructureLoading(false);
@@ -90,21 +93,31 @@ export function PaperSidebar({
     };
   }, [fileId]);
 
+  useEffect(() => {
+    setCitations(null);
+    setFormulas(null);
+    setCitationsError(false);
+    setFormulasError(false);
+    return loadStructure();
+  }, [loadStructure]);
+
   const loadCitations = () => {
     if (citations || citationsLoading) return;
     setCitationsLoading(true);
+    setCitationsError(false);
     fetchPdfCitations(fileId)
       .then((res) => setCitations(res.citations))
-      .catch(() => setCitations([]))
+      .catch(() => setCitationsError(true))
       .finally(() => setCitationsLoading(false));
   };
 
   const loadFormulas = () => {
     if (formulas || formulasLoading) return;
     setFormulasLoading(true);
+    setFormulasError(false);
     fetchPdfFormulas(fileId)
       .then((res) => setFormulas(res.formulas))
-      .catch(() => setFormulas([]))
+      .catch(() => setFormulasError(true))
       .finally(() => setFormulasLoading(false));
   };
 
@@ -231,7 +244,17 @@ export function PaperSidebar({
           </div>
         )}
 
-        {!structureLoading && tab === 'outline' && (
+        {!structureLoading && structureError && (tab === 'outline' || tab === 'figures') && (
+          <ErrorRetry
+            label={t('pdfReader.sidebar.loadFailed', {
+              defaultValue: 'Failed to load — check your connection or try again.',
+            })}
+            retryLabel={t('pdfReader.sidebar.retry', { defaultValue: 'Retry' })}
+            onRetry={loadStructure}
+          />
+        )}
+
+        {!structureLoading && !structureError && tab === 'outline' && (
           <OutlineList
             sections={sections}
             summarizing={summarizing}
@@ -246,7 +269,7 @@ export function PaperSidebar({
           />
         )}
 
-        {!structureLoading && tab === 'figures' && (
+        {!structureLoading && !structureError && tab === 'figures' && (
           <FigureList
             figures={figures}
             onFocus={focusFigure}
@@ -258,34 +281,52 @@ export function PaperSidebar({
           />
         )}
 
-        {tab === 'formulas' && (
-          <FormulaList
-            formulas={formulas}
-            loading={formulasLoading}
-            onJump={onJumpToPage}
-            onAnalyze={onAnalyzeFormula}
-            emptyLabel={t('pdfReader.sidebar.noFormulas', {
-              defaultValue: 'No formulas detected.',
-            })}
-            analyzeLabel={t('pdfReader.sidebar.analyze', { defaultValue: 'Analyze' })}
-            analyzingLabel={t('pdfReader.sidebar.analyzingFormulas', {
-              defaultValue: 'Extracting formulas…',
-            })}
-            approxLabel={t('pdfReader.sidebar.formulasApprox', {
-              defaultValue: 'AI service unavailable — showing a best-effort extraction.',
-            })}
-          />
-        )}
+        {tab === 'formulas' &&
+          (formulasError ? (
+            <ErrorRetry
+              label={t('pdfReader.sidebar.loadFailed', {
+                defaultValue: 'Failed to load — check your connection or try again.',
+              })}
+              retryLabel={t('pdfReader.sidebar.retry', { defaultValue: 'Retry' })}
+              onRetry={loadFormulas}
+            />
+          ) : (
+            <FormulaList
+              formulas={formulas}
+              loading={formulasLoading}
+              onJump={onJumpToPage}
+              onAnalyze={onAnalyzeFormula}
+              emptyLabel={t('pdfReader.sidebar.noFormulas', {
+                defaultValue: 'No formulas detected.',
+              })}
+              analyzeLabel={t('pdfReader.sidebar.analyze', { defaultValue: 'Analyze' })}
+              analyzingLabel={t('pdfReader.sidebar.analyzingFormulas', {
+                defaultValue: 'Extracting formulas…',
+              })}
+              approxLabel={t('pdfReader.sidebar.formulasApprox', {
+                defaultValue: 'AI service unavailable — showing a best-effort extraction.',
+              })}
+            />
+          ))}
 
-        {tab === 'citations' && (
-          <CitationList
-            citations={citations}
-            loading={citationsLoading}
-            emptyLabel={t('pdfReader.sidebar.noCitations', {
-              defaultValue: 'No references detected.',
-            })}
-          />
-        )}
+        {tab === 'citations' &&
+          (citationsError ? (
+            <ErrorRetry
+              label={t('pdfReader.sidebar.loadFailed', {
+                defaultValue: 'Failed to load — check your connection or try again.',
+              })}
+              retryLabel={t('pdfReader.sidebar.retry', { defaultValue: 'Retry' })}
+              onRetry={loadCitations}
+            />
+          ) : (
+            <CitationList
+              citations={citations}
+              loading={citationsLoading}
+              emptyLabel={t('pdfReader.sidebar.noCitations', {
+                defaultValue: 'No references detected.',
+              })}
+            />
+          ))}
       </div>
     </div>
   );
@@ -316,6 +357,30 @@ function TabBtn({
       {icon}
       {label}
     </button>
+  );
+}
+
+function ErrorRetry({
+  label,
+  retryLabel,
+  onRetry,
+}: {
+  label: string;
+  retryLabel: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-1.5 rounded-md bg-surface-sunken/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-sunken"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+        {retryLabel}
+      </button>
+    </div>
   );
 }
 
