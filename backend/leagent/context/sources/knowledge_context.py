@@ -101,11 +101,11 @@ class KnowledgeContextSource:
             # Build context block.
             lines: list[str] = []
             total_chars = 0
-            for r in results:
+            for index, r in enumerate(results, start=1):
                 snippet = (r.snippet or r.text[:300]).strip()
                 if not snippet:
                     continue
-                entry = f"- [{r.file_name}] {snippet}"
+                entry = f"- [K{index}] [{r.file_name}] {snippet}"
                 if total_chars + len(entry) > _MAX_CONTEXT_CHARS:
                     break
                 lines.append(entry)

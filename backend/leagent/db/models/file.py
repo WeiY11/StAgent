@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlmodel import Column, Field, Relationship, SQLModel, Text
 
 from leagent.db.models.base import BaseModel, SoftDeleteMixin, enum_value_column
+from leagent.db.models.knowledge_acl import KnowledgeAccessScope
 
 if TYPE_CHECKING:
     from leagent.db.models.folder import Folder
@@ -76,6 +77,20 @@ class File(FileBase, BaseModel, SoftDeleteMixin, table=True):
     # Ownership
     user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
     workspace_id: UUID | None = Field(default=None, nullable=True, index=True)
+    knowledge_space_id: UUID | None = Field(
+        default=None,
+        foreign_key="knowledge_spaces.id",
+        nullable=True,
+        index=True,
+    )
+    access_scope: KnowledgeAccessScope = Field(
+        default=KnowledgeAccessScope.PRIVATE,
+        sa_column=enum_value_column(
+            KnowledgeAccessScope,
+            nullable=True,
+            index=True,
+        ),
+    )
     folder_id: UUID | None = Field(default=None, foreign_key="folders.id", index=True)
     # Chat attachments use a non-null ``session_id``. Pet Space library files
     # (and other non-chat assets) use ``session_id is NULL`` and are linked
@@ -135,6 +150,9 @@ class FileCreate(SQLModel):
     storage_path: str
     storage_bucket: str | None = None
     folder_id: UUID | None = None
+    workspace_id: UUID | None = None
+    knowledge_space_id: UUID | None = None
+    access_scope: KnowledgeAccessScope | None = None
 
 
 class FileUpdate(SQLModel):
@@ -150,6 +168,9 @@ class FileUpdate(SQLModel):
     library_scope: LibraryScope | None = None
     inbox_state: InboxState | None = None
     is_pinned: bool | None = None
+    workspace_id: UUID | None = None
+    knowledge_space_id: UUID | None = None
+    access_scope: KnowledgeAccessScope | None = None
 
 
 class FileRead(FileBase):
@@ -157,6 +178,9 @@ class FileRead(FileBase):
 
     id: UUID
     user_id: UUID | None
+    workspace_id: UUID | None = None
+    knowledge_space_id: UUID | None = None
+    access_scope: KnowledgeAccessScope | None = None
     folder_id: UUID | None
     checksum: str | None
     page_count: int | None

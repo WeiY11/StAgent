@@ -12,6 +12,7 @@ export interface DocumentFile {
   status: string;
   user_id?: string;
   folder_id?: string;
+  space_id?: string;
   checksum?: string;
   page_count?: number;
   has_ocr: boolean;
@@ -19,6 +20,38 @@ export interface DocumentFile {
   summary?: string | null;
   created_at: string;
   updated_at: string;
+  workspace_id?: string | null;
+  knowledge_space_id?: string | null;
+  access_scope?: 'private' | 'space' | 'restricted';
+}
+
+export interface KnowledgeSpace {
+  id: string;
+  workspace_id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  default_access_scope: 'private' | 'space' | 'restricted';
+  is_default: boolean;
+}
+
+export function useKnowledgeSpaces() {
+  return useQuery({
+    queryKey: ['knowledge', 'spaces'],
+    queryFn: () => apiClient.get<KnowledgeSpace[]>('/knowledge/spaces'),
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateKnowledgeSpace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string; slug?: string; description?: string }) =>
+      apiClient.post<KnowledgeSpace>('/knowledge/spaces', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge', 'spaces'] });
+    },
+  });
 }
 
 interface PaginatedDocuments {
@@ -46,6 +79,7 @@ export function useDocuments(params: {
   search?: string;
   file_type?: string;
   folder_id?: string;
+  space_id?: string;
   /** When true and folder_id is omitted, only docs with no folder. */
   unfiled?: boolean;
   page?: number;
@@ -61,6 +95,7 @@ export function useDocuments(params: {
         search: params.search,
         file_type: params.file_type,
         folder_id: params.folder_id,
+        space_id: params.space_id,
         unfiled: params.unfiled ?? false,
         page: params.page,
         page_size: params.page_size,
@@ -74,6 +109,7 @@ export function useDocuments(params: {
         ...(params.search ? { search: params.search } : {}),
         ...(params.file_type ? { file_type: params.file_type } : {}),
         ...(params.folder_id ? { folder_id: params.folder_id } : {}),
+        ...(params.space_id ? { space_id: params.space_id } : {}),
         ...(params.unfiled && !params.folder_id ? { unfiled: true } : {}),
       } as Record<string, string | number | boolean | undefined>);
       return {
@@ -95,10 +131,22 @@ export function useUploadDocument() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ file, folder_id }: { file: File; folder_id?: string }) => {
+    mutationFn: async ({
+      file,
+      folder_id,
+      space_id,
+      access_scope,
+    }: {
+      file: File;
+      folder_id?: string;
+      space_id?: string;
+      access_scope?: 'private' | 'space' | 'restricted';
+    }) => {
       const formData = new FormData();
       formData.append('file', file);
       if (folder_id) formData.append('folder_id', folder_id);
+      if (space_id) formData.append('space_id', space_id);
+      if (access_scope) formData.append('access_scope', access_scope);
       return apiClient.upload('/documents/upload', formData);
     },
     onSuccess: () => {

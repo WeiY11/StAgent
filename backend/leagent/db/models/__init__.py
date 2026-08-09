@@ -62,6 +62,13 @@ from leagent.db.models.file_content import (
     FileContent,
     FileContentRead,
 )
+from leagent.db.models.knowledge_index import (
+    KnowledgeIndexJob,
+    KnowledgeIndexJobStatus,
+    KnowledgeIndexState,
+    KnowledgeIndexStateRead,
+    KnowledgeIndexStatus,
+)
 from leagent.db.models.flow import (
     Flow,
     FlowCreate,
@@ -81,6 +88,18 @@ from leagent.db.models.folder import (
 from leagent.db.models.identity_stub import (
     UserStub,
     WorkspaceStub,
+)
+from leagent.db.models.knowledge_acl import (
+    KnowledgeAccessScope,
+    KnowledgeDocumentGrant,
+    KnowledgeSpace,
+    KnowledgeSpaceCreate,
+    KnowledgeSpaceMember,
+    KnowledgeSpaceMemberRead,
+    KnowledgeSpaceMemberRole,
+    KnowledgeSpaceRead,
+    WorkspaceMember,
+    WorkspaceMemberRole,
 )
 from leagent.db.models.llm_request_log import LLMRequestLog
 from leagent.db.models.message import (
@@ -130,6 +149,17 @@ __all__ = [
     # Identity stubs
     "UserStub",
     "WorkspaceStub",
+    # Knowledge ACL
+    "KnowledgeAccessScope",
+    "KnowledgeDocumentGrant",
+    "KnowledgeSpace",
+    "KnowledgeSpaceCreate",
+    "KnowledgeSpaceMember",
+    "KnowledgeSpaceMemberRead",
+    "KnowledgeSpaceMemberRole",
+    "KnowledgeSpaceRead",
+    "WorkspaceMember",
+    "WorkspaceMemberRole",
     # Cron
     "CronJobModel",
     "CronExecutionModel",
@@ -193,6 +223,12 @@ __all__ = [
     "FileRead",
     "LibraryScope",
     "InboxState",
+    # Knowledge indexing lifecycle
+    "KnowledgeIndexJob",
+    "KnowledgeIndexJobStatus",
+    "KnowledgeIndexState",
+    "KnowledgeIndexStateRead",
+    "KnowledgeIndexStatus",
     # Pet Space
     "PetProject",
     "PetProjectFile",

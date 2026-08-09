@@ -13,6 +13,7 @@ import {
   PanelLeft,
   RefreshCw,
   AlertTriangle,
+  Plus,
 } from 'lucide-react';
 import {
   Card,
@@ -34,6 +35,8 @@ import {
 } from '@/stores/knowledge';
 import {
   useDocuments,
+  useKnowledgeSpaces,
+  useCreateKnowledgeSpace,
   useReindexDocument,
   useUploadDocument,
 } from '@/hooks/useKnowledge';
@@ -98,7 +101,13 @@ export default function KnowledgePage() {
   >(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+  const [createSpaceOpen, setCreateSpaceOpen] = useState(false);
+  const [newSpaceName, setNewSpaceName] = useState('');
   useRealtimeFileSync(true);
+
+  const { data: knowledgeSpaces = [] } = useKnowledgeSpaces();
+  const selectedSpace = knowledgeSpaces.find((space) => space.id === selectedSpaceId);
 
   const isSearchMode = committedQuery.length > 0;
   const draftNormalized = normalizeKnowledgeQuery(draftQuery);
@@ -139,6 +148,7 @@ export default function KnowledgePage() {
   } = useDocuments({
     enabled: !isSearchMode,
     folder_id: currentFolderId ?? undefined,
+    space_id: selectedSpaceId ?? undefined,
     unfiled: currentFolderId == null,
     page,
     page_size: KNOWLEDGE_PAGE_SIZE,
@@ -151,11 +161,12 @@ export default function KnowledgePage() {
     isError: searchError,
     refetch: refetchSearch,
   } = useQuery({
-    queryKey: ['documents', 'search', committedQuery],
+    queryKey: ['documents', 'search', committedQuery, selectedSpaceId],
     queryFn: () =>
       apiClient.get<DocumentSearchResponse>('/documents/search', {
         query: committedQuery,
         limit: KNOWLEDGE_SEARCH_LIMIT,
+        ...(selectedSpaceId ? { space_id: selectedSpaceId } : {}),
       }),
     enabled: isSearchMode,
     placeholderData: keepPreviousData,
@@ -230,6 +241,7 @@ export default function KnowledgePage() {
   );
 
   const uploadDocument = useUploadDocument();
+  const createKnowledgeSpace = useCreateKnowledgeSpace();
   const reindexDocument = useReindexDocument();
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
@@ -321,6 +333,8 @@ export default function KnowledgePage() {
           await uploadDocument.mutateAsync({
             file,
             folder_id: currentFolderId ?? undefined,
+            space_id: selectedSpaceId ?? undefined,
+            access_scope: selectedSpace && selectedSpace.slug !== 'personal' ? 'space' : 'private',
           });
         } catch {
           failed += 1;
@@ -393,6 +407,19 @@ export default function KnowledgePage() {
       });
     }
   };
+
+  const submitCreateSpace = useCallback(async () => {
+    const name = newSpaceName.trim();
+    if (!name) return;
+    try {
+      const created = await createKnowledgeSpace.mutateAsync({ name });
+      setSelectedSpaceId(created.id);
+      setCreateSpaceOpen(false);
+      setNewSpaceName('');
+    } catch {
+      toast({ title: t('knowledge.createSpaceFailed'), variant: 'error' });
+    }
+  }, [createKnowledgeSpace, newSpaceName, t, toast]);
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/') || type === 'image') return Image;
@@ -493,6 +520,33 @@ export default function KnowledgePage() {
               </p>
             )}
           </div>
+          <label className="sr-only" htmlFor="knowledge-space-select">
+            {t('knowledge.space')}
+          </label>
+          <select
+            id="knowledge-space-select"
+            value={selectedSpaceId ?? ''}
+            onChange={(event) => setSelectedSpaceId(event.target.value || null)}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+          >
+            <option value="">{t('knowledge.personalSpace')}</option>
+            {knowledgeSpaces
+              .filter((space) => space.slug !== 'personal')
+              .map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
+                </option>
+              ))}
+          </select>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCreateSpaceOpen(true)}
+            aria-label={t('knowledge.createSpace')}
+            title={t('knowledge.createSpace')}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
           <Button
             variant="outline"
             onClick={() => openCreateFolder(currentFolderId)}
@@ -992,6 +1046,65 @@ export default function KnowledgePage() {
             onClick={() => void submitCreateFolder()}
             disabled={creatingFolder || !newFolderName.trim()}
             loading={creatingFolder}
+          >
+            {t('common.create')}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal
+        isOpen={createSpaceOpen}
+        onClose={() => {
+          if (!createKnowledgeSpace.isPending) {
+            setCreateSpaceOpen(false);
+            setNewSpaceName('');
+          }
+        }}
+        size="sm"
+      >
+        <ModalHeader
+          onClose={() => {
+            if (!createKnowledgeSpace.isPending) {
+              setCreateSpaceOpen(false);
+              setNewSpaceName('');
+            }
+          }}
+        >
+          {t('knowledge.createSpace')}
+        </ModalHeader>
+        <ModalBody>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            {t('knowledge.createSpacePrompt')}
+          </label>
+          <Input
+            autoFocus
+            value={newSpaceName}
+            onChange={(event) => setNewSpaceName(event.target.value)}
+            placeholder={t('knowledge.createSpacePlaceholder')}
+            disabled={createKnowledgeSpace.isPending}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void submitCreateSpace();
+              }
+            }}
+          />
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreateSpaceOpen(false);
+              setNewSpaceName('');
+            }}
+            disabled={createKnowledgeSpace.isPending}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={() => void submitCreateSpace()}
+            disabled={createKnowledgeSpace.isPending || !newSpaceName.trim()}
+            loading={createKnowledgeSpace.isPending}
           >
             {t('common.create')}
           </Button>

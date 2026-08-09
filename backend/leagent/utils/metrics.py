@@ -399,6 +399,40 @@ class LeAgentMetrics:
             registry=self._registry,
         )
 
+        # Knowledge retrieval metrics intentionally expose only bounded
+        # backend/status labels.  Query text, user ids and document ids must
+        # never become Prometheus labels because they are both sensitive and
+        # unbounded-cardinality values.
+        self.knowledge_retrieval_duration_seconds = Histogram(
+            "leagent_knowledge_retrieval_duration_seconds",
+            "Knowledge retrieval latency in seconds",
+            labelnames=["backend", "status"],
+            buckets=DURATION_BUCKETS + (15.0, 30.0),
+            registry=self._registry,
+        )
+
+        self.knowledge_retrieval_total = Counter(
+            "leagent_knowledge_retrieval_total",
+            "Knowledge retrieval requests",
+            labelnames=["backend", "status"],
+            registry=self._registry,
+        )
+
+        self.knowledge_retrieval_results = Histogram(
+            "leagent_knowledge_retrieval_results",
+            "Number of ACL-validated chunks returned per retrieval",
+            labelnames=["backend"],
+            buckets=(0, 1, 2, 3, 5, 10, 20, 50, 100),
+            registry=self._registry,
+        )
+
+        self.knowledge_evidence_total = Counter(
+            "leagent_knowledge_evidence_total",
+            "Evidence gate outcomes",
+            labelnames=["status"],
+            registry=self._registry,
+        )
+
         # Application info
         self.app_info = Info(
             "leagent_app",
@@ -597,6 +631,29 @@ class LeAgentMetrics:
             operation=operation,
             table=table,
         ).observe(max(0.0, duration))
+
+    def record_knowledge_retrieval(
+        self,
+        backend: str,
+        duration: float,
+        result_count: int,
+        *,
+        status: str = "success",
+    ) -> None:
+        """Record bounded-cardinality retrieval latency and result metrics."""
+        backend = backend if backend in {"lexical", "hybrid", "vector", "opensearch"} else "hybrid"
+        status = status if status in {"success", "error", "empty", "cache_hit"} else "error"
+        self.knowledge_retrieval_duration_seconds.labels(
+            backend=backend,
+            status=status,
+        ).observe(max(0.0, duration))
+        self.knowledge_retrieval_total.labels(backend=backend, status=status).inc()
+        self.knowledge_retrieval_results.labels(backend=backend).observe(max(0, int(result_count)))
+
+    def record_knowledge_evidence(self, status: str) -> None:
+        """Record an evidence-gate outcome using a bounded status label."""
+        normalized = status if status in {"sufficient", "insufficient", "degraded"} else "degraded"
+        self.knowledge_evidence_total.labels(status=normalized).inc()
 
     def record_cache_event(
         self,

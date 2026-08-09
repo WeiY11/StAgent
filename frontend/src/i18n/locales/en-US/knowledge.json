@@ -2,6 +2,12 @@
   "knowledge": {
     "title": "Knowledge Base",
     "description": "Manage and search your document resources",
+    "space": "Knowledge space",
+    "personalSpace": "Personal space",
+    "createSpace": "New knowledge space",
+    "createSpacePrompt": "Space name",
+    "createSpacePlaceholder": "Enter a space name",
+    "createSpaceFailed": "Could not create the knowledge space",
     "search": "Search documents...",
     "upload": "Upload Document",
     "uploading": "Uploading...",

@@ -21,6 +21,10 @@ from leagent.db.models import (
     FileStatus,
     FileType,
     InboxState,
+    KnowledgeAccessScope,
+    KnowledgeSpace,
+    KnowledgeSpaceMember,
+    KnowledgeSpaceMemberRole,
     LibraryScope,
     PetProject,
     PetProjectFile,
@@ -30,6 +34,7 @@ from leagent.db.models import (
 )
 from leagent.db.sqlite_compat import load_entity_by_id, same_user_id, uuid_column_equals, uuid_column_in
 from leagent.file.primitives import classify_file_kind
+from leagent.knowledge.acl import knowledge_file_access_clause, knowledge_file_write_clause
 from leagent.schema.api import PaginatedResponse
 from leagent.services.auth import CurrentUserId  # noqa: TC001 - FastAPI dependency alias
 
@@ -198,6 +203,8 @@ async def upload_document(
     file: UploadFile = File(...),
     session_id: UUID | None = Form(default=None),
     folder_id: UUID | None = Form(default=None),
+    space_id: UUID | None = Form(default=None),
+    access_scope: KnowledgeAccessScope = Form(default=KnowledgeAccessScope.PRIVATE),
     process_ocr: bool = Form(default=True),
     index_for_search: bool = Form(default=True),
 ) -> DocumentUploadResponse:
@@ -232,6 +239,32 @@ async def upload_document(
 
     content = await file.read()
     file_size = len(content)
+
+    from leagent.knowledge.acl import ensure_personal_knowledge_space
+
+    personal_space_id = await ensure_personal_knowledge_space(db, user_id)
+    target_space_id = personal_space_id
+    target_workspace_id = user_id
+    if space_id is not None:
+        async with db.session() as session:
+            space = await session.get(KnowledgeSpace, space_id)
+            member = (
+                await session.exec(
+                    select(KnowledgeSpaceMember).where(
+                        uuid_column_equals(session, KnowledgeSpaceMember.space_id, space_id),
+                        uuid_column_equals(session, KnowledgeSpaceMember.user_id, user_id),
+                        KnowledgeSpaceMember.role.in_(
+                            [KnowledgeSpaceMemberRole.MANAGER, KnowledgeSpaceMemberRole.EDITOR]
+                        ),
+                    )
+                )
+            ).first()
+            if space is None or space.is_deleted or member is None:
+                raise HTTPException(status_code=403, detail="Knowledge space write permission required")
+            target_space_id = space.id
+            target_workspace_id = space.workspace_id
+    elif access_scope != KnowledgeAccessScope.PRIVATE:
+        raise HTTPException(status_code=400, detail="space_id is required for shared access")
 
     ref = await _store_blob(
         content,
@@ -271,6 +304,9 @@ async def upload_document(
             size=file_size,
             status=FileStatus.UPLOADED,
             user_id=user_id,
+            workspace_id=target_workspace_id,
+            knowledge_space_id=target_space_id,
+            access_scope=access_scope,
             folder_id=folder_id,
             storage_path=storage_path,
             checksum=checksum,
@@ -322,6 +358,7 @@ async def promote_to_knowledge(
     chat uploads). Sources that already live in the system knowledge store are
     skipped.
     """
+    from leagent.knowledge.acl import ensure_personal_knowledge_space
     from leagent.tasks.jobs import enqueue_file_processing  # noqa: PLC0415
 
     promoted: list[DocumentUploadResponse] = []
@@ -340,6 +377,8 @@ async def promote_to_knowledge(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid session_id for the current user",
                 )
+
+    personal_space_id = await ensure_personal_knowledge_space(db, user_id)
 
     for raw_id in body.file_ids:
         async with db.session() as session:
@@ -410,6 +449,9 @@ async def promote_to_knowledge(
                 size=len(content),
                 status=FileStatus.UPLOADED,
                 user_id=user_id,
+                workspace_id=user_id,
+                knowledge_space_id=personal_space_id,
+                access_scope="private",
                 folder_id=folder_id,
                 storage_path=storage_path,
                 checksum=checksum,
@@ -459,6 +501,7 @@ async def list_documents(
     file_type: FileType | None = Query(default=None),
     status: FileStatus | None = Query(default=None),
     folder_id: UUID | None = Query(default=None),
+    space_id: UUID | None = Query(default=None),
     unfiled: bool = Query(
         default=False,
         description="When true and folder_id is omitted, return only documents with folder_id IS NULL.",
@@ -469,7 +512,7 @@ async def list_documents(
     async with db.session() as session:
         pet_lib = _pet_project_library_file_ids_subquery(session, user_id)
         query = select(FileModel).where(
-            uuid_column_equals(session, FileModel.user_id, user_id),
+            knowledge_file_access_clause(session, user_id),
             FileModel.is_deleted == False,  # noqa: E712
             FileModel.library_scope == LibraryScope.KNOWLEDGE,
             ~FileModel.id.in_(pet_lib),
@@ -483,6 +526,8 @@ async def list_documents(
             query = query.where(uuid_column_equals(session, FileModel.folder_id, folder_id))
         elif unfiled:
             query = query.where(FileModel.folder_id == None)  # noqa: E711
+        if space_id is not None:
+            query = query.where(uuid_column_equals(session, FileModel.knowledge_space_id, space_id))
         if search:
             query = query.where(FileModel.original_name.ilike(f"%{search}%"))
 
@@ -513,6 +558,7 @@ async def search_documents(
     query: str = Query(..., min_length=1, max_length=1000),
     file_types: str | None = Query(default=None, description="Comma-separated file types"),
     folder_id: UUID | None = Query(default=None),
+    space_id: UUID | None = Query(default=None),
     limit: int = Query(default=10, ge=1, le=100),
 ) -> DocumentSearchResponse:
     """BM25/lexical search across knowledge document chunks."""
@@ -520,28 +566,32 @@ async def search_documents(
     if file_types:
         type_filter = [FileType(t.strip()) for t in file_types.split(",") if t.strip()]
 
-    candidate_limit = max(limit * 4, 8)
-    max_candidate_limit = 2_000
-    best_hits: dict[UUID, Any] = {}
-    while True:
-        chunk_hits = await db.repositories.document_chunks.search(
-            user_id,
-            query,
-            limit=candidate_limit,
+    from leagent.library.retrieval import (
+        KnowledgeRetrievalPipeline,
+        SearchOptions,
+        get_knowledge_retrieval_pipeline,
+    )
+
+    pipeline = get_knowledge_retrieval_pipeline() or KnowledgeRetrievalPipeline(db)
+    retrieval_hits = await pipeline.search(
+        SearchOptions(
+            query=query,
+            user_id=user_id,
+            # Retrieve a broad bounded candidate pool before collapsing chunks
+            # to documents; otherwise one long document can crowd shared
+            # documents out of the page.
+            limit=max(limit * 4, 100),
             library_scope=LibraryScope.KNOWLEDGE.value,
+            file_type_filter=[item.value for item in type_filter] if type_filter else None,
+            folder_id=folder_id,
+            space_id=space_id,
         )
-        best_hits.clear()
-        for hit in chunk_hits:
-            previous = best_hits.get(hit.file_id)
-            if previous is None or hit.score > previous.score:
-                best_hits[hit.file_id] = hit
-        if (
-            len(best_hits) >= limit
-            or len(chunk_hits) < candidate_limit
-            or candidate_limit >= max_candidate_limit
-        ):
-            break
-        candidate_limit = min(candidate_limit * 2, max_candidate_limit)
+    )
+    best_hits: dict[UUID, Any] = {}
+    for hit in retrieval_hits:
+        previous = best_hits.get(hit.file_id)
+        if previous is None or hit.score > previous.score:
+            best_hits[hit.file_id] = hit
 
     search_results: list[DocumentSearchResult] = []
     ranked_hits = sorted(best_hits.values(), key=lambda item: item.score, reverse=True)
@@ -553,7 +603,7 @@ async def search_documents(
             batch_stmt = (
                 select(FileModel)
                 .where(FileModel.is_deleted == False)  # noqa: E712
-                .where(uuid_column_equals(session, FileModel.user_id, user_id))
+                .where(knowledge_file_access_clause(session, user_id))
                 .where(FileModel.library_scope == LibraryScope.KNOWLEDGE)
                 .where(FileModel.is_indexed == True)  # noqa: E712
                 .where(uuid_column_in(session, FileModel.id, file_ids))
@@ -613,12 +663,16 @@ async def reindex_document(
             file_id,
             parent_table="files",
         )
-        if (
-            file is None
-            or file.is_deleted
-            or not same_user_id(file.user_id, user_id)
-            or file.library_scope != LibraryScope.KNOWLEDGE
-        ):
+        can_write = False
+        if file is not None and not file.is_deleted and file.library_scope == LibraryScope.KNOWLEDGE:
+            can_write = (
+                await session.exec(
+                    select(FileModel.id)
+                    .where(uuid_column_equals(session, FileModel.id, file_id))
+                    .where(knowledge_file_write_clause(session, user_id))
+                )
+            ).first() is not None
+        if file is None or file.is_deleted or file.library_scope != LibraryScope.KNOWLEDGE or not can_write:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Knowledge document not found",

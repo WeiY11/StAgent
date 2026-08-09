@@ -37,6 +37,7 @@ from leagent.config.settings.services import (
     CanvasSettings,
     CodingProjectsSettings,
     ContextSettings,
+    KnowledgeRetrievalSettings,
     PromptSettings,
     RtspStreamSettings,
     SessionSettings,
@@ -97,6 +98,7 @@ class Settings(BaseSettings):
     context: ContextSettings = Field(default_factory=ContextSettings)
     workflow: WorkflowEngineSettings = Field(default_factory=WorkflowEngineSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    knowledge: KnowledgeRetrievalSettings = Field(default_factory=KnowledgeRetrievalSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     trace: TraceSettings = Field(default_factory=TraceSettings)
 

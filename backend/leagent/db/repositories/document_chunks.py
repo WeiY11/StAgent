@@ -22,7 +22,7 @@ from leagent.db.sqlite_compat import (
     sqlite_parent_id_text,
     uuid_column_equals,
 )
-from leagent.library.chunking import Chunk
+from leagent.library.chunking import Chunk  # noqa: TC001 - protocol annotations are runtime-facing
 from leagent.library.fts import FTS_TABLE, TRIGRAM_TABLE, escape_fts_query, escape_trigram_query
 from leagent.memory.lexical_backend import session_dialect
 
@@ -53,6 +53,8 @@ class DocumentChunkRepository(Protocol):
     ) -> int: ...
 
     async def delete_for_file(self, file_id: UUID) -> int: ...
+
+    async def list_ids_for_file(self, file_id: UUID) -> list[UUID]: ...
 
     async def search(
         self,
@@ -346,6 +348,16 @@ class DbDocumentChunkRepository:
             )
             return len(ids)
 
+    async def list_ids_for_file(self, file_id: UUID) -> list[UUID]:
+        """Return persisted chunk ids in sequence order for vector upserts."""
+        async with self._db.session() as session:
+            result = await session.exec(
+                select(DocumentChunk.id)
+                .where(uuid_column_equals(session, DocumentChunk.file_id, file_id))
+                .order_by(DocumentChunk.seq)
+            )
+            return list(result.all())
+
     async def search(
         self,
         user_id: UUID | None,
@@ -401,12 +413,15 @@ class DbDocumentChunkRepository:
         limit: int,
         library_scope: str | None,
     ) -> list[ChunkHit] | None:
+        from leagent.knowledge.acl import (
+            SQLITE_KNOWLEDGE_ACCESS_SQL,
+            sqlite_access_params,
+        )
+
         match_expr = escape_fts_query(query)
         if not match_expr:
             return []
         # SQLite may persist UUIDs as dashed or hex-only text; compare both.
-        user_id_dashed = str(user_id) if user_id else None
-        user_id_hex = user_id_dashed.replace("-", "") if user_id_dashed else None
         # SQLModel/SQLite may store Enum by name ("KNOWLEDGE") or value ("knowledge").
         scope_value, scope_name = _scope_variants(library_scope)
         sql = sa.text(
@@ -422,16 +437,7 @@ class DbDocumentChunkRepository:
             JOIN files f ON f.id = dc.file_id
             WHERE {FTS_TABLE} MATCH :match
               AND f.is_deleted = 0
-              AND (
-                    :user_id_dashed IS NULL
-                    OR lower(replace(CAST(dc.user_id AS TEXT), '-', ''))
-                       = lower(:user_id_hex)
-                  )
-              AND (
-                    :user_id_dashed IS NULL
-                    OR lower(replace(CAST(f.user_id AS TEXT), '-', ''))
-                       = lower(:user_id_hex)
-                  )
+              AND {SQLITE_KNOWLEDGE_ACCESS_SQL}
               AND (
                     :scope_value IS NULL
                     OR f.library_scope = :scope_value
@@ -446,11 +452,10 @@ class DbDocumentChunkRepository:
                 sql,
                 {
                     "match": match_expr,
-                    "user_id_dashed": user_id_dashed,
-                    "user_id_hex": user_id_hex,
                     "scope_value": scope_value,
                     "scope_name": scope_name,
                     "limit": limit,
+                    **sqlite_access_params(user_id),
                 },
             )
         except Exception:
@@ -486,11 +491,14 @@ class DbDocumentChunkRepository:
         acceptable as a *rescue* path when the main BM25 index misses CJK
         multi-character queries.
         """
+        from leagent.knowledge.acl import (
+            SQLITE_KNOWLEDGE_ACCESS_SQL,
+            sqlite_access_params,
+        )
+
         match_expr = escape_trigram_query(query)
         if not match_expr:
             return []
-        user_id_dashed = str(user_id) if user_id else None
-        user_id_hex = user_id_dashed.replace("-", "") if user_id_dashed else None
         scope_value, scope_name = _scope_variants(library_scope)
         sql = sa.text(
             f"""
@@ -505,16 +513,7 @@ class DbDocumentChunkRepository:
             JOIN files f ON f.id = dc.file_id
             WHERE {TRIGRAM_TABLE} MATCH :match
               AND f.is_deleted = 0
-              AND (
-                    :user_id_dashed IS NULL
-                    OR lower(replace(CAST(dc.user_id AS TEXT), '-', ''))
-                       = lower(:user_id_hex)
-                  )
-              AND (
-                    :user_id_dashed IS NULL
-                    OR lower(replace(CAST(f.user_id AS TEXT), '-', ''))
-                       = lower(:user_id_hex)
-                  )
+              AND {SQLITE_KNOWLEDGE_ACCESS_SQL}
               AND (
                     :scope_value IS NULL
                     OR f.library_scope = :scope_value
@@ -528,11 +527,10 @@ class DbDocumentChunkRepository:
                 sql,
                 {
                     "match": match_expr,
-                    "user_id_dashed": user_id_dashed,
-                    "user_id_hex": user_id_hex,
                     "scope_value": scope_value,
                     "scope_name": scope_name,
                     "limit": limit,
+                    **sqlite_access_params(user_id),
                 },
             )
         except Exception:
@@ -563,10 +561,9 @@ class DbDocumentChunkRepository:
             .where(DocumentChunk.text.ilike(f"%{query}%"))  # type: ignore[attr-defined]
         )
         if user_id is not None:
-            stmt = stmt.where(
-                uuid_column_equals(session, DocumentChunk.user_id, user_id),
-                uuid_column_equals(session, File.user_id, user_id),
-            )
+            from leagent.knowledge.acl import knowledge_file_access_clause
+
+            stmt = stmt.where(knowledge_file_access_clause(session, user_id))
         if library_scope is not None:
             from leagent.db.models.file import LibraryScope as _LibraryScope
 

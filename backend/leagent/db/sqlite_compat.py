@@ -47,6 +47,7 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
         "coding_projects",
         "workflow_executions",
         "complaints",
+        "knowledge_spaces",
     }
 )
 
@@ -124,6 +125,15 @@ def uuid_column_equals(session: AsyncSession, column: Any, value: object) -> Any
         normalized_column = func.lower(func.replace(sa_cast(column, String), "-", ""))
         return normalized_column == _uuid_hex(value)
     return column == value
+
+
+def uuid_columns_equal(session: AsyncSession, left: Any, right: Any) -> Any:
+    """Compare two UUID columns while tolerating dashed SQLite text."""
+    if session_dialect_name(session) == "sqlite":
+        left_normalized = func.lower(func.replace(sa_cast(left, String), "-", ""))
+        right_normalized = func.lower(func.replace(sa_cast(right, String), "-", ""))
+        return left_normalized == right_normalized
+    return left == right
 
 
 def uuid_column_in(session: AsyncSession, column: Any, values: list[UUID]) -> Any:

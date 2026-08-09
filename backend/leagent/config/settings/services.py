@@ -178,3 +178,40 @@ class CacheSettings(BaseSettings):
         if namespace and namespace in self.namespace_ttls:
             return int(self.namespace_ttls[namespace])
         return int(self.default_ttl)
+
+
+class KnowledgeRetrievalSettings(BaseSettings):
+    """Quality-oriented RAG backends and policy knobs.
+
+    Empty endpoints keep the zero-dependency SQLite/BM25 path.  Production
+    deployments can enable OpenSearch/Milvus and a cross-encoder reranker
+    without changing the chat or tool contracts.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="LEAGENT_KNOWLEDGE_")
+
+    index_version: str = "rag-v1"
+    opensearch_url: str = ""
+    opensearch_index: str = "knowledge_chunks"
+    opensearch_api_key: str = ""
+    opensearch_timeout_seconds: float = Field(default=5.0, ge=0.1, le=60.0)
+    milvus_enabled: bool = False
+    milvus_host: str = "localhost"
+    milvus_port: int = Field(default=19530, ge=1, le=65535)
+    milvus_uri: str = ""
+    milvus_token: str = ""
+    rerank_endpoint: str = ""
+    rerank_api_key: str = ""
+    rerank_timeout_seconds: float = Field(default=5.0, ge=0.1, le=60.0)
+    query_rewrite_enabled: bool = False
+    strict_evidence: bool = True
+    max_context_tokens: int = Field(default=6000, ge=512, le=32000)
+
+    # Offline retrieval-evaluation gates.  These values are deliberately
+    # configuration, not hard-coded assertions, so a deployment can stage a
+    # new index version and compare it against the same acceptance contract.
+    recall_at_10_target: float = Field(default=0.90, ge=0.0, le=1.0)
+    ndcg_at_10_target: float = Field(default=0.80, ge=0.0, le=1.0)
+    citation_accuracy_target: float = Field(default=0.95, ge=0.0, le=1.0)
+    hallucination_rate_max: float = Field(default=0.02, ge=0.0, le=1.0)
+    retrieval_p95_ms_target: float = Field(default=5000.0, ge=1.0, le=120_000.0)

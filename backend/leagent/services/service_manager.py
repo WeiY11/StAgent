@@ -256,6 +256,7 @@ class ServiceManager:
         await self._start_coding_projects()
         await self._start_variable()
         await self._start_llm()
+        await self._start_knowledge_retrieval()
         await self._start_file_service()
         await self._start_session_manager()
         await self._start_agent_memory()
@@ -407,6 +408,55 @@ class ServiceManager:
             "CacheService initialized (memory, max_items=%d)",
             self.settings.cache.max_items,
         )
+
+    async def _start_knowledge_retrieval(self) -> None:
+        """Wire the unified RAG pipeline and optional Milvus vector plane."""
+        if self._db is None:
+            return
+        try:
+            from leagent.library.retrieval import (
+                KnowledgeRetrievalPipeline,
+                set_knowledge_retrieval_pipeline,
+            )
+
+            cfg = self.settings.knowledge
+            if cfg.milvus_enabled:
+                from leagent.knowledge.vector_index import KnowledgeVectorIndex, set_knowledge_vector_index
+                from leagent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
+                from leagent.memory.vector import MilvusConnectionConfig
+
+                if self._llm_service is not None:
+                    embeddings = LLMServiceEmbeddingProvider(
+                        self._llm_service,
+                        cache=self._cache,
+                        model=getattr(self.settings.llm, "embedding_model", None),
+                        dimension=int(getattr(self.settings.llm, "embedding_dim", 1024) or 1024),
+                    )
+                else:
+                    embeddings = NullEmbeddingProvider(
+                        dimension=int(getattr(self.settings.llm, "embedding_dim", 1024) or 1024)
+                    )
+                connection = MilvusConnectionConfig(
+                    enabled=True,
+                    host=cfg.milvus_host,
+                    port=cfg.milvus_port,
+                    uri=cfg.milvus_uri or None,
+                    token=cfg.milvus_token or None,
+                )
+                set_knowledge_vector_index(
+                    KnowledgeVectorIndex(embeddings=embeddings, connection=connection)
+                )
+            set_knowledge_retrieval_pipeline(
+                KnowledgeRetrievalPipeline(self._db, cache=self._cache)
+            )
+            logger.info(
+                "Knowledge retrieval initialized (opensearch=%s, milvus=%s, rerank=%s)",
+                bool(cfg.opensearch_url),
+                bool(cfg.milvus_enabled),
+                bool(cfg.rerank_endpoint),
+            )
+        except Exception:
+            logger.warning("Knowledge retrieval initialization skipped", exc_info=True)
 
     async def _start_chat(self) -> None:
         try:

@@ -16,6 +16,9 @@ from leagent.api.v1.documents import search_documents
 from leagent.api.v1.files import FileRenameRequest, delete_file, rename_file, search_files
 from leagent.config.settings import Settings
 from leagent.db.repositories.document_chunks import ChunkHit
+from leagent.db.models.knowledge_index import KnowledgeIndexStatus
+from leagent.library.chunking import chunk_auto
+from leagent.knowledge.acl import ensure_personal_knowledge_space
 from leagent.db.service import DatabaseService
 from leagent.services.file_processing.service import FileProcessingService
 from leagent.tools.base import ToolContext
@@ -443,6 +446,290 @@ async def test_file_processing_updates_and_indexes_dashed_sqlite_file_row(
     assert bool(file_row._mapping["is_indexed"]) is True
     assert file_row._mapping["summary"]
     assert chunk_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_file_processing_reindexes_changed_content_after_existing_index(
+    file_doc_db: DatabaseService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A changed upload must compare against the hash from before the upsert."""
+    user_id = uuid4()
+    file_id = uuid4()
+    path = tmp_path / "changed-content.txt"
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="changed-content.txt",
+        storage_path=path,
+        extracted_text="initial source text",
+        library_scope="knowledge",
+    )
+
+    class _ServiceManager:
+        db = file_doc_db
+
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: _ServiceManager(),
+    )
+    service = FileProcessingService()
+    extractions = iter(("initial source text", "updated source text"))
+
+    async def _fake_process_file(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {
+            "extracted_text": next(extractions),
+            "metadata": {},
+            "handler": "text_processor",
+        }
+
+    monkeypatch.setattr(service, "process_file", _fake_process_file)
+
+    first = await service.process_and_update_db(
+        str(file_id),
+        str(path),
+        mime_type="text/plain",
+        original_name="changed-content.txt",
+    )
+    second = await service.process_and_update_db(
+        str(file_id),
+        str(path),
+        mime_type="text/plain",
+        original_name="changed-content.txt",
+    )
+
+    async with file_doc_db.session() as session:
+        chunk_texts = (
+            await session.execute(
+                text(
+                    "SELECT text FROM document_chunks "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex "
+                    "ORDER BY seq"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).scalars().all()
+
+    assert "_index_skipped" not in first
+    assert "_index_skipped" not in second
+    assert chunk_texts
+    assert "updated source text" in chunk_texts[0]
+
+
+@pytest.mark.asyncio
+async def test_knowledge_index_queue_is_idempotent_and_claimable(
+    file_doc_db: DatabaseService,
+    tmp_path: Path,
+) -> None:
+    """Index state/job rows survive legacy UUID text and duplicate enqueue calls."""
+    user_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="queued.txt",
+        storage_path=tmp_path / "queued.txt",
+        library_scope="knowledge",
+    )
+
+    repo = file_doc_db.repositories.knowledge_index
+    state = await repo.upsert_state(
+        file_id,
+        user_id,
+        status=KnowledgeIndexStatus.EXTRACTING,
+        content_hash="hash-v1",
+    )
+    first_job = await repo.enqueue(
+        file_id,
+        user_id,
+        content_hash="hash-v1",
+    )
+    duplicate_job = await repo.enqueue(
+        file_id,
+        user_id,
+        content_hash="hash-v1",
+    )
+    claimed = await repo.claim_batch("worker-a", limit=5)
+
+    assert state.file_id == file_id
+    assert first_job == duplicate_job
+    assert len(claimed) == 1
+    assert claimed[0].id == first_job
+    assert claimed[0].attempt_count == 1
+
+    await repo.mark_succeeded(first_job, chunk_count=3, embedded_count=3)
+
+    async with file_doc_db.session() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT status, chunk_count, embedded_count "
+                    "FROM knowledge_index_states WHERE lower(replace(CAST(file_id AS TEXT), '-', ''))=:id_hex"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).one()
+        job_row = (
+            await session.execute(
+                text("SELECT status FROM knowledge_index_jobs WHERE id=:id"),
+                {"id": str(first_job)},
+            )
+        ).one()
+
+    assert row._mapping["status"] == KnowledgeIndexStatus.READY.value
+    assert row._mapping["chunk_count"] == 3
+    assert row._mapping["embedded_count"] == 3
+    assert job_row._mapping["status"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_knowledge_search_applies_space_membership_acl(
+    file_doc_db: DatabaseService,
+    tmp_path: Path,
+) -> None:
+    """A space member can retrieve shared docs; a removed member cannot."""
+    owner_id = uuid4()
+    viewer_id = uuid4()
+    workspace_id = uuid4()
+    space_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=owner_id,
+        name="shared.txt",
+        storage_path=tmp_path / "shared.txt",
+        extracted_text="space-only alpha evidence",
+        library_scope="knowledge",
+    )
+    now = datetime.utcnow().isoformat(sep=" ")
+    async with file_doc_db.session() as session:
+        await session.execute(
+            text("INSERT OR IGNORE INTO users (id, role, disabled) VALUES (:id, 'user', 0)"),
+            {"id": str(viewer_id)},
+        )
+        await session.execute(
+            text("INSERT INTO workspaces (id) VALUES (:id)"),
+            {"id": str(workspace_id)},
+        )
+        for member_id, member_user in ((uuid4(), owner_id), (uuid4(), viewer_id)):
+            await session.execute(
+                text(
+                    "INSERT INTO workspace_members "
+                    "(id, created_at, updated_at, workspace_id, user_id, role) "
+                    "VALUES (:id, :now, :now, :workspace_id, :user_id, 'member')"
+                ),
+                {
+                    "id": str(member_id),
+                    "now": now,
+                    "workspace_id": str(workspace_id),
+                    "user_id": str(member_user),
+                },
+            )
+        await session.execute(
+            text(
+                "INSERT INTO knowledge_spaces "
+                "(id, created_at, updated_at, workspace_id, name, slug, "
+                "default_access_scope, is_default, is_deleted) "
+                "VALUES (:id, :now, :now, :workspace_id, 'Shared', 'shared', 'space', 0, 0)"
+            ),
+            {"id": str(space_id), "now": now, "workspace_id": str(workspace_id)},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO knowledge_space_members "
+                "(id, created_at, updated_at, space_id, user_id, role) "
+                "VALUES (:id, :now, :now, :space_id, :user_id, 'viewer')"
+            ),
+            {
+                "id": str(uuid4()),
+                "now": now,
+                "space_id": str(space_id),
+                "user_id": str(viewer_id),
+            },
+        )
+        await session.execute(
+            text(
+                "UPDATE files SET workspace_id=:workspace_id, knowledge_space_id=:space_id, "
+                "access_scope='space' WHERE id=:file_id"
+            ),
+            {
+                "workspace_id": str(workspace_id),
+                "space_id": str(space_id),
+                "file_id": str(file_id),
+            },
+        )
+
+    await file_doc_db.repositories.document_chunks.replace_for_file(
+        file_id,
+        owner_id,
+        chunk_auto("space-only alpha evidence", mime_type="text/plain", filename="shared.txt"),
+    )
+
+    visible = await file_doc_db.repositories.document_chunks.search(
+        viewer_id,
+        "alpha",
+        library_scope="knowledge",
+    )
+    assert [hit.file_id for hit in visible] == [file_id]
+
+    async with file_doc_db.session() as session:
+        await session.execute(
+            text(
+                "DELETE FROM knowledge_space_members "
+                "WHERE lower(replace(CAST(space_id AS TEXT), '-', ''))=:space_hex "
+                "AND lower(replace(CAST(user_id AS TEXT), '-', ''))=:user_hex"
+            ),
+            {"space_hex": space_id.hex.lower(), "user_hex": viewer_id.hex.lower()},
+        )
+
+    assert not await file_doc_db.repositories.document_chunks.search(
+        viewer_id,
+        "alpha",
+        library_scope="knowledge",
+    )
+
+
+@pytest.mark.asyncio
+async def test_personal_knowledge_space_bootstrap_is_idempotent(
+    file_doc_db: DatabaseService,
+) -> None:
+    user_id = uuid4()
+    async with file_doc_db.session() as session:
+        await session.execute(
+            text("INSERT OR IGNORE INTO users (id, role, disabled) VALUES (:id, 'user', 0)"),
+            {"id": str(user_id)},
+        )
+
+    first = await ensure_personal_knowledge_space(file_doc_db, user_id)
+    second = await ensure_personal_knowledge_space(file_doc_db, user_id)
+
+    async with file_doc_db.session() as session:
+        counts = (
+            await session.execute(
+                text(
+                    "SELECT "
+                    "(SELECT COUNT(*) FROM workspaces WHERE lower(CAST(id AS TEXT)) IN (:dashed, :hex)) AS workspaces, "
+                    "(SELECT COUNT(*) FROM workspace_members WHERE lower(replace(CAST(user_id AS TEXT), '-', ''))=:hex) AS org_members, "
+                    "(SELECT COUNT(*) FROM knowledge_spaces WHERE slug='personal' AND lower(replace(CAST(workspace_id AS TEXT), '-', ''))=:hex) AS spaces, "
+                    "(SELECT COUNT(*) FROM knowledge_space_members WHERE lower(replace(CAST(space_id AS TEXT), '-', ''))=:space_hex) AS space_members"
+                ),
+                {
+                    "dashed": str(user_id).lower(),
+                    "hex": user_id.hex.lower(),
+                    "space_hex": first.hex.lower(),
+                },
+            )
+        ).one()
+
+    assert first == second
+    assert counts._mapping["workspaces"] == 1
+    assert counts._mapping["org_members"] == 1
+    assert counts._mapping["spaces"] == 1
+    assert counts._mapping["space_members"] == 1
 
 
 @pytest.mark.asyncio

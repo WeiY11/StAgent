@@ -17,7 +17,7 @@ import structlog
 from sqlmodel import col, select
 
 from leagent.db.models.file import File, LibraryScope
-from leagent.db.sqlite_compat import same_user_id, uuid_column_equals
+from leagent.db.sqlite_compat import uuid_column_equals
 from leagent.library.summary import summarize_extracted_text
 from leagent.tools.base import BaseTool, ToolCapability, ToolCategory, ToolContext
 from leagent.tools.context import resolve_effective_user_id
@@ -213,11 +213,13 @@ class KnowledgeSearchTool(BaseTool):
         # TODO: migrate to FileRepository — catalog query requires subquery against PetProjectFile
         # and filtering by LibraryScope.KNOWLEDGE, which is not yet encapsulated in the repository.
         async with db.session() as session:
+            from leagent.knowledge.acl import knowledge_file_access_clause
+
             pet_lib = _pet_project_library_file_ids_subquery(session, user_id)
             stmt = (
                 select(File)
                 .where(
-                    uuid_column_equals(session, File.user_id, user_id),
+                    knowledge_file_access_clause(session, user_id),
                     File.is_deleted == False,  # noqa: E712
                     File.library_scope == LibraryScope.KNOWLEDGE,
                     ~File.id.in_(pet_lib),
@@ -281,26 +283,40 @@ class KnowledgeSearchTool(BaseTool):
             library_scope=LibraryScope.KNOWLEDGE.value,
         )
         retrieval_results = await pipeline.search(options)
+        from leagent.knowledge.evidence import build_evidence
 
-        results: list[dict[str, Any]] = []
-        for r in retrieval_results:
-            results.append(
-                {
-                    "file_id": str(r.file_id),
-                    "name": r.file_name,
-                    "score": r.score,
-                    "snippet": r.snippet,
-                    "chunk_id": str(r.chunk_id),
-                    "start_offset": r.start_offset,
-                    "end_offset": r.end_offset,
-                }
-            )
+        evidence = build_evidence(retrieval_results, strict=True)
+
+        results: list[dict[str, Any]] = [
+            {
+                "citation_id": f"K{index}",
+                "file_id": str(r.file_id),
+                "name": r.file_name,
+                "score": r.score,
+                "snippet": r.snippet,
+                "chunk_id": str(r.chunk_id),
+                "start_offset": r.start_offset,
+                "end_offset": r.end_offset,
+            }
+            for index, r in enumerate(retrieval_results, start=1)
+        ]
 
         return {
             "action": "search",
             "query": query,
             "total": len(results),
             "results": results,
+            "evidence_status": evidence.status.value,
+            "citations": [
+                {
+                    "citation_id": citation.citation_id,
+                    "file_id": str(citation.file_id),
+                    "chunk_id": str(citation.chunk_id),
+                    "start_offset": citation.start_offset,
+                    "end_offset": citation.end_offset,
+                }
+                for citation in evidence.citations
+            ],
             "hint": (
                 "Use action=read with file_id and start_offset/end_offset from a hit "
                 "to load the matching text window."
@@ -319,11 +335,27 @@ class KnowledgeSearchTool(BaseTool):
             return {"error": f"invalid file_id: {raw_id}", "action": "read"}
 
         row = await db.repositories.files.get(file_id)
+        can_read = False
+        if row is not None:
+            from sqlmodel import select
+
+            from leagent.db.models.file import File
+            from leagent.db.sqlite_compat import uuid_column_equals
+            from leagent.knowledge.acl import knowledge_file_access_clause
+
+            async with db.session() as session:
+                can_read = (
+                    await session.exec(
+                        select(File.id)
+                        .where(uuid_column_equals(session, File.id, file_id))
+                        .where(knowledge_file_access_clause(session, user_id))
+                    )
+                ).first() is not None
 
         if (
             row is None
             or row.is_deleted
-            or not same_user_id(row.user_id, user_id)
+            or not can_read
             or row.library_scope != LibraryScope.KNOWLEDGE
         ):
             return {

@@ -272,6 +272,7 @@ async def resolve_knowledge_message_paths(
 
     from leagent.db.models.file import File as FileModel
     from leagent.db.sqlite_compat import uuid_column_equals
+    from leagent.knowledge.acl import knowledge_file_access_clause
 
     refs: list[tuple[UUID | None, str | None]] = []
     for m in _KNOWLEDGE_LINE_RE.finditer(message or ""):
@@ -288,7 +289,7 @@ async def resolve_knowledge_message_paths(
             if file_id is not None:
                 stmt = select(FileModel).where(
                     uuid_column_equals(session, FileModel.id, file_id),
-                    uuid_column_equals(session, FileModel.user_id, user_id),
+                    knowledge_file_access_clause(session, user_id),
                     FileModel.is_deleted == False,  # noqa: E712
                 )
                 row = (await session.exec(stmt)).first()
@@ -296,7 +297,7 @@ async def resolve_knowledge_message_paths(
                 stmt = (
                     select(FileModel)
                     .where(
-                        uuid_column_equals(session, FileModel.user_id, user_id),
+                        knowledge_file_access_clause(session, user_id),
                         FileModel.is_deleted == False,  # noqa: E712
                         FileModel.original_name == name,
                     )

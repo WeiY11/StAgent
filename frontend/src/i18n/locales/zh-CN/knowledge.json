@@ -2,6 +2,12 @@
   "knowledge": {
     "title": "知识库",
     "description": "管理和检索您的文档资源",
+    "space": "知识空间",
+    "personalSpace": "个人空间",
+    "createSpace": "新建知识空间",
+    "createSpacePrompt": "空间名称",
+    "createSpacePlaceholder": "请输入空间名称",
+    "createSpaceFailed": "创建知识空间失败",
     "search": "搜索文档...",
     "upload": "上传文档",
     "uploading": "上传中...",

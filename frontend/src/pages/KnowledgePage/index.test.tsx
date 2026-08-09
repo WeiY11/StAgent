@@ -40,6 +40,8 @@ vi.mock('@/hooks/useFolders', () => ({
 }));
 
 vi.mock('@/hooks/useKnowledge', () => ({
+  useKnowledgeSpaces: () => ({ data: [] }),
+  useCreateKnowledgeSpace: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDocuments: () => ({
     data: {
       items: [mocks.document],

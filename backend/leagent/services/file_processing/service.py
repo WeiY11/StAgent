@@ -167,6 +167,7 @@ class FileProcessingService:
             status=FileStatus.PROCESSING,
             is_indexed=False,
         )
+        await self._set_index_state(file_id, "extracting")
         try:
             result = await self.process_file(file_path, mime_type, original_name)
         except Exception:
@@ -175,6 +176,7 @@ class FileProcessingService:
                 status=FileStatus.FAILED,
                 is_indexed=False,
             )
+            await self._set_index_state(file_id, "failed", last_error="extraction_failed")
             raise
         if result.get("error"):
             await self._update_file_record(
@@ -182,6 +184,7 @@ class FileProcessingService:
                 status=FileStatus.FAILED,
                 is_indexed=False,
             )
+            await self._set_index_state(file_id, "failed", last_error=str(result["error"]))
             raise RuntimeError(str(result["error"]))
 
         extracted = result.get("extracted_text")
@@ -194,9 +197,23 @@ class FileProcessingService:
             )
             # Clear stale FileContent if any.
             await self._upsert_file_content(file_id, None, None)
+            await self._set_index_state(
+                file_id,
+                "degraded",
+                last_error="no_extracted_text",
+            )
             return result
 
         content_hash = hashlib.sha256(extracted.encode("utf-8")).hexdigest()[:16]
+
+        index_job_id = await self._enqueue_index_job(file_id, content_hash)
+
+        # Check the previous index state before replacing ``FileContent``.
+        # The content upsert below deliberately happens before the file row
+        # update, but it must not erase the old hash that is used to decide
+        # whether re-indexing can be skipped.  Reading after the upsert makes
+        # every re-upload with existing chunks look unchanged.
+        index_skipped = await self._content_unchanged(file_id, content_hash)
 
         # Write extracted_text to the dedicated FileContent table instead of
         # bloating the files row.  The legacy File.extracted_text column is
@@ -213,16 +230,29 @@ class FileProcessingService:
         )
 
         # Skip chunk re-indexing when content is unchanged.
-        if await self._content_unchanged(file_id, content_hash):
+        if index_skipped:
             await self._update_file_record(
                 file_id,
                 status=FileStatus.PROCESSED,
                 is_indexed=True,
             )
+            await self._set_index_state(
+                file_id,
+                "ready",
+                content_hash=content_hash,
+                completed_at=datetime.utcnow(),
+            )
+            if index_job_id is not None:
+                await self._mark_index_job_succeeded(index_job_id, chunk_count=1)
             result["_index_skipped"] = True
             return result
 
         try:
+            await self._set_index_state(
+                file_id,
+                "chunked",
+                content_hash=content_hash,
+            )
             await self._index_chunks(file_id, result)
         except Exception:
             await self._update_file_record(
@@ -230,9 +260,141 @@ class FileProcessingService:
                 status=FileStatus.FAILED,
                 is_indexed=False,
             )
+            await self._set_index_state(
+                file_id,
+                "failed",
+                content_hash=content_hash,
+                last_error="indexing_failed",
+            )
+            if index_job_id is not None:
+                await self._mark_index_job_failed(index_job_id, "indexing_failed")
             raise
 
+        if index_job_id is not None:
+            await self._mark_index_job_succeeded(
+                index_job_id,
+                chunk_count=int(result.get("_index_chunk_count") or 0),
+                embedded_count=int(result.get("_index_embedded_count") or 0),
+            )
+
         return result
+
+    async def _enqueue_index_job(self, file_id: str, content_hash: str) -> Any | None:
+        """Create an idempotent durable index record for the current content."""
+        from uuid import UUID
+
+        from leagent.db.models.file import File
+        from leagent.db.sqlite_compat import load_entity_by_id
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return None
+        try:
+            async with sm.db.session() as session:
+                file = await load_entity_by_id(
+                    session,
+                    File,
+                    UUID(file_id),
+                    parent_table="files",
+                )
+                user_id = file.user_id if file is not None else None
+            return await sm.db.repositories.knowledge_index.enqueue(
+                UUID(file_id),
+                user_id,
+                content_hash=content_hash,
+            )
+        except Exception:  # noqa: BLE001 - pre-0021 installations remain usable
+            logger.debug("knowledge_index_job_enqueue_skipped", file_id=file_id, exc_info=True)
+            return None
+
+    async def _mark_index_job_succeeded(
+        self,
+        job_id: Any,
+        *,
+        chunk_count: int,
+        embedded_count: int = 0,
+    ) -> None:
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return
+        try:
+            await sm.db.repositories.knowledge_index.mark_succeeded(
+                job_id,
+                chunk_count=chunk_count,
+                embedded_count=embedded_count,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("knowledge_index_job_success_update_skipped", exc_info=True)
+
+    async def _mark_index_job_failed(self, job_id: Any, error: str) -> None:
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return
+        try:
+            await sm.db.repositories.knowledge_index.mark_failed(job_id, error)
+        except Exception:  # noqa: BLE001
+            logger.debug("knowledge_index_job_failure_update_skipped", exc_info=True)
+
+    async def _set_index_state(
+        self,
+        file_id: str,
+        status: str,
+        *,
+        content_hash: str | None = None,
+        chunk_count: int | None = None,
+        embedded_count: int | None = None,
+        last_error: str | None = None,
+        completed_at: datetime | None = None,
+    ) -> None:
+        """Best-effort persistence of the versioned indexing lifecycle.
+
+        The helper is intentionally non-blocking for legacy installations that
+        have not run migration 0021 yet.  File processing remains usable while
+        the state table is introduced, but every current database created by
+        the application has the durable contract.
+        """
+        from uuid import UUID
+
+        from leagent.db.models.knowledge_index import KnowledgeIndexStatus
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        if sm.db is None:
+            return
+        try:
+            repositories = getattr(sm.db, "repositories", None)
+            repository = getattr(repositories, "knowledge_index", None)
+            if repository is None:
+                return
+            user_id = None
+            from leagent.db.models.file import File
+            from leagent.db.sqlite_compat import load_entity_by_id
+
+            async with sm.db.session() as session:
+                row = await load_entity_by_id(
+                    session,
+                    File,
+                    UUID(file_id),
+                    parent_table="files",
+                )
+                user_id = row.user_id if row is not None else None
+            await repository.upsert_state(
+                UUID(file_id),
+                user_id,
+                status=KnowledgeIndexStatus(status),
+                content_hash=content_hash,
+                chunk_count=chunk_count,
+                embedded_count=embedded_count,
+                last_error=last_error,
+                completed_at=completed_at,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("knowledge_index_state_update_skipped", file_id=file_id, exc_info=True)
 
     async def _update_file_record(self, file_id: str, **values: Any) -> None:
         """Update one file using the cross-dialect UUID comparison contract."""
@@ -298,11 +460,23 @@ class FileProcessingService:
 
             now = datetime.utcnow()
             if existing is not None:
-                existing.extracted_text = extracted_text
-                existing.text_char_count = len(extracted_text) if extracted_text else 0
-                existing.text_hash = content_hash
-                existing.updated_at = now
-                session.add(existing)
+                # Do not mutate the ORM instance here.  Legacy SQLite rows
+                # can store UUIDs with dashes while SQLAlchemy binds UUID
+                # primary keys as hex strings; an ORM flush would then report
+                # a false ``StaleDataError``.  The normalized FK predicate is
+                # dialect-safe and updates the exact legacy row.
+                await session.execute(
+                    sa.update(FileContent)
+                    .where(
+                        uuid_column_equals(session, FileContent.file_id, logical_id)
+                    )
+                    .values(
+                        extracted_text=extracted_text,
+                        text_char_count=len(extracted_text) if extracted_text else 0,
+                        text_hash=content_hash,
+                        updated_at=now,
+                    )
+                )
             elif session_dialect_name(session) == "sqlite":
                 # Raw insert preserving the exact parent-id text so the FK
                 # check passes for both dashed and hex stored file ids.
@@ -428,16 +602,38 @@ class FileProcessingService:
             extracted, mime_type=file_mime, filename=file_name
         )
         await sm.db.repositories.document_chunks.replace_for_file(logical_id, user_id, chunks)
+        await self._set_index_state(
+            file_id,
+            "embedding",
+            chunk_count=len(chunks),
+        )
 
         # Write embeddings to the vector index (best-effort, graceful degradation).
+        embedded_count = 0
         try:
             from leagent.knowledge.vector_index import get_knowledge_vector_index
 
             vi = get_knowledge_vector_index()
             if vi is not None and vi.available:
-                await vi.upsert_chunks(logical_id, user_id, chunks)
+                chunk_ids = await sm.db.repositories.document_chunks.list_ids_for_file(logical_id)
+                embedded_count = await vi.upsert_chunks(
+                    logical_id,
+                    user_id,
+                    chunks,
+                    chunk_ids=chunk_ids,
+                )
         except Exception:  # noqa: BLE001
             logger.debug("vector_index_upsert_skipped", file_id=file_id)
+
+        await self._set_index_state(
+            file_id,
+            "ready",
+            chunk_count=len(chunks),
+            embedded_count=embedded_count,
+            completed_at=datetime.utcnow(),
+        )
+        result["_index_chunk_count"] = len(chunks)
+        result["_index_embedded_count"] = embedded_count
 
         await self._update_file_record(
             file_id,
