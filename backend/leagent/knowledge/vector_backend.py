@@ -31,6 +31,7 @@ class KnowledgeVectorIndexBackend(Protocol):
         chunks: Sequence[object],
         *,
         chunk_ids: Sequence[UUID] | None = None,
+        index_version: str | None = None,
     ) -> int: ...
 
     async def delete_for_file(

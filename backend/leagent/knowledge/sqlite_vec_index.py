@@ -63,7 +63,7 @@ class SqliteVecKnowledgeIndex:
         return self._index_version
 
     def _connect(self) -> sqlite3.Connection:
-        import sqlite_vec
+        import sqlite_vec  # type: ignore[import-untyped]
 
         if self.path.exists() and self.path.stat().st_size:
             with self.path.open("rb") as sidecar:
@@ -88,7 +88,15 @@ class SqliteVecKnowledgeIndex:
                         "(singleton INTEGER PRIMARY KEY CHECK (singleton = 1), active_version TEXT NOT NULL)"
                     )
                     connection.execute(
+                        "CREATE TABLE IF NOT EXISTS knowledge_vector_version_state "
+                        "(version TEXT PRIMARY KEY, status TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+                    )
+                    connection.execute(
                         "INSERT OR IGNORE INTO knowledge_vector_versions(singleton, active_version) VALUES (1, ?) ",
+                        (self._index_version,),
+                    )
+                    connection.execute(
+                        "INSERT OR IGNORE INTO knowledge_vector_version_state(version, status) VALUES (?, 'active')",
                         (self._index_version,),
                     )
                     active = connection.execute(
@@ -149,7 +157,7 @@ class SqliteVecKnowledgeIndex:
                 return 0
 
     def _upsert_sync(self, version: str, rows: list[tuple[str, list[float], str]]) -> int:
-        import sqlite_vec
+        import sqlite_vec  # type: ignore[import-untyped]
 
         with self._connect() as connection:
             table = self._ensure_table(connection, version)
@@ -171,6 +179,7 @@ class SqliteVecKnowledgeIndex:
         chunks: Sequence[Chunk],
         *,
         chunk_ids: Sequence[UUID] | None = None,
+        index_version: str | None = None,
     ) -> int:
         """Embed chunks then upsert; uploader identity is deliberately unused."""
         del user_id
@@ -189,7 +198,7 @@ class SqliteVecKnowledgeIndex:
             for index, vector in enumerate(vectors)
             if index < len(chunks)
         ]
-        return await self.upsert_vectors(file_id, pairs)
+        return await self.upsert_vectors(file_id, pairs, index_version=index_version)
 
     async def embed_query(self, query: str) -> list[float]:
         """Encode a query without allowing a model library network download."""
@@ -214,10 +223,16 @@ class SqliteVecKnowledgeIndex:
                 return 0
 
     def _delete_sync(self, version: str, file_id: str) -> int:
-        with self._connect() as connection:
-            table = self._ensure_table(connection, version)
-            result = connection.execute(f"DELETE FROM {table} WHERE file_id = ?", (file_id,))
-            return max(0, result.rowcount)
+        try:
+            with self._connect() as connection:
+                result = connection.execute(
+                    f"DELETE FROM {version_table_name(version)} WHERE file_id = ?", (file_id,)
+                )
+                return max(0, result.rowcount)
+        except sqlite3.OperationalError as exc:
+            if "no such table" in str(exc).lower():
+                return 0
+            raise
 
     async def search(
         self,
@@ -249,24 +264,29 @@ class SqliteVecKnowledgeIndex:
         return await self.search(query_vector, **kwargs)  # type: ignore[arg-type]
 
     def _search_sync(self, version: str, vector: list[float], limit: int, file_ids: list[str]) -> list[tuple[str, float]]:
-        import sqlite_vec
+        import sqlite_vec  # type: ignore[import-untyped]
 
         best: dict[str, float] = {}
-        with self._connect() as connection:
-            table = self._ensure_table(connection, version)
-            # vec0 metadata IN filtering is parameterized; batching avoids SQLite's bind limit.
-            for start in range(0, len(file_ids), _SQLITE_PARAMETER_BATCH):
-                batch = file_ids[start : start + _SQLITE_PARAMETER_BATCH]
-                marks = ", ".join("?" for _ in batch)
-                rows = connection.execute(
-                    f"SELECT chunk_id, distance FROM {table} "
-                    f"WHERE embedding MATCH ? AND k = ? AND file_id IN ({marks})",
-                    (sqlite_vec.serialize_float32(vector), limit, *batch),
-                ).fetchall()
-                for chunk_id, distance in rows:
-                    # Unit-normalized vectors make squared L2 distance exactly 2(1-cosine).
-                    score = max(-1.0, min(1.0, 1.0 - (float(distance) ** 2) / 2.0))
-                    best[str(chunk_id)] = max(best.get(str(chunk_id), -1.0), score)
+        try:
+            with self._connect() as connection:
+                table = version_table_name(version)
+                # vec0 metadata IN filtering is parameterized; batching avoids SQLite's bind limit.
+                for start in range(0, len(file_ids), _SQLITE_PARAMETER_BATCH):
+                    batch = file_ids[start : start + _SQLITE_PARAMETER_BATCH]
+                    marks = ", ".join("?" for _ in batch)
+                    rows = connection.execute(
+                        f"SELECT chunk_id, distance FROM {table} "
+                        f"WHERE embedding MATCH ? AND k = ? AND file_id IN ({marks})",
+                        (sqlite_vec.serialize_float32(vector), limit, *batch),
+                    ).fetchall()
+                    for chunk_id, distance in rows:
+                        # Unit-normalized vectors make squared L2 distance exactly 2(1-cosine).
+                        score = max(-1.0, min(1.0, 1.0 - (float(distance) ** 2) / 2.0))
+                        best[str(chunk_id)] = max(best.get(str(chunk_id), -1.0), score)
+        except sqlite3.OperationalError as exc:
+            if "no such table" in str(exc).lower():
+                return []
+            raise
         return sorted(best.items(), key=lambda item: (-item[1], item[0]))[:limit]
 
     async def begin_version(self, index_version: str) -> bool:
@@ -283,6 +303,11 @@ class SqliteVecKnowledgeIndex:
     def _begin_sync(self, version: str) -> None:
         with self._connect() as connection:
             self._ensure_table(connection, version)
+            connection.execute(
+                "INSERT INTO knowledge_vector_version_state(version, status) VALUES (?, 'candidate') "
+                "ON CONFLICT(version) DO UPDATE SET status = 'candidate'",
+                (version,),
+            )
 
     async def activate_version(self, index_version: str) -> bool:
         if not self.available:
@@ -300,6 +325,15 @@ class SqliteVecKnowledgeIndex:
         with self._connect() as connection:
             self._ensure_table(connection, version)
             connection.execute("UPDATE knowledge_vector_versions SET active_version = ? WHERE singleton = 1", (version,))
+            connection.execute(
+                "UPDATE knowledge_vector_version_state SET status = 'retired' WHERE status = 'active' AND version != ?",
+                (version,),
+            )
+            connection.execute(
+                "INSERT INTO knowledge_vector_version_state(version, status) VALUES (?, 'active') "
+                "ON CONFLICT(version) DO UPDATE SET status = 'active'",
+                (version,),
+            )
 
     async def discard_version(self, index_version: str) -> bool:
         if not self.available or index_version == self._index_version:
@@ -315,6 +349,24 @@ class SqliteVecKnowledgeIndex:
     def _discard_sync(self, version: str) -> None:
         with self._connect() as connection:
             connection.execute(f"DROP TABLE IF EXISTS {version_table_name(version)}")
+            connection.execute("DELETE FROM knowledge_vector_version_state WHERE version = ?", (version,))
+
+    async def version_status(self) -> dict[str, str]:
+        """Return durable active/candidate/retired state for rebuild orchestration."""
+        if not self.available:
+            return {}
+        try:
+            return await asyncio.to_thread(self._version_status_sync)
+        except Exception:  # noqa: BLE001
+            logger.warning("knowledge_sqlite_vec_version_status_degraded", exc_info=True)
+            return {}
+
+    def _version_status_sync(self) -> dict[str, str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT version, status FROM knowledge_vector_version_state"
+            ).fetchall()
+        return {str(version): str(status) for version, status in rows}
 
 
 __all__ = ["SqliteVecKnowledgeIndex"]
