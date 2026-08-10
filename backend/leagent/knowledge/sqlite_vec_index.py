@@ -15,7 +15,7 @@ from threading import Lock
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from leagent.knowledge.vector_backend import version_table_name
+from leagent.knowledge.vector_backend import canonical_index_version, version_table_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -45,7 +45,10 @@ class SqliteVecKnowledgeIndex:
             raise ValueError("dimension must be positive")
         self._dimension = dimension
         self._embeddings = embeddings
-        self._index_version = (index_version or "rag-v1").strip() or "rag-v1"
+        canonical = canonical_index_version(index_version, default="rag-v1")
+        if canonical is None:
+            raise ValueError("invalid index version")
+        self._index_version = canonical
         root = Path(leagent_home).expanduser().resolve()
         knowledge = root / "knowledge"
         knowledge.mkdir(parents=True, exist_ok=True)
@@ -108,7 +111,10 @@ class SqliteVecKnowledgeIndex:
                             (self._index_version,),
                         )
                     else:
-                        self._index_version = str(active[0])
+                        persisted_active = canonical_index_version(str(active[0]))
+                        if persisted_active is None:
+                            raise ValueError("persisted index version is invalid")
+                        self._index_version = persisted_active
                         connection.execute(
                             "UPDATE knowledge_vector_version_state SET status = 'retired' "
                             "WHERE status = 'active' AND version != ?",
@@ -126,7 +132,10 @@ class SqliteVecKnowledgeIndex:
                 return False
 
     def _ensure_table(self, connection: sqlite3.Connection, index_version: str) -> str:
-        table = version_table_name(index_version)
+        version = canonical_index_version(index_version)
+        if version is None:
+            raise ValueError("invalid index version")
+        table = version_table_name(version)
         connection.execute(
             f"CREATE VIRTUAL TABLE IF NOT EXISTS {table} USING vec0("
             f"chunk_id TEXT PRIMARY KEY, embedding FLOAT[{self._dimension}], file_id TEXT)"
@@ -155,7 +164,9 @@ class SqliteVecKnowledgeIndex:
         """Persist precomputed vectors; used by rebuild workers and tests."""
         if not self.available or not vectors:
             return 0
-        version = index_version or self._index_version
+        version = canonical_index_version(index_version, default=self._index_version)
+        if version is None:
+            return 0
         try:
             rows = [
                 (str(chunk_id), self._normalized(vector, self._dimension), str(file_id))
@@ -229,9 +240,12 @@ class SqliteVecKnowledgeIndex:
     async def delete_for_file(self, file_id: UUID, *, index_version: str | None = None) -> int:
         if not self.available:
             return 0
+        version = canonical_index_version(index_version, default=self._index_version)
+        if version is None:
+            return 0
         async with self._write_lock:
             try:
-                return await asyncio.to_thread(self._delete_sync, index_version or self._index_version, str(file_id))
+                return await asyncio.to_thread(self._delete_sync, version, str(file_id))
             except Exception:  # noqa: BLE001
                 logger.warning("knowledge_sqlite_vec_delete_degraded", exc_info=True)
                 self._available = False
@@ -262,9 +276,12 @@ class SqliteVecKnowledgeIndex:
             return []
         try:
             vector = self._normalized(query_vector, self._dimension)
+            version = canonical_index_version(index_version, default=self._index_version)
+            if version is None:
+                return []
             return await asyncio.to_thread(
                 self._search_sync,
-                index_version or self._index_version,
+                version,
                 vector,
                 max(1, limit),
                 [str(file_id) for file_id in allowed_file_ids],
@@ -305,11 +322,12 @@ class SqliteVecKnowledgeIndex:
         return sorted(best.items(), key=lambda item: (-item[1], item[0]))[:limit]
 
     async def begin_version(self, index_version: str) -> bool:
-        if not self.available or not index_version.strip():
+        version = canonical_index_version(index_version)
+        if not self.available or version is None or version == self._index_version:
             return False
         async with self._write_lock:
             try:
-                await asyncio.to_thread(self._begin_sync, index_version)
+                await asyncio.to_thread(self._begin_sync, version)
                 return True
             except Exception:  # noqa: BLE001
                 logger.warning("knowledge_sqlite_vec_begin_degraded", exc_info=True)
@@ -330,12 +348,13 @@ class SqliteVecKnowledgeIndex:
             )
 
     async def activate_version(self, index_version: str) -> bool:
-        if not self.available:
+        version = canonical_index_version(index_version)
+        if not self.available or version is None or version == self._index_version:
             return False
         async with self._write_lock:
             try:
-                await asyncio.to_thread(self._activate_sync, index_version)
-                self._index_version = index_version
+                await asyncio.to_thread(self._activate_sync, version)
+                self._index_version = version
                 return True
             except Exception:  # noqa: BLE001
                 logger.warning("knowledge_sqlite_vec_activate_degraded", exc_info=True)
@@ -343,7 +362,11 @@ class SqliteVecKnowledgeIndex:
 
     def _activate_sync(self, version: str) -> None:
         with self._connect() as connection:
-            self._ensure_table(connection, version)
+            candidate = connection.execute(
+                "SELECT status FROM knowledge_vector_version_state WHERE version = ?", (version,)
+            ).fetchone()
+            if candidate is None or candidate[0] != "candidate":
+                raise ValueError("index version is not a persisted candidate")
             connection.execute("UPDATE knowledge_vector_versions SET active_version = ? WHERE singleton = 1", (version,))
             connection.execute(
                 "UPDATE knowledge_vector_version_state SET status = 'retired' WHERE status = 'active' AND version != ?",
@@ -356,11 +379,12 @@ class SqliteVecKnowledgeIndex:
             )
 
     async def discard_version(self, index_version: str) -> bool:
-        if not self.available or index_version == self._index_version:
+        version = canonical_index_version(index_version)
+        if not self.available or version is None or version == self._index_version:
             return False
         async with self._write_lock:
             try:
-                await asyncio.to_thread(self._discard_sync, index_version)
+                await asyncio.to_thread(self._discard_sync, version)
                 return True
             except Exception:  # noqa: BLE001
                 logger.warning("knowledge_sqlite_vec_discard_degraded", exc_info=True)

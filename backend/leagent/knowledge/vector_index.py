@@ -27,6 +27,8 @@ import re
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from leagent.knowledge.vector_backend import canonical_index_version
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -45,7 +47,9 @@ _UPSERT_BATCH = 256
 
 def _collection_name_for_version(index_version: str) -> str:
     """Return a stable Milvus-safe collection name for an index version."""
-    version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
+    version = canonical_index_version(index_version, default=DEFAULT_INDEX_VERSION)
+    if version is None:
+        raise ValueError("invalid index version")
     if version == DEFAULT_INDEX_VERSION:
         # Preserve the original collection for the default rollout.
         return COLLECTION_NAME
@@ -71,14 +75,19 @@ class KnowledgeVectorIndex:
     ) -> None:
         self._embeddings = embeddings
         self._connection = connection
-        self._index_version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
+        canonical = canonical_index_version(index_version, default=DEFAULT_INDEX_VERSION)
+        if canonical is None:
+            raise ValueError("invalid index version")
+        self._index_version = canonical
         self._collections: dict[str, MilvusCollection] = {}
         self._collection = self._collection_for_version(self._index_version)
         self._collection_name = _collection_name_for_version(self._index_version)
 
     def _collection_for_version(self, index_version: str) -> MilvusCollection:
         """Lazily construct an isolated collection for an active or candidate version."""
-        version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
+        version = canonical_index_version(index_version)
+        if version is None:
+            raise ValueError("invalid index version")
         existing = self._collections.get(version)
         if existing is not None:
             return existing
@@ -96,7 +105,9 @@ class KnowledgeVectorIndex:
     def _selected_collection(self, index_version: str | None) -> MilvusCollection | None:
         """Resolve a version while retaining isolated legacy test construction."""
         active = getattr(self, "_index_version", DEFAULT_INDEX_VERSION)
-        version = index_version or active
+        version = canonical_index_version(index_version, default=active)
+        if version is None:
+            return None
         collections = getattr(self, "_collections", None)
         if collections is not None:
             return collections.get(version)
@@ -217,7 +228,7 @@ class KnowledgeVectorIndex:
 
     async def begin_version(self, index_version: str) -> bool:
         """Create a candidate collection without changing the active collection."""
-        version = (index_version or "").strip()
+        version = canonical_index_version(index_version)
         if not version or version == self._index_version:
             return False
         try:
@@ -228,19 +239,23 @@ class KnowledgeVectorIndex:
 
     async def activate_version(self, index_version: str) -> bool:
         """Atomically direct subsequent requests to a prepared candidate."""
-        collection = self._collections.get(index_version)
+        version = canonical_index_version(index_version)
+        if version is None or version == self._index_version:
+            return False
+        collection = self._collections.get(version)
         if collection is None or not collection.can_write:
             return False
-        self._index_version = index_version
+        self._index_version = version
         self._collection = collection
-        self._collection_name = _collection_name_for_version(index_version)
+        self._collection_name = _collection_name_for_version(version)
         return True
 
     async def discard_version(self, index_version: str) -> bool:
         """Drop a never-activated candidate collection when the client exposes it."""
-        if index_version == self._index_version or index_version not in self._collections:
+        version = canonical_index_version(index_version)
+        if version is None or version == self._index_version or version not in self._collections:
             return False
-        collection = self._collections[index_version]
+        collection = self._collections[version]
         remote_collection = getattr(collection, "_collection", None)
         drop = getattr(remote_collection, "drop", None)
         if callable(drop):
@@ -249,7 +264,7 @@ class KnowledgeVectorIndex:
             except Exception:  # noqa: BLE001
                 logger.warning("knowledge_vector_candidate_discard_failed")
                 return False
-        del self._collections[index_version]
+        del self._collections[version]
         return True
 
     async def search(

@@ -124,6 +124,21 @@ async def test_sqlite_vec_restart_keeps_only_persisted_active_state(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_sqlite_vec_canonicalizes_versions_and_requires_persisted_candidate(tmp_path) -> None:
+    """Whitespace aliases cannot mutate or discard the active projection."""
+    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+
+    index = SqliteVecKnowledgeIndex(tmp_path, dimension=2, index_version="rag-v1")
+    assert await index.begin_version(" rag-v1 ") is False
+    assert await index.activate_version(" rag-v1 ") is False
+    assert await index.discard_version(" rag-v1 ") is False
+    assert await index.activate_version("candidate") is False
+    assert await index.begin_version(" candidate ") is True
+    assert await index.activate_version(" candidate ") is True
+    assert index.index_version == "candidate"
+
+
+@pytest.mark.asyncio
 async def test_milvus_index_keeps_candidate_collection_separate_from_active(monkeypatch) -> None:
     """Candidate rebuild writes do not land in the active Milvus collection."""
     import leagent.memory.vector
