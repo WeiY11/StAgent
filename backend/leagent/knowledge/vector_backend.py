@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from uuid import UUID
 
+    from leagent.library.chunking import Chunk
+
 
 @runtime_checkable
 class KnowledgeVectorIndexBackend(Protocol):
@@ -28,7 +30,7 @@ class KnowledgeVectorIndexBackend(Protocol):
         self,
         file_id: UUID,
         user_id: UUID | None,
-        chunks: Sequence[object],
+        chunks: Sequence[Chunk],
         *,
         chunk_ids: Sequence[UUID] | None = None,
         index_version: str | None = None,

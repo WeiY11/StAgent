@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -106,6 +107,63 @@ async def test_sqlite_vec_search_batches_more_than_sqlite_parameter_limit_withou
     index._ensure_table = lambda *_args: (_ for _ in ()).throw(AssertionError("read DDL"))  # type: ignore[method-assign]
     allowed = [uuid4() for _ in range(800)] + [file_id]
     assert await index.search([1.0, 0.0], limit=1, allowed_file_ids=allowed) == [(str(chunk_id), pytest.approx(1.0))]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_vec_restart_keeps_only_persisted_active_state(tmp_path) -> None:
+    """A default constructor must not revive a retired constructor version."""
+    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+
+    index = SqliteVecKnowledgeIndex(tmp_path, dimension=2, index_version="rag-v1")
+    assert await index.begin_version("candidate") is True
+    assert await index.activate_version("candidate") is True
+    restarted = SqliteVecKnowledgeIndex(tmp_path, dimension=2, index_version="rag-v1")
+
+    assert restarted.index_version == "candidate"
+    assert await restarted.version_status() == {"rag-v1": "retired", "candidate": "active"}
+
+
+@pytest.mark.asyncio
+async def test_milvus_index_keeps_candidate_collection_separate_from_active(monkeypatch) -> None:
+    """Candidate rebuild writes do not land in the active Milvus collection."""
+    import leagent.memory.vector
+    from leagent.knowledge.vector_index import KnowledgeVectorIndex, _collection_name_for_version
+
+    created: dict[str, object] = {}
+    dropped: list[str] = []
+
+    class _Collection:
+        can_write = True
+
+        def __init__(self, *, name: str, **_kwargs: object) -> None:
+            self.name = name
+            self.rows: list[str] = []
+            self._collection = SimpleNamespace(drop=lambda: dropped.append(name))
+            created[name] = self
+
+        async def upsert(self, *, row_id: str, **_kwargs: object) -> object:
+            self.rows.append(row_id)
+            return type("Result", (), {"written": True})()
+
+        async def delete_scope(self, _scope: str) -> int:
+            return 0
+
+    monkeypatch.setattr(leagent.memory.vector, "MilvusCollection", _Collection)
+    embeddings = type("Embeddings", (), {"dimension": 2, "embed": lambda _self, _texts: _vectors()})()
+
+    async def _vectors() -> list[list[float]]:
+        return [[1.0, 0.0]]
+
+    index = KnowledgeVectorIndex(embeddings=embeddings, index_version="active")
+    file_id = uuid4()
+    assert await index.begin_version("candidate") is True
+    assert await index.upsert_chunks(file_id, None, [Chunk(0, 0, 1, "x")], index_version="candidate") == 1
+    assert await index.activate_version("candidate") is True
+    assert index.index_version == "candidate"
+    assert len(created) == 2
+    assert await index.begin_version("discarded") is True
+    assert await index.discard_version("discarded") is True
+    assert dropped == [_collection_name_for_version("discarded")]
 
 
 @pytest.mark.asyncio

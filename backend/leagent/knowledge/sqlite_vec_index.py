@@ -91,19 +91,34 @@ class SqliteVecKnowledgeIndex:
                         "CREATE TABLE IF NOT EXISTS knowledge_vector_version_state "
                         "(version TEXT PRIMARY KEY, status TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
                     )
-                    connection.execute(
-                        "INSERT OR IGNORE INTO knowledge_vector_versions(singleton, active_version) VALUES (1, ?) ",
-                        (self._index_version,),
-                    )
-                    connection.execute(
-                        "INSERT OR IGNORE INTO knowledge_vector_version_state(version, status) VALUES (?, 'active')",
-                        (self._index_version,),
-                    )
                     active = connection.execute(
                         "SELECT active_version FROM knowledge_vector_versions WHERE singleton = 1"
                     ).fetchone()
-                    if active and active[0]:
+                    if active is None:
+                        connection.execute(
+                            "INSERT INTO knowledge_vector_versions(singleton, active_version) VALUES (1, ?)",
+                            (self._index_version,),
+                        )
+                        connection.execute(
+                            "UPDATE knowledge_vector_version_state SET status = 'retired' WHERE status = 'active'"
+                        )
+                        connection.execute(
+                            "INSERT INTO knowledge_vector_version_state(version, status) VALUES (?, 'active') "
+                            "ON CONFLICT(version) DO UPDATE SET status = 'active'",
+                            (self._index_version,),
+                        )
+                    else:
                         self._index_version = str(active[0])
+                        connection.execute(
+                            "UPDATE knowledge_vector_version_state SET status = 'retired' "
+                            "WHERE status = 'active' AND version != ?",
+                            (self._index_version,),
+                        )
+                        connection.execute(
+                            "INSERT INTO knowledge_vector_version_state(version, status) VALUES (?, 'active') "
+                            "ON CONFLICT(version) DO UPDATE SET status = 'active'",
+                            (self._index_version,),
+                        )
                     self._ensure_table(connection, self._index_version)
                 return True
             except Exception:  # noqa: BLE001 - projection must never prevent RAG startup
@@ -302,6 +317,11 @@ class SqliteVecKnowledgeIndex:
 
     def _begin_sync(self, version: str) -> None:
         with self._connect() as connection:
+            active = connection.execute(
+                "SELECT active_version FROM knowledge_vector_versions WHERE singleton = 1"
+            ).fetchone()
+            if active and str(active[0]) == version:
+                raise ValueError("active index version cannot be a candidate")
             self._ensure_table(connection, version)
             connection.execute(
                 "INSERT INTO knowledge_vector_version_state(version, status) VALUES (?, 'candidate') "

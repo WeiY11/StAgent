@@ -20,6 +20,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 
     from leagent.library.chunking import Chunk
     from leagent.memory.embeddings import EmbeddingProvider
-    from leagent.memory.vector import MilvusConnectionConfig
+    from leagent.memory.vector import MilvusCollection, MilvusConnectionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -68,17 +69,40 @@ class KnowledgeVectorIndex:
         connection: MilvusConnectionConfig | None = None,
         index_version: str = DEFAULT_INDEX_VERSION,
     ) -> None:
+        self._embeddings = embeddings
+        self._connection = connection
+        self._index_version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
+        self._collections: dict[str, MilvusCollection] = {}
+        self._collection = self._collection_for_version(self._index_version)
+        self._collection_name = _collection_name_for_version(self._index_version)
+
+    def _collection_for_version(self, index_version: str) -> MilvusCollection:
+        """Lazily construct an isolated collection for an active or candidate version."""
+        version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
+        existing = self._collections.get(version)
+        if existing is not None:
+            return existing
         from leagent.memory.vector import MilvusCollection
 
-        self._embeddings = embeddings
-        self._index_version = (index_version or DEFAULT_INDEX_VERSION).strip() or DEFAULT_INDEX_VERSION
-        self._collection_name = _collection_name_for_version(self._index_version)
-        self._collection = MilvusCollection(
-            name=self._collection_name,
-            dimension=embeddings.dimension,
+        collection = MilvusCollection(
+            name=_collection_name_for_version(version),
+            dimension=self._embeddings.dimension,
             description="LeAgent knowledge chunk vectors",
-            connection=connection,
+            connection=self._connection,
         )
+        self._collections[version] = collection
+        return collection
+
+    def _selected_collection(self, index_version: str | None) -> MilvusCollection | None:
+        """Resolve a version while retaining isolated legacy test construction."""
+        active = getattr(self, "_index_version", DEFAULT_INDEX_VERSION)
+        version = index_version or active
+        collections = getattr(self, "_collections", None)
+        if collections is not None:
+            return collections.get(version)
+        if version == active:
+            return getattr(self, "_collection", None)
+        return None
 
     @property
     def available(self) -> bool:
@@ -98,9 +122,9 @@ class KnowledgeVectorIndex:
         self,
         file_id: UUID,
         user_id: UUID | None,
-        chunks: list[Chunk],
+        chunks: Sequence[Chunk],
         *,
-        chunk_ids: list[UUID] | None = None,
+        chunk_ids: Sequence[UUID] | None = None,
         index_version: str | None = None,
     ) -> int:
         """Embed and upsert a batch of chunks into the vector index.
@@ -108,11 +132,8 @@ class KnowledgeVectorIndex:
         Returns the number of vectors written.  Returns 0 when the vector
         backend is unavailable.
         """
-        if (
-            not self.available
-            or not chunks
-            or (index_version is not None and index_version != self._index_version)
-        ):
+        collection = self._selected_collection(index_version)
+        if not chunks or collection is None or not collection.can_write:
             return 0
 
         texts = [c.text for c in chunks]
@@ -130,7 +151,7 @@ class KnowledgeVectorIndex:
                 else str(uuid5(NAMESPACE_URL, f"leagent:knowledge:{file_id}:{i}"))
             )
             try:
-                result = await self._collection.upsert(
+                result = await collection.upsert(
                     row_id=row_id,
                     vector=vector,
                     user_id=str(user_id) if user_id else None,
@@ -151,10 +172,11 @@ class KnowledgeVectorIndex:
         remove obsolete vectors so they do not consume search capacity or
         survive document deletion indefinitely.
         """
-        if not self.available or (index_version is not None and index_version != self._index_version):
+        collection = self._selected_collection(index_version)
+        if collection is None or not collection.can_write:
             return 0
         try:
-            return await self._collection.delete_scope(str(file_id))
+            return await collection.delete_scope(str(file_id))
         except Exception:  # noqa: BLE001 - vector cleanup remains best-effort
             logger.debug("knowledge_vector_scope_delete_failed file_id=%s", file_id)
             return 0
@@ -177,12 +199,13 @@ class KnowledgeVectorIndex:
         Local sqlite-vec therefore performs pre-filtering; Milvus keeps the
         established SQL post-search ACL validation in the retrieval pipeline.
         """
-        if not self.available or (index_version and index_version != self._index_version):
+        collection = self._selected_collection(index_version)
+        if collection is None or not collection.can_write:
             return []
         if len(allowed_file_ids) != 1:
             return []
         try:
-            return await self._collection.search(
+            return await collection.search(
                 vector=list(query_vector),
                 limit=limit,
                 user_id=None,
@@ -193,16 +216,41 @@ class KnowledgeVectorIndex:
             return []
 
     async def begin_version(self, index_version: str) -> bool:
-        """Milvus index versions are separate bootstrap instances."""
-        return bool(index_version and index_version == self._index_version and self.available)
+        """Create a candidate collection without changing the active collection."""
+        version = (index_version or "").strip()
+        if not version or version == self._index_version:
+            return False
+        try:
+            return self._collection_for_version(version).can_write
+        except Exception:  # noqa: BLE001
+            logger.warning("knowledge_vector_candidate_begin_failed")
+            return False
 
     async def activate_version(self, index_version: str) -> bool:
-        """Compatibility hook; bootstrap replaces this instance to switch."""
-        return bool(index_version and index_version == self._index_version and self.available)
+        """Atomically direct subsequent requests to a prepared candidate."""
+        collection = self._collections.get(index_version)
+        if collection is None or not collection.can_write:
+            return False
+        self._index_version = index_version
+        self._collection = collection
+        self._collection_name = _collection_name_for_version(index_version)
+        return True
 
     async def discard_version(self, index_version: str) -> bool:
-        """Request processes must never delete a Milvus collection."""
-        return False
+        """Drop a never-activated candidate collection when the client exposes it."""
+        if index_version == self._index_version or index_version not in self._collections:
+            return False
+        collection = self._collections[index_version]
+        remote_collection = getattr(collection, "_collection", None)
+        drop = getattr(remote_collection, "drop", None)
+        if callable(drop):
+            try:
+                await asyncio.to_thread(drop)
+            except Exception:  # noqa: BLE001
+                logger.warning("knowledge_vector_candidate_discard_failed")
+                return False
+        del self._collections[index_version]
+        return True
 
     async def search(
         self,
