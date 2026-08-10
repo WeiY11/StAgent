@@ -37,7 +37,13 @@ async def test_provider_loads_only_on_first_embedding_and_routes_prompts(
     _install_fake(monkeypatch)
     model_path = tmp_path / "model"
     model_path.mkdir()
-    provider = LocalSentenceTransformerEmbeddingProvider(model_path, dimension=2, normalize=True)
+    provider = LocalSentenceTransformerEmbeddingProvider(
+        model_path,
+        dimension=2,
+        query_prompt="query: ",
+        document_prompt="document: ",
+        normalize=True,
+    )
     assert provider._model is None
 
     assert await provider.embed_query("query") == [1.0, 2.0]
@@ -46,6 +52,8 @@ async def test_provider_loads_only_on_first_embedding_and_routes_prompts(
     assert model is not None
     assert model.kwargs == {"local_files_only": True, "trust_remote_code": False}
     assert [call[0] for call in model.calls] == ["query", "document"]
+    assert model.calls[0][2]["prompt"] == "query: "
+    assert model.calls[1][2]["prompt"] == "document: "
 
 
 @pytest.mark.asyncio

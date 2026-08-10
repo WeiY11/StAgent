@@ -62,12 +62,29 @@ class LocalModelRegistry:
     ) -> None:
         if max_model_bytes <= 0:
             raise ValueError("max_model_bytes must be positive")
-        self.models_dir = Path(leagent_home).resolve() / "knowledge" / "models"
+        home = Path(leagent_home).expanduser().resolve()
+        knowledge_root = home / "knowledge"
+        knowledge_root.mkdir(parents=True, exist_ok=True)
+        models_root = knowledge_root / "models"
+        if models_root.is_symlink():
+            raise ModelValidationError("managed models root must not be a symlink")
+        models_root.mkdir(exist_ok=True)
+        resolved_knowledge = knowledge_root.resolve()
+        resolved_models = models_root.resolve()
+        if (
+            not resolved_knowledge.is_relative_to(home)
+            or not resolved_models.is_relative_to(resolved_knowledge)
+            or resolved_models.parent != resolved_knowledge
+        ):
+            raise ModelValidationError("managed models root escapes LEAGENT_HOME/knowledge")
+        self.models_dir = resolved_models
         self.staging_dir = self.models_dir / ".staging"
         self.catalog_path = self.models_dir / "catalog.json"
         self.max_model_bytes = max_model_bytes
         self._probe_vector = probe_vector or self._probe_sentence_transformer
         self.models_dir.mkdir(parents=True, exist_ok=True)
+        if self.staging_dir.is_symlink():
+            raise ModelValidationError("managed model staging root must not be a symlink")
         self.staging_dir.mkdir(exist_ok=True)
 
     @staticmethod
@@ -191,7 +208,10 @@ class LocalModelRegistry:
         destination = self.models_dir / model_id
         if destination.parent.resolve() != self.models_dir.resolve():
             raise ModelValidationError("model destination escapes managed directory")
-        fingerprint = self._fingerprint(manifest_hash=manifest_hash, **kwargs)
+        fingerprint = self._fingerprint(
+            manifest_hash=manifest_hash,
+            **{**kwargs, "dimension": probed_dimension},
+        )
         record = ManagedLocalModel(
             model_id=model_id,
             display_name=str(kwargs["display_name"]).strip() or model_id,

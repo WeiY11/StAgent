@@ -68,3 +68,30 @@ def test_fingerprint_is_stable_and_changes_for_encoding_settings(tmp_path: Path)
 
     assert first.fingerprint == second.fingerprint
     assert first.fingerprint != different.fingerprint
+
+
+def test_fingerprint_includes_verified_probe_dimension(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    _safe_model(source)
+    first = LocalModelRegistry(tmp_path, probe_vector=lambda _: (0.25, 0.75)).import_local(source, display_name="same")
+    second = LocalModelRegistry(tmp_path, probe_vector=lambda _: (0.25, 0.75, 1.0)).import_local(
+        source, display_name="same"
+    )
+
+    assert first.dimension == 2
+    assert second.dimension == 3
+    assert first.fingerprint != second.fingerprint
+
+
+def test_registry_rejects_symlinked_models_root(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    models_root = tmp_path / "knowledge" / "models"
+    models_root.parent.mkdir()
+    try:
+        models_root.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation unavailable")
+
+    with pytest.raises(ModelValidationError, match="symlink"):
+        _registry(tmp_path)

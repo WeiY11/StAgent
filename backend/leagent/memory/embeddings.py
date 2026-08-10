@@ -138,15 +138,26 @@ class LocalSentenceTransformerEmbeddingProvider:
         kwargs: dict[str, object] = {"normalize_embeddings": self.normalize}
         preferred = "encode_query" if mode == "query" else "encode_document"
         method = getattr(model, preferred, None)
-        if callable(method):
-            return method(texts, **kwargs)
         prompt = self.query_prompt if mode == "query" else self.document_prompt
+        if callable(method):
+            if prompt:
+                try:
+                    return method(texts, prompt=prompt, **kwargs)
+                except TypeError:
+                    # Older SentenceTransformers task helpers do not accept a
+                    # prompt.  Route through the generic compatible encoder
+                    # so an administrator's explicit prompt is never ignored.
+                    pass
+            else:
+                return method(texts, **kwargs)
         encoder = model.encode  # type: ignore[attr-defined]
         if prompt:
             try:
                 return encoder(texts, prompt=prompt, **kwargs)
             except TypeError:
                 texts = [f"{prompt}{text}" for text in texts]
+        if callable(method) and not prompt:
+            return method(texts, **kwargs)
         return encoder(texts, **kwargs)
 
     def _validate_vectors(self, raw: object, expected_count: int) -> list[list[float]]:
