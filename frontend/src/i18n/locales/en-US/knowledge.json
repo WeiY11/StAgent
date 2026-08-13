@@ -83,6 +83,11 @@
     "searchEmpty": "No matching documents",
     "searchEmptyHint": "Try different keywords",
     "searchAllHint": "Searching across the whole knowledge base",
-    "searchMinHint": "Type one more character, or press Enter to search"
+    "searchMinHint": "Type one more character, or press Enter to search",
+    "semanticStatus": "Semantic retrieval: {{status}} · {{documents}} documents / {{chunks}} chunks",
+    "semanticRebuild": "Rebuild semantic index",
+    "semanticRebuildFailed": "Semantic index rebuild failed",
+    "semanticProgress": "Rebuild progress: {{progress}}%",
+    "semanticCapacityWarning": "The corpus has reached 100,000 chunks; local semantic search remains enabled without truncation, but Milvus is recommended for larger deployments."
   }
 }

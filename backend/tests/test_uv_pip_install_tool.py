@@ -7,6 +7,12 @@ from pathlib import Path
 import pytest
 
 
+def test_uv_pip_install_blocks_interrupts_during_environment_mutation() -> None:
+    from leagent.code.packages import UvPipInstallTool
+
+    assert UvPipInstallTool.interrupt_behavior == "block"
+
+
 @pytest.mark.asyncio
 async def test_uv_pip_install_disabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from leagent.config import settings as settings_module

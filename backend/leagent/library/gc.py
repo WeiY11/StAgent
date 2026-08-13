@@ -15,14 +15,14 @@ from __future__ import annotations
 import logging
 import os
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 import sqlalchemy as sa
 from sqlmodel import select
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from leagent.db.service import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -80,17 +80,13 @@ async def run_file_gc(
         if not await _storage_path_is_exclusive(db, storage_path):
             skipped_shared += 1
             continue
-        if not os.path.isfile(storage_path):
-            continue
         if dry_run:
-            removed_blobs += 1
+            if storage_path.startswith("s3://") or os.path.isfile(storage_path):
+                removed_blobs += 1
             continue
-        try:
-            os.unlink(storage_path)
+        if await _remove_orphaned_blob(db, _fid, storage_path):
             removed_blobs += 1
             logger.info("gc_removed_blob path=%s", storage_path)
-        except OSError as exc:
-            logger.warning("gc_unlink_failed path=%s err=%s", storage_path, exc)
 
     return {
         "removed_blobs": removed_blobs,
@@ -113,3 +109,43 @@ async def _storage_path_is_exclusive(db: DatabaseService, storage_path: str) -> 
         )
         count = result.one()
         return int(count or 0) == 0
+
+
+async def _remove_orphaned_blob(
+    db: DatabaseService,
+    file_id: UUID,
+    storage_path: str,
+) -> bool:
+    """Delete one exclusive local or S3-compatible blob.
+
+    S3 paths stay opaque to the filesystem. The configured FileService owns
+    URI-to-key conversion, so garbage collection works after a process restart
+    and never applies ``os.unlink`` to an object-store URI.
+    """
+    if not storage_path.startswith("s3://"):
+        if not os.path.isfile(storage_path):
+            return False
+        try:
+            os.unlink(storage_path)
+            return True
+        except OSError as exc:
+            logger.warning("gc_unlink_failed path=%s err=%s", storage_path, exc)
+            return False
+
+    try:
+        from leagent.services.service_manager import get_service_manager
+
+        manager = get_service_manager()
+        service = manager.file_service
+        if service is None or getattr(manager, "db", None) is not db:
+            logger.warning("gc_s3_service_unavailable path=%s", storage_path)
+            return False
+        ref = service.ref_from_persisted_record(
+            file_id=file_id,
+            filename="",
+            storage_path=storage_path,
+        )
+        return await service.delete(ref)
+    except Exception as exc:  # noqa: BLE001 - GC must finish remaining files
+        logger.warning("gc_s3_delete_failed path=%s err=%s", storage_path, exc)
+        return False

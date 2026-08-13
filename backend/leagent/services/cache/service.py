@@ -1,4 +1,4 @@
-"""Cache service — in-memory LRU only."""
+"""L1 in-memory cache with an optional JSON-safe Redis L2."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import hashlib
 import logging
 import sys
 import time
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from leagent.services.base import Service, ServiceType, service_factory
 from leagent.services.cache.lru import make_lru
@@ -19,6 +19,7 @@ from leagent.services.cache.observability import (
     record_cache_rejection,
     record_cache_set,
 )
+from leagent.services.cache.redis_backend import RedisCacheBackend
 
 if TYPE_CHECKING:
     from leagent.config.settings import Settings
@@ -70,7 +71,7 @@ class InMemoryCache:
         value, _hit = self._lru.get(key, default)
         return value
 
-    async def set(self, key: str, value: Any, ttl: int | None = None) -> int:
+    async def set(self, key: str, value: Any, ttl: float | None = None) -> int:
         """Insert *key*; returns the number of entries evicted for capacity."""
         return self._lru.set(key, value, ttl)
 
@@ -126,7 +127,13 @@ class InMemoryCache:
 class CacheService(Service):
     """In-memory LRU cache service (no Redis)."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        redis_client: Any | None = None,
+        redis_prefix: str | None = None,
+    ) -> None:
         super().__init__(settings)
         self._cache_cfg = settings.cache
         self._memory_cache = InMemoryCache(
@@ -134,6 +141,17 @@ class CacheService(Service):
             shards=self._cache_cfg.shard_count,
         )
         self._prefix = f"{settings.app_name}:"
+        configured_redis = getattr(settings, "redis", None)
+        configured_prefix = redis_prefix or getattr(configured_redis, "prefix", None) or "leagent"
+        self._redis_backend = (
+            RedisCacheBackend(
+                redis_client,
+                prefix=str(configured_prefix),
+            )
+            if redis_client is not None
+            else None
+        )
+        self._redis_healthy = False
         # Single-flight state: one in-flight fill task per full key coalesces
         # concurrent ``get_or_set`` callers onto a single factory execution.
         self._inflight: dict[str, asyncio.Task[Any]] = {}
@@ -157,7 +175,7 @@ class CacheService(Service):
 
     @property
     def using_redis(self) -> bool:
-        return False
+        return self._redis_backend is not None and self._redis_healthy
 
     @staticmethod
     def _stat_name(namespace: str | None) -> str:
@@ -173,7 +191,15 @@ class CacheService(Service):
         return f"{self._prefix}{key}"
 
     async def _do_start(self) -> None:
-        logger.info("CacheService: in-memory cache only")
+        if self._redis_backend is not None:
+            try:
+                await self._redis_backend.ping()
+            except Exception as exc:
+                raise RuntimeError("Configured Redis cache is unavailable") from exc
+            self._redis_healthy = True
+            logger.info("CacheService: memory L1 + Redis L2")
+        else:
+            logger.info("CacheService: in-memory cache only")
         self._maintenance_stop.clear()
         if self._cache_cfg.maintenance_interval_sec > 0:
             self._maintenance_task = asyncio.create_task(self._maintenance_loop())
@@ -184,6 +210,9 @@ class CacheService(Service):
             await self._maintenance_task
             self._maintenance_task = None
         await self._memory_cache.clear()
+        if self._redis_backend is not None:
+            await self._redis_backend.close()
+        self._redis_healthy = False
 
     async def _maintenance_loop(self) -> None:
         """Periodically sweep expired entries so TTL memory is reclaimed.
@@ -203,20 +232,55 @@ class CacheService(Service):
                     record_cache_expiration("cache:_memory", count=expired)
 
     async def _do_health_check(self) -> dict[str, Any]:
+        if self._redis_backend is None:
+            return {
+                "backend": "memory",
+                "memory_stats": self._memory_cache.stats,
+            }
+        try:
+            await self._redis_backend.ping()
+            self._redis_healthy = True
+        except Exception:
+            self._redis_healthy = False
+            logger.warning("Redis cache health check failed", exc_info=True)
         return {
-            "backend": "memory",
+            "backend": "memory+redis",
+            "redis_healthy": self._redis_healthy,
             "memory_stats": self._memory_cache.stats,
         }
+
+    def _disable_redis(self, operation: str) -> None:
+        """Fail individual cache operations over to L1 without exposing config."""
+        self._redis_healthy = False
+        logger.warning("Redis L2 %s failed; serving process-local cache", operation, exc_info=True)
 
     async def get(self, key: str, *, namespace: str | None = None, default: T | None = None) -> T | None:
         full_key = self._make_key(key, namespace)
         result = await self._memory_cache.get(full_key, _MISS)
         stat_name = self._stat_name(namespace)
         if result is _MISS:
+            if self.using_redis and self._redis_backend is not None:
+                try:
+                    remote_hit, remote_value = await self._redis_backend.get(full_key)
+                except Exception:
+                    self._disable_redis("get")
+                else:
+                    if remote_hit:
+                        evicted = await self._memory_cache.set(
+                            full_key,
+                            remote_value,
+                            self._effective_ttl(
+                                full_key,
+                                self._cache_cfg.ttl_for(namespace),
+                            ),
+                        )
+                        record_cache_set(stat_name, evicted=evicted)
+                        record_cache_event(stat_name, hit=True, entries=self._memory_cache.size)
+                        return cast("T", remote_value)
             record_cache_event(stat_name, hit=False, entries=self._memory_cache.size)
             return default
         record_cache_event(stat_name, hit=True, entries=self._memory_cache.size)
-        return result
+        return cast("T", result)
 
     async def set(self, key: str, value: Any, *, namespace: str | None = None, ttl: Any = _UNSET) -> bool:
         if ttl is _UNSET:
@@ -229,10 +293,20 @@ class CacheService(Service):
         if value_bytes > self._cache_cfg.max_value_bytes:
             record_cache_rejection(stat_name, reason="oversized")
             return False
-        evicted = await self._memory_cache.set(
-            full_key, value, self._effective_ttl(full_key, ttl)
-        )
+        effective_ttl = self._effective_ttl(full_key, ttl)
+        evicted = await self._memory_cache.set(full_key, value, effective_ttl)
         record_cache_set(stat_name, evicted=evicted)
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                replicated = await self._redis_backend.set(
+                    full_key,
+                    value,
+                    ttl=effective_ttl,
+                )
+                if not replicated:
+                    logger.debug("Redis L2 skipped a non-JSON cache value")
+            except Exception:
+                self._disable_redis("set")
         return True
 
     def _effective_ttl(self, full_key: str, ttl: float | None) -> float | None:
@@ -251,7 +325,14 @@ class CacheService(Service):
 
     async def delete(self, key: str, *, namespace: str | None = None) -> bool:
         full_key = self._make_key(key, namespace)
-        return await self._memory_cache.delete(full_key)
+        memory_deleted = await self._memory_cache.delete(full_key)
+        redis_deleted = False
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                redis_deleted = await self._redis_backend.delete(full_key)
+            except Exception:
+                self._disable_redis("delete")
+        return memory_deleted or redis_deleted
 
     async def delete_prefix(self, prefix: str, *, namespace: str | None = None) -> int:
         """Delete all keys whose logical key starts with *prefix* in *namespace*.
@@ -260,11 +341,25 @@ class CacheService(Service):
         loop, so bulk invalidation stays cheap even for large namespaces.
         """
         full_prefix = self._make_key(prefix, namespace)
-        return await self._memory_cache.delete_prefix(full_prefix)
+        memory_removed = await self._memory_cache.delete_prefix(full_prefix)
+        redis_removed = 0
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                redis_removed = await self._redis_backend.delete_prefix(full_prefix)
+            except Exception:
+                self._disable_redis("delete_prefix")
+        return max(memory_removed, redis_removed)
 
     async def exists(self, key: str, *, namespace: str | None = None) -> bool:
         full_key = self._make_key(key, namespace)
-        return await self._memory_cache.exists(full_key)
+        if await self._memory_cache.exists(full_key):
+            return True
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                return await self._redis_backend.exists(full_key)
+            except Exception:
+                self._disable_redis("exists")
+        return False
 
     async def get_or_set(self, key: str, factory: Any, *, namespace: str | None = None, ttl: Any = _UNSET) -> Any:
         # Sentinel default distinguishes a cached falsy value from a miss, so a
@@ -323,10 +418,23 @@ class CacheService(Service):
 
     async def get_generation(self, subject: str, *, namespace: str) -> int:
         """Return the current data generation for *subject* (0 when unset)."""
-        value = await self.get(
-            f"__generation__:{subject}", namespace=namespace, default=0
-        )
-        return int(value or 0)
+        full_key = self._make_key(f"__generation__:{subject}", namespace)
+        # Generation values participate in cache keys, so in distributed mode
+        # they must consult the shared counter before a process-local L1 copy.
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                remote_hit, remote_value = await self._redis_backend.get(full_key)
+                if remote_hit:
+                    value = int(remote_value or 0)
+                    await self._memory_cache.set(full_key, value, None)
+                    return value
+                return 0
+            except (TypeError, ValueError):
+                return 0
+            except Exception:
+                self._disable_redis("get_generation")
+        local_value = await self._memory_cache.get(full_key, 0)
+        return int(local_value or 0)
 
     async def bump_generation(self, subject: str, *, namespace: str) -> int:
         """Atomically increment and return the data generation for *subject*.
@@ -335,6 +443,14 @@ class CacheService(Service):
         the generation into their cache key so stale entries are never hit.
         """
         full_key = self._make_key(f"__generation__:{subject}", namespace)
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                value = await self._redis_backend.increment(full_key, 1, ttl=None)
+                evicted = await self._memory_cache.set(full_key, value, None)
+                record_cache_set(self._stat_name(namespace), evicted=evicted)
+                return value
+            except Exception:
+                self._disable_redis("bump_generation")
         value, evicted = await self._memory_cache.update(
             full_key,
             lambda current: int(current or 0) + 1,
@@ -346,8 +462,7 @@ class CacheService(Service):
 
     async def clear_namespace(self, namespace: str) -> int:
         """Drop every key under *namespace* in a single locked pass."""
-        full_prefix = f"{self._prefix}{namespace}:"
-        return await self._memory_cache.delete_prefix(full_prefix)
+        return await self.delete_prefix("", namespace=namespace)
 
     async def increment(
         self,
@@ -367,11 +482,24 @@ class CacheService(Service):
         if ttl is _UNSET:
             ttl = self._cache_cfg.ttl_for(namespace)
         full_key = self._make_key(key, namespace)
+        effective_ttl = self._effective_ttl(full_key, ttl)
+        if self.using_redis and self._redis_backend is not None:
+            try:
+                value = await self._redis_backend.increment(
+                    full_key,
+                    amount,
+                    ttl=effective_ttl,
+                )
+                evicted = await self._memory_cache.set(full_key, value, effective_ttl)
+                record_cache_set(self._stat_name(namespace), evicted=evicted)
+                return value
+            except Exception:
+                self._disable_redis("increment")
         value, evicted = await self._memory_cache.update(
             full_key,
             lambda current: int(current or 0) + amount,
             default=0,
-            ttl=self._effective_ttl(full_key, ttl),
+            ttl=effective_ttl,
         )
         record_cache_set(self._stat_name(namespace), evicted=evicted)
         return int(value)
@@ -426,14 +554,15 @@ class CacheService(Service):
     def config_snapshot(self) -> dict[str, Any]:
         """Return the live cache configuration (for the stats endpoint).
 
-        ``backend``/``persistent`` are reported explicitly so operators never
-        assume a durable (e.g. Redis) cache exists behind the API: the runtime
-        cache is process-local, in-memory, and lost on restart.
+        ``backend``/``persistent`` distinguish the always-present local L1
+        from an active shared Redis L2, so a degraded runtime is never
+        misreported as distributed.
         """
         cfg = self._cache_cfg
         return {
-            "backend": "memory",
-            "persistent": False,
+            "backend": "memory+redis" if self.using_redis else "memory",
+            "persistent": self.using_redis,
+            "redis_configured": self._redis_backend is not None,
             "default_ttl": cfg.default_ttl,
             "max_items": cfg.max_items,
             "max_value_bytes": cfg.max_value_bytes,
@@ -452,8 +581,17 @@ def get_cache_service() -> CacheService:
     return _cache_service
 
 
-async def init_cache_service(settings: Settings) -> CacheService:
+async def init_cache_service(
+    settings: Settings,
+    *,
+    redis_client: Any | None = None,
+    redis_prefix: str | None = None,
+) -> CacheService:
     global _cache_service
-    _cache_service = CacheService(settings)
+    _cache_service = CacheService(
+        settings,
+        redis_client=redis_client,
+        redis_prefix=redis_prefix,
+    )
     await _cache_service.start()
     return _cache_service

@@ -70,6 +70,11 @@
       "failed": "文档处理或索引失败，可重新索引。",
       "pending": "此文档尚未建立可检索索引。"
     },
+    "semanticStatus": "语义检索：{{status}} · {{documents}} 个文档 / {{chunks}} 个分块",
+    "semanticRebuild": "重建语义索引",
+    "semanticRebuildFailed": "语义索引重建失败",
+    "semanticProgress": "重建进度：{{progress}}%",
+    "semanticCapacityWarning": "分块数量已达到 10 万；本地语义检索不会静默截断，但更大规模部署建议使用 Milvus。",
     "folders": {
       "root": "知识库",
       "breadcrumbAria": "知识库路径",

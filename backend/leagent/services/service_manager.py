@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
-from typing import TYPE_CHECKING, Any
+import os
+import time
+import uuid
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 from leagent.services.base import ServiceState
 
@@ -44,6 +50,9 @@ class ServiceManager:
 
         self._db: DatabaseService | None = None
         self._cache: CacheService | None = None
+        self._redis: Any = None
+        self._redis_client: Any = None
+        self._redis_run_store_installed = False
         self._chat: ChatService | None = None
         self._canvas: CanvasService | None = None
         self._coding_projects: CodingProjectManager | None = None
@@ -58,6 +67,8 @@ class ServiceManager:
         self._workflow_service: WorkflowService | None = None
         self._workflow_event_bus: Any = None
         self._file_service: FileService | None = None
+        self._file_store: Any = None
+        self._minio: Any = None
         self._file_processing: FileProcessingService | None = None
         self._rule_engine: Any = None
         self._task_manager: TaskManager | None = None
@@ -65,6 +76,11 @@ class ServiceManager:
         self._agent_memory: AgentMemory | None = None
         self._runtime_context: RuntimeContext | None = None
         self._channel_manager: Any = None
+        self._knowledge_embedding_status: Any = None
+        self._knowledge_semantic_state: Any = None
+        self._knowledge_semantic_rebuilder: Any = None
+        self._knowledge_semantic_auto_rebuild = False
+        self._knowledge_semantic_enqueue_lock = asyncio.Lock()
 
         self._started = False
 
@@ -102,7 +118,7 @@ class ServiceManager:
 
     @property
     def file_store(self) -> Any:
-        return None
+        return self._file_store
 
     @property
     def event(self) -> EventManager | None:
@@ -114,11 +130,11 @@ class ServiceManager:
 
     @property
     def redis(self) -> Any:
-        return None
+        return self._redis
 
     @property
     def redis_client(self) -> Any:
-        return None
+        return self._redis_client
 
     @property
     def database_service(self) -> Any:
@@ -126,7 +142,7 @@ class ServiceManager:
 
     @property
     def minio(self) -> Any:
-        return None
+        return self._minio
 
     @property
     def milvus(self) -> Any:
@@ -139,6 +155,106 @@ class ServiceManager:
     @property
     def llm_service(self) -> LLMService | None:
         return self._llm_service
+
+    @property
+    def knowledge_semantic_rebuilder(self) -> Any:
+        """Return the local semantic rebuild coordinator, if one is wired."""
+        return self._knowledge_semantic_rebuilder
+
+    @property
+    def knowledge_semantic_status(self) -> dict[str, Any]:
+        """Secret-free local semantic status for settings and knowledge UI."""
+        if self._knowledge_semantic_state is not None:
+            return cast("dict[str, Any]", self._knowledge_semantic_state.to_dict())
+        semantic = self._effective_knowledge_semantic_config()
+        return {
+            "status": "off" if not bool(getattr(semantic, "enabled", False)) else "lexical_only",
+            "active_version": None,
+            "candidate_version": None,
+            "model_id": getattr(semantic, "local_model_id", "") or None,
+            "task_id": None,
+            "task_progress": None,
+            "task_progress_message": None,
+            "document_count": 0,
+            "chunk_count": 0,
+            "capacity_warning": False,
+            "error": None,
+            "environment_managed": bool(getattr(semantic, "environment_managed", False)),
+        }
+
+    def _effective_knowledge_semantic_config(self) -> Any:
+        """Overlay editable ``config.yaml`` unless an environment owns it."""
+        semantic = self.settings.knowledge.semantic
+        try:
+            from leagent.config.config import load_config
+
+            persisted = load_config().knowledge.semantic
+            values = {
+                "enabled": persisted.enabled,
+                "vector_backend": persisted.vector_backend,
+                "local_model_id": persisted.local_model_id,
+                "auto_reindex": persisted.auto_reindex,
+            }
+            env_fields = {
+                "enabled": (
+                    "LEAGENT_KNOWLEDGE__SEMANTIC__ENABLED",
+                    "LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED",
+                ),
+                "vector_backend": (
+                    "LEAGENT_KNOWLEDGE__SEMANTIC__VECTOR_BACKEND",
+                    "LEAGENT_KNOWLEDGE_SEMANTIC_VECTOR_BACKEND",
+                ),
+                "local_model_id": (
+                    "LEAGENT_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID",
+                    "LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID",
+                ),
+                "auto_reindex": (
+                    "LEAGENT_KNOWLEDGE__SEMANTIC__AUTO_REINDEX",
+                    "LEAGENT_KNOWLEDGE_SEMANTIC_AUTO_REINDEX",
+                ),
+            }
+            managed = False
+            for field, names in env_fields.items():
+                if any(name in os.environ for name in names):
+                    values[field] = getattr(semantic, field)
+                    managed = True
+            return type(
+                "EffectiveSemanticConfig",
+                (),
+                {**values, "environment_managed": managed},
+            )()
+        except Exception:  # noqa: BLE001 - defaults preserve existing startup behavior
+            return semantic
+
+    @property
+    def knowledge_retrieval_status(self) -> dict[str, Any]:
+        """Return a secret-free summary of the optional RAG backends.
+
+        A lexical-only deployment is a supported configuration.  The vector
+        reason therefore explains whether the semantic plane is intentionally
+        disabled, ready, or unavailable, without exposing credentials or
+        endpoint URLs.
+        """
+        cfg = self.settings.knowledge
+        vector = (
+            self._knowledge_embedding_status.to_dict()
+            if self._knowledge_embedding_status is not None
+            else {
+                "enabled": bool(getattr(cfg, "milvus_enabled", False) and getattr(cfg, "embedding_enabled", False)),
+                "provider": getattr(cfg, "embedding_provider", "") or None,
+                "model": getattr(cfg, "embedding_model", "") or None,
+                "dimension": int(getattr(cfg, "embedding_dimension", 1024) or 1024),
+                "reason": "not_initialized",
+            }
+        )
+        return {
+            "query_rewrite_enabled": bool(getattr(cfg, "query_rewrite_enabled", False)),
+            "milvus_enabled": bool(getattr(cfg, "milvus_enabled", False)),
+            "vector": vector,
+            "opensearch_configured": bool(getattr(cfg, "opensearch_url", "")),
+            "rerank_configured": bool(getattr(cfg, "rerank_endpoint", "")),
+            "semantic": self.knowledge_semantic_status,
+        }
 
     async def reload_llm_service(self) -> None:
         if self._llm_service is None:
@@ -159,6 +275,9 @@ class ServiceManager:
             except Exception:  # noqa: BLE001 - art stack reload is best-effort
                 logger.debug("generation service reload skipped", exc_info=True)
             self._llm_service.reload()
+            # Provider changes can alter whether the optional semantic route
+            # is usable, so rebuild only the lightweight retrieval wiring.
+            await self._start_knowledge_retrieval()
             logger.info(
                 "LLMService reloaded with %d provider(s): %s",
                 len(self._llm_service.list_providers()),
@@ -244,6 +363,7 @@ class ServiceManager:
         topology = validate_deployment_topology(
             database_backend=self.settings.database.backend,
             workers=self.settings.workers,
+            redis_enabled=self.settings.redis.enabled,
         )
         for warning in topology.warnings:
             logger.warning("deployment_topology_warning: %s", warning)
@@ -304,6 +424,7 @@ class ServiceManager:
                 from leagent.project.manager import (
                     shutdown_coding_projects_service,
                 )
+
                 await shutdown_coding_projects_service()
             except Exception:
                 logger.warning("Coding-projects service shutdown error", exc_info=True)
@@ -320,6 +441,17 @@ class ServiceManager:
             except Exception:
                 logger.warning("LLM service shutdown error", exc_info=True)
 
+        if self._minio is not None:
+            try:
+                close = getattr(self._minio, "close", None)
+                if callable(close):
+                    close()
+            except Exception:
+                logger.warning("Object storage client shutdown error", exc_info=True)
+            finally:
+                self._minio = None
+                self._file_store = None
+
         if self._event:
             try:
                 await self._event.stop()
@@ -331,6 +463,7 @@ class ServiceManager:
                 await self._cache.stop()
             except Exception:
                 logger.warning("Cache service shutdown error", exc_info=True)
+        await self._shutdown_redis_runtime()
 
         if self._db:
             try:
@@ -341,6 +474,31 @@ class ServiceManager:
         self._started = False
         logger.info("All services stopped")
 
+    async def _shutdown_redis_runtime(self) -> None:
+        """Release shared-run infrastructure without changing the default store."""
+        if self._redis_run_store_installed:
+            from leagent.runtime.run_store import reset_run_store
+
+            reset_run_store()
+            self._redis_run_store_installed = False
+        if self._cache is None and self._redis is not None:
+            try:
+                close = getattr(self._redis, "aclose", None) or getattr(self._redis, "close", None)
+                if callable(close):
+                    result = close()
+                    if inspect.isawaitable(result):
+                        await result
+            except Exception:
+                logger.warning("Redis async client shutdown error", exc_info=True)
+        if self._redis_client is not None:
+            try:
+                close = getattr(self._redis_client, "close", None)
+                if callable(close):
+                    close()
+            except Exception:
+                logger.warning("Redis sync client shutdown error", exc_info=True)
+        self._redis = None
+        self._redis_client = None
 
     async def health_check(self) -> dict[str, Any]:
         results: dict[str, Any] = {"healthy": True, "services": {}}
@@ -373,11 +531,20 @@ class ServiceManager:
                     "healthy": False,
                 }
                 results["healthy"] = False
+        knowledge = self.knowledge_retrieval_status
+        vector_reason = str(knowledge["vector"].get("reason") or "not_initialized")
+        results["services"]["knowledge_retrieval"] = {
+            "status": ("ready" if vector_reason in {"ready", "disabled"} else vector_reason),
+            # BM25 remains available when the optional vector plane is not.
+            "healthy": True,
+            **knowledge,
+        }
         return results
 
     async def _start_database(self) -> None:
         try:
             from leagent.db.service import init_database_service
+
             self._db = init_database_service(self.settings)
             await self._db.create_tables()
             logger.info(
@@ -391,6 +558,7 @@ class ServiceManager:
     async def _start_event(self) -> None:
         try:
             from leagent.services.event.manager import init_event_manager
+
             self._event = await init_event_manager(
                 self.settings,
                 keep_history=self.settings.debug,
@@ -403,14 +571,52 @@ class ServiceManager:
     async def _start_cache(self) -> None:
         from leagent.services.cache.service import init_cache_service
 
-        self._cache = await init_cache_service(self.settings)
+        if self.settings.redis.enabled:
+            from leagent.services.cache.redis_backend import build_redis_clients
+
+            try:
+                self._redis, self._redis_client = await build_redis_clients(self.settings.redis)
+                self._cache = await init_cache_service(
+                    self.settings,
+                    redis_client=self._redis,
+                    redis_prefix=self.settings.redis.prefix,
+                )
+            except Exception:
+                logger.exception("Configured Redis runtime initialization failed")
+                await self._shutdown_redis_runtime()
+                raise
+            if self.settings.workers > 1:
+                from leagent.runtime.redis_run_store import build_redis_run_store
+                from leagent.runtime.run_store import set_run_store
+
+                set_run_store(
+                    build_redis_run_store(
+                        self._redis_client,
+                        prefix=f"{self.settings.redis.prefix}:runs",
+                        ttl_seconds=self.settings.redis.run_store_ttl_seconds,
+                    )
+                )
+                self._redis_run_store_installed = True
+        else:
+            self._cache = await init_cache_service(self.settings)
         logger.info(
-            "CacheService initialized (memory, max_items=%d)",
+            "CacheService initialized (%s, max_items=%d)",
+            "memory+redis" if self._cache.using_redis else "memory",
             self.settings.cache.max_items,
         )
 
     async def _start_knowledge_retrieval(self) -> None:
-        """Wire the unified RAG pipeline and optional Milvus vector plane."""
+        """Wire lexical RAG plus either explicit local or legacy Milvus vectors."""
+        from leagent.knowledge.vector_index import set_knowledge_vector_index
+
+        # The singleton may survive an in-process service reload.  Clear it
+        # before resolving today's configuration so a prior vector backend
+        # cannot remain active after semantic retrieval is disabled.
+        set_knowledge_vector_index(None)
+        self._knowledge_embedding_status = None
+        self._knowledge_semantic_state = None
+        self._knowledge_semantic_rebuilder = None
+        self._knowledge_semantic_auto_rebuild = False
         if self._db is None:
             return
         try:
@@ -420,47 +626,330 @@ class ServiceManager:
             )
 
             cfg = self.settings.knowledge
-            if cfg.milvus_enabled:
-                from leagent.knowledge.vector_index import KnowledgeVectorIndex, set_knowledge_vector_index
-                from leagent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
-                from leagent.memory.vector import MilvusConnectionConfig
+            query_rewriter = None
+            if cfg.query_rewrite_enabled and self._llm_service is not None:
+                from leagent.knowledge.query import LLMQueryRewriter
 
-                if self._llm_service is not None:
-                    embeddings = LLMServiceEmbeddingProvider(
-                        self._llm_service,
-                        cache=self._cache,
-                        model=getattr(self.settings.llm, "embedding_model", None),
-                        dimension=int(getattr(self.settings.llm, "embedding_dim", 1024) or 1024),
-                    )
-                else:
-                    embeddings = NullEmbeddingProvider(
-                        dimension=int(getattr(self.settings.llm, "embedding_dim", 1024) or 1024)
-                    )
-                connection = MilvusConnectionConfig(
-                    enabled=True,
-                    host=cfg.milvus_host,
-                    port=cfg.milvus_port,
-                    uri=cfg.milvus_uri or None,
-                    token=cfg.milvus_token or None,
-                )
-                set_knowledge_vector_index(
-                    KnowledgeVectorIndex(embeddings=embeddings, connection=connection)
-                )
+                query_rewriter = LLMQueryRewriter(self._llm_service)
+            semantic = self._effective_knowledge_semantic_config()
+            local_enabled = bool(getattr(semantic, "enabled", False))
+            # Wire BM25/FTS5 before optional vector initialization so a model,
+            # extension, or sidecar failure can never remove lexical fallback.
             set_knowledge_retrieval_pipeline(
-                KnowledgeRetrievalPipeline(self._db, cache=self._cache)
+                KnowledgeRetrievalPipeline(
+                    self._db,
+                    cache=self._cache,
+                    query_rewriter=query_rewriter,
+                )
             )
+            if local_enabled:
+                await self._start_local_semantic_retrieval(semantic)
+            else:
+                # Milvus retains its existing explicit provider route.  Local
+                # semantic mode never consults this resolver and therefore
+                # cannot accidentally send embeddings to DeepSeek/chat LLMs.
+                from leagent.knowledge.embedding_runtime import resolve_knowledge_embedding_runtime
+
+                embedding_runtime = resolve_knowledge_embedding_runtime(
+                    self._llm_service,
+                    cache=self._cache,
+                    enabled=bool(getattr(cfg, "milvus_enabled", False) and getattr(cfg, "embedding_enabled", False)),
+                    provider=getattr(cfg, "embedding_provider", ""),
+                    model=getattr(cfg, "embedding_model", ""),
+                    dimension=int(getattr(cfg, "embedding_dimension", 1024) or 1024),
+                )
+                self._knowledge_embedding_status = embedding_runtime.status
+                if cfg.milvus_enabled and embedding_runtime.provider is not None:
+                    from leagent.knowledge.vector_index import KnowledgeVectorIndex
+                    from leagent.memory.vector import MilvusConnectionConfig
+
+                    connection = MilvusConnectionConfig(
+                        enabled=True,
+                        host=cfg.milvus_host,
+                        port=cfg.milvus_port,
+                        uri=cfg.milvus_uri or None,
+                        token=cfg.milvus_token or None,
+                    )
+                    set_knowledge_vector_index(
+                        KnowledgeVectorIndex(
+                            embeddings=embedding_runtime.provider,
+                            connection=connection,
+                            index_version=cfg.index_version,
+                        )
+                    )
             logger.info(
-                "Knowledge retrieval initialized (opensearch=%s, milvus=%s, rerank=%s)",
+                "Knowledge retrieval initialized (opensearch=%s, milvus=%s, vector=%s, rerank=%s)",
                 bool(cfg.opensearch_url),
                 bool(cfg.milvus_enabled),
+                self.knowledge_semantic_status["status"] if local_enabled else self._knowledge_embedding_status.reason,
                 bool(cfg.rerank_endpoint),
             )
         except Exception:
             logger.warning("Knowledge retrieval initialization skipped", exc_info=True)
 
+    async def _start_local_semantic_retrieval(self, semantic: Any) -> None:
+        """Resolve only an administrator-selected offline managed model."""
+        from leagent.config.constants import LEAGENT_HOME
+        from leagent.knowledge.local_models import LocalModelRegistry
+        from leagent.knowledge.semantic_runtime import (
+            KnowledgeSemanticRebuilder,
+            SemanticRuntimeState,
+            redact_semantic_error,
+        )
+        from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+        from leagent.knowledge.vector_index import set_knowledge_vector_index
+        from leagent.memory.embeddings import LocalSentenceTransformerEmbeddingProvider
+
+        state = SemanticRuntimeState(
+            mode="lexical_only",
+            model_id=str(getattr(semantic, "local_model_id", "") or "") or None,
+            model_fingerprint=None,
+            environment_managed=bool(getattr(semantic, "environment_managed", False)),
+        )
+        self._knowledge_semantic_state = state
+        if self.settings.workers > 1:
+            state.error = "local_backend_requires_single_worker_use_milvus"
+            return
+        backend_name = str(getattr(semantic, "vector_backend", "sqlite-vec") or "").strip().lower().replace("_", "-")
+        if backend_name not in {"sqlite-vec", "sqlitevec", "local"}:
+            state.error = "local_vector_backend_must_be_sqlite_vec"
+            return
+        if not state.model_id:
+            state.error = "local_model_not_selected"
+            return
+        home = Path(os.getenv("LEAGENT_HOME", str(LEAGENT_HOME))).expanduser()
+        try:
+            registry = LocalModelRegistry(home)
+            record = registry.get(state.model_id)
+            if record is None or record.status != "ready" or not record.dimension:
+                state.error = "local_model_not_ready"
+                return
+            state.model_fingerprint = record.fingerprint
+            model_path = registry.models_dir / record.model_id
+            if not model_path.is_dir() or model_path.is_symlink():
+                state.error = "local_model_not_ready"
+                return
+            provider = LocalSentenceTransformerEmbeddingProvider(
+                model_path,
+                dimension=record.dimension,
+                query_prompt=record.query_prompt,
+                document_prompt=record.document_prompt,
+                normalize=record.normalize,
+            )
+            # ``SqliteVecKnowledgeIndex`` has no model loading side effect.
+            # Capture sidecar existence before construction to distinguish a
+            # fresh opt-in installation from a persisted active projection.
+            sidecar_existed = (home / "knowledge" / "vectors.sqlite3").exists()
+            expected = f"semantic-{record.model_id.replace('local-', '')[:16]}-{record.fingerprint[:12]}"
+            index = SqliteVecKnowledgeIndex(
+                home,
+                dimension=record.dimension,
+                embeddings=provider,
+                index_version=expected,
+            )
+            if not index.available:
+                # A malformed sidecar header is recoverable projection damage,
+                # not a reason to disable lexical retrieval. Preserve it for
+                # diagnosis, then make a fresh empty sidecar that the durable
+                # candidate task can rebuild. Missing sqlite-vec itself does
+                # not match this branch and remains a clear degraded state.
+                sidecar = home / "knowledge" / "vectors.sqlite3"
+                extension_available = False
+                try:
+                    import sqlite_vec  # noqa: F401
+
+                    extension_available = True
+                except Exception:
+                    # A missing/broken optional extension is a dependency
+                    # state, not evidence that the user's sidecar is corrupt.
+                    pass
+                if sidecar.exists() and extension_available:
+                    # A valid SQLite header does not guarantee a valid
+                    # sqlite-vec payload. Preserve the complete sidecar set
+                    # before retrying with a fresh projection.
+                    quarantined = self._quarantine_vector_sidecar(sidecar)
+                    if quarantined:
+                        sidecar_existed = False
+                        index = SqliteVecKnowledgeIndex(
+                            home,
+                            dimension=record.dimension,
+                            embeddings=provider,
+                            index_version=expected,
+                        )
+                        if index.available:
+                            state.error = "sqlite_vec_sidecar_quarantined_rebuild_required"
+                if not index.available:
+                    state.mode = "degraded"
+                    state.error = "sqlite_vec_unavailable"
+                    return
+            versions = await index.version_status()
+            state.active_version = index.index_version
+            persisted_candidate = next((key for key, value in versions.items() if value == "candidate"), None)
+            state.candidate_version = persisted_candidate
+            model_marker = f"semantic-{record.model_id.replace('local-', '')[:16]}-"
+            active_matches_model = index.index_version == expected or index.index_version.startswith(model_marker)
+            active_backend: Any = index
+            active_can_serve = active_matches_model
+            if not active_matches_model:
+                # Preserve semantic service during a model switch when the
+                # old managed model is still installed.  The active reader
+                # gets its own offline provider; candidate writes use the new
+                # model and never contaminate the old vector space.
+                old_record = next(
+                    (
+                        candidate
+                        for candidate in registry.list()
+                        if candidate.status == "ready"
+                        and candidate.dimension
+                        and (
+                            candidate.fingerprint[:12] in index.index_version
+                            or index.index_version.startswith(
+                                f"semantic-{candidate.model_id.replace('local-', '')[:16]}-"
+                            )
+                        )
+                    ),
+                    None,
+                )
+                if old_record is not None:
+                    old_path = registry.models_dir / old_record.model_id
+                    if old_path.is_dir() and not old_path.is_symlink():
+                        old_provider = LocalSentenceTransformerEmbeddingProvider(
+                            old_path,
+                            dimension=int(old_record.dimension or 0),
+                            query_prompt=old_record.query_prompt,
+                            document_prompt=old_record.document_prompt,
+                            normalize=old_record.normalize,
+                        )
+                        active_backend = SqliteVecKnowledgeIndex(
+                            home,
+                            dimension=int(old_record.dimension or 0),
+                            embeddings=old_provider,
+                            index_version=index.index_version,
+                        )
+                        active_can_serve = active_backend.available
+            state.mode = "ready" if active_matches_model else "building"
+            await self._refresh_semantic_counts(state)
+            needs_rebuild = not sidecar_existed or not active_matches_model or bool(persisted_candidate)
+            self._knowledge_semantic_auto_rebuild = bool(getattr(semantic, "auto_reindex", True) and needs_rebuild)
+            if self._knowledge_semantic_auto_rebuild:
+                state.mode = "building"
+            elif not sidecar_existed:
+                state.mode = "lexical_only"
+                state.error = state.error or "semantic_rebuild_required"
+            if active_can_serve:
+                set_knowledge_vector_index(active_backend)
+
+            def _replace_index(value: Any) -> None:
+                set_knowledge_vector_index(value)
+
+            self._knowledge_semantic_rebuilder = KnowledgeSemanticRebuilder(
+                cast("DatabaseService", self._db),
+                index,
+                state,
+                on_index_changed=_replace_index,
+                active_backend=active_backend,
+                serve_active=active_can_serve,
+            )
+        except Exception as exc:  # noqa: BLE001 - lexical retrieval remains valid
+            state.mode = "degraded"
+            state.error = redact_semantic_error(exc)
+            logger.warning("local_semantic_startup_degraded", exc_info=True)
+
+    @staticmethod
+    def _quarantine_vector_sidecar(sidecar: Path) -> bool:
+        """Move a damaged sidecar and SQLite journal siblings out of service."""
+        if not sidecar.exists() or sidecar.is_symlink():
+            return False
+        marker = f"{int(time.time())}-{uuid.uuid4().hex[:10]}"
+        destination = sidecar.with_name(f"{sidecar.name}.corrupt-{marker}")
+        moved = False
+        moved_files: list[tuple[Path, Path]] = []
+        for suffix in ("", "-wal", "-shm"):
+            source = Path(f"{sidecar}{suffix}")
+            if source.is_symlink():
+                logger.warning("semantic_sidecar_quarantine_refused_symlink", extra={"path": str(source)})
+                return False
+            if not source.exists():
+                continue
+            target = Path(f"{destination}{suffix}")
+            try:
+                os.replace(source, target)
+            except OSError:
+                for original, staged in reversed(moved_files):
+                    try:
+                        os.replace(staged, original)
+                    except OSError:
+                        logger.error("semantic_sidecar_quarantine_rollback_failed", exc_info=True)
+                logger.warning("semantic_sidecar_quarantine_failed", exc_info=True)
+                return False
+            moved_files.append((source, target))
+            moved = True
+        return moved
+
+    async def _refresh_semantic_counts(self, state: Any) -> None:
+        """Read durable SQL corpus counts without consulting the sidecar."""
+        if self._db is None:
+            return
+        try:
+            from sqlalchemy import func
+            from sqlmodel import select
+
+            from leagent.db.models.document_chunk import DocumentChunk
+
+            async with self._db.session() as session:
+                state.chunk_count = int((await session.exec(select(func.count(DocumentChunk.id)))).one() or 0)  # type: ignore[arg-type]
+                state.capacity_warning = state.chunk_count >= 100_000
+                state.document_count = int(
+                    (await session.exec(select(func.count(func.distinct(DocumentChunk.file_id))))).one() or 0
+                )
+        except Exception:  # noqa: BLE001 - status still remains safe at zero
+            logger.debug("semantic_corpus_count_skipped", exc_info=True)
+
+    async def enqueue_knowledge_vector_rebuild(
+        self,
+        *,
+        candidate_version: str | None = None,
+        user_id: Any = None,
+    ) -> str | None:
+        """Persist a rebuild task; caller can use the existing task progress API."""
+        if self._db is None or self._task_manager is None or self._knowledge_semantic_rebuilder is None:
+            return None
+        from leagent.db.models.task import TaskType
+
+        state = self._knowledge_semantic_state
+        if state is None:
+            return None
+        async with self._knowledge_semantic_enqueue_lock:
+            existing_task_id = await self._active_semantic_rebuild_task_id()
+            if existing_task_id is not None:
+                state.mode = "building"
+                state.task_id = existing_task_id
+                return existing_task_id
+            candidate = (
+                candidate_version
+                or state.candidate_version
+                or self._knowledge_semantic_rebuilder.new_candidate_version()
+            )
+            async with self._db.session() as session:
+                task = await self._task_manager.create_task(
+                    session,
+                    name="knowledge-vector-rebuild",
+                    task_type=TaskType.KNOWLEDGE_VECTOR_REBUILD,
+                    description="Rebuild local semantic knowledge vectors",
+                    user_id=user_id,
+                    input_data={"candidate_version": candidate},
+                    timeout_seconds=86_400,
+                )
+                state.mode = "building"
+                state.candidate_version = candidate
+                state.task_id = str(task.id)
+                await self._task_manager.start_task(session, task, params={"candidate_version": candidate})
+            return str(task.id)
+
     async def _start_chat(self) -> None:
         try:
             from leagent.services.chat.service import init_chat_service
+
             if self._db:
                 self._chat = await init_chat_service(self.settings, self._db, self._cache)
                 logger.info("Chat service initialized")
@@ -470,6 +959,7 @@ class ServiceManager:
     async def _start_canvas(self) -> None:
         try:
             from leagent.services.canvas.service import init_canvas_service
+
             if self._db:
                 self._canvas = await init_canvas_service(self.settings, self._db, self._chat)
                 logger.info("Canvas service initialized")
@@ -483,6 +973,7 @@ class ServiceManager:
             return
         try:
             from leagent.project.manager import init_coding_projects_service
+
             if self._db is None:
                 return
             self._coding_projects = await init_coding_projects_service(self.settings, self._db)
@@ -493,6 +984,7 @@ class ServiceManager:
     async def _start_variable(self) -> None:
         try:
             from leagent.services.variable.service import init_variable_service
+
             if self._db:
                 self._variable = await init_variable_service(self.settings, self._db, self._cache)
                 logger.info("Variable service initialized")
@@ -502,6 +994,7 @@ class ServiceManager:
     async def _start_llm(self) -> None:
         try:
             from leagent.llm.service import LLMService
+
             self._llm_service = LLMService.from_settings()
             self._llm = {"tasks": self._llm_service.list_tasks()}
             logger.info("LLMService initialised with %d provider(s)", len(self._llm_service.list_providers()))
@@ -536,11 +1029,7 @@ class ServiceManager:
 
             wf_settings = self.settings.workflow
             await bootstrap_nodes(
-                custom_dirs=(
-                    [wf_settings.custom_nodes_dir]
-                    if wf_settings.custom_nodes_dir
-                    else None
-                )
+                custom_dirs=([wf_settings.custom_nodes_dir] if wf_settings.custom_nodes_dir else None)
             )
 
             event_bus = InMemoryEventBus()
@@ -583,11 +1072,7 @@ class ServiceManager:
                     "lru_size": wf_settings.cache_lru_size,
                     "ram_mb": wf_settings.cache_ram_mb,
                 },
-                cache_provider=(
-                    CacheServiceWorkflowProvider(self._cache)
-                    if self._cache is not None
-                    else None
-                ),
+                cache_provider=(CacheServiceWorkflowProvider(self._cache) if self._cache is not None else None),
                 state_store=state_store,
             )
 
@@ -600,13 +1085,9 @@ class ServiceManager:
                     if self._event is not None:
                         from leagent.runtime.run_store import get_run_store
 
-                        exec_run = get_run_store().get_by_prompt_id(
-                            getattr(event, "prompt_id", "") or ""
-                        )
+                        exec_run = get_run_store().get_by_prompt_id(getattr(event, "prompt_id", "") or "")
                         run_id = exec_run.run_id if exec_run else None
-                        await self._event.bridge_workflow_progress_event(
-                            event, run_id=run_id
-                        )
+                        await self._event.bridge_workflow_progress_event(event, run_id=run_id)
                 except Exception:
                     logger.debug("Workflow EventManager bridge failed", exc_info=True)
 
@@ -614,6 +1095,7 @@ class ServiceManager:
             registry = FlowWorkflowRegistry(self._db)
 
             from leagent.workflow.prompt_map import build_prompt_map
+
             prompt_map = build_prompt_map(None)
 
             self._workflow_service = WorkflowService(
@@ -671,39 +1153,94 @@ class ServiceManager:
     async def _start_task_manager(self) -> None:
         try:
             from leagent.services.task_manager import init_task_manager
+
             manager = init_task_manager(self.settings)
             if self._event is not None:
                 manager.attach_event_manager(self._event)
             self._task_manager = manager
             try:
                 from leagent.tasks.registration import register_default_handlers
+
                 registered = await register_default_handlers(self, manager)
                 logger.info("TaskManager initialised with %d handler(s)", registered)
+                if self._knowledge_semantic_auto_rebuild and not await self._has_active_semantic_rebuild_task():
+                    await self.enqueue_knowledge_vector_rebuild(
+                        candidate_version=getattr(self._knowledge_semantic_state, "candidate_version", None),
+                    )
             except Exception:
                 logger.warning("TaskManager handler registration skipped", exc_info=True)
         except Exception:
             logger.warning("TaskManager initialization skipped", exc_info=True)
 
-    async def _start_file_service(self) -> None:
-        try:
-            from leagent.file.service import FileService
-            from leagent.file.storage.local import LocalStorageBackend
+    async def _has_active_semantic_rebuild_task(self) -> bool:
+        """Avoid duplicating a durable rebuild that startup recovery will resume."""
+        return await self._active_semantic_rebuild_task_id() is not None
 
-            upload_dir = self.settings.files.upload_dir
-            backend = LocalStorageBackend(upload_dir)
-            self._file_service = FileService(
-                default_backend=backend,
-                default_backend_name="local",
-                cache=self._cache,
-                database=self._db,
-            )
-            logger.info("FileService initialised (root=%s)", upload_dir)
-        except Exception:
-            logger.warning("FileService initialisation skipped", exc_info=True)
+    async def _active_semantic_rebuild_task_id(self) -> str | None:
+        """Return an existing non-terminal rebuild task, if one is persisted."""
+        if self._db is None:
+            return None
+        try:
+            from sqlmodel import col, select
+
+            from leagent.db.models.task import Task, TaskStatus, TaskType
+
+            async with self._db.session() as session:
+                row = (
+                    await session.exec(
+                        select(Task.id)
+                        .where(
+                            Task.task_type == TaskType.KNOWLEDGE_VECTOR_REBUILD,
+                            col(Task.status).in_([TaskStatus.PENDING, TaskStatus.QUEUED, TaskStatus.RUNNING]),
+                        )
+                        .limit(1)
+                    )
+                ).first()
+            return str(row) if row is not None else None
+        except Exception:  # noqa: BLE001 - auto enqueue remains best-effort
+            logger.debug("semantic_rebuild_task_probe_failed", exc_info=True)
+            return None
+
+    async def _start_file_service(self) -> None:
+        from leagent.file.service import FileService
+
+        if self.settings.object_storage.enabled:
+            # Explicitly enabled external storage is an operational contract;
+            # do not fall back to an invisible process-local file tree.
+            from leagent.file.storage.s3 import build_s3_storage_backend
+
+            try:
+                backend, client = build_s3_storage_backend(self.settings.object_storage)
+            except Exception:
+                logger.exception("Configured object storage initialization failed")
+                raise
+            backend_name = "s3"
+            self._minio = client
+            logger.info("FileService initialised (S3-compatible object storage)")
+        else:
+            try:
+                from leagent.file.storage.local import LocalStorageBackend
+
+                backend = cast("Any", LocalStorageBackend(self.settings.files.upload_dir))
+            except Exception:
+                logger.warning("Local FileService initialization skipped", exc_info=True)
+                return
+            backend_name = "local"
+            self._minio = None
+            logger.info("FileService initialised (local storage)")
+
+        self._file_store = backend
+        self._file_service = FileService(
+            default_backend=backend,
+            default_backend_name=backend_name,
+            cache=self._cache,
+            database=self._db,
+        )
 
     async def _start_file_processing(self) -> None:
         try:
             from leagent.services.file_processing.service import FileProcessingService
+
             self._file_processing = FileProcessingService()
             logger.info("File processing service initialized")
         except Exception:
@@ -712,6 +1249,7 @@ class ServiceManager:
     async def _start_session_manager(self) -> None:
         try:
             from leagent.services.session.manager import SessionManager
+
             if self._db is None:
                 return
             self._session_manager = SessionManager(
@@ -751,6 +1289,7 @@ class ServiceManager:
                 embeddings = NullEmbeddingProvider(dimension=embedding_dim)
 
             from leagent.memory.vector import MilvusConnectionConfig
+
             vector_connection = MilvusConnectionConfig(enabled=False)
 
             episodic = EpisodicStore(
@@ -829,8 +1368,7 @@ class ServiceManager:
 
         if not account_id or not token:
             raise RuntimeError(
-                "Weixin credentials missing; complete QR login first "
-                "(channels.weixin.token + extra.account_id)"
+                "Weixin credentials missing; complete QR login first (channels.weixin.token + extra.account_id)"
             )
 
         channel_config: dict[str, Any] = {
@@ -840,16 +1378,11 @@ class ServiceManager:
                 **extra,
                 "account_id": account_id,
                 "base_url": extra.get("base_url") or os.getenv("WEIXIN_BASE_URL", ""),
-                "cdn_base_url": extra.get("cdn_base_url")
-                or os.getenv("WEIXIN_CDN_BASE_URL", ""),
-                "dm_policy": extra.get("dm_policy")
-                or os.getenv("WEIXIN_DM_POLICY", "open"),
-                "group_policy": extra.get("group_policy")
-                or os.getenv("WEIXIN_GROUP_POLICY", "disabled"),
-                "allow_from": extra.get("allow_from")
-                or os.getenv("WEIXIN_ALLOWED_USERS", ""),
-                "group_allow_from": extra.get("group_allow_from")
-                or os.getenv("WEIXIN_GROUP_ALLOWED_USERS", ""),
+                "cdn_base_url": extra.get("cdn_base_url") or os.getenv("WEIXIN_CDN_BASE_URL", ""),
+                "dm_policy": extra.get("dm_policy") or os.getenv("WEIXIN_DM_POLICY", "open"),
+                "group_policy": extra.get("group_policy") or os.getenv("WEIXIN_GROUP_POLICY", "disabled"),
+                "allow_from": extra.get("allow_from") or os.getenv("WEIXIN_ALLOWED_USERS", ""),
+                "group_allow_from": extra.get("group_allow_from") or os.getenv("WEIXIN_GROUP_ALLOWED_USERS", ""),
             },
         }
         if not channel_config["extra"]["base_url"]:
@@ -943,9 +1476,7 @@ class ServiceManager:
             "configured": bool(account_id and has_token),
             "running": running,
             "account_id": account_id,
-            "session_expired": bool(
-                channel is not None and getattr(channel, "_session_expired", False)
-            ),
+            "session_expired": bool(channel is not None and getattr(channel, "_session_expired", False)),
         }
 
     async def _stop_channels(self) -> None:
@@ -963,6 +1494,7 @@ _service_manager: ServiceManager | None = None
 
 def get_service_manager() -> ServiceManager:
     from leagent.main import get_service_manager as _main_get_service_manager
+
     try:
         return _main_get_service_manager()
     except AssertionError:

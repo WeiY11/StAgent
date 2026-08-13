@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
-from uuid import UUID
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 
-class PromptExecutionMap:
+class PromptExecutionMap(Protocol):
     async def set(self, prompt_id: str, execution_id: UUID) -> None: ...
     async def get(self, prompt_id: str) -> UUID | None: ...
     async def delete(self, prompt_id: str) -> None: ...

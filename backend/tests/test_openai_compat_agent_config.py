@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -53,7 +55,6 @@ async def test_openai_sse_forwards_completion_config(
 
     def _fake_build_agent_controller(**kwargs):  # noqa: ANN001
         captured.update(kwargs)
-        return None
 
     monkeypatch.setattr(
         openai_compat,
@@ -83,3 +84,67 @@ async def test_openai_sse_forwards_completion_config(
         "model_name": "custom-model",
         "temperature": 0.3,
     }
+
+
+@pytest.mark.asyncio
+async def test_openai_sse_releases_knowledge_lease_when_client_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Closing the SSE iterator must exit its S3 knowledge materialization lease."""
+    from leagent.api.v1.chat import openai_compat
+
+    lease_state = {"entered": False, "exited": False}
+    seen_attachments: list[str] | None = None
+
+    @asynccontextmanager
+    async def _knowledge_lease(*_args: object, **_kwargs: object):
+        lease_state["entered"] = True
+        try:
+            yield ["C:/temporary/knowledge-source.txt"]
+        finally:
+            lease_state["exited"] = True
+
+    class _Agent:
+        pass
+
+    async def _stream(*_args: object, **kwargs: object):
+        nonlocal seen_attachments
+        raw = kwargs.get("attachments")
+        seen_attachments = list(raw) if isinstance(raw, list) else None
+        yield "token", {"token": "first"}, "first"
+        yield "token", {"token": "second"}, "firstsecond"
+
+    monkeypatch.setattr(openai_compat, "build_agent_controller", lambda **_kwargs: _Agent())
+    monkeypatch.setattr(openai_compat, "_materialize_knowledge_message_paths", _knowledge_lease)
+    monkeypatch.setattr(openai_compat, "_run_agent_stream", _stream)
+    monkeypatch.setattr(
+        openai_compat,
+        "_authorized_root_paths_for_session",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "leagent.services.chat.pet_personality.apply_pet_personality_to_agent",
+        AsyncMock(),
+    )
+
+    req = ChatCompletionRequest(
+        model="custom-model",
+        messages=[ChatCompletionMessage(role=MessageRole.USER, content="@knowledge:x")],
+        stream=True,
+    )
+    gen = openai_compat._generate_openai_sse(
+        req,
+        uuid4(),
+        uuid4(),
+        SimpleNamespace(add_message=AsyncMock()),
+        db=SimpleNamespace(),
+    )
+    try:
+        await gen.__anext__()
+        await gen.__anext__()
+    finally:
+        await gen.aclose()
+
+    assert lease_state == {"entered": True, "exited": True}
+    assert seen_attachments is not None
+    assert Path(seen_attachments[0]) == Path("C:/temporary/knowledge-source.txt")

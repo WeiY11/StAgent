@@ -135,10 +135,7 @@ async def get_home_stats(
             select(func.count()).select_from(
                 select(Flow)
                 .where(
-                    (
-                        uuid_column_equals(session, Flow.user_id, user_id)
-                        | (Flow.is_public == True)
-                    ),
+                    (uuid_column_equals(session, Flow.user_id, user_id) | (Flow.is_public == True)),
                     Flow.is_deleted == False,
                 )
                 .subquery()
@@ -381,17 +378,13 @@ async def get_dashboard_stats(
     # Weighted average duration across both sources
     dur_total_cur = tasks_cur + wf_tasks_cur
     if dur_total_cur > 0:
-        combined_dur_cur = (
-            (dur_cur * tasks_cur + wf_dur_cur * wf_tasks_cur) / dur_total_cur
-        )
+        combined_dur_cur = (dur_cur * tasks_cur + wf_dur_cur * wf_tasks_cur) / dur_total_cur
     else:
         combined_dur_cur = 0.0
 
     dur_total_prev = tasks_prev + wf_tasks_prev
     if dur_total_prev > 0:
-        combined_dur_prev = (
-            (dur_prev * tasks_prev + wf_dur_prev * wf_tasks_prev) / dur_total_prev
-        )
+        combined_dur_prev = (dur_prev * tasks_prev + wf_dur_prev * wf_tasks_prev) / dur_total_prev
     else:
         combined_dur_prev = 0.0
 
@@ -419,67 +412,53 @@ async def get_usage_data(
     if timeRange == "today":
         # Hourly buckets for today
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        buckets = [
-            (day_start + timedelta(hours=h), day_start + timedelta(hours=h + 1))
-            for h in range(now.hour + 1)
-        ]
+        buckets = [(day_start + timedelta(hours=h), day_start + timedelta(hours=h + 1)) for h in range(now.hour + 1)]
         label_fmt = "%H:00"
     elif timeRange == "week":
         # Daily buckets for last 7 days
-        buckets = [
-            (now - timedelta(days=d + 1), now - timedelta(days=d))
-            for d in reversed(range(7))
-        ]
+        buckets = [(now - timedelta(days=d + 1), now - timedelta(days=d)) for d in reversed(range(7))]
         label_fmt = "%a"
     else:  # month
         # Daily buckets for last 30 days
-        buckets = [
-            (now - timedelta(days=d + 1), now - timedelta(days=d))
-            for d in reversed(range(30))
-        ]
+        buckets = [(now - timedelta(days=d + 1), now - timedelta(days=d)) for d in reversed(range(30))]
         label_fmt = "%m/%d"
 
     async with db.session() as session:
         result = []
         for bucket_start, bucket_end in buckets:
-            def _make_count_query(status):
-                return (
-                    select(func.count())
-                    .select_from(
-                        select(Task)
-                        .where(
-                            uuid_column_equals(session, Task.user_id, user_id),
-                            Task.status == status,
-                            Task.created_at >= bucket_start,
-                            Task.created_at < bucket_end,
-                        )
-                        .subquery()
+
+            def _make_count_query(status, start: datetime, end: datetime):
+                return select(func.count()).select_from(
+                    select(Task)
+                    .where(
+                        uuid_column_equals(session, Task.user_id, user_id),
+                        Task.status == status,
+                        Task.created_at >= start,
+                        Task.created_at < end,
                     )
+                    .subquery()
                 )
 
-            def _make_wf_count_query(status_str):
-                return (
-                    select(func.count())
-                    .select_from(
-                        select(WorkflowExecution)
-                        .where(
-                            uuid_column_equals(
-                                session,
-                                WorkflowExecution.user_id,
-                                user_id,
-                            ),
-                            WorkflowExecution.status == status_str,
-                            WorkflowExecution.created_at >= bucket_start,
-                            WorkflowExecution.created_at < bucket_end,
-                        )
-                        .subquery()
+            def _make_wf_count_query(status_str: str, start: datetime, end: datetime):
+                return select(func.count()).select_from(
+                    select(WorkflowExecution)
+                    .where(
+                        uuid_column_equals(
+                            session,
+                            WorkflowExecution.user_id,
+                            user_id,
+                        ),
+                        WorkflowExecution.status == status_str,
+                        WorkflowExecution.created_at >= start,
+                        WorkflowExecution.created_at < end,
                     )
+                    .subquery()
                 )
 
-            s_res = await session.exec(_make_count_query(TaskStatus.COMPLETED))
-            f_res = await session.exec(_make_count_query(TaskStatus.FAILED))
-            wf_s_res = await session.exec(_make_wf_count_query("completed"))
-            wf_f_res = await session.exec(_make_wf_count_query("failed"))
+            s_res = await session.exec(_make_count_query(TaskStatus.COMPLETED, bucket_start, bucket_end))
+            f_res = await session.exec(_make_count_query(TaskStatus.FAILED, bucket_start, bucket_end))
+            wf_s_res = await session.exec(_make_wf_count_query("completed", bucket_start, bucket_end))
+            wf_f_res = await session.exec(_make_wf_count_query("failed", bucket_start, bucket_end))
 
             result.append(
                 UsageDataPoint(

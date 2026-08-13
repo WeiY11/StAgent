@@ -45,7 +45,7 @@ def assert_public_http_url(url: str) -> str:
     host = (parsed.hostname or "").strip().lower()
     if not host:
         raise ValueError("URL hostname is missing")
-    if host in _BLOCKED_HOSTS or host.endswith(".localhost") or host.endswith(".local"):
+    if host in _BLOCKED_HOSTS or host.endswith((".localhost", ".local")):
         raise ValueError(f"Refusing to fetch private/local host {host!r}")
 
     # Literal IP in the URL — must itself be public.
@@ -71,7 +71,7 @@ def assert_public_http_url(url: str) -> str:
         sockaddr = info[4]
         if not sockaddr:
             continue
-        addr = sockaddr[0]
+        addr = str(sockaddr[0])
         try:
             ip = ipaddress.ip_address(addr)
         except ValueError:

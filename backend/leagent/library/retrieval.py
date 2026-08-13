@@ -217,6 +217,12 @@ class KnowledgeRetrievalPipeline:
         query = (options.query or "").strip()
         if not query:
             return []
+        scope_value = getattr(options.library_scope, "value", options.library_scope)
+        if options.user_id is None and str(scope_value).lower() == "knowledge":
+            # The repository supports an explicit system-wide ``None`` user
+            # for maintenance jobs.  This public RAG pipeline is user-facing,
+            # so fail closed before FTS/ILIKE can bypass the ACL predicate.
+            return []
 
         options = SearchOptions(
             query=query,
@@ -352,15 +358,23 @@ class KnowledgeRetrievalPipeline:
 
             vi = get_knowledge_vector_index()
             if vi is not None and vi.available:
-                v_results = await vi.search(
+                if getattr(vi, "requires_allowed_file_ids", False):
+                    allowed_file_ids = await self._visible_knowledge_file_ids(options)
+                    query_vector = await vi.embed_query(options.query)
+                    v_results = await vi.search_vector(
+                        query_vector,
+                        limit=options.limit * 2,
+                        allowed_file_ids=allowed_file_ids,
+                    )
+                else:
                     # Milvus currently stores the uploader id, not the full
-                    # organization/space ACL.  Do not pre-filter by owner or
-                    # shared documents would disappear before the SQL ACL
-                    # predicate validates their file metadata below.
-                    None,
-                    options.query,
-                    limit=options.limit * 2,
-                )
+                    # organization/space ACL. Do not pre-filter it by owner:
+                    # shared documents are validated by the SQL ACL below.
+                    v_results = await vi.search(
+                        None,
+                        options.query,
+                        limit=options.limit * 2,
+                    )
                 vector_hits = dict(v_results)
         except Exception:  # noqa: BLE001
             pass  # Vector unavailable — lexical-only is fine.
@@ -464,6 +478,38 @@ class KnowledgeRetrievalPipeline:
         # Sort by combined score descending.
         results.sort(key=lambda r: r.score, reverse=True)
         return results[: options.limit]
+
+    async def _visible_knowledge_file_ids(self, options: SearchOptions) -> list[UUID]:
+        """Resolve the SQL-authorized file set before local vector KNN.
+
+        sqlite-vec cannot evaluate LeAgent's grants and space membership. The
+        normal result-building query below still repeats this ACL check after
+        candidate retrieval, so its SQL predicates remain authoritative.
+        """
+        from leagent.db.models.file import File, LibraryScope
+        from leagent.db.sqlite_compat import uuid_column_equals
+        from leagent.knowledge.acl import knowledge_file_access_clause
+
+        async with self._db.session() as session:
+            statement = (
+                select(File.id)
+                .where(File.is_deleted == False)  # noqa: E712
+                .where(knowledge_file_access_clause(session, options.user_id))
+                .where(File.library_scope == LibraryScope.KNOWLEDGE)
+                .where(File.is_indexed == True)  # noqa: E712
+            )
+            if options.space_id is not None:
+                statement = statement.where(
+                    uuid_column_equals(session, File.knowledge_space_id, options.space_id)
+                )
+            if options.folder_id is not None:
+                statement = statement.where(
+                    uuid_column_equals(session, File.folder_id, options.folder_id)
+                )
+            if options.file_type_filter:
+                statement = statement.where(File.file_type.in_(options.file_type_filter))
+            result = await session.exec(statement)
+            return list(result.all())
 
     async def _append_vector_only_hits(
         self,

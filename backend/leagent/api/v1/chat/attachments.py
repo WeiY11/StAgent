@@ -11,13 +11,19 @@ Two responsibilities:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
-from uuid import UUID
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 
 from leagent.api.v1.chat.paths import attachment_local_path_for_sse, dedupe_resolved_paths
+from leagent.file.attachment_context import (
+    attachment_storage_basename,
+    is_object_storage_path,
+)
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 logger = structlog.get_logger(__name__)
 
@@ -80,16 +86,20 @@ async def attach_chat_files(
         sm = None
 
     if sm is None or sm.session_manager is None:
-        for upload in files:
-            errors.append({
+        errors.extend(
+            {
                 "file": upload.filename or "unnamed",
                 "error": "Session manager unavailable; file rejected",
-            })
+            }
+            for upload in files
+        )
         return attachments_out, stored_paths, errors
 
     try:
         persisted = await sm.session_manager.attach_files(
-            session_id, files, user_id=user_id,
+            session_id,
+            files,
+            user_id=user_id,
         )
     except ValueError as exc:
         errors.append({"file": "(batch)", "error": str(exc)})
@@ -111,7 +121,9 @@ async def attach_chat_files(
             "preview_url": att.preview_url,
             "download_url": att.download_url,
         }
-        lp = attachment_local_path_for_sse(att.storage_path)
+        lp = None
+        if not is_object_storage_path(att.storage_path):
+            lp = attachment_local_path_for_sse(att.storage_path)
         if lp:
             row["local_path"] = lp
         attachments_out.append(row)
@@ -123,8 +135,14 @@ async def resolve_request_attachment_paths(
     attachment_refs: list[str] | None,
     *,
     user_id: UUID | None = None,
+    reject_unknown: bool = True,
 ) -> list[str]:
-    """Resolve mixed attachment refs (id / path / name) to concrete storage paths."""
+    """Resolve persisted session attachment ids or names to local storage paths.
+
+    Request attachment values are untrusted identifiers, never filesystem paths.
+    ``reject_unknown`` is disabled only for workflow free-text inputs, where a
+    non-attachment value is expected and must not grant access to a file.
+    """
     if not attachment_refs:
         return []
 
@@ -136,7 +154,12 @@ async def resolve_request_attachment_paths(
         sm = None
 
     if sm is None or sm.session_manager is None:
-        return dedupe_resolved_paths(attachment_refs)
+        if reject_unknown:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Attachment service unavailable; attachment references cannot be verified",
+            )
+        return []
 
     try:
         session_attachments = await sm.session_manager.list_attachments(
@@ -145,7 +168,12 @@ async def resolve_request_attachment_paths(
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("resolve_request_attachment_paths_failed: %s", exc)
-        return dedupe_resolved_paths(attachment_refs)
+        if reject_unknown:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Attachment references could not be verified",
+            ) from exc
+        return []
 
     by_id: dict[str, str] = {}
     by_name: dict[str, str] = {}
@@ -153,14 +181,18 @@ async def resolve_request_attachment_paths(
     for att in session_attachments:
         if not att.storage_path:
             continue
-        spath = str(Path(att.storage_path).expanduser().resolve())
+        raw_storage_path = str(att.storage_path).strip()
+        if is_object_storage_path(raw_storage_path):
+            spath = raw_storage_path
+        else:
+            spath = str(Path(raw_storage_path).expanduser().resolve())
         by_id[str(att.id)] = spath
         if att.filename:
             by_name[att.filename.casefold()] = spath
-        by_basename[Path(spath).name.casefold()] = spath
+        by_basename[attachment_storage_basename(spath).casefold()] = spath
 
     resolved: list[str] = []
-    passthrough: list[str] = []
+    unknown_refs: list[str] = []
     for ref in attachment_refs:
         if not ref:
             continue
@@ -170,14 +202,29 @@ async def resolve_request_attachment_paths(
         mapped = (
             by_id.get(key)
             or by_name.get(key.casefold())
-            or by_basename.get(Path(key).name.casefold())
+            or by_basename.get(attachment_storage_basename(key).casefold())
         )
         if mapped:
             resolved.append(mapped)
         else:
-            passthrough.append(key)
+            unknown_refs.append(key)
 
-    return dedupe_resolved_paths(resolved + passthrough)
+    if unknown_refs and reject_unknown:
+        logger.warning(
+            "chat_attachment_reference_rejected",
+            session_id=str(session_id),
+            user_id=str(user_id) if user_id else None,
+            count=len(unknown_refs),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Attachment references must belong to this chat session",
+        )
+
+    local_paths = [path for path in resolved if not is_object_storage_path(path)]
+    remote_paths = [path for path in resolved if is_object_storage_path(path)]
+    local_deduped = dedupe_resolved_paths(local_paths)
+    return list(dict.fromkeys([*local_deduped, *remote_paths]))
 
 
 def merge_agent_attachment_paths(
@@ -188,4 +235,7 @@ def merge_agent_attachment_paths(
     combined = (base or []) + extra
     if not combined:
         return None
-    return dedupe_resolved_paths(combined) or None
+    local_paths = [path for path in combined if not is_object_storage_path(path)]
+    remote_paths = [path for path in combined if is_object_storage_path(path)]
+    resolved = [*dedupe_resolved_paths(local_paths), *dict.fromkeys(remote_paths)]
+    return resolved or None

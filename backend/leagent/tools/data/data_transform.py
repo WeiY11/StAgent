@@ -46,109 +46,109 @@ class DataTransformTool(SyncTool):
     @property
     def parameters(self) -> dict[str, Any]:
         properties: dict[str, Any] = {
-                "transformations": {
-                    "type": "array",
-                    "description": "List of transformation operations to apply in order.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "rename",
-                                    "cast",
-                                    "map_values",
-                                    "derive",
-                                    "select",
-                                    "drop",
-                                    "reorder",
-                                    "string_transform",
-                                    "split",
-                                    "combine",
-                                    "extract",
-                                ],
-                                "description": "Type of transformation.",
-                            },
-                            "columns": {
-                                "type": "object",
-                                "description": "For rename: mapping of old names to new names.",
-                                "additionalProperties": {"type": "string"},
-                            },
-                            "column": {
-                                "type": "string",
-                                "description": "Target column for single-column operations.",
-                            },
-                            "target_type": {
-                                "type": "string",
-                                "enum": ["int", "float", "str", "bool", "datetime", "date"],
-                                "description": "For cast: target data type.",
-                            },
-                            "datetime_format": {
-                                "type": "string",
-                                "description": "For cast to datetime: strptime format string.",
-                            },
-                            "mapping": {
-                                "type": "object",
-                                "description": "For map_values: value replacement mapping.",
-                            },
-                            "default": {
-                                "description": "For map_values: default value for unmapped values.",
-                            },
-                            "expression": {
-                                "type": "string",
-                                "description": "For derive: Python expression using column names.",
-                            },
-                            "new_column": {
-                                "type": "string",
-                                "description": "For derive/split/combine: name of the new column.",
-                            },
-                            "select_columns": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "For select/reorder: list of columns.",
-                            },
-                            "drop_columns": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "For drop: columns to remove.",
-                            },
-                            "transform_type": {
-                                "type": "string",
-                                "enum": ["upper", "lower", "title", "strip", "capitalize"],
-                                "description": "For string_transform: transformation type.",
-                            },
-                            "delimiter": {
-                                "type": "string",
-                                "description": "For split: delimiter to split on.",
-                            },
-                            "split_index": {
-                                "type": "integer",
-                                "description": "For split: which part to keep (0-indexed).",
-                            },
-                            "combine_columns": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "For combine: columns to combine.",
-                            },
-                            "combine_separator": {
-                                "type": "string",
-                                "description": "For combine: separator between values.",
-                                "default": " ",
-                            },
-                            "pattern": {
-                                "type": "string",
-                                "description": "For extract: regex pattern with capture group.",
-                            },
+            "transformations": {
+                "type": "array",
+                "description": "List of transformation operations to apply in order.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "rename",
+                                "cast",
+                                "map_values",
+                                "derive",
+                                "select",
+                                "drop",
+                                "reorder",
+                                "string_transform",
+                                "split",
+                                "combine",
+                                "extract",
+                            ],
+                            "description": "Type of transformation.",
                         },
-                        "required": ["type"],
+                        "columns": {
+                            "type": "object",
+                            "description": "For rename: mapping of old names to new names.",
+                            "additionalProperties": {"type": "string"},
+                        },
+                        "column": {
+                            "type": "string",
+                            "description": "Target column for single-column operations.",
+                        },
+                        "target_type": {
+                            "type": "string",
+                            "enum": ["int", "float", "str", "bool", "datetime", "date"],
+                            "description": "For cast: target data type.",
+                        },
+                        "datetime_format": {
+                            "type": "string",
+                            "description": "For cast to datetime: strptime format string.",
+                        },
+                        "mapping": {
+                            "type": "object",
+                            "description": "For map_values: value replacement mapping.",
+                        },
+                        "default": {
+                            "description": "For map_values: default value for unmapped values.",
+                        },
+                        "expression": {
+                            "type": "string",
+                            "description": "For derive: Python expression using column names.",
+                        },
+                        "new_column": {
+                            "type": "string",
+                            "description": "For derive/split/combine: name of the new column.",
+                        },
+                        "select_columns": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "For select/reorder: list of columns.",
+                        },
+                        "drop_columns": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "For drop: columns to remove.",
+                        },
+                        "transform_type": {
+                            "type": "string",
+                            "enum": ["upper", "lower", "title", "strip", "capitalize"],
+                            "description": "For string_transform: transformation type.",
+                        },
+                        "delimiter": {
+                            "type": "string",
+                            "description": "For split: delimiter to split on.",
+                        },
+                        "split_index": {
+                            "type": "integer",
+                            "description": "For split: which part to keep (0-indexed).",
+                        },
+                        "combine_columns": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "For combine: columns to combine.",
+                        },
+                        "combine_separator": {
+                            "type": "string",
+                            "description": "For combine: separator between values.",
+                            "default": " ",
+                        },
+                        "pattern": {
+                            "type": "string",
+                            "description": "For extract: regex pattern with capture group.",
+                        },
                     },
+                    "required": ["type"],
                 },
-                "output_format": {
-                    "type": "string",
-                    "enum": ["records", "dict"],
-                    "description": "Output format.",
-                    "default": "records",
-                },
+            },
+            "output_format": {
+                "type": "string",
+                "enum": ["records", "dict"],
+                "description": "Output format.",
+                "default": "records",
+            },
         }
         extend_input_schema(properties)
         return {
@@ -211,10 +211,12 @@ class DataTransformTool(SyncTool):
                 if t_type == "rename":
                     columns_map = transform.get("columns", {})
                     df = df.rename(columns=columns_map)
-                    transformations_applied.append({
-                        "type": "rename",
-                        "renamed": columns_map,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "rename",
+                            "renamed": columns_map,
+                        }
+                    )
 
                 elif t_type == "cast":
                     column = transform.get("column")
@@ -242,12 +244,14 @@ class DataTransformTool(SyncTool):
                     elif target_type == "date":
                         df[column] = pd.to_datetime(df[column], errors="coerce").dt.date
 
-                    transformations_applied.append({
-                        "type": "cast",
-                        "column": column,
-                        "from_type": original_type,
-                        "to_type": target_type,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "cast",
+                            "column": column,
+                            "from_type": original_type,
+                            "to_type": target_type,
+                        }
+                    )
 
                 elif t_type == "map_values":
                     column = transform.get("column")
@@ -262,11 +266,13 @@ class DataTransformTool(SyncTool):
                     else:
                         df[column] = df[column].replace(mapping)
 
-                    transformations_applied.append({
-                        "type": "map_values",
-                        "column": column,
-                        "mappings_count": len(mapping),
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "map_values",
+                            "column": column,
+                            "mappings_count": len(mapping),
+                        }
+                    )
 
                 elif t_type == "derive":
                     expression = transform.get("expression")
@@ -296,11 +302,13 @@ class DataTransformTool(SyncTool):
                     except Exception as e:
                         raise ValueError(f"Invalid expression '{expression}': {e}") from e
 
-                    transformations_applied.append({
-                        "type": "derive",
-                        "new_column": new_column,
-                        "expression": expression,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "derive",
+                            "new_column": new_column,
+                            "expression": expression,
+                        }
+                    )
 
                 elif t_type == "select":
                     select_columns = transform.get("select_columns", [])
@@ -308,29 +316,35 @@ class DataTransformTool(SyncTool):
                     if missing:
                         raise ValueError(f"Columns not found: {missing}")
                     df = df[select_columns]
-                    transformations_applied.append({
-                        "type": "select",
-                        "columns": select_columns,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "select",
+                            "columns": select_columns,
+                        }
+                    )
 
                 elif t_type == "drop":
                     drop_columns = transform.get("drop_columns", [])
                     existing = [c for c in drop_columns if c in df.columns]
                     df = df.drop(columns=existing)
-                    transformations_applied.append({
-                        "type": "drop",
-                        "dropped": existing,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "drop",
+                            "dropped": existing,
+                        }
+                    )
 
                 elif t_type == "reorder":
                     select_columns = transform.get("select_columns", [])
                     remaining = [c for c in df.columns if c not in select_columns]
                     new_order = [c for c in select_columns if c in df.columns] + remaining
                     df = df[new_order]
-                    transformations_applied.append({
-                        "type": "reorder",
-                        "new_order": new_order,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "reorder",
+                            "new_order": new_order,
+                        }
+                    )
 
                 elif t_type == "string_transform":
                     column = transform.get("column")
@@ -350,11 +364,13 @@ class DataTransformTool(SyncTool):
                     elif transform_type == "capitalize":
                         df[column] = df[column].astype(str).str.capitalize()
 
-                    transformations_applied.append({
-                        "type": "string_transform",
-                        "column": column,
-                        "transform_type": transform_type,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "string_transform",
+                            "column": column,
+                            "transform_type": transform_type,
+                        }
+                    )
 
                 elif t_type == "split":
                     column = transform.get("column")
@@ -370,16 +386,18 @@ class DataTransformTool(SyncTool):
                         df[column]
                         .astype(str)
                         .str.split(delimiter)
-                        .apply(lambda x: x[split_index] if len(x) > split_index else None)
+                        .apply(lambda parts, index=split_index: parts[index] if len(parts) > index else None)
                     )
 
-                    transformations_applied.append({
-                        "type": "split",
-                        "source_column": column,
-                        "target_column": target_col,
-                        "delimiter": delimiter,
-                        "split_index": split_index,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "split",
+                            "source_column": column,
+                            "target_column": target_col,
+                            "delimiter": delimiter,
+                            "split_index": split_index,
+                        }
+                    )
 
                 elif t_type == "combine":
                     combine_columns = transform.get("combine_columns", [])
@@ -395,12 +413,14 @@ class DataTransformTool(SyncTool):
 
                     df[new_column] = df[combine_columns].astype(str).agg(separator.join, axis=1)
 
-                    transformations_applied.append({
-                        "type": "combine",
-                        "source_columns": combine_columns,
-                        "new_column": new_column,
-                        "separator": separator,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "combine",
+                            "source_columns": combine_columns,
+                            "new_column": new_column,
+                            "separator": separator,
+                        }
+                    )
 
                 elif t_type == "extract":
                     column = transform.get("column")
@@ -415,12 +435,14 @@ class DataTransformTool(SyncTool):
                     target_col = new_column or column
                     df[target_col] = df[column].astype(str).str.extract(pattern, expand=False)
 
-                    transformations_applied.append({
-                        "type": "extract",
-                        "source_column": column,
-                        "target_column": target_col,
-                        "pattern": pattern,
-                    })
+                    transformations_applied.append(
+                        {
+                            "type": "extract",
+                            "source_column": column,
+                            "target_column": target_col,
+                            "pattern": pattern,
+                        }
+                    )
 
             except Exception as e:
                 logger.error("Transformation failed", type=t_type, error=str(e))

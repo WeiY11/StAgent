@@ -13,7 +13,6 @@ Auth: derived from the standard HTTP auth dependency (cookie/bearer).
 
 from __future__ import annotations
 
-import asyncio
 import json
 from dataclasses import asdict, is_dataclass
 from typing import Any
@@ -100,11 +99,11 @@ async def _send_event(websocket: WebSocket, event: ProgressEvent) -> None:
     try:
         await websocket.send_text(json.dumps(payload, default=_default_json))
     except RuntimeError:
-        raise WebSocketDisconnect(code=status.WS_1000_NORMAL_CLOSURE)
+        raise WebSocketDisconnect(code=status.WS_1000_NORMAL_CLOSURE) from None
 
 
 def _default_json(value: Any) -> Any:
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return asdict(value)
     if hasattr(value, "model_dump"):
         return value.model_dump()

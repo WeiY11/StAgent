@@ -5,14 +5,19 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from leagent.api.v1 import chat as chat_api
-from leagent.services.session.state import SessionAttachment
+from leagent.api.v1.chat.paths import (
+    attachment_local_path_for_sse,
+    dedupe_resolved_paths,
+)
 from leagent.file.attachment_context import (
     build_attachment_lookup,
     normalise_attachment_alias,
     normalize_attachment_paths,
 )
+from leagent.services.session.state import SessionAttachment
 
 
 @pytest.mark.asyncio
@@ -46,25 +51,114 @@ async def test_resolve_request_attachment_paths_maps_id_and_name(monkeypatch, tm
 
     resolved = await chat_api._resolve_request_attachment_paths(
         session_id,
-        [str(attachment_id), "budget.xlsx", "missing.txt"],
+        [str(attachment_id), "budget.xlsx"],
         user_id=user_id,
     )
     assert str(stored.resolve()) in resolved
-    # Unknown refs are passed through but normalized only when resolvable.
     assert all(Path(p).is_absolute() for p in resolved)
     assert calls == [user_id]
+
+
+@pytest.mark.asyncio
+async def test_resolve_request_attachment_paths_preserves_authorized_s3_uri(
+    monkeypatch,
+) -> None:
+    """An authorised object-store reference must reach the turn materializer unchanged.
+
+    The production change this catches is calling ``Path.resolve()`` on an
+    ``s3://`` URI: that turns a durable object-store reference into a fake local
+    path before the controller has a chance to download it safely.
+    """
+    session_id = uuid4()
+    user_id = uuid4()
+    attachment_id = uuid4()
+    storage_path = f"s3://chat-files/{session_id}/{attachment_id}_photo.png"
+    att = SessionAttachment(
+        id=attachment_id,
+        session_id=session_id,
+        filename="photo.png",
+        storage_path=storage_path,
+        content_type="image/png",
+        kind="image",
+        size=4,
+        sha256="abc123",
+    )
+
+    class _SessionManager:
+        async def list_attachments(self, _sid, *, user_id=None):  # noqa: ANN001, ARG002
+            return [att]
+
+    monkeypatch.setattr(
+        "leagent.main.get_service_manager",
+        lambda: SimpleNamespace(session_manager=_SessionManager()),
+    )
+
+    resolved = await chat_api._resolve_request_attachment_paths(
+        session_id,
+        [str(attachment_id)],
+        user_id=user_id,
+    )
+
+    assert resolved == [storage_path]
+
+
+@pytest.mark.asyncio
+async def test_resolve_request_attachment_paths_rejects_unknown_local_path(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Client-supplied paths must not become implicit agent read grants."""
+    session_id = uuid4()
+    user_id = uuid4()
+    unowned_file = tmp_path / "outside-session.txt"
+    unowned_file.write_text("private")
+
+    class _SessionManager:
+        async def list_attachments(self, _sid, *, user_id=None):  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "leagent.main.get_service_manager",
+        lambda: SimpleNamespace(session_manager=_SessionManager()),
+    )
+
+    ignored = await chat_api._resolve_request_attachment_paths(
+        session_id,
+        [str(unowned_file)],
+        user_id=user_id,
+        reject_unknown=False,
+    )
+    assert ignored == []
+
+    with pytest.raises(HTTPException) as exc_info:
+        await chat_api._resolve_request_attachment_paths(
+            session_id,
+            [str(unowned_file)],
+            user_id=user_id,
+        )
+
+    assert exc_info.value.status_code == 400
 
 
 def test_normalize_attachment_paths_filters_and_dedupes(tmp_path: Path) -> None:
     f = tmp_path / "a.txt"
     f.write_text("x")
 
-    normalized = normalize_attachment_paths([
-        "relative-id-like-value",
-        str(f),
-        str(f),
-    ])
+    normalized = normalize_attachment_paths(
+        [
+            "relative-id-like-value",
+            str(f),
+            str(f),
+        ]
+    )
     assert normalized == [str(f.resolve())]
+
+
+def test_chat_path_helpers_never_turn_an_s3_uri_into_a_local_path() -> None:
+    remote = "s3://chat-files/tenant/evidence.pdf"
+
+    assert dedupe_resolved_paths([remote]) == []
+    assert attachment_local_path_for_sse(remote) is None
 
 
 def test_build_attachment_lookup_from_session_rows(tmp_path: Path) -> None:

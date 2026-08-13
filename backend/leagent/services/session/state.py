@@ -26,7 +26,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 SessionTodoStatus = Literal["pending", "in_progress", "completed", "cancelled"]
@@ -219,14 +219,20 @@ class SessionTodo:
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> SessionTodo:
         raw_status = str(data.get("status") or "pending").strip().lower()
-        status: SessionTodoStatus = (
-            raw_status if raw_status in SESSION_TODO_STATUSES else "pending"  # type: ignore[assignment]
+        status = cast(
+            "SessionTodoStatus",
+            raw_status if raw_status in SESSION_TODO_STATUSES else "pending",
         )
+        raw_order = data.get("order")
+        try:
+            order = int(raw_order) if raw_order is not None else 0
+        except (TypeError, ValueError):
+            order = 0
         return cls(
             id=str(data.get("id") or ""),
             content=str(data.get("content") or ""),
             status=status,
-            order=int(data.get("order") or 0),
+            order=order,
             updated_at=_parse_dt(data.get("updated_at")),
         )
 
@@ -246,15 +252,21 @@ def session_todos_from_tool_dicts(items: Iterable[Mapping[str, Any]]) -> list[Se
     for index, raw in enumerate(items):
         todo_id = str(raw.get("id") or "").strip() or f"todo-{index}"
         raw_status = str(raw.get("status") or "pending").strip().lower()
-        status: SessionTodoStatus = (
-            raw_status if raw_status in SESSION_TODO_STATUSES else "pending"  # type: ignore[assignment]
+        status = cast(
+            "SessionTodoStatus",
+            raw_status if raw_status in SESSION_TODO_STATUSES else "pending",
         )
+        raw_order = raw.get("order")
+        try:
+            order = int(raw_order) if raw_order is not None else index
+        except (TypeError, ValueError):
+            order = index
         out.append(
             SessionTodo(
                 id=todo_id,
                 content=str(raw.get("content") or todo_id),
                 status=status,
-                order=int(raw.get("order") if raw.get("order") is not None else index),
+                order=order,
                 updated_at=now,
             )
         )

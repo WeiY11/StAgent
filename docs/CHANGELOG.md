@@ -1,3 +1,3 @@
-﻿# Changelog
+# Changelog
 
-See [CHANGELOG.md](https://github.com/vixues/LeAgent/blob/main/CHANGELOG.md) at repository root.
+See [CHANGELOG.md](https://github.com/WeiY11/StAgent/blob/main/CHANGELOG.md) at repository root.

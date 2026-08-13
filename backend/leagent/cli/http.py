@@ -7,13 +7,20 @@ select the target deployment; most subcommands assume the monolith is already up
 
 from __future__ import annotations
 
+import functools
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast
 from urllib.parse import urljoin
 
 import httpx
 
 from leagent.cli.utils import exit_with_error
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 DEFAULT_BASE_URL = "http://localhost:7860"
 DEFAULT_TIMEOUT = 30.0
@@ -35,8 +42,8 @@ class CLIHttpClient:
             api_key: API key for authentication.
             timeout: Request timeout in seconds.
         """
-        self.base_url = base_url or os.getenv("LEAGENT_API_URL", DEFAULT_BASE_URL)
-        self.api_key = api_key or os.getenv("LEAGENT_API_KEY", "")
+        self.base_url: str = base_url or os.getenv("LEAGENT_API_URL") or DEFAULT_BASE_URL
+        self.api_key: str = api_key or os.getenv("LEAGENT_API_KEY") or ""
         self.timeout = timeout
         self._client: httpx.Client | None = None
 
@@ -71,7 +78,7 @@ class CLIHttpClient:
             response.raise_for_status()
             if response.status_code == 204:
                 return {}
-            return response.json()
+            return cast("dict[str, Any]", response.json())
         except httpx.HTTPStatusError as e:
             error_detail = ""
             try:
@@ -182,7 +189,7 @@ class CLIHttpClient:
         endpoint: str,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
-    ):
+    ) -> Iterator[dict[str, Any]]:
         """Make a POST request and yield SSE events as dicts.
 
         Yields parsed SSE event dicts with 'event' and 'data' keys.
@@ -277,12 +284,10 @@ def get_client(
     return _default_client
 
 
-def require_server(func):
+def require_server(func: Callable[P, R]) -> Callable[P, R]:
     """Decorator that ensures server is running before executing command."""
-    import functools
-
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         client = get_client()
         if not client.health_check():
             exit_with_error(

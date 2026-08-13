@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -88,15 +89,15 @@ class ValidationClosure:
             return []
 
         results: list[ValidationResult] = []
-        tasks: list[tuple[str, Any]] = []
+        tasks: list[tuple[str, Awaitable[ValidationResult]]] = []
 
         for name, check in checks.items():
             try:
                 result = check(context)
-                if asyncio.iscoroutine(result) or asyncio.isfuture(result):
+                if inspect.isawaitable(result):
                     tasks.append((name, result))
                 else:
-                    results.append(result)  # type: ignore[arg-type]
+                    results.append(result)
             except Exception as exc:  # noqa: BLE001
                 results.append(
                     ValidationResult(
@@ -111,17 +112,19 @@ class ValidationClosure:
             gathered = await asyncio.gather(
                 *[t[1] for t in tasks], return_exceptions=True
             )
-            for (name, _), result in zip(tasks, gathered, strict=True):
-                if isinstance(result, Exception):
+            for (name, _), gathered_result in zip(tasks, gathered, strict=True):
+                if isinstance(gathered_result, asyncio.CancelledError):
+                    raise gathered_result
+                if isinstance(gathered_result, BaseException):
                     results.append(
                         ValidationResult(
                             passed=False,
                             check_name=name,
-                            message=f"Async check raised: {result}",
+                            message=f"Async check raised: {gathered_result}",
                         )
                     )
                 else:
-                    results.append(result)
+                    results.append(gathered_result)
 
         # Log summary
         passed = sum(1 for r in results if r.passed)

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from leagent.services.service_manager import ServiceManager
@@ -93,7 +93,23 @@ def _default_builders() -> list[HandlerBuilder]:
 
         return FileGcTaskHandler(service_manager=sm)
 
-    return [_agent, _shell, _workflow, _tool, _batch, _file_processing, _file_gc]
+    def _knowledge_vector_rebuild(sm: ServiceManager) -> TaskHandler | None:
+        from leagent.tasks.handlers.knowledge_vector_rebuild_handler import (
+            KnowledgeVectorRebuildTaskHandler,
+        )
+
+        return KnowledgeVectorRebuildTaskHandler(service_manager=sm)
+
+    return [
+        _agent,
+        _shell,
+        _workflow,
+        _tool,
+        _batch,
+        _file_processing,
+        _file_gc,
+        _knowledge_vector_rebuild,
+    ]
 
 
 async def register_default_handlers(

@@ -9,6 +9,7 @@ from leagent.services.cache.observability import (
     record_cache_event,
     record_cache_set,
 )
+from leagent.services.cache.redis_backend import RedisCacheBackend, build_redis_clients
 from leagent.services.cache.service import (
     CacheService,
     InMemoryCache,
@@ -30,4 +31,6 @@ __all__ = [
     "ShardedLRU",
     "make_lru",
     "build_scoped_cache_key",
+    "RedisCacheBackend",
+    "build_redis_clients",
 ]

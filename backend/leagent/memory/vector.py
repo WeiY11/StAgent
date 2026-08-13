@@ -71,6 +71,9 @@ class VectorBackend(Protocol):
     async def delete(self, row_id: str) -> None:
         ...
 
+    async def delete_scope(self, scope: str) -> int:
+        ...
+
     async def search(
         self,
         *,
@@ -92,6 +95,9 @@ class _NullBackend:
 
     async def delete(self, row_id: str) -> None:
         return None
+
+    async def delete_scope(self, scope: str) -> int:  # noqa: ARG002
+        return 0
 
     async def search(self, **_: Any) -> list[tuple[str, float]]:
         return []
@@ -305,12 +311,34 @@ class MilvusCollection:
     async def delete(self, row_id: str) -> None:
         if not self.can_search and (not self.retry_due or not self._ensure()):
             return
+        collection = self._collection
+        if collection is None:
+            return
         try:
             await asyncio.to_thread(
-                self._collection.delete, f'id == "{row_id}"'
+                collection.delete, f'id == "{row_id}"'
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("milvus_delete_failed: %s", exc)
+
+    async def delete_scope(self, scope: str) -> int:
+        """Delete every vector belonging to one document scope."""
+        if not scope:
+            return 0
+        if not self.can_search and (not self.retry_due or not self._ensure()):
+            return 0
+        collection = self._collection
+        if collection is None:
+            return 0
+        try:
+            result = await asyncio.to_thread(
+                collection.delete, f'scope == "{scope}"'
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("milvus_scope_delete_failed: %s", exc)
+            return 0
+        count = getattr(result, "delete_count", 0)
+        return int(count) if isinstance(count, (int, float)) else 0
 
     async def search(
         self,
@@ -320,7 +348,10 @@ class MilvusCollection:
         user_id: str | None = None,
         scope: str | None = None,
     ) -> list[tuple[str, float]]:
-        if not self.can_search:
+        if not self.can_search and (not self.retry_due or not self._ensure()):
+            return []
+        collection = self._collection
+        if collection is None:
             return []
         expr_parts: list[str] = []
         if user_id:
@@ -330,8 +361,8 @@ class MilvusCollection:
         expr = " and ".join(expr_parts) if expr_parts else None
         try:
 
-            def _do_search():
-                return self._collection.search(
+            def _do_search() -> Any:
+                return collection.search(
                     data=[vector],
                     anns_field="vector",
                     param={"metric_type": "COSINE", "params": {"nprobe": 12}},

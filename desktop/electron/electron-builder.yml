@@ -23,8 +23,8 @@ files:
 
 publish:
   provider: github
-  owner: vixues
-  repo: LeAgent
+  owner: WeiY11
+  repo: StAgent
   # Only the `desktop-v*` beta path lets electron-builder publish; the primary
   # `v*` release passes `--publish never` and attaches assets via release.yml.
   # Beta desktop builds must therefore be labelled prerelease.

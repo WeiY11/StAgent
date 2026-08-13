@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import os
 from typing import Any
 
@@ -58,8 +59,14 @@ class LocalDiffusionBackend:
                 "image", getattr(result, "error", None) or "local diffusion failed",
             )
         data: bytes | None = None
-        if getattr(result, "b64_data", None):
-            data = base64.b64decode(result.b64_data)
+        b64_data = getattr(result, "b64_data", None)
+        if b64_data:
+            if not isinstance(b64_data, (str, bytes)):
+                return GenerationOutput.failure("image", "local diffusion returned invalid base64 data")
+            try:
+                data = base64.b64decode(b64_data, validate=True)
+            except (binascii.Error, ValueError):
+                return GenerationOutput.failure("image", "local diffusion returned invalid base64 data")
         if data is None and getattr(result, "url", None):
             return GenerationOutput(
                 success=True, kind="image", data=None, mime=result.mime or "image/png",

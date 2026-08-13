@@ -171,10 +171,16 @@ from leagent.api.v1.chat.context_sources import (  # noqa: E402,F401
 from leagent.api.v1.chat.context_sources import (
     chat_project_workspace_note as _chat_project_workspace_note,
 )
-from leagent.api.v1.chat.context_sources import (
+from leagent.api.v1.chat.context_sources import (  # noqa: E402,F401
     context_item_paths as _context_item_paths,
 )
+from leagent.api.v1.chat.context_sources import (
+    materialize_folder_context_paths as _materialize_folder_context_paths,
+)
 from leagent.api.v1.chat.context_sources import (  # noqa: E402,F401
+    materialize_knowledge_message_paths as _materialize_knowledge_message_paths,
+)
+from leagent.api.v1.chat.context_sources import (
     parse_knowledge_line_payload as _parse_knowledge_line_payload,
 )
 from leagent.api.v1.chat.context_sources import (
@@ -223,6 +229,28 @@ from leagent.api.v1.chat.sse import (
 # ---------------------------------------------------------------------------
 # Frontend-compatible streaming endpoint (/chat/stream)
 # ---------------------------------------------------------------------------
+
+
+async def _load_checkpoint_for_session(
+    checkpoint_id: str,
+    session_id: UUID,
+) -> Any | None:
+    """Load a checkpoint only when it belongs to the requested chat session."""
+    try:
+        from leagent.sdk.kernel.checkpoint import build_checkpoint_store
+        from leagent.services.service_manager import get_service_manager
+
+        sm = get_service_manager()
+        store = build_checkpoint_store(getattr(sm, "database_service", None))
+        if store is None:
+            return None
+        checkpoint = await store.load(checkpoint_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+    if checkpoint is None or str(checkpoint.session_id) != str(session_id):
+        return None
+    return checkpoint
 
 
 @router.post("/stream")
@@ -329,6 +357,13 @@ async def chat_stream_endpoint(
     effective_folder_id = (folder_id or "").strip() or None
     if chat_project_space is not None and not effective_folder_id:
         effective_folder_id = str(chat_project_space.folder_id)
+    extra_context_folder_id: str | None = None
+    if (
+        chat_project_space is not None
+        and effective_folder_id
+        and str(chat_project_space.folder_id) != str(effective_folder_id)
+    ):
+        extra_context_folder_id = str(chat_project_space.folder_id)
 
     # ---- Ingest uploaded files via SessionManager ----
     attachment_paths: list[str] = []
@@ -356,13 +391,9 @@ async def chat_stream_endpoint(
     async def _resolve_effective_folder_context() -> list[tuple[str, str, str | None]]:
         items = await _resolve_folder_context(user_id, db, effective_folder_id, file_ids)
         # Also include the chat-project folder when the client selected a different folder.
-        if (
-            chat_project_space is not None
-            and effective_folder_id
-            and str(chat_project_space.folder_id) != str(effective_folder_id)
-        ):
+        if extra_context_folder_id:
             extra = await _resolve_folder_context(
-                user_id, db, str(chat_project_space.folder_id), None
+                user_id, db, extra_context_folder_id, None
             )
             seen = {path for path, _n, _p in items}
             for row in extra:
@@ -374,12 +405,10 @@ async def chat_stream_endpoint(
     (
         (session_attachment_payloads, uploaded_paths, ingest_errors),
         context_items,
-        knowledge_paths,
         project_path_for_turn,
     ) = await asyncio.gather(
         _ingest_uploaded_files(),
         _resolve_effective_folder_context(),
-        _resolve_knowledge_message_paths(user_id, db, message),
         _resolve_project_folder_path(user_id, db, project_folder_id),
     )
 
@@ -396,8 +425,6 @@ async def chat_stream_endpoint(
             )
 
     attachment_paths.extend(uploaded_paths)
-    attachment_paths.extend(_context_item_paths(context_items))
-    attachment_paths.extend(knowledge_paths)
 
     selected_folder_context_note = await _resolve_folder_context_note(
         user_id,
@@ -495,6 +522,17 @@ async def chat_stream_endpoint(
             )
         except Exception:  # noqa: BLE001
             logger.debug("resume_checkpoint_meta_clear_failed", exc_info=True)
+
+    if resume_checkpoint_id:
+        checkpoint = await _load_checkpoint_for_session(
+            resume_checkpoint_id,
+            parsed_session_id,
+        )
+        if checkpoint is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Checkpoint {resume_checkpoint_id!r} not found",
+            )
 
     if resume_checkpoint_id and not (message or "").strip():
         message = "Continue"
@@ -647,6 +685,8 @@ async def chat_stream_endpoint(
             from leagent.services.chat.deep_research import apply_deep_research_to_agent
             apply_deep_research_to_agent(agent, target_name=research_doc_name)
         assistant_row: Any | None = None
+        stream_closing = False
+        turn_stream: Any | None = None
 
         accum_tool_calls_by_id: dict[str, dict[str, Any]] = {}
         stream_thinking_for_db: str | None = None
@@ -815,7 +855,6 @@ async def chat_stream_endpoint(
 
         try:
             if agent is not None:
-                agent_attachments = _dedupe_resolved_paths(attachment_paths) or None
                 session_auth_roots = await _authorized_root_paths_for_session(
                     chat_svc, parsed_session_id, user_id,
                 )
@@ -851,21 +890,49 @@ async def chat_stream_endpoint(
                     "agent_task",
                     {"task_id": str(agent_task_id), "session_id": str(parsed_session_id)},
                 )
-                async for etype, edata, acc_text in _run_agent_stream(
-                    agent,
-                    message_for_agent,
-                    parsed_session_id,
-                    user_id,
-                    attachments=agent_attachments,
-                    project_roots=turn_project_roots or None,
-                    authorized_roots=session_auth_roots,
-                    skip_append_user=has_tool_replies,
-                    persisted_user_message_id=stream_user_message_id,
-                    conversation_timeout_sec=_conv_timeout,
-                    agent_task_id=agent_task_id,
-                    runtime_profile=runtime_profile,
-                    checkpoint_id=resume_checkpoint_id,
-                ):
+                async def _stream_with_context_paths() -> AsyncIterator[
+                    tuple[str, dict[str, Any], str]
+                ]:
+                    async with (
+                        _materialize_folder_context_paths(
+                            user_id,
+                            db,
+                            folder_id=effective_folder_id,
+                            file_ids_csv=file_ids,
+                            extra_folder_id=extra_context_folder_id,
+                        ) as folder_context_paths,
+                        _materialize_knowledge_message_paths(
+                            user_id,
+                            db,
+                            message,
+                        ) as knowledge_paths,
+                    ):
+                        agent_attachments = _dedupe_resolved_paths(
+                            [
+                                *attachment_paths,
+                                *folder_context_paths,
+                                *knowledge_paths,
+                            ],
+                        ) or None
+                        async for event in _run_agent_stream(
+                            agent,
+                            message_for_agent,
+                            parsed_session_id,
+                            user_id,
+                            attachments=agent_attachments,
+                            project_roots=turn_project_roots or None,
+                            authorized_roots=session_auth_roots,
+                            skip_append_user=has_tool_replies,
+                            persisted_user_message_id=stream_user_message_id,
+                            conversation_timeout_sec=_conv_timeout,
+                            agent_task_id=agent_task_id,
+                            runtime_profile=runtime_profile,
+                            checkpoint_id=resume_checkpoint_id,
+                        ):
+                            yield event
+
+                turn_stream = _stream_with_context_paths()
+                async for etype, edata, acc_text in turn_stream:
                     response_content = acc_text
                     if etype == "token":
                         _record_ttft()
@@ -1034,13 +1101,21 @@ async def chat_stream_endpoint(
                         error=_msg_error,
                     )
                 schedule_auto_title(assistant_row)
+        except GeneratorExit:
+            stream_closing = True
+            raise
         except asyncio.CancelledError:
+            stream_closing = True
             logger.warning("chat_stream_cancelled session=%s", parsed_session_id)
-            yield _format_frontend_event("error", {"message": "Stream cancelled by server"})
+            raise
         except Exception as e:
             logger.exception("Error in /chat/stream: %s", e)
             yield _format_frontend_event("error", {"message": str(e)})
         finally:
+            if turn_stream is not None:
+                with suppress(Exception):
+                    await turn_stream.aclose()
+
             # Reset per-request reasoning effort override.
             if _effort_token is not None:
                 try:
@@ -1093,16 +1168,17 @@ async def chat_stream_endpoint(
                 else:
                     schedule_auto_title(assistant_row)
 
-            yield _format_frontend_event("assistant_complete", {})
+            if not stream_closing:
+                yield _format_frontend_event("assistant_complete", {})
 
-            ids_payload: dict[str, str] = {}
-            if stream_user_message_id is not None:
-                ids_payload["user_message_id"] = str(stream_user_message_id)
-            if assistant_row is not None:
-                ids_payload["assistant_message_id"] = str(assistant_row.id)
-            if ids_payload:
-                yield _format_frontend_event("message_ids", ids_payload)
-            yield {"event": "message", "data": "[DONE]"}
+                ids_payload: dict[str, str] = {}
+                if stream_user_message_id is not None:
+                    ids_payload["user_message_id"] = str(stream_user_message_id)
+                if assistant_row is not None:
+                    ids_payload["assistant_message_id"] = str(assistant_row.id)
+                if ids_payload:
+                    yield _format_frontend_event("message_ids", ids_payload)
+                yield {"event": "message", "data": "[DONE]"}
 
     _sse_stream_headers = {
         "Cache-Control": "no-cache",
@@ -2020,19 +2096,8 @@ async def resume_checkpoint(
         unlock_token=x_chat_project_token,
     )
 
-    try:
-        from leagent.sdk.kernel.checkpoint import build_checkpoint_store
-        from leagent.services.service_manager import get_service_manager
-        sm = get_service_manager()
-        store = build_checkpoint_store(getattr(sm, "database_service", None))
-        if store is None:
-            from leagent.sdk.kernel.checkpoint import InMemoryCheckpointStore
-            store = InMemoryCheckpointStore()
-        cp = await store.load(body.checkpoint_id)
-    except Exception:  # noqa: BLE001
-        cp = None
-
-    if cp is None:
+    checkpoint = await _load_checkpoint_for_session(body.checkpoint_id, session_id)
+    if checkpoint is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Checkpoint {body.checkpoint_id!r} not found",
@@ -2393,6 +2458,12 @@ async def send_message(
     if not session.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session is not active")
 
+    resolved_request_attachments = await _resolve_request_attachment_paths(
+        session_id,
+        request.attachments,
+        user_id=user_id,
+    )
+
     user_row = await chat_svc.add_message(
         session_id,
         request.role,
@@ -2402,15 +2473,6 @@ async def send_message(
     )
 
     if request.stream:
-        resolved_request_attachments = await _resolve_request_attachment_paths(
-            session_id,
-            request.attachments,
-            user_id=user_id,
-        )
-        k_paths = await _resolve_knowledge_message_paths(user_id, db, request.content)
-        merged_request_attachments = _merge_agent_attachment_paths(
-            resolved_request_attachments, k_paths,
-        )
         completion_request = ChatCompletionRequest(
             model=request.model or "default",
             messages=[ChatCompletionMessage(role=MessageRole.USER, content=request.content)],
@@ -2423,8 +2485,9 @@ async def send_message(
                 session_id,
                 user_id,
                 chat_svc,
-                attachments=merged_request_attachments,
+                attachments=resolved_request_attachments,
                 persisted_user_message_id=user_row.id,
+                db=db,
             ),
             media_type="text/event-stream",
         )
@@ -2433,27 +2496,27 @@ async def send_message(
     if agent is not None:
         from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
         await apply_pet_personality_to_agent(agent, db, user_id)
-        resolved_request_attachments = await _resolve_request_attachment_paths(
-            session_id,
-            request.attachments,
-            user_id=user_id,
-        )
-        k_paths = await _resolve_knowledge_message_paths(user_id, db, request.content)
-        merged_request_attachments = _merge_agent_attachment_paths(
-            resolved_request_attachments, k_paths,
-        )
         msg_auth_roots = await _authorized_root_paths_for_session(
             chat_svc, session_id, user_id,
         )
-        agent_response = await agent.run(
+        async with _materialize_knowledge_message_paths(
+            user_id,
+            db,
             request.content,
-            session_id,
-            user_id=user_id,
-            attachments=merged_request_attachments,
-            authorized_roots=msg_auth_roots,
-            persisted_user_message_id=user_row.id,
-        )
-        response_content = agent_response.text
+        ) as knowledge_paths:
+            merged_request_attachments = _merge_agent_attachment_paths(
+                resolved_request_attachments,
+                knowledge_paths,
+            )
+            agent_response = await agent.run(
+                request.content,
+                session_id,
+                user_id=user_id,
+                attachments=merged_request_attachments,
+                authorized_roots=msg_auth_roots,
+                persisted_user_message_id=user_row.id,
+            )
+            response_content = agent_response.text
     else:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

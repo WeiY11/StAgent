@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 ModelKind = Literal["chat", "embedding", "image_gen", "tts", "asr"]
 
@@ -95,9 +95,12 @@ class ModelSpec:
         name = str(raw.get("name") or "").strip()
         kind_raw = str(raw.get("kind") or "chat").strip().lower()
         kind: ModelKind = (
-            kind_raw if kind_raw in ("chat", "embedding", "image_gen", "tts", "asr") else "chat"
+            cast("ModelKind", kind_raw)
+            if kind_raw in ("chat", "embedding", "image_gen", "tts", "asr")
+            else "chat"
         )
-        caps = ModelCapabilities.from_dict(raw.get("capabilities") if isinstance(raw.get("capabilities"), dict) else None)
+        raw_capabilities = raw.get("capabilities")
+        caps = ModelCapabilities.from_dict(raw_capabilities if isinstance(raw_capabilities, dict) else None)
         # Legacy bool flags → capabilities (used only by migrate CLI, not runtime)
         if raw.get("supports_tools"):
             caps = ModelCapabilities(
@@ -113,7 +116,8 @@ class ModelSpec:
                 tool_call=caps.tool_call,
                 reasoning=caps.reasoning or bool(raw.get("supports_thinking")),
             )
-        pricing_raw = raw.get("pricing") if isinstance(raw.get("pricing"), dict) else {}
+        raw_pricing = raw.get("pricing")
+        pricing_raw = raw_pricing if isinstance(raw_pricing, dict) else {}
         pricing: dict[str, float] = {}
         for key in ("input_per_1m", "output_per_1m"):
             val = pricing_raw.get(key)
@@ -124,7 +128,8 @@ class ModelSpec:
                 val = raw.get(key)
                 if val is not None:
                     pricing["input_per_1m" if "input" in key else "output_per_1m"] = float(val)
-        limits = raw.get("limits") if isinstance(raw.get("limits"), dict) else {}
+        raw_limits = raw.get("limits")
+        limits = raw_limits if isinstance(raw_limits, dict) else {}
         return cls(
             name=name,
             provider=provider_name,

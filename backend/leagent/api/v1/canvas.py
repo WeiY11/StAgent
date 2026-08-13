@@ -328,12 +328,12 @@ async def genui_export_pdf(
     from leagent.services.gen_ui.schema import validate_ui_tree
     from leagent.tools.canvas import get_canvas_settings
 
-    settings = get_canvas_settings()
+    canvas_settings = get_canvas_settings()
     try:
         normalized = validate_ui_tree(
             body.tree,
-            max_depth=settings["max_tree_depth"],
-            max_nodes=settings["max_nodes_per_tree"],
+            max_depth=canvas_settings["max_tree_depth"],
+            max_nodes=canvas_settings["max_nodes_per_tree"],
         )
     except ValidationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -347,9 +347,9 @@ async def genui_export_pdf(
     browser = await _get_pw_browser()
     viewport = _pdf_viewport(body.page_size, body.orientation)
     page = await browser.new_page(viewport=viewport)
-    settings = get_settings()
+    app_settings = get_settings()
     try:
-        await load_html_in_playwright_page(page, settings, html=html_doc)
+        await load_html_in_playwright_page(page, app_settings, html=html_doc)
         # Use print CSS cascade (typography, @page) — not screen snapshot scaling.
         await page.emulate_media(media="print")
 

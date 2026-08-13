@@ -24,12 +24,25 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(_read_text(path))
 
 
+def _resolved_workflow_job(workflow_name: str, job_name: str) -> dict[str, Any]:
+    job = _load_yaml(_WORKFLOW_DIR / workflow_name)["jobs"][job_name]
+    uses = job.get("uses")
+    if not uses:
+        return job
+    prefix = "./.github/workflows/"
+    assert str(uses).startswith(prefix), uses
+    reusable = _load_yaml(_WORKFLOW_DIR / str(uses)[len(prefix) :])
+    jobs = reusable["jobs"]
+    assert len(jobs) == 1, uses
+    return next(iter(jobs.values()))
+
+
 def test_dockerfile_healthcheck_tracks_runtime_port_and_readiness() -> None:
     dockerfile = _read_text(_DEPLOY_DIR / "Dockerfile")
 
     assert "FROM python:3.11-slim-bookworm AS production" in dockerfile
     assert 'ENTRYPOINT ["tini", "--", "/entrypoint.sh"]' in dockerfile
-    assert "CMD [\"server\"]" in dockerfile
+    assert 'CMD ["server"]' in dockerfile
     assert "HEALTHCHECK" in dockerfile
     assert "localhost:${LEAGENT_PORT:-8000}/api/v1/health/ready" in dockerfile
     assert "localhost:8000/health" not in dockerfile
@@ -67,7 +80,7 @@ def test_docker_runtime_contract_documents_postgres_and_sqlite_boundaries() -> N
     assert "LEAGENT_WORKERS > 1 requires PostgreSQL DATABASE_URL" in entrypoint
     assert "postgres://*|postgresql://*|postgresql+*" in entrypoint
     assert "DATABASE_URL=postgresql+asyncpg://" in env_example
-    assert "Set `DATABASE_URL` to use an external PostgreSQL database" in readme
+    assert "Set `DATABASE_URL` to use an external PostgreSQL database" in " ".join(readme.split())
     assert "Use pg_dump/pg_restore for PostgreSQL" in helper
     assert "PostgreSQL  " in helper
 
@@ -88,8 +101,8 @@ def test_entrypoint_and_docker_helper_health_use_readiness() -> None:
     entrypoint = _read_text(_DEPLOY_DIR / "entrypoint.sh")
     helper = _read_text(_DEPLOY_DIR / "run_docker.sh")
 
-    assert 'http://localhost:${LEAGENT_PORT}/api/v1/health/ready' in entrypoint
-    assert 'http://localhost:${LEAGENT_PORT}/health' not in entrypoint
+    assert "http://localhost:${LEAGENT_PORT}/api/v1/health/ready" in entrypoint
+    assert "http://localhost:${LEAGENT_PORT}/health" not in entrypoint
     assert "http://localhost:$port/api/v1/health/ready" in helper
     assert "http://localhost:$port/health" not in helper
 
@@ -102,8 +115,7 @@ def test_supervisor_bind_tracks_entrypoint_host_and_port() -> None:
 
 
 def test_ci_docker_smoke_covers_startup_ready_and_postgres_driver() -> None:
-    ci = _load_yaml(_WORKFLOW_DIR / "ci.yml")
-    job = ci["jobs"]["docker-build"]
+    job = _resolved_workflow_job("ci.yml", "docker-build")
 
     build_step = next(step for step in job["steps"] if step.get("name") == "Build Docker image")
     assert build_step["with"]["target"] == "production"

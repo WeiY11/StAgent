@@ -38,7 +38,10 @@ from leagent.config.settings.services import (
     CodingProjectsSettings,
     ContextSettings,
     KnowledgeRetrievalSettings,
+    KnowledgeSemanticSettings,
+    ObjectStorageSettings,
     PromptSettings,
+    RedisSettings,
     RtspStreamSettings,
     SessionSettings,
     WorkflowEngineSettings,
@@ -98,6 +101,8 @@ class Settings(BaseSettings):
     context: ContextSettings = Field(default_factory=ContextSettings)
     workflow: WorkflowEngineSettings = Field(default_factory=WorkflowEngineSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    redis: RedisSettings = Field(default_factory=RedisSettings)
+    object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
     knowledge: KnowledgeRetrievalSettings = Field(default_factory=KnowledgeRetrievalSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     trace: TraceSettings = Field(default_factory=TraceSettings)
@@ -314,9 +319,13 @@ __all__ = [
     "DatabaseSettings",
     "FilesSettings",
     "ImageSearchSettings",
+    "KnowledgeRetrievalSettings",
+    "KnowledgeSemanticSettings",
     "LLMSettings",
     "LogFormat",
+    "ObjectStorageSettings",
     "PromptSettings",
+    "RedisSettings",
     "RtspStreamSettings",
     "RuntimeProfile",
     "SecuritySettings",
@@ -327,5 +336,6 @@ __all__ = [
     "WebFetchSettings",
     "WebSearchSettings",
     "WorkflowEngineSettings",
+    "_default_upload_dir",
     "get_settings",
 ]

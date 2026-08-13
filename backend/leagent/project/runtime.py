@@ -27,19 +27,32 @@ import subprocess
 import sys
 import time
 from collections import deque
-from collections.abc import AsyncIterator, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
-from pathlib import Path
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 import structlog
 
 from leagent.project.binaries import assert_argv_allowed
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Mapping
+    from pathlib import Path
+    from uuid import UUID
+
 logger = structlog.get_logger(__name__)
 
 
 _IS_WINDOWS = sys.platform.startswith("win")
+
+
+def _signal_posix_process_group(pid: int, sig: int) -> None:
+    """Signal a POSIX process group without importing unavailable Windows APIs."""
+    getpgid = os.__dict__.get("getpgid")
+    killpg = os.__dict__.get("killpg")
+    if not callable(getpgid) or not callable(killpg):
+        raise OSError("POSIX process-group APIs are unavailable")
+    killpg(getpgid(pid), sig)
 
 
 class StartTimeoutError(TimeoutError):
@@ -105,10 +118,8 @@ class _ServerSlot:
         self.log_buffer.append(line)
         self.server.last_activity = line.ts
         for queue in self.log_listeners:
-            try:
+            with suppress(asyncio.QueueFull):
                 queue.put_nowait(line)
-            except asyncio.QueueFull:
-                pass
 
 
 class DevServerSupervisor:
@@ -185,10 +196,8 @@ class DevServerSupervisor:
                 yield item
             yield None
         finally:
-            try:
+            with suppress(ValueError):
                 slot.log_listeners.remove(queue)
-            except ValueError:
-                pass
 
     # -- start --------------------------------------------------------
 
@@ -219,19 +228,6 @@ class DevServerSupervisor:
             if env:
                 full_env.update({str(k): str(v) for k, v in env.items()})
 
-            kwargs: dict[str, object] = {
-                "cwd": str(cwd),
-                "env": full_env,
-                "stdout": subprocess.PIPE,
-                "stderr": subprocess.PIPE,
-                "stdin": subprocess.DEVNULL,
-            }
-
-            if _IS_WINDOWS:
-                kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-            else:
-                kwargs["start_new_session"] = True
-
             logger.info(
                 "coding_projects_supervisor_spawn",
                 project_id=str(project_id),
@@ -242,9 +238,26 @@ class DevServerSupervisor:
             )
 
             try:
-                process = await asyncio.create_subprocess_exec(
-                    *checked_argv, **kwargs
-                )
+                if _IS_WINDOWS:
+                    process = await asyncio.create_subprocess_exec(
+                        *checked_argv,
+                        cwd=str(cwd),
+                        env=full_env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        stdin=subprocess.DEVNULL,
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                    )
+                else:
+                    process = await asyncio.create_subprocess_exec(
+                        *checked_argv,
+                        cwd=str(cwd),
+                        env=full_env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        stdin=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
             except FileNotFoundError as exc:
                 raise FileNotFoundError(
                     f"Executable not found: {checked_argv[0]}"
@@ -342,9 +355,8 @@ class DevServerSupervisor:
                     text=text,
                 )
                 slot.append_log(line)
-                if pattern is not None and not ready_event.is_set():
-                    if pattern.search(text):
-                        ready_event.set()
+                if pattern is not None and not ready_event.is_set() and pattern.search(text):
+                    ready_event.set()
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "coding_projects_supervisor_pump_error",
@@ -355,10 +367,8 @@ class DevServerSupervisor:
         finally:
             # Wake listeners so they don't dangle when the child exits.
             for queue in slot.log_listeners:
-                try:
+                with suppress(asyncio.QueueFull):
                     queue.put_nowait(None)
-                except asyncio.QueueFull:
-                    pass
 
     # -- stop ---------------------------------------------------------
 
@@ -405,8 +415,7 @@ class DevServerSupervisor:
                 proc.send_signal(signal.CTRL_BREAK_EVENT)
             else:
                 try:
-                    pgid = os.getpgid(proc.pid)
-                    os.killpg(pgid, signal.SIGTERM)
+                    _signal_posix_process_group(proc.pid, signal.SIGTERM)
                 except (ProcessLookupError, PermissionError):
                     proc.terminate()
         except Exception as exc:  # noqa: BLE001
@@ -430,14 +439,11 @@ class DevServerSupervisor:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-                try:
+                with suppress(TimeoutError):
                     await asyncio.wait_for(taskkill.wait(), timeout=5.0)
-                except TimeoutError:
-                    pass
             else:
                 try:
-                    pgid = os.getpgid(proc.pid)
-                    os.killpg(pgid, signal.SIGKILL)
+                    _signal_posix_process_group(proc.pid, signal.__dict__["SIGKILL"])
                 except (ProcessLookupError, PermissionError):
                     proc.kill()
         except Exception as exc:  # noqa: BLE001
@@ -454,15 +460,11 @@ class DevServerSupervisor:
         for task in (slot.stdout_task, slot.stderr_task, slot.wait_task):
             if not task.done():
                 task.cancel()
-                try:
+                with suppress(asyncio.CancelledError, Exception):
                     await task
-                except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                    pass
         for queue in slot.log_listeners:
-            try:
+            with suppress(asyncio.QueueFull):
                 queue.put_nowait(None)
-            except asyncio.QueueFull:
-                pass
 
     # -- bulk shutdown ------------------------------------------------
 

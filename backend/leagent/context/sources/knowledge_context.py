@@ -11,16 +11,20 @@ tool call — similar to how the ``recall`` source injects memory entries.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
 from leagent.context.sources import SOURCE_REGISTRY
-from leagent.context.sources.base import ResolveContext
 from leagent.context.types import (
     AttachmentKind,
     ContextBlock,
     ContextScope,
     RenderTarget,
 )
+
+if TYPE_CHECKING:
+    from leagent.context.sources.base import ResolveContext
 
 logger = structlog.get_logger(__name__)
 
@@ -39,6 +43,20 @@ _KNOWLEDGE_HINTS = (
     "based on",
 )
 
+# Generic words such as "document" are useful retrieval hints, but they also
+# occur in ordinary authoring requests. Only explicit KB/source-bound requests
+# must fail closed when no evidence is found.
+_STRICT_KNOWLEDGE_HINTS = (
+    "知识库",
+    "文档库",
+    "资料库",
+    "knowledge base",
+    "knowledge",
+    "based on",
+    "according to",
+    "@knowledge:",
+)
+
 #: Maximum characters of knowledge context to inject.
 _MAX_CONTEXT_CHARS = 3000
 #: Maximum number of search results to include.
@@ -51,7 +69,10 @@ class KnowledgeContextSource:
     id = "knowledge_context"
     kind = "state"
     scope = ContextScope.TURN
-    priority = 480  # slightly below recall (500)
+    # A knowledge answer without retrieval evidence is a safety problem, not
+    # an optional convenience block. Keep this small guard above ordinary
+    # recall/context material when the turn budget is tight.
+    priority = 1100
     weight = 0.7
     render_target = RenderTarget.ATTACHMENT_USER
 
@@ -82,10 +103,18 @@ class KnowledgeContextSource:
 
                     db = get_database_service()
                     if db is None:
-                        return None
+                        return (
+                            self._unavailable_evidence_block("database_unavailable")
+                            if self._requires_evidence(ctx)
+                            else None
+                        )
                     pipeline = KnowledgeRetrievalPipeline(db)
                 except Exception:  # noqa: BLE001
-                    return None
+                    return (
+                        self._unavailable_evidence_block("retrieval_unavailable")
+                        if self._requires_evidence(ctx)
+                        else None
+                    )
 
             options = SearchOptions(
                 query=ctx.query,
@@ -96,19 +125,25 @@ class KnowledgeContextSource:
             results = await pipeline.search(options)
 
             if not results:
-                return None
+                return (
+                    self._unavailable_evidence_block("no_matching_evidence")
+                    if self._requires_evidence(ctx)
+                    else None
+                )
 
             # Build context block.
             lines: list[str] = []
+            selected_results: list[object] = []
             total_chars = 0
-            for index, r in enumerate(results, start=1):
+            for r in results:
                 snippet = (r.snippet or r.text[:300]).strip()
                 if not snippet:
                     continue
-                entry = f"- [K{index}] [{r.file_name}] {snippet}"
+                entry = f"- [K{len(lines) + 1}] [{r.file_name}] {snippet}"
                 if total_chars + len(entry) > _MAX_CONTEXT_CHARS:
                     break
                 lines.append(entry)
+                selected_results.append(r)
                 total_chars += len(entry)
 
             if not lines:
@@ -116,12 +151,17 @@ class KnowledgeContextSource:
 
             body_content = "\n".join(lines)
             signature = ContextBlock.content_signature(self.id, body_content)
+            from leagent.knowledge.evidence import build_evidence
+
+            evidence = build_evidence(selected_results, strict=True)
             body = (
                 f'<attachment kind="{AttachmentKind.CONTEXT.value}"'
                 f' source="knowledge_base"'
                 f' signature="{signature}">\n'
                 f"Relevant knowledge base documents:\n"
                 f"{body_content}\n"
+                "Use only claims supported by this attachment. If your answer relies on it, "
+                "include at least one valid [K#] reference; if the evidence is insufficient, say so.\n"
                 f"</attachment>"
             )
 
@@ -135,10 +175,54 @@ class KnowledgeContextSource:
                 signature=signature,
                 priority=self.priority,
                 weight=self.weight,
+                metadata={"knowledge_evidence": evidence},
             )
         except Exception:
             logger.warning("knowledge_context_source_failed", exc_info=True)
-            return None
+            return (
+                self._unavailable_evidence_block("retrieval_failed")
+                if self._requires_evidence(ctx)
+                else None
+            )
+
+    def _unavailable_evidence_block(self, reason: str) -> ContextBlock:
+        """Return a small fail-closed block when retrieval lacks evidence."""
+        from leagent.knowledge.evidence import EvidenceBundle, EvidenceStatus
+
+        status = (
+            EvidenceStatus.INSUFFICIENT
+            if reason == "no_matching_evidence"
+            else EvidenceStatus.DEGRADED
+        )
+        evidence = EvidenceBundle(status, (), reason=reason)
+        try:
+            from leagent.utils.metrics import get_metrics
+
+            get_metrics().record_knowledge_evidence(status.value)
+        except Exception:  # noqa: BLE001 - observability must not block refusal
+            pass
+        body = (
+            f'<attachment kind="{AttachmentKind.CONTEXT.value}" '
+            'source="knowledge_base" evidence="unavailable">\n'
+            "No verifiable knowledge-base evidence was retrieved for this request. "
+            "Do not answer from background knowledge. State that the knowledge base "
+            "does not currently support a verified answer, or use knowledge_search "
+            "with a more focused query.\n"
+            "</attachment>"
+        )
+        signature = ContextBlock.content_signature(self.id, body)
+        return ContextBlock(
+            source_id=self.id,
+            kind=self.kind,
+            render_target=self.render_target,
+            body=body,
+            tokens=ContextBlock.approx_tokens(body),
+            cost=len(body),
+            signature=signature,
+            priority=self.priority,
+            weight=self.weight,
+            metadata={"knowledge_evidence": evidence},
+        )
 
     @staticmethod
     def _is_knowledge_relevant(ctx: ResolveContext) -> bool:
@@ -161,6 +245,19 @@ class KnowledgeContextSource:
                 return True
 
         return False
+
+    @staticmethod
+    def _requires_evidence(ctx: ResolveContext) -> bool:
+        """Whether a retrieval miss must block background-knowledge answers."""
+        tv = ctx.template_vars or {}
+        if tv.get("knowledge_context") or tv.get("use_knowledge_base"):
+            return True
+        candidates = (ctx.query or "", ctx.workflow_hint or "")
+        return any(
+            hint in candidate.lower()
+            for candidate in candidates
+            for hint in _STRICT_KNOWLEDGE_HINTS
+        )
 
 
 SOURCE_REGISTRY["knowledge_context"] = KnowledgeContextSource

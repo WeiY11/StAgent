@@ -320,6 +320,7 @@ class ContextManager:
             recall_handle=recall_handle,
             task_id=task_id,
             project_memory_sources=pm_sources,
+            blocks=list(budget_result.kept),
         )
 
     async def assemble(self, request: Any) -> Any:

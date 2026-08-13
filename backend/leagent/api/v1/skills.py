@@ -10,7 +10,7 @@ Aligned with the Agent Skills v1.0 open spec:
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -416,7 +416,7 @@ async def read_resource(
         resource.absolute_path,
         max_bytes=max_bytes,
         resource=resource,
-        skill_name=skill_name,
+        name=skill_name,
     )
     if not payload.get("found"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=payload.get("error", "Read failed"))
@@ -457,12 +457,12 @@ async def run_script(
 
     tool = SkillScriptTool()
     params = {
-        "skill_name": skill_name,
+        "name": skill_name,
         "script_path": script_path,
         "args": (data.args if data else []) or [],
         "timeout_s": (data.timeout_s if data else 60),
     }
-    ctx = ToolContext(user_id=user_id, session_id=None)
+    ctx = ToolContext(user_id=str(user_id), session_id=None)
     return await tool.execute(params, ctx)
 
 

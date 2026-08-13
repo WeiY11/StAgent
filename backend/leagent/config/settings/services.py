@@ -8,8 +8,9 @@ CacheSettings.
 from __future__ import annotations
 
 from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from leagent.config.settings._types import CANVAS_PREVIEW_CSP_LOCAL
@@ -180,6 +181,148 @@ class CacheSettings(BaseSettings):
         return int(self.default_ttl)
 
 
+class RedisSettings(BaseSettings):
+    """Optional Redis runtime for distributed cache and active-run state.
+
+    The application remains fully functional with this group disabled.  An
+    explicit enablement is treated as an operational contract: startup must
+    not silently downgrade a deployment that expects a shared Redis plane.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="LEAGENT_REDIS_")
+
+    enabled: bool = False
+    url: str = ""
+    prefix: str = "leagent"
+    socket_timeout_seconds: float = Field(default=2.0, ge=0.1, le=60.0)
+    run_store_ttl_seconds: int = Field(default=21_600, ge=60, le=604_800)
+
+    @model_validator(mode="after")
+    def validate_redis_target(self) -> RedisSettings:
+        if not self.enabled:
+            return self
+        parsed = urlparse(self.url.strip())
+        if parsed.scheme not in {"redis", "rediss"} or not parsed.hostname:
+            raise ValueError("Redis URL must use redis:// or rediss:// and include a host")
+        if not self.prefix.strip() or any(char.isspace() for char in self.prefix):
+            raise ValueError("Redis prefix must be non-empty and contain no whitespace")
+        return self
+
+
+class ObjectStorageSettings(BaseSettings):
+    """Optional S3-compatible storage settings for managed file blobs.
+
+    ``endpoint_url`` is optional so the same adapter supports AWS S3 and
+    MinIO/S3-compatible endpoints.  Credentials are intentionally optional:
+    cloud IAM roles and workload identity must work without materializing a
+    long-lived access key in the process environment.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="LEAGENT_OBJECT_STORAGE_")
+
+    enabled: bool = False
+    endpoint_url: str = ""
+    region_name: str = "us-east-1"
+    bucket: str = ""
+    prefix: str = "leagent"
+    access_key_id: str = ""
+    secret_access_key: str = ""
+    session_token: str = ""
+    connect_timeout_seconds: float = Field(default=5.0, ge=0.1, le=60.0)
+    presign_ttl_seconds: int = Field(default=900, ge=60, le=86_400)
+
+    @field_validator("prefix")
+    @classmethod
+    def normalize_prefix(cls, value: str) -> str:
+        parts = [part for part in value.replace("\\", "/").split("/") if part and part != "."]
+        if any(part == ".." for part in parts):
+            raise ValueError("Object storage prefix must not contain '..'")
+        return "/".join(parts)
+
+    @model_validator(mode="after")
+    def validate_object_storage_target(self) -> ObjectStorageSettings:
+        if not self.enabled:
+            return self
+        if not self.bucket.strip():
+            raise ValueError("Object storage bucket is required when enabled")
+        if any(char in self.bucket for char in "/\\"):
+            raise ValueError("Object storage bucket must not contain a path")
+        if self.endpoint_url:
+            parsed = urlparse(self.endpoint_url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError("Object storage endpoint_url must be an absolute HTTP(S) URL")
+        return self
+
+
+class KnowledgeSemanticSettings(BaseSettings):
+    """Explicit, local-only semantic projection settings.
+
+    The values are deliberately separate from the legacy Milvus/LLM route:
+    selecting this backend never turns a chat provider into an embedding
+    provider.  Both nested and flat environment spellings are accepted so
+    desktop launchers can manage these values without rewriting ``config.yaml``.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="LEAGENT_KNOWLEDGE_SEMANTIC_",
+        populate_by_name=True,
+    )
+
+    enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "LEAGENT_KNOWLEDGE__SEMANTIC__ENABLED",
+            "LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED",
+        ),
+    )
+    vector_backend: str = Field(
+        default="sqlite-vec",
+        validation_alias=AliasChoices(
+            "LEAGENT_KNOWLEDGE__SEMANTIC__VECTOR_BACKEND",
+            "LEAGENT_KNOWLEDGE_SEMANTIC_VECTOR_BACKEND",
+        ),
+    )
+    local_model_id: str = Field(
+        default="",
+        max_length=128,
+        validation_alias=AliasChoices(
+            "LEAGENT_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID",
+            "LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID",
+        ),
+    )
+    auto_reindex: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "LEAGENT_KNOWLEDGE__SEMANTIC__AUTO_REINDEX",
+            "LEAGENT_KNOWLEDGE_SEMANTIC_AUTO_REINDEX",
+        ),
+    )
+
+    @field_validator("vector_backend")
+    @classmethod
+    def normalize_vector_backend(cls, value: str) -> str:
+        return value.strip().lower().replace("_", "-")
+
+    @property
+    def environment_managed(self) -> bool:
+        """True when an environment variable overrides editable YAML config."""
+        import os
+
+        return any(
+            name in os.environ
+            for name in (
+                "LEAGENT_KNOWLEDGE__SEMANTIC__ENABLED",
+                "LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED",
+                "LEAGENT_KNOWLEDGE__SEMANTIC__VECTOR_BACKEND",
+                "LEAGENT_KNOWLEDGE_SEMANTIC_VECTOR_BACKEND",
+                "LEAGENT_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID",
+                "LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID",
+                "LEAGENT_KNOWLEDGE__SEMANTIC__AUTO_REINDEX",
+                "LEAGENT_KNOWLEDGE_SEMANTIC_AUTO_REINDEX",
+            )
+        )
+
+
 class KnowledgeRetrievalSettings(BaseSettings):
     """Quality-oriented RAG backends and policy knobs.
 
@@ -190,7 +333,12 @@ class KnowledgeRetrievalSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="LEAGENT_KNOWLEDGE_")
 
-    index_version: str = "rag-v1"
+    index_version: str = Field(
+        default="rag-v1",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+    )
     opensearch_url: str = ""
     opensearch_index: str = "knowledge_chunks"
     opensearch_api_key: str = ""
@@ -200,6 +348,14 @@ class KnowledgeRetrievalSettings(BaseSettings):
     milvus_port: int = Field(default=19530, ge=1, le=65535)
     milvus_uri: str = ""
     milvus_token: str = ""
+    # Semantic retrieval is opt-in even when a Milvus endpoint is configured.
+    # Keeping the provider/model next to the knowledge plane avoids accidentally
+    # routing an embedding request through the chat model configuration.
+    embedding_enabled: bool = False
+    embedding_provider: str = ""
+    embedding_model: str = ""
+    embedding_dimension: int = Field(default=1024, ge=8, le=16384)
+    semantic: KnowledgeSemanticSettings = Field(default_factory=KnowledgeSemanticSettings)
     rerank_endpoint: str = ""
     rerank_api_key: str = ""
     rerank_timeout_seconds: float = Field(default=5.0, ge=0.1, le=60.0)

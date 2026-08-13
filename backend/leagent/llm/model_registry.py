@@ -27,7 +27,9 @@ class ModelRegistry:
         except ValueError:
             self._default_task = ModelTask.CHAT
 
-        for entry in config.get("providers", []):
+        raw_providers = config.get("providers")
+        providers = raw_providers if isinstance(raw_providers, list) else []
+        for entry in providers:
             if not isinstance(entry, dict):
                 continue
             if entry.get("enabled", True) is False:
@@ -43,11 +45,14 @@ class ModelRegistry:
                     continue
                 self._specs[(provider_name, spec.name)] = spec
 
-        routing = config.get("routing") if isinstance(config.get("routing"), dict) else {}
-        tasks = routing.get("tasks") if isinstance(routing.get("tasks"), dict) else {}
+        raw_routing = config.get("routing")
+        routing = raw_routing if isinstance(raw_routing, dict) else {}
+        raw_tasks = routing.get("tasks")
+        tasks = raw_tasks if isinstance(raw_tasks, dict) else {}
         self._task_bindings = {str(k): v for k, v in tasks.items() if isinstance(v, dict)}
 
-        fallbacks = routing.get("fallbacks") if isinstance(routing.get("fallbacks"), dict) else {}
+        raw_fallbacks = routing.get("fallbacks")
+        fallbacks = raw_fallbacks if isinstance(raw_fallbacks, dict) else {}
         self._fallbacks = {}
         for task_name, chain in fallbacks.items():
             if not isinstance(chain, list):
@@ -62,7 +67,8 @@ class ModelRegistry:
             if parsed:
                 self._fallbacks[str(task_name)] = parsed
 
-        failover = routing.get("failover") if isinstance(routing.get("failover"), dict) else {}
+        raw_failover = routing.get("failover")
+        failover = raw_failover if isinstance(raw_failover, dict) else {}
         self._failover_enabled = bool(failover.get("enabled", False))
         self._failover_max_retries = int(failover.get("max_retries") or 2)
 

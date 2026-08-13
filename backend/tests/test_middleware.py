@@ -29,6 +29,7 @@ def _make_app() -> FastAPI:
 class TestRequestIDMiddleware:
     def _app(self) -> TestClient:
         from leagent.api.middleware import RequestIDMiddleware
+
         app = _make_app()
         app.add_middleware(RequestIDMiddleware)
         return TestClient(app)
@@ -69,6 +70,7 @@ class TestRequestIDMiddleware:
 class TestAccessLogMiddleware:
     def _app(self) -> TestClient:
         from leagent.api.middleware import AccessLogMiddleware
+
         app = _make_app()
         app.add_middleware(AccessLogMiddleware)
         return TestClient(app)
@@ -86,6 +88,7 @@ class TestAccessLogMiddleware:
 
     def test_custom_exclude_paths(self) -> None:
         from leagent.api.middleware import AccessLogMiddleware
+
         app = _make_app()
         app.add_middleware(AccessLogMiddleware, exclude_paths={"/hello"})
         client = TestClient(app)
@@ -101,6 +104,7 @@ class TestAccessLogMiddleware:
 class TestContentSizeLimitMiddleware:
     def _app(self, max_size: int = 1024) -> TestClient:
         from leagent.api.middleware import ContentSizeLimitMiddleware
+
         app = _make_app()
 
         @app.post("/upload")
@@ -133,3 +137,39 @@ class TestContentSizeLimitMiddleware:
         client = self._app(max_size=1024)
         resp = client.get("/hello")
         assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_headerless_stream_over_limit_is_rejected_before_handler(self) -> None:
+        """Chunked bodies cannot reach application code after crossing the cap."""
+        from leagent.api.middleware import ContentSizeLimitMiddleware
+
+        app_calls = 0
+        sent: list[dict] = []
+        messages = iter(
+            [
+                {"type": "http.request", "body": b"abc", "more_body": True},
+                {"type": "http.request", "body": b"def", "more_body": False},
+            ]
+        )
+
+        async def app(scope, receive, send):  # noqa: ANN001
+            nonlocal app_calls
+            app_calls += 1
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"handler", "more_body": False})
+
+        async def receive() -> dict:
+            return next(messages)
+
+        async def send(message: dict) -> None:
+            sent.append(message)
+
+        middleware = ContentSizeLimitMiddleware(app, max_content_size=5, max_streaming_size=5)
+        await middleware(
+            {"type": "http", "method": "POST", "path": "/upload", "headers": []},
+            receive,
+            send,
+        )
+
+        assert app_calls == 0
+        assert sent[0]["status"] == 413

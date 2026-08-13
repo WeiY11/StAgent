@@ -12,8 +12,8 @@ import asyncio
 import os
 import shutil
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
@@ -21,11 +21,17 @@ import yaml
 
 from leagent.config.constants import PROVIDERS_PATH
 from leagent.llm.error_policy import classify_llm_error
+from leagent.llm.model_catalog import get_provider_presets_dict as _get_presets_dict
 from leagent.llm.registry import HealthCheckResult, ProviderRegistry
 from leagent.llm.transport import get_default_transport
 from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from leagent.llm.base import LLMProvider
+    from leagent.llm.generation.providers.dashscope import DashScopeWanxProvider
+    from leagent.llm.generation.providers.openai import OpenAIImageGenProvider
     from leagent.llm.model_registry import ModelRegistry
 
 logger = get_logger(__name__)
@@ -51,19 +57,24 @@ def enabled_model_names(models: list[dict[str, Any]]) -> list[str]:
     return out
 
 
+def _dict_entry(config: dict[str, Any], key: str) -> dict[str, Any]:
+    value = config.get(key)
+    return value if isinstance(value, dict) else {}
+
+
 def _chat_binding(config: dict[str, Any]) -> tuple[str, str]:
     """Return the configured chat task provider/model from routing.tasks."""
-    routing = config.get("routing") if isinstance(config.get("routing"), dict) else {}
-    tasks = routing.get("tasks") if isinstance(routing.get("tasks"), dict) else {}
-    chat = tasks.get("chat") if isinstance(tasks.get("chat"), dict) else {}
+    routing = _dict_entry(config, "routing")
+    tasks = _dict_entry(routing, "tasks")
+    chat = _dict_entry(tasks, "chat")
     provider = str(chat.get("provider") or "").strip()
     model = str(chat.get("model") or "").strip()
     return provider, model
 
 
 def _set_chat_binding(config: dict[str, Any], provider: str, model: str) -> None:
-    routing = config.get("routing") if isinstance(config.get("routing"), dict) else {}
-    tasks = routing.get("tasks") if isinstance(routing.get("tasks"), dict) else {}
+    routing = _dict_entry(config, "routing")
+    tasks = _dict_entry(routing, "tasks")
     tasks["chat"] = {"provider": provider, "model": model}
     routing["tasks"] = tasks
     config["routing"] = routing
@@ -90,13 +101,6 @@ def validate_models_list(models: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Provider type presets — imported from the centralized model catalog
 # ---------------------------------------------------------------------------
-
-from leagent.llm.model_catalog import (
-    PROVIDER_PRESETS as _CATALOG_PRESETS,
-)
-from leagent.llm.model_catalog import (
-    get_provider_presets_dict as _get_presets_dict,
-)
 
 # Backward-compatible plain-dict form used throughout the codebase.
 PROVIDER_PRESETS: dict[str, dict[str, Any]] = _get_presets_dict()
@@ -286,7 +290,7 @@ class ProviderConfigService:
                 except Exception:
                     logger.warning("Failed to register provider %s from YAML", pc.name, exc_info=True)
 
-    def _create_llm_provider(self, pc: ProviderConfig):
+    def _create_llm_provider(self, pc: ProviderConfig) -> LLMProvider:
         """Instantiate the correct LLMProvider for a config.
 
         Provider *construction kwargs* are still computed per type (defaults
@@ -366,7 +370,11 @@ class ProviderConfigService:
 
         return create_provider(pc.type, **kwargs)
 
-    def _create_image_gen_provider(self, pc: ProviderConfig, model_name: str):
+    def _create_image_gen_provider(
+        self,
+        pc: ProviderConfig,
+        model_name: str,
+    ) -> OpenAIImageGenProvider | DashScopeWanxProvider:
         """Instantiate an image generation provider for *pc*."""
         from leagent.llm.generation.providers.dashscope import DashScopeWanxProvider
         from leagent.llm.generation.providers.openai import OpenAIImageGenProvider
@@ -434,7 +442,7 @@ class ProviderConfigService:
         if not isinstance(tasks, dict):
             raise ProviderConfigValidationError("'tasks' must be an object")
         config = self._load_yaml()
-        routing = config.get("routing") if isinstance(config.get("routing"), dict) else {}
+        routing = _dict_entry(config, "routing")
         routing["tasks"] = tasks
         config["routing"] = routing
         self._save_yaml(config)
@@ -814,11 +822,9 @@ class ProviderConfigService:
                     info.last_health_check = time.time()
                     if classification.counts_against_provider:
                         info.circuit_breaker.record_failure(detail)
-                    installed = []
-                    try:
+                    installed: list[str] = []
+                    with suppress(Exception):
                         installed = await info.provider.get_installed_model_names()
-                    except Exception:
-                        pass
                     if installed:
                         detail = (
                             f"{detail}. Locally installed: {', '.join(sorted(installed)[:8])}"

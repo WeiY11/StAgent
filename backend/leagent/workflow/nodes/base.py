@@ -22,14 +22,15 @@ Contract hooks (override per node as needed):
 from __future__ import annotations
 
 import abc
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from leagent.workflow.io import Hidden, HiddenHolder, NodeOutput, Schema
 from leagent.workflow.io.contract import (
-    NOT_CACHEABLE,
     default_check_lazy_status,
     default_fingerprint_inputs,
 )
+
+if TYPE_CHECKING:
+    from leagent.workflow.io import HiddenHolder, NodeOutput, Schema
 
 
 class _WorkflowNodeMeta(abc.ABCMeta):
@@ -42,6 +43,8 @@ class _WorkflowNodeMeta(abc.ABCMeta):
 
 class WorkflowNode(abc.ABC, metaclass=_WorkflowNodeMeta):
     """Abstract base class for all workflow nodes."""
+
+    _schema_cache: ClassVar[Schema | None] = None
 
     #: Human-readable identifier registered in the node registry.
     NODE_ID: ClassVar[str] = ""
@@ -73,7 +76,7 @@ class WorkflowNode(abc.ABC, metaclass=_WorkflowNodeMeta):
 
     @classmethod
     def INPUT_TYPES(cls) -> dict[str, Any]:  # noqa: N802 - ComfyUI convention
-        return cls.get_schema().get_info_dict()["input"]
+        return cast("dict[str, Any]", cls.get_schema().get_info_dict()["input"])
 
     @classmethod
     def RETURN_TYPES(cls) -> tuple[str, ...]:  # noqa: N802

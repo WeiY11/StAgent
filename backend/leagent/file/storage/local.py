@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from leagent.file.primitives import is_path_inside
+
 logger = __import__("logging").getLogger(__name__)
 
 _executor = ThreadPoolExecutor(max_workers=4)
@@ -29,12 +31,26 @@ class LocalStorageBackend:
     def root(self) -> Path:
         return self._root
 
+    def key_from_storage_path(self, storage_path: str) -> str | None:
+        """Return the logical key for one persisted local storage path.
+
+        ``File.storage_path`` predates :class:`FileRef` and stores an absolute
+        path.  Reconstructing that path as a backend key after a restart would
+        otherwise cause ``_resolve`` to prepend the storage root twice.
+        """
+        try:
+            target = Path(storage_path).expanduser().resolve(strict=False)
+            root = self._root.resolve()
+            return target.relative_to(root).as_posix()
+        except (OSError, ValueError):
+            return None
+
     def _resolve(self, key: str) -> Path:
         safe = Path(key)
         if safe.is_absolute():
             safe = Path(*safe.parts[1:]) if len(safe.parts) > 1 else Path(safe.name)
         resolved = (self._root / safe).resolve()
-        if not str(resolved).startswith(str(self._root.resolve())):
+        if not is_path_inside(resolved, self._root.resolve()):
             raise PermissionError(f"Path escapes storage root: {key}")
         return resolved
 

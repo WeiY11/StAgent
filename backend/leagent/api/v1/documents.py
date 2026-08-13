@@ -397,17 +397,28 @@ async def promote_to_knowledge(
             if src.library_scope == LibraryScope.KNOWLEDGE:
                 skipped.append(SkippedPromoteFile(id=raw_id, reason="already_in_knowledge"))
                 continue
-            if not src.storage_path or not os.path.isfile(src.storage_path):
-                skipped.append(SkippedPromoteFile(id=raw_id, reason="missing_on_disk"))
-                continue
             if src.size > MAX_FILE_SIZE:
                 skipped.append(SkippedPromoteFile(id=raw_id, reason="too_large"))
                 continue
 
-            with open(src.storage_path, "rb") as rf:
-                content = rf.read()
+            from leagent.api.v1.files import (
+                _load_owned_folder_for_file_write,
+                _read_managed_file_bytes,
+                _store_blob,
+            )
 
-            from leagent.api.v1.files import _load_owned_folder_for_file_write, _store_blob
+            if str(src.storage_path or "").startswith("s3://"):
+                try:
+                    content, _content_type = await _read_managed_file_bytes(src, db)
+                except (FileNotFoundError, RuntimeError):
+                    skipped.append(SkippedPromoteFile(id=raw_id, reason="missing_on_storage"))
+                    continue
+            elif not src.storage_path or not os.path.isfile(src.storage_path):
+                skipped.append(SkippedPromoteFile(id=raw_id, reason="missing_on_disk"))
+                continue
+            else:
+                with open(src.storage_path, "rb") as rf:
+                    content = rf.read()
 
             folder = None
             folder_id = None
@@ -501,7 +512,7 @@ async def list_documents(
     file_type: FileType | None = Query(default=None),
     status: FileStatus | None = Query(default=None),
     folder_id: UUID | None = Query(default=None),
-    space_id: UUID | None = Query(default=None),
+    space_id: UUID | None = None,
     unfiled: bool = Query(
         default=False,
         description="When true and folder_id is omitted, return only documents with folder_id IS NULL.",
@@ -558,7 +569,7 @@ async def search_documents(
     query: str = Query(..., min_length=1, max_length=1000),
     file_types: str | None = Query(default=None, description="Comma-separated file types"),
     folder_id: UUID | None = Query(default=None),
-    space_id: UUID | None = Query(default=None),
+    space_id: UUID | None = None,
     limit: int = Query(default=10, ge=1, le=100),
 ) -> DocumentSearchResponse:
     """BM25/lexical search across knowledge document chunks."""
@@ -677,7 +688,20 @@ async def reindex_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Knowledge document not found",
             )
-        if not file.storage_path or not os.path.isfile(file.storage_path):
+        if not file.storage_path:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Document source file is unavailable",
+            )
+        if str(file.storage_path).startswith("s3://"):
+            from leagent.api.v1.files import _managed_file_exists
+
+            if not await _managed_file_exists(file, db):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Document source file is unavailable",
+                )
+        elif not os.path.isfile(file.storage_path):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Document source file is unavailable",

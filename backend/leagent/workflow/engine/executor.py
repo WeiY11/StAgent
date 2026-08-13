@@ -128,9 +128,7 @@ class WorkflowExecutor:
     # Cache scoping
     # ------------------------------------------------------------------
 
-    def _effective_scope(
-        self, doc: WorkflowDocument, extra_data: dict[str, Any] | None
-    ) -> WorkflowCacheScope:
+    def _effective_scope(self, doc: WorkflowDocument, extra_data: dict[str, Any] | None) -> WorkflowCacheScope:
         """Derive the per-run cache scope from the configured base scope.
 
         The authenticated owner (``user_id``) and the concrete workflow id
@@ -212,14 +210,10 @@ class WorkflowExecutor:
         # state so per-node helpers (tool_context builder, audit trail) can
         # read them without having to thread HiddenHolder everywhere.
         if extra_data:
-            state.metadata.update(
-                {k: v for k, v in extra_data.items() if v is not None}
-            )
+            state.metadata.update({k: v for k, v in extra_data.items() if v is not None})
             state.metadata["prompt_id"] = prompt_id
         if doc.metadata:
-            state.metadata.update(
-                {k: v for k, v in doc.metadata.items() if v is not None}
-            )
+            state.metadata.update({k: v for k, v in doc.metadata.items() if v is not None})
         state_id = str(state.id)
         self._states[state_id] = state
         # Per-run abort signal: ``cancel`` sets it so in-flight long-running
@@ -233,8 +227,11 @@ class WorkflowExecutor:
         for h in self._progress_handlers:
             progress.add_handler(h)
 
-        progress.emit(ProgressEvent(type="execution_start", prompt_id=prompt_id,
-                                     data={"workflow_id": doc.id, "outputs": output_nodes}))
+        progress.emit(
+            ProgressEvent(
+                type="execution_start", prompt_id=prompt_id, data={"workflow_id": doc.id, "outputs": output_nodes}
+            )
+        )
 
         prompt = DynamicPrompt(doc.nodes)
         topo = TopologicalSort(prompt)
@@ -248,9 +245,7 @@ class WorkflowExecutor:
 
         scope_digest = self._effective_scope(doc, extra_data).digest()
         self._scope_digests[state_id] = scope_digest
-        cache_keys = CacheKeySetInputSignature(
-            prompt, registry=self.node_registry, scope_digest=scope_digest
-        )
+        cache_keys = CacheKeySetInputSignature(prompt, registry=self.node_registry, scope_digest=scope_digest)
         await self.cache_provider.on_prompt_start(prompt_id)
 
         runner = NodeRunner(
@@ -284,9 +279,9 @@ class WorkflowExecutor:
         start_ts = time.monotonic()
         errors_list: list[str] = []
         try:
-            await self._run_loop(exec_list, runner, doc, hidden, state,
-                                  upstream_values, progress, prompt_id, errors_list,
-                                  cache_keys)
+            await self._run_loop(
+                exec_list, runner, doc, hidden, state, upstream_values, progress, prompt_id, errors_list, cache_keys
+            )
         finally:
             await self.cache_provider.on_prompt_end(prompt_id)
             self._active_lists.pop(state_id, None)
@@ -300,20 +295,22 @@ class WorkflowExecutor:
             pass  # a timed-out run keeps its TIMEOUT status (errors surfaced too)
         elif errors_list:
             state.status = WorkflowStatus.FAILED
-        elif state.status not in (WorkflowStatus.WAITING_HUMAN, WorkflowStatus.PAUSED,
-                                  WorkflowStatus.CANCELLED):
+        elif state.status not in (WorkflowStatus.WAITING_HUMAN, WorkflowStatus.PAUSED, WorkflowStatus.CANCELLED):
             state.status = WorkflowStatus.COMPLETED
 
         self._emit_run_metrics(doc, state, duration_ms)
 
         # Resolve declared outputs from document.outputs
         resolved_outputs = self._resolve_outputs(doc, state)
-        progress.emit(ProgressEvent(
-            type="execution_success" if state.status == WorkflowStatus.COMPLETED else f"execution_{state.status.value}",
-            prompt_id=prompt_id,
-            data={"duration_ms": duration_ms, "outputs": resolved_outputs,
-                  "errors": errors_list},
-        ))
+        progress.emit(
+            ProgressEvent(
+                type="execution_success"
+                if state.status == WorkflowStatus.COMPLETED
+                else f"execution_{state.status.value}",
+                prompt_id=prompt_id,
+                data={"duration_ms": duration_ms, "outputs": resolved_outputs, "errors": errors_list},
+            )
+        )
 
         return WorkflowResult(
             workflow_id=doc.id or prompt_id,
@@ -356,10 +353,13 @@ class WorkflowExecutor:
                 state.error_stack.append("workflow timed out")
                 state.status = WorkflowStatus.TIMEOUT
                 exec_list.cancel()
-                progress.emit(ProgressEvent(
-                    type="execution_timeout", prompt_id=prompt_id,
-                    data={"timeout_sec": self._timeout_sec(doc)},
-                ))
+                progress.emit(
+                    ProgressEvent(
+                        type="execution_timeout",
+                        prompt_id=prompt_id,
+                        data={"timeout_sec": self._timeout_sec(doc)},
+                    )
+                )
                 return
 
             # Stage every currently-ready node and run them concurrently. The
@@ -372,13 +372,21 @@ class WorkflowExecutor:
 
             sem = asyncio.Semaphore(max_par)
 
-            async def _guarded(nid: str) -> tuple[str, dict[str, Any] | None, NodeRunResult | None, Exception | None]:
-                async with sem:
+            async def _guarded(
+                nid: str,
+                semaphore: asyncio.Semaphore,
+            ) -> tuple[str, dict[str, Any] | None, NodeRunResult | None, Exception | None]:
+                async with semaphore:
                     return await self._execute_node(
-                        nid, exec_list, runner, hidden, upstream_values, progress,
+                        nid,
+                        exec_list,
+                        runner,
+                        hidden,
+                        upstream_values,
+                        progress,
                     )
 
-            gather_coro = asyncio.gather(*[_guarded(nid) for nid in batch])
+            gather_coro = asyncio.gather(*[_guarded(nid, sem) for nid in batch])
             if deadline is not None:
                 remaining = deadline - time.monotonic()
                 try:
@@ -388,10 +396,13 @@ class WorkflowExecutor:
                     state.error_stack.append("workflow timed out")
                     state.status = WorkflowStatus.TIMEOUT
                     exec_list.cancel()
-                    progress.emit(ProgressEvent(
-                        type="execution_timeout", prompt_id=prompt_id,
-                        data={"timeout_sec": self._timeout_sec(doc)},
-                    ))
+                    progress.emit(
+                        ProgressEvent(
+                            type="execution_timeout",
+                            prompt_id=prompt_id,
+                            data={"timeout_sec": self._timeout_sec(doc)},
+                        )
+                    )
                     return
             else:
                 results = await gather_coro
@@ -400,9 +411,16 @@ class WorkflowExecutor:
             for node_id, node_def, result, exc in results:
                 state.current_node = node_id
                 outcome = await self._apply_node_result(
-                    node_id, node_def, result, exc,
-                    exec_list=exec_list, state=state, upstream_values=upstream_values,
-                    progress=progress, prompt_id=prompt_id, errors_list=errors_list,
+                    node_id,
+                    node_def,
+                    result,
+                    exc,
+                    exec_list=exec_list,
+                    state=state,
+                    upstream_values=upstream_values,
+                    progress=progress,
+                    prompt_id=prompt_id,
+                    errors_list=errors_list,
                     cache_keys=cache_keys,
                 )
                 if outcome == "paused":
@@ -434,7 +452,10 @@ class WorkflowExecutor:
             progress.set_status(node_id, NodeStatus.SKIPPED, metadata={"mode": mode})
             result = NodeRunResult(
                 _mode_passthrough_output(
-                    self.node_registry, node_def, upstream_values, mode,
+                    self.node_registry,
+                    node_def,
+                    upstream_values,
+                    mode,
                 ),
                 duration_ms=0,
             )
@@ -473,9 +494,13 @@ class WorkflowExecutor:
             errors_list.append(f"{node_id}: {exc}")
             state.error_stack.append(f"{node_id}: {exc}")
             exec_list.fail_node_execution(node_id)
-            state.record_execution(NodeExecutionResult(
-                node_id=node_id, status=WorkflowStatus.FAILED, error=str(exc),
-            ))
+            state.record_execution(
+                NodeExecutionResult(
+                    node_id=node_id,
+                    status=WorkflowStatus.FAILED,
+                    error=str(exc),
+                )
+            )
             if control.get("error_handler"):
                 exec_list.select_branch(node_id, control["error_handler"])
                 exec_list.add_node(control["error_handler"])
@@ -491,10 +516,14 @@ class WorkflowExecutor:
             errors_list.append(f"{node_id}: {output.error}")
             state.error_stack.append(f"{node_id}: {output.error}")
             exec_list.fail_node_execution(node_id)
-            state.record_execution(NodeExecutionResult(
-                node_id=node_id, status=WorkflowStatus.FAILED, error=output.error,
-                duration_ms=result.duration_ms if result else 0,
-            ))
+            state.record_execution(
+                NodeExecutionResult(
+                    node_id=node_id,
+                    status=WorkflowStatus.FAILED,
+                    error=output.error,
+                    duration_ms=result.duration_ms if result else 0,
+                )
+            )
             if control.get("error_handler"):
                 exec_list.select_branch(node_id, control["error_handler"])
                 exec_list.add_node(control["error_handler"])
@@ -502,24 +531,33 @@ class WorkflowExecutor:
 
         if output.block_execution:
             exec_list.add_external_block(node_id, output.block_execution)
-            state.status = WorkflowStatus.WAITING_HUMAN if output.block_execution == "awaiting_review" else WorkflowStatus.PAUSED
-            state.record_execution(NodeExecutionResult(
-                node_id=node_id, status=state.status, output=output.values,
-                duration_ms=result.duration_ms if result else 0, metadata=output.metadata,
-            ))
+            state.status = (
+                WorkflowStatus.WAITING_HUMAN if output.block_execution == "awaiting_review" else WorkflowStatus.PAUSED
+            )
+            state.record_execution(
+                NodeExecutionResult(
+                    node_id=node_id,
+                    status=state.status,
+                    output=output.values,
+                    duration_ms=result.duration_ms if result else 0,
+                    metadata=output.metadata,
+                )
+            )
             # Tell clients which node blocked and why (e.g. the agent's
             # question + checkpoint id) so the UI can offer a resume box.
             progress.set_status(node_id, NodeStatus.BLOCKED)
-            progress.emit(ProgressEvent(
-                type="execution_blocked",
-                prompt_id=prompt_id,
-                node_id=node_id,
-                data={"tag": output.block_execution,
-                      "ui": _sanitize_ui(output.ui),
-                      "metadata": output.metadata},
-            ))
+            progress.emit(
+                ProgressEvent(
+                    type="execution_blocked",
+                    prompt_id=prompt_id,
+                    node_id=node_id,
+                    data={"tag": output.block_execution, "ui": _sanitize_ui(output.ui), "metadata": output.metadata},
+                )
+            )
             await self._persist_run_snapshot(
-                state, prompt_id=prompt_id, exec_list=exec_list,
+                state,
+                prompt_id=prompt_id,
+                exec_list=exec_list,
             )
             try:
                 from leagent.runtime.run_store import get_run_store
@@ -542,8 +580,9 @@ class WorkflowExecutor:
             return "paused"
 
         if output.expand:
-            frame = ExpandFrame(parent_id=node_id, call_idx=_next_call_idx(exec_list, node_id),
-                                 nodes=output.expand.get("nodes", {}))
+            frame = ExpandFrame(
+                parent_id=node_id, call_idx=_next_call_idx(exec_list, node_id), nodes=output.expand.get("nodes", {})
+            )
             added = exec_list.prompt.add_expanded(frame)
             for nid in added:
                 cache_keys.invalidate(nid)
@@ -563,23 +602,30 @@ class WorkflowExecutor:
                 exec_list.reopen_or_add(next_id, allow_reopen=allow_reopen)
 
         exec_list.complete_node_execution(node_id)
-        state.record_execution(NodeExecutionResult(
-            node_id=node_id,
-            status=WorkflowStatus.COMPLETED,
-            output=_first_value(output),
-            duration_ms=result.duration_ms if result else 0,
-            next_node=output.next_node or control.get("next"),
-            metadata=output.metadata,
-        ))
+        state.record_execution(
+            NodeExecutionResult(
+                node_id=node_id,
+                status=WorkflowStatus.COMPLETED,
+                output=_first_value(output),
+                duration_ms=result.duration_ms if result else 0,
+                next_node=output.next_node or control.get("next"),
+                metadata=output.metadata,
+            )
+        )
 
-        progress.emit(ProgressEvent(
-            type="executed",
-            prompt_id=prompt_id,
-            node_id=node_id,
-            data={"values": list(output.as_tuple()),
-                  "ui": _sanitize_ui(output.ui),
-                  "metadata": output.metadata, "cached": bool(result and result.cached)},
-        ))
+        progress.emit(
+            ProgressEvent(
+                type="executed",
+                prompt_id=prompt_id,
+                node_id=node_id,
+                data={
+                    "values": list(output.as_tuple()),
+                    "ui": _sanitize_ui(output.ui),
+                    "metadata": output.metadata,
+                    "cached": bool(result and result.cached),
+                },
+            )
+        )
         return "ok"
 
     # ------------------------------------------------------------------
@@ -600,7 +646,7 @@ class WorkflowExecutor:
         node via a fresh :class:`NodeRunner`, and writes produced values back
         onto the forked state (so ``merge_child_states`` can collect them).
         """
-        node_def = (hidden.dynprompt.get(node_id) if hidden.dynprompt else None)
+        node_def = hidden.dynprompt.get(node_id) if hidden.dynprompt else None
         if node_def is None:
             node_def = (hidden.prompt or {}).get(node_id)
         if node_def is None:
@@ -636,9 +682,7 @@ class WorkflowExecutor:
             state.outputs[node_id] = _first_value(output)
         return output
 
-    def _emit_run_metrics(
-        self, doc: WorkflowDocument, state: WorkflowState, duration_ms: int
-    ) -> None:
+    def _emit_run_metrics(self, doc: WorkflowDocument, state: WorkflowState, duration_ms: int) -> None:
         """Emit Prometheus run/node/quality metrics (best-effort, never fatal)."""
         try:
             from leagent.utils.metrics import get_metrics
@@ -648,7 +692,8 @@ class WorkflowExecutor:
             status = state.status.value
 
             metrics.workflow_execution_total.labels(
-                workflow_name=workflow_name, status=status,
+                workflow_name=workflow_name,
+                status=status,
             ).inc()
             metrics.workflow_execution_duration_seconds.labels(
                 workflow_name=workflow_name,
@@ -751,9 +796,9 @@ class WorkflowExecutor:
                 self._states[str(state.id)] = state
                 self._restore_output_cache(snap.output_cache)
         if state is None:
-            state = WorkflowState(workflow_id=doc.id or str(state_id),
-                                  status=WorkflowStatus.RUNNING,
-                                  inputs={}, variables={})
+            state = WorkflowState(
+                workflow_id=doc.id or str(state_id), status=WorkflowStatus.RUNNING, inputs={}, variables={}
+            )
             self._states[str(state.id)] = state
         blocked_nodes: set[str] = set()
         exec_list = self._active_lists.get(str(state.id))
@@ -771,13 +816,12 @@ class WorkflowExecutor:
             state.variables[f"__resume__{node_id}"] = resume_data or {}
         # Re-run on the same state so __resume__ answers and stashed agent
         # checkpoints survive; the output cache skips already-computed nodes.
-        effective_prompt_id = (
-            prompt_id
-            or str(state.metadata.get("prompt_id") or "")
-            or str(state.id)
-        )
+        effective_prompt_id = prompt_id or str(state.metadata.get("prompt_id") or "") or str(state.id)
         return await self.execute_async(
-            doc, state.inputs, prompt_id=effective_prompt_id, resume_state=state,
+            doc,
+            state.inputs,
+            prompt_id=effective_prompt_id,
+            resume_state=state,
         )
 
     def register_progress_handler(self, handler: ProgressHandler) -> None:
@@ -878,8 +922,7 @@ def _mode_passthrough_output(
     for key, value in (node_def.get("inputs") or {}).items():
         if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
             up_id, slot = value
-            resolved.append((input_types.get(key, "*"),
-                             upstream_values.get((up_id, int(slot)))))
+            resolved.append((input_types.get(key, "*"), upstream_values.get((up_id, int(slot)))))
 
     values: list[Any] = []
     for out in schema.outputs:
@@ -986,6 +1029,7 @@ class _ContextShim:
         service_manager = None
         try:
             from leagent.services.service_manager import get_service_manager
+
             service_manager = get_service_manager()
         except Exception:  # noqa: BLE001
             service_manager = None

@@ -30,9 +30,12 @@ import signal
 import sys
 import time
 import traceback
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout, suppress
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _STDOUT_LIMIT = 1 << 20  # 1 MB
 _RESULT_STR_LIMIT = 64 * 1024  # 64 KB textual result
@@ -251,7 +254,7 @@ def _allowed_import_roots(
     return frozenset(allowed)
 
 
-def _guarded_import(allowed_roots: frozenset[str]):
+def _guarded_import(allowed_roots: frozenset[str]) -> Callable[..., Any]:
     import builtins
 
     real_import = builtins.__import__
@@ -291,6 +294,8 @@ def _sandbox_builtins(
 
 
 def _positive_int(raw: object) -> int:
+    if not isinstance(raw, (str, bytes, bytearray, int, float)):
+        return 0
     try:
         value = int(raw or 0)
     except (TypeError, ValueError):
@@ -299,6 +304,8 @@ def _positive_int(raw: object) -> int:
 
 
 def _positive_seconds(raw: object) -> int:
+    if not isinstance(raw, (str, bytes, bytearray, int, float)):
+        return 0
     try:
         value = float(raw or 0)
     except (TypeError, ValueError):
@@ -324,21 +331,28 @@ def _apply_resource_limits(payload: dict[str, Any]) -> dict[str, Any]:
     metadata["supported"] = True
     applied: dict[str, int] = {}
     warnings: list[str] = []
+    resource_attrs = resource.__dict__
+    getrlimit = resource_attrs.get("getrlimit")
+    setrlimit = resource_attrs.get("setrlimit")
+    rlim_infinity = resource_attrs.get("RLIM_INFINITY")
+    if not callable(getrlimit) or not callable(setrlimit) or rlim_infinity is None:
+        metadata["warnings"].append("resource module lacks limit APIs")
+        return metadata
 
     def _set(label: str, resource_name: str, requested: int) -> None:
-        if requested <= 0 or not hasattr(resource, resource_name):
+        res_id = resource_attrs.get(resource_name)
+        if requested <= 0 or res_id is None:
             return
-        res_id = getattr(resource, resource_name)
         try:
-            current_soft, current_hard = resource.getrlimit(res_id)
+            current_soft, current_hard = getrlimit(res_id)
             target = requested
-            if current_hard != resource.RLIM_INFINITY:
+            if current_hard != rlim_infinity:
                 target = min(target, int(current_hard))
-            if current_soft != resource.RLIM_INFINITY:
+            if current_soft != rlim_infinity:
                 target = min(target, int(current_soft))
             if target <= 0:
                 return
-            resource.setrlimit(res_id, (target, current_hard))
+            setrlimit(res_id, (target, current_hard))
             applied[label] = int(target)
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"{label}: {exc}")
@@ -387,10 +401,8 @@ def _configure_matplotlib_if_needed(source: str, base: Path) -> None:
     def _ensure_cjk() -> None:
         if ensure_cjk is None:
             return
-        try:
+        with suppress(Exception):
             ensure_cjk()
-        except Exception:
-            pass
 
     _orig_plt_savefig = plt.savefig
     _orig_fig_savefig = Figure.savefig
@@ -410,9 +422,9 @@ def _configure_matplotlib_if_needed(source: str, base: Path) -> None:
         # Goes through wrapped savefig → re-applies CJK after script overrides.
         plt.savefig(target, dpi=150, bbox_inches="tight")
 
-    plt.savefig = _savefig  # type: ignore[assignment]
-    Figure.savefig = _fig_savefig  # type: ignore[assignment]
-    plt.show = _show  # type: ignore[assignment]
+    plt.savefig = _savefig
+    Figure.savefig = _fig_savefig  # type: ignore[method-assign]
+    plt.show = _show
 
 
 _RUNNER_V2_MAGIC = b"LEAGENT_RUNNER_V2\n"
@@ -443,6 +455,8 @@ def _load_runner_payload(raw: bytes) -> dict[str, Any]:
         if nl < 0:
             raise ValueError("missing metadata JSON after LEAGENT_RUNNER_V2")
         meta = json.loads(rest[:nl].decode("utf-8"))
+        if not isinstance(meta, dict):
+            raise ValueError("runner metadata must be a JSON object")
         tail = rest[nl + 1 :]
         nl2 = tail.find(b"\n")
         if nl2 < 0:
@@ -456,7 +470,10 @@ def _load_runner_payload(raw: bytes) -> dict[str, Any]:
         out: dict[str, Any] = dict(meta)
         out["source"] = body.decode("utf-8")
         return out
-    return json.loads(raw.decode("utf-8"))
+    payload = json.loads(raw.decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("runner payload must be a JSON object")
+    return payload
 
 
 def main() -> int:
@@ -512,10 +529,18 @@ def main() -> int:
     }
 
     started = time.monotonic()
-    use_alarm = hasattr(signal, "SIGALRM") and hasattr(signal, "setitimer")
+    signal_attrs = signal.__dict__
+    alarm_signal = signal_attrs.get("SIGALRM")
+    setitimer = signal_attrs.get("setitimer")
+    itimer_real = signal_attrs.get("ITIMER_REAL")
+    use_alarm = (
+        alarm_signal is not None
+        and callable(setitimer)
+        and itimer_real is not None
+    )
     if use_alarm:
-        signal.signal(signal.SIGALRM, _on_alarm)
-        signal.setitimer(signal.ITIMER_REAL, timeout_sec)
+        signal.signal(cast("Any", alarm_signal), _on_alarm)
+        cast("Any", setitimer)(itimer_real, timeout_sec)
 
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
@@ -549,7 +574,7 @@ def main() -> int:
         stderr_buf.write("\n" + traceback.format_exc())
     finally:
         if use_alarm:
-            signal.setitimer(signal.ITIMER_REAL, 0)
+            cast("Any", setitimer)(itimer_real, 0)
 
     duration_ms = int((time.monotonic() - started) * 1000)
     stdout_text, stdout_trunc = _truncate(stdout_buf.getvalue(), _STDOUT_LIMIT)

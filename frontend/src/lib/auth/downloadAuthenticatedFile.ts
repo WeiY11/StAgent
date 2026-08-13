@@ -2,6 +2,29 @@ import { getAccessToken } from '@/api/client';
 
 const API_PREFIX = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
+const SAFE_PREVIEW_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/avif',
+  'image/bmp',
+  'image/gif',
+  'image/heic',
+  'image/jpeg',
+  'image/png',
+  'image/tiff',
+  'image/webp',
+  'image/x-icon',
+]);
+
+/** True only for blob types the browser may safely render as a file preview. */
+export function isSafeFilePreviewMime(mime: string | null): boolean {
+  const normalized = mime?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+  return (
+    SAFE_PREVIEW_MIME_TYPES.has(normalized) ||
+    normalized.startsWith('audio/') ||
+    normalized.startsWith('video/')
+  );
+}
+
 function parseFilenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null;
   const star = /filename\*=UTF-8''([^;\s]+)/i.exec(header);
@@ -64,6 +87,23 @@ export async function openAuthenticatedFilePreview(fileId: string): Promise<void
     throw new Error(`HTTP ${res.status}`);
   }
   const blob = await res.blob();
+  const contentType = res.headers.get('Content-Type');
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  if (
+    !isSafeFilePreviewMime(contentType || blob.type) ||
+    /^attachment\b/i.test(disposition.trim())
+  ) {
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = parseFilenameFromContentDisposition(disposition) || 'download';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+    return;
+  }
   const objectUrl = URL.createObjectURL(blob);
   const opened = window.open(objectUrl, '_blank', 'noopener,noreferrer');
   if (!opened) {

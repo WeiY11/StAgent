@@ -35,7 +35,6 @@ from leagent.agent.base import (
     StepType,
     StreamEvent,
     StreamHandler,
-    ToolCall,
     ToolResult,
 )
 from leagent.agent.query import (
@@ -45,7 +44,12 @@ from leagent.agent.query import (
 )
 from leagent.agent.transitions import TerminalReason
 from leagent.exceptions.base import LeAgentError
-from leagent.file.attachment_context import build_tool_extra_for_attachment_paths
+from leagent.file.attachment_context import (
+    build_tool_extra_for_attachment_paths,
+    is_object_storage_path,
+    materialize_session_attachment_paths,
+    materialized_session_attachment_manager,
+)
 from leagent.sdk.kernel.session_registry import SessionTaskRegistry
 from leagent.services.session.artifacts import (
     ArtifactRegistrar,
@@ -278,45 +282,67 @@ class AgentController:
             from leagent.agent.current import bind_current_agent_controller
 
             with bind_current_agent_controller(self):
-                self._persisted_user_message_id = persisted_user_message_id
-                self._last_appended_user_index = None
-                if self._hooks:
-                    await self._hooks.dispatch_start(context, user_input)
+                async with materialize_session_attachment_paths(
+                    self.session_manager,
+                    session_id,
+                    user_id=user_id,
+                ) as attachment_lease:
+                    # Only current-session object references are mapped to a
+                    # lease-local file. Unrelated local paths (e.g. the
+                    # knowledge-context lease) retain their existing behavior.
+                    materialized_attachments = attachment_lease.materialize_extra_paths(
+                        attachments,
+                    )
+                    # A session object that failed to stage remains an S3 URI
+                    # here only so _run_via_query_engine can reject it from
+                    # tool context. Never advertise that URI as a readable
+                    # attachment in the user message or vision history.
+                    message_attachments = [
+                        path
+                        for path in materialized_attachments
+                        if not is_object_storage_path(path)
+                    ]
+                    self._persisted_user_message_id = persisted_user_message_id
+                    self._last_appended_user_index = None
+                    if self._hooks:
+                        await self._hooks.dispatch_start(context, user_input)
 
-                await context.transition_to(AgentState.THINKING)
+                    await context.transition_to(AgentState.THINKING)
 
-                conversation = await self._load_conversation(session_id)
-                context.conversation = conversation
-                if not skip_append_user:
-                    conversation.append_user_message(
-                        self._format_user_message(
-                            user_input,
-                            attachments,
-                            authorized_roots=authorized_roots,
+                    conversation = await self._load_conversation(session_id)
+                    context.conversation = conversation
+                    if not skip_append_user:
+                        conversation.append_user_message(
+                            self._format_user_message(
+                                user_input,
+                                message_attachments,
+                                authorized_roots=authorized_roots,
+                            )
                         )
-                    )
-                    self._last_appended_user_index = len(conversation.messages) - 1
-                    self._tag_user_message_image_paths(
-                        conversation, attachments,
+                        self._last_appended_user_index = len(conversation.messages) - 1
+                        self._tag_user_message_image_paths(
+                            conversation, message_attachments,
+                        )
+
+                    result = await self._run_via_query_engine(
+                        user_input,
+                        conversation,
+                        context,
+                        handler,
+                        attachments=materialized_attachments,
+                        session_attachments=attachment_lease.session_attachments,
+                        session_attachment_paths=attachment_lease.paths,
+                        project_roots=project_roots,
+                        authorized_roots=authorized_roots,
+                        skip_user_append=skip_append_user,
+                        execution_run_id=execution_run_id,
+                        runtime_profile=runtime_profile,
+                        checkpoint_id=checkpoint_id,
                     )
 
-                result = await self._run_via_query_engine(
-                    user_input,
-                    conversation,
-                    context,
-                    handler,
-                    attachments=attachments,
-                    project_roots=project_roots,
-                    authorized_roots=authorized_roots,
-                    skip_user_append=skip_append_user,
-                    execution_run_id=execution_run_id,
-                    runtime_profile=runtime_profile,
-                    checkpoint_id=checkpoint_id,
-                )
-
-                if self._hooks:
-                    await self._hooks.dispatch_complete(context, result)
-                return result
+                    if self._hooks:
+                        await self._hooks.dispatch_complete(context, result)
+                    return result
 
         except asyncio.CancelledError:
             logger.warning("agent_cancelled", task_id=str(context.task_id))
@@ -793,6 +819,8 @@ class AgentController:
         handler: StreamHandler,
         *,
         attachments: list[str] | None = None,
+        session_attachments: list[Any] | None = None,
+        session_attachment_paths: list[str] | None = None,
         project_roots: list[str] | None = None,
         authorized_roots: list[str] | None = None,
         skip_user_append: bool = False,
@@ -813,31 +841,50 @@ class AgentController:
         the session conversation seed.
         """
         append_extra = getattr(self.config, "extra_system_prompt", "") or ""
+        resume_checkpoint_id = (checkpoint_id or "").strip() or None
+        resume_checkpoint: Any | None = None
+        if resume_checkpoint_id:
+            store = self._runtime.checkpoint_store
+            resume_checkpoint = await store.load(resume_checkpoint_id) if store is not None else None
+            if resume_checkpoint is None:
+                raise ValueError(f"checkpoint {resume_checkpoint_id!r} not found")
+            if str(resume_checkpoint.session_id) != str(context.session_id):
+                raise ValueError(
+                    f"checkpoint {resume_checkpoint_id!r} does not belong to session {context.session_id}"
+                )
 
         # Keep forwarding attachment storage paths so tools can access files,
         # and provide ID/name lookup maps to support deterministic resolution.
-        session_attachment_paths: list[str] = []
-        session_attachments: list[Any] = []
-        if self.session_manager is not None:
+        materialized_session_attachments: list[Any] = []
+        materialized_session_paths: list[str] = []
+        if session_attachments is not None:
+            materialized_session_attachments = list(session_attachments)
+            materialized_session_paths = list(session_attachment_paths or [])
+        elif self.session_manager is not None:
             try:
-                session_attachments = await self.session_manager.list_attachments(
+                materialized_session_attachments = await self.session_manager.list_attachments(
                     context.session_id,
                     user_id=context.user_id,
                 )
-                session_attachment_paths = [
-                    att.storage_path for att in session_attachments if att.storage_path
+                materialized_session_paths = [
+                    att.storage_path
+                    for att in materialized_session_attachments
+                    if att.storage_path
                 ]
             except Exception as exc:  # noqa: BLE001
                 logger.warning("session_attachments_load_failed", error=str(exc))
 
         tool_extra: dict[str, Any] = {}
-        merged_attachments = list(session_attachment_paths)
+        merged_attachments = list(materialized_session_paths)
         if attachments:
             for path in attachments:
                 if path not in merged_attachments:
                     merged_attachments.append(path)
         tool_extra.update(
-            build_tool_extra_for_attachment_paths(session_attachments, merged_attachments),
+            build_tool_extra_for_attachment_paths(
+                materialized_session_attachments,
+                merged_attachments,
+            ),
         )
         normalized_attachments = tool_extra.get("attachments") or []
 
@@ -930,14 +977,10 @@ class AgentController:
         # unified runtime. The controller no longer hand-builds QueryEngine.
         definition = self._per_turn_definition(tools_deny_patterns)
 
-        resume_checkpoint_id = (checkpoint_id or "").strip() or None
         seed_messages: list[dict[str, Any]] | None = None
         if resume_checkpoint_id:
-            store = self._runtime.checkpoint_store
-            cp = await store.load(resume_checkpoint_id) if store is not None else None
-            if cp is None:
-                raise ValueError(f"checkpoint {resume_checkpoint_id!r} not found")
-            seed_messages = list(cp.messages or [])
+            assert resume_checkpoint is not None
+            seed_messages = list(resume_checkpoint.messages or [])
             logger.info(
                 "agent_resume_from_checkpoint",
                 checkpoint_id=resume_checkpoint_id,
@@ -959,12 +1002,34 @@ class AgentController:
             initial_messages=seed_messages,
             append_system_prompt=append_extra,
         )
+        materialized_manager = materialized_session_attachment_manager(
+            self.session_manager,
+            session_id=context.session_id,
+            user_id=context.user_id,
+            attachments=materialized_session_attachments,
+        )
+        if materialized_manager is not None:
+            # ``ContextManager`` builds the session-attachment manifest later
+            # in the turn. Keep that second read on the staged rows rather
+            # than letting it reintroduce the original object-storage URI.
+            engine_config = getattr(engine, "config", None)
+            if engine_config is not None:
+                engine_config.session_manager = materialized_manager
+            engine_context = getattr(engine, "_context", None)
+            if engine_context is not None:
+                engine_context.session_manager = materialized_manager
+
+        # S3 paths that were not session attachments may be owned by another
+        # turn-scoped resolver (for example @knowledge). They must not reach
+        # the filesystem sandbox as fake local paths. Their owner is expected
+        # to have materialized them before this controller entry point.
+        safe_merged_attachments = list(normalized_attachments)
 
         AgentController._update_task_phase(
             context.session_id, context.task_id, "llm",
         )
 
-        formatted_attachments = normalized_attachments if normalized_attachments else attachments
+        formatted_attachments = safe_merged_attachments
         query_input = self._format_user_message(
             user_input,
             formatted_attachments,
@@ -976,7 +1041,7 @@ class AgentController:
             catalog = getattr(self.llm, "model_registry", None)
             query_input = prepare_user_message_with_attachments(
                 query_input,
-                merged_attachments,
+                safe_merged_attachments,
                 provider=self.config.model_provider,
                 model=self.config.model_name,
                 catalog=catalog,

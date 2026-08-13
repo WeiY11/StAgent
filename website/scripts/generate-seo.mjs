@@ -15,7 +15,7 @@ const ORIGIN = (
 ).replace(/\/$/, "");
 
 const REPO = (
-  process.env.VITE_REPO_URL ?? "https://github.com/vixues/LeAgent"
+  process.env.VITE_REPO_URL ?? "https://github.com/WeiY11/StAgent"
 ).replace(/\/$/, "");
 
 const LASTMOD = new Date().toISOString().slice(0, 10);

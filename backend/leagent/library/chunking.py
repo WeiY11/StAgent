@@ -113,7 +113,7 @@ def chunk_text(
     cur_start: int | None = None
     cur_end: int | None = None
     for seg_start, seg_end in segments:
-        if cur_start is None:
+        if cur_start is None or cur_end is None:
             cur_start, cur_end = seg_start, seg_end
             continue
         # Extend the current window if the packed paragraph still fits.
@@ -125,7 +125,7 @@ def chunk_text(
             chunks.append(Chunk.with_hash(seq, cur_start, cur_end, chunk_str))
             seq += 1
         # Start the next window, carrying an overlap tail from the previous one.
-        overlap_start = max(cur_start, (cur_end or seg_start) - overlap)
+        overlap_start = max(cur_start, cur_end - overlap)
         cur_start = min(overlap_start, seg_start)
         cur_end = seg_end
 

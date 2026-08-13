@@ -32,6 +32,8 @@ from typing import TYPE_CHECKING, Any
 import sqlalchemy as sa
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from leagent.db.service import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -107,12 +109,12 @@ class KnowledgeGarbageCollector:
             report.errors.append(msg)
 
         logger.info(
-            "knowledge_gc_complete",
-            chunks=report.deleted_chunks,
-            contents=report.deleted_contents,
-            stuck=report.cleaned_stuck_processing,
-            expired=report.deleted_expired_files,
-            errors=len(report.errors),
+            "knowledge_gc_complete chunks=%s contents=%s stuck=%s expired=%s errors=%s",
+            report.deleted_chunks,
+            report.deleted_contents,
+            report.cleaned_stuck_processing,
+            report.deleted_expired_files,
+            len(report.errors),
         )
         return report
 
@@ -120,35 +122,54 @@ class KnowledgeGarbageCollector:
 
     async def _collect_orphaned_chunks(self) -> int:
         """Delete chunks whose parent file is soft-deleted or missing."""
+        from uuid import UUID
+
+        file_ids: list[UUID] = []
         async with self._db.session() as session:
+            rows = await session.execute(
+                sa.text(
+                    "SELECT DISTINCT dc.file_id FROM document_chunks dc "
+                    "JOIN files f ON f.id = dc.file_id WHERE f.is_deleted = 1"
+                )
+            )
+            for row in rows.fetchall():
+                try:
+                    file_ids.append(UUID(str(row[0])))
+                except (IndexError, TypeError, ValueError):
+                    continue
             # Subquery: file IDs that are soft-deleted.
             result = await session.execute(
-                sa.text(
-                    "DELETE FROM document_chunks "
-                    "WHERE file_id IN ("
-                    "  SELECT id FROM files WHERE is_deleted = 1"
-                    ")"
-                )
+                sa.text("DELETE FROM document_chunks WHERE file_id IN (  SELECT id FROM files WHERE is_deleted = 1)")
             )
             count = result.rowcount or 0
             if count:
-                logger.info("knowledge_gc_orphaned_chunks", count=count)
-            return count
+                logger.info("knowledge_gc_orphaned_chunks count=%s", count)
+        if count and file_ids:
+            await self._delete_vector_scopes(list(dict.fromkeys(file_ids)))
+        return count
+
+    async def _delete_vector_scopes(self, file_ids: list[UUID]) -> None:
+        """Best-effort cleanup of vector replicas after SQL rows are removed."""
+        try:
+            from leagent.knowledge.vector_index import get_knowledge_vector_index
+
+            index = get_knowledge_vector_index()
+            if index is None or not index.available:
+                return
+            for file_id in file_ids:
+                await index.delete_for_file(file_id)
+        except Exception:  # noqa: BLE001 - SQL cleanup remains authoritative
+            logger.debug("knowledge_gc_vector_cleanup_failed", exc_info=True)
 
     async def _collect_orphaned_contents(self) -> int:
         """Delete file_contents whose parent file is soft-deleted or missing."""
         async with self._db.session() as session:
             result = await session.execute(
-                sa.text(
-                    "DELETE FROM file_contents "
-                    "WHERE file_id IN ("
-                    "  SELECT id FROM files WHERE is_deleted = 1"
-                    ")"
-                )
+                sa.text("DELETE FROM file_contents WHERE file_id IN (  SELECT id FROM files WHERE is_deleted = 1)")
             )
             count = result.rowcount or 0
             if count:
-                logger.info("knowledge_gc_orphaned_contents", count=count)
+                logger.info("knowledge_gc_orphaned_contents count=%s", count)
             return count
 
     async def _collect_stuck_processing(self) -> int:
@@ -165,7 +186,7 @@ class KnowledgeGarbageCollector:
             )
             count = result.rowcount or 0
             if count:
-                logger.info("knowledge_gc_stuck_processing", count=count)
+                logger.info("knowledge_gc_stuck_processing count=%s", count)
             return count
 
     async def _collect_expired_files(self) -> int:
@@ -185,7 +206,7 @@ class KnowledgeGarbageCollector:
             )
             count = result.rowcount or 0
             if count:
-                logger.info("knowledge_gc_expired_files", count=count)
+                logger.info("knowledge_gc_expired_files count=%s", count)
             return count
 
 

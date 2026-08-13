@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import re
 from datetime import datetime  # noqa: TC003 - Pydantic resolves response annotations at runtime
 from uuid import UUID  # noqa: TC003 - FastAPI resolves endpoint annotations at runtime
@@ -9,15 +11,18 @@ from uuid import UUID  # noqa: TC003 - FastAPI resolves endpoint annotations at 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import or_
 from sqlalchemy import update as sa_update
 from sqlmodel import select
 
 from leagent.db import DatabaseService, get_database_service
 from leagent.db.models import (
     File,
+    FileStatus,
     KnowledgeAccessScope,
     KnowledgeDocumentGrant,
     KnowledgeIndexState,
+    KnowledgeIndexStatus,
     KnowledgeSpace,
     KnowledgeSpaceCreate,
     KnowledgeSpaceMember,
@@ -39,6 +44,7 @@ from leagent.knowledge.acl import ensure_personal_knowledge_space
 from leagent.services.auth import CurrentUserId  # noqa: TC001 - FastAPI dependency alias
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SpaceMemberUpdate(BaseModel):
@@ -86,6 +92,21 @@ class KnowledgeIndexStatusRead(BaseModel):
     last_error: str | None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+
+
+class KnowledgeBulkReindexRequest(BaseModel):
+    """Bounded request to rebuild documents stale for the active RAG version."""
+
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class KnowledgeBulkReindexResponse(BaseModel):
+    """Accepted and skipped counts for a bounded stale-projection rebuild."""
+
+    index_version: str
+    matched: int
+    accepted: int
+    unavailable: int
 
 
 async def _can_manage_space(session: object, user_id: UUID, space_id: UUID) -> bool:
@@ -140,20 +161,12 @@ async def list_knowledge_spaces(
                         KnowledgeSpace.workspace_id,
                         WorkspaceMember.workspace_id,
                     ),
-                    isouter=True,
-                )
-                .join(
-                    KnowledgeSpaceMember,
-                    uuid_columns_equal(session, KnowledgeSpace.id, KnowledgeSpaceMember.space_id),
-                    isouter=True,
                 )
                 .where(
                     KnowledgeSpace.is_deleted == False,  # noqa: E712
-                    (
-                        uuid_column_equals(session, WorkspaceMember.user_id, user_id)
-                        | uuid_column_equals(session, KnowledgeSpaceMember.user_id, user_id)
-                    ),
+                    uuid_column_equals(session, WorkspaceMember.user_id, user_id),
                 )
+                .distinct()
                 .order_by(KnowledgeSpace.name)
             )
         ).all()
@@ -214,9 +227,7 @@ async def list_space_members(
             raise HTTPException(status_code=403, detail="Space management permission required")
         rows = (
             await session.exec(
-                select(KnowledgeSpaceMember).where(
-                    uuid_column_equals(session, KnowledgeSpaceMember.space_id, space_id)
-                )
+                select(KnowledgeSpaceMember).where(uuid_column_equals(session, KnowledgeSpaceMember.space_id, space_id))
             )
         ).all()
         return [KnowledgeSpaceMemberRead.model_validate(row) for row in rows]
@@ -266,7 +277,7 @@ async def get_document_acl(
 ) -> DocumentAclRead:
     async with db.session() as session:
         file = await load_entity_by_id(session, File, file_id, parent_table="files")
-        if file is None or file.is_deleted:
+        if file is None or file.is_deleted or file.library_scope != LibraryScope.KNOWLEDGE:
             raise HTTPException(status_code=404, detail="Knowledge document not found")
         can_manage = same_user_id(file.user_id, user_id)
         if not can_manage and file.knowledge_space_id is not None:
@@ -298,11 +309,16 @@ async def update_document_acl(
     """Change visibility and explicit grants without exposing file contents."""
     async with db.session() as session:
         file = await load_entity_by_id(session, File, file_id, parent_table="files")
-        if file is None or file.is_deleted or not (
-            same_user_id(file.user_id, user_id)
-            or (
-                file.knowledge_space_id is not None
-                and await _can_manage_space(session, user_id, file.knowledge_space_id)
+        if (
+            file is None
+            or file.is_deleted
+            or file.library_scope != LibraryScope.KNOWLEDGE
+            or not (
+                same_user_id(file.user_id, user_id)
+                or (
+                    file.knowledge_space_id is not None
+                    and await _can_manage_space(session, user_id, file.knowledge_space_id)
+                )
             )
         ):
             raise HTTPException(status_code=404, detail="Knowledge document not found")
@@ -334,9 +350,7 @@ async def update_document_acl(
         )
         if body.access_scope == KnowledgeAccessScope.RESTRICTED:
             for target_user_id in set(body.grant_user_ids):
-                session.add(
-                    KnowledgeDocumentGrant(file_id=file_id, user_id=target_user_id, permission="read")
-                )
+                session.add(KnowledgeDocumentGrant(file_id=file_id, user_id=target_user_id, permission="read"))
         return DocumentAclRead(
             file_id=file_id,
             space_id=body.space_id,
@@ -374,6 +388,174 @@ async def list_knowledge_index_status(
         return [KnowledgeIndexStatusRead.model_validate(row) for row in rows]
 
 
+async def _source_available_for_reindex(file: File, db: DatabaseService) -> bool:
+    """Check a managed source before queueing a potentially expensive rebuild."""
+    if not file.storage_path:
+        return False
+    if not str(file.storage_path).startswith("s3://"):
+        return os.path.isfile(file.storage_path)
+    try:
+        from leagent.api.v1.files import _managed_file_exists
+
+        return await _managed_file_exists(file, db)
+    except Exception:  # noqa: BLE001 - treat an unreachable blob store as unavailable
+        logger.warning(
+            "knowledge_bulk_reindex_source_check_failed file_id=%s",
+            file.id,
+            exc_info=True,
+        )
+        return False
+
+
+async def _mark_bulk_reindex_failed(
+    db: DatabaseService,
+    file: File,
+    *,
+    index_version: str,
+    error: str,
+) -> None:
+    """Expose an unqueueable stale projection as failed instead of ready."""
+    async with db.session() as session:
+        await session.execute(
+            sa_update(File)
+            .where(uuid_column_equals(session, File.id, file.id))
+            .values(
+                status=FileStatus.FAILED,
+                is_indexed=False,
+                updated_at=datetime.utcnow(),
+            )
+        )
+    try:
+        await db.repositories.knowledge_index.upsert_state(
+            file.id,
+            file.user_id,
+            status=KnowledgeIndexStatus.FAILED,
+            index_version=index_version,
+            last_error=error,
+        )
+    except Exception:  # noqa: BLE001 - legacy databases may lack index-state tables
+        logger.debug(
+            "knowledge_bulk_reindex_failure_state_skipped file_id=%s",
+            file.id,
+            exc_info=True,
+        )
+
+
+@router.post("/reindex-stale", response_model=KnowledgeBulkReindexResponse)
+async def reindex_stale_knowledge_documents(
+    body: KnowledgeBulkReindexRequest,
+    user_id: CurrentUserId,
+    db: DatabaseService = Depends(get_database_service),
+) -> KnowledgeBulkReindexResponse:
+    """Queue one bounded batch of writable documents stale for the active RAG version.
+
+    Changing ``LEAGENT_KNOWLEDGE_INDEX_VERSION`` intentionally creates a new
+    projection.  This explicit, ACL-scoped operation backfills that projection
+    without silently scheduling an unbounded startup job.
+    """
+    from leagent.config.settings import get_settings
+    from leagent.knowledge.acl import knowledge_file_write_clause
+
+    index_version = get_settings().knowledge.index_version
+    async with db.session() as session:
+        stale_projection = or_(
+            KnowledgeIndexState.file_id.is_(None),
+            KnowledgeIndexState.index_version != index_version,
+            KnowledgeIndexState.status != KnowledgeIndexStatus.READY,
+        )
+        candidates = (
+            await session.exec(
+                select(File)
+                .outerjoin(
+                    KnowledgeIndexState,
+                    uuid_columns_equal(session, KnowledgeIndexState.file_id, File.id),
+                )
+                .where(
+                    File.is_deleted == False,  # noqa: E712
+                    File.library_scope == LibraryScope.KNOWLEDGE,
+                    File.status != FileStatus.PROCESSING,
+                    stale_projection,
+                    knowledge_file_write_clause(session, user_id),
+                )
+                .order_by(File.updated_at.asc())
+                .limit(body.limit)
+            )
+        ).all()
+
+    # Object storage checks can incur network latency.  Do them outside the
+    # database transaction, then use a conditional update below to retain a
+    # per-file compare-and-set guard against concurrent bulk requests.
+    unavailable_files: list[File] = []
+    source_ready_files: list[File] = []
+    for file in candidates:
+        if await _source_available_for_reindex(file, db):
+            source_ready_files.append(file)
+        else:
+            unavailable_files.append(file)
+
+    accepted_files: list[File] = []
+    async with db.session() as session:
+        for file in source_ready_files:
+            update_result = await session.execute(
+                sa_update(File)
+                .where(
+                    uuid_column_equals(session, File.id, file.id),
+                    File.status != FileStatus.PROCESSING,
+                )
+                .values(
+                    status=FileStatus.PROCESSING,
+                    is_indexed=False,
+                    summary=None,
+                    updated_at=datetime.utcnow(),
+                )
+            )
+            if getattr(update_result, "rowcount", 1) != 0:
+                accepted_files.append(file)
+
+    for file in unavailable_files:
+        await _mark_bulk_reindex_failed(
+            db,
+            file,
+            index_version=index_version,
+            error="reindex_source_unavailable",
+        )
+
+    accepted = 0
+    for file in accepted_files:
+        try:
+            from leagent.tasks.jobs import enqueue_file_processing
+
+            await enqueue_file_processing(
+                db,
+                file_id=str(file.id),
+                storage_path=file.storage_path,
+                mime_type=file.mime_type,
+                original_name=file.original_name,
+                user_id=file.user_id,
+                session_id=file.session_id,
+            )
+            accepted += 1
+        except Exception:  # noqa: BLE001 - repair catalog/state after a queue failure
+            logger.warning(
+                "knowledge_bulk_reindex_enqueue_failed file_id=%s",
+                file.id,
+                exc_info=True,
+            )
+            await _mark_bulk_reindex_failed(
+                db,
+                file,
+                index_version=index_version,
+                error="reindex_enqueue_failed",
+            )
+
+    return KnowledgeBulkReindexResponse(
+        index_version=index_version,
+        matched=len(candidates),
+        accepted=accepted,
+        unavailable=len(unavailable_files),
+    )
+
+
 @router.post("/evaluate")
 async def evaluate_knowledge_retrieval(
     body: RetrievalEvaluationRequest,
@@ -399,9 +581,7 @@ async def evaluate_knowledge_retrieval(
     cases = [
         RetrievalEvaluationCase(
             query=item.query.strip(),
-            relevant_chunk_ids=frozenset(
-                value.strip() for value in item.relevant_chunk_ids if value.strip()
-            ),
+            relevant_chunk_ids=frozenset(value.strip() for value in item.relevant_chunk_ids if value.strip()),
             case_id=item.case_id,
         )
         for item in body.cases

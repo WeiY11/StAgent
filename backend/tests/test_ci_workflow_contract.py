@@ -7,8 +7,10 @@ contract that controls the remote gate.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -19,6 +21,20 @@ _DESKTOP_SCRIPT_DIR = _REPO_ROOT / "desktop" / "scripts"
 
 def _load_workflow(name: str) -> dict[str, Any]:
     return yaml.safe_load((_WORKFLOW_DIR / name).read_text(encoding="utf-8"))
+
+
+def _resolved_job(workflow_name: str, job_name: str) -> dict[str, Any]:
+    """Return an inline job or the single job from its local reusable workflow."""
+    job = _load_workflow(workflow_name)["jobs"][job_name]
+    uses = job.get("uses")
+    if not uses:
+        return job
+    prefix = "./.github/workflows/"
+    assert str(uses).startswith(prefix), uses
+    reusable = _load_workflow(str(uses)[len(prefix) :])
+    jobs = reusable["jobs"]
+    assert len(jobs) == 1, uses
+    return next(iter(jobs.values()))
 
 
 def _run_step(job: dict[str, Any], step_name: str) -> str:
@@ -36,7 +52,7 @@ def _needs(job: dict[str, Any]) -> list[str]:
 
 
 def _steps_using(job: dict[str, Any], needle: str) -> list[dict[str, Any]]:
-    return [step for step in job["steps"] if needle in str(step)]
+    return [step for step in job.get("steps", []) if needle in str(step)]
 
 
 def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
@@ -47,9 +63,11 @@ def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def test_ci_backend_tests_use_batched_runner_with_combined_coverage() -> None:
-    job = _load_workflow("ci.yml")["jobs"]["backend-test"]
-    run = _run_step(job, "Run tests")
+    caller = _load_workflow("ci.yml")["jobs"]["backend-test"]
+    job = _resolved_job("ci.yml", "backend-test")
+    run = _run_step(job, "Run tests (with coverage)")
 
+    assert caller["with"]["coverage"] is True
     assert int(job["timeout-minutes"]) >= 45
     assert "uv run python scripts/run_default_tests.py" in run
     assert "--fail-fast" in run
@@ -60,20 +78,25 @@ def test_ci_backend_tests_use_batched_runner_with_combined_coverage() -> None:
 
 def test_ci_coverage_and_artifact_uploads_are_file_gated() -> None:
     workflow = _load_workflow("ci.yml")
-    backend_coverage = _step(workflow["jobs"]["backend-test"], "Upload coverage")
-    frontend_coverage = _step(workflow["jobs"]["frontend-test"], "Upload coverage")
-    frontend_artifact = _step(workflow["jobs"]["frontend-build"], "Upload build artifacts")
+    backend_job = _resolved_job("ci.yml", "backend-test")
+    frontend_job = _resolved_job("ci.yml", "frontend")
+    backend_coverage = _step(backend_job, "Upload coverage")
+    frontend_coverage = _step(frontend_job, "Upload coverage")
+    frontend_artifact = _step(frontend_job, "Upload build artifacts")
 
-    assert backend_coverage["if"] == "always() && hashFiles('backend/coverage.xml') != ''"
+    assert workflow["jobs"]["backend-test"]["with"]["coverage"] is True
+    assert workflow["jobs"]["frontend"]["with"]["coverage"] is True
+    assert workflow["jobs"]["frontend"]["with"]["upload-build"] is True
+    assert backend_coverage["if"] == ("inputs.coverage && always() && hashFiles('backend/coverage.xml') != ''")
     assert backend_coverage["with"]["files"] == "backend/coverage.xml"
-    assert frontend_coverage["if"] == "always() && hashFiles('frontend/coverage/lcov.info') != ''"
+    assert frontend_coverage["if"] == ("inputs.coverage && always() && hashFiles('frontend/coverage/lcov.info') != ''")
     assert frontend_coverage["with"]["files"] == "frontend/coverage/lcov.info"
     assert frontend_artifact["with"]["path"] == "frontend/dist/"
     assert frontend_artifact["with"]["if-no-files-found"] == "error"
 
 
 def test_ci_fast_contracts_cover_manifest_and_runtime_contracts() -> None:
-    job = _load_workflow("ci.yml")["jobs"]["fast-contracts"]
+    job = _resolved_job("ci.yml", "fast-contracts")
     run = _run_step(job, "Run fast contracts")
 
     assert "continue-on-error" not in str(job)
@@ -100,11 +123,7 @@ def test_ci_detects_and_tests_desktop_changes() -> None:
     assert "needs.changes.outputs.desktop == 'true'" in str(desktop_job["if"])
     assert "needs.changes.outputs.ci == 'true'" in str(desktop_job["if"])
 
-    run_steps = {
-        step.get("name"): step
-        for step in desktop_job["steps"]
-        if step.get("run")
-    }
+    run_steps = {step.get("name"): step for step in desktop_job["steps"] if step.get("run")}
     assert run_steps["Install dependencies"]["run"] == "npm ci"
     assert run_steps["Install dependencies"]["working-directory"] == "desktop/electron"
     assert run_steps["Build Electron main process"]["run"] == "npm run build"
@@ -112,13 +131,9 @@ def test_ci_detects_and_tests_desktop_changes() -> None:
 
 
 def test_ci_blocking_quality_gates_are_not_advisory() -> None:
-    job = _load_workflow("ci.yml")["jobs"]["backend-lint"]
+    job = _resolved_job("ci.yml", "backend-lint")
 
-    blocking_steps = [
-        step
-        for step in job["steps"]
-        if str(step.get("name", "")).startswith(("Ruff gate ", "Mypy "))
-    ]
+    blocking_steps = [step for step in job["steps"] if str(step.get("name", "")).startswith(("Ruff gate ", "Mypy "))]
     assert len(blocking_steps) == 2
     assert all(step.get("continue-on-error") is not True for step in blocking_steps)
 
@@ -137,9 +152,7 @@ def test_ci_docker_smoke_waits_for_all_quality_gates() -> None:
         "backend-test",
         "postgres-contract",
         "security-scan",
-        "frontend-lint",
-        "frontend-build",
-        "frontend-test",
+        "frontend",
         "desktop-test",
     }
     condition = str(job["if"])
@@ -151,21 +164,19 @@ def test_ci_docker_smoke_waits_for_all_quality_gates() -> None:
 
 
 def test_ci_security_scan_is_blocking_and_change_scoped() -> None:
-    job = _load_workflow("ci.yml")["jobs"]["security-scan"]
+    caller = _load_workflow("ci.yml")["jobs"]["security-scan"]
+    job = _resolved_job("ci.yml", "security-scan")
 
-    assert _needs(job) == ["changes"]
-    job_condition = str(job["if"])
+    assert _needs(caller) == ["changes"]
+    job_condition = str(caller["if"])
     assert "needs.changes.outputs.backend == 'true'" in job_condition
     assert "needs.changes.outputs.frontend == 'true'" in job_condition
     assert "needs.changes.outputs.ci == 'true'" in job_condition
+    assert "continue-on-error" not in str(caller)
     assert "continue-on-error" not in str(job)
     assert "|| echo" not in str(job)
 
-    run_steps = {
-        step.get("name"): step
-        for step in job["steps"]
-        if step.get("run")
-    }
+    run_steps = {step.get("name"): step for step in job["steps"] if step.get("run")}
     assert run_steps["Export Python production requirements"]["run"] == (
         "uv export --frozen --no-hashes --no-dev --no-emit-project --output-file requirements-audit.txt"
     )
@@ -187,9 +198,11 @@ def test_release_jobs_that_read_version_outputs_need_validate_version_directly()
 
 
 def test_release_backend_tests_use_same_batched_runner() -> None:
-    job = _load_workflow("release.yml")["jobs"]["backend-tests"]
+    caller = _load_workflow("release.yml")["jobs"]["backend-test"]
+    job = _resolved_job("release.yml", "backend-test")
     run = _run_step(job, "Run tests")
 
+    assert _needs(caller) == ["validate-version"]
     assert int(job["timeout-minutes"]) >= 45
     assert "uv run python scripts/run_default_tests.py" in run
     assert "--fail-fast" in run
@@ -200,44 +213,29 @@ def test_release_backend_tests_use_same_batched_runner() -> None:
 def test_release_backend_quality_reuses_ci_blocking_contracts() -> None:
     release_jobs = _load_workflow("release.yml")["jobs"]
     ci_jobs = _load_workflow("ci.yml")["jobs"]
-    job = release_jobs["backend-quality"]
 
-    assert _needs(job) == ["validate-version"]
-    assert "continue-on-error" not in str(job)
-    assert _run_step(job, "Install dependencies") == "uv sync --extra dev"
-    assert _run_step(
-        job,
-        "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)",
-    ) == _run_step(
-        ci_jobs["backend-lint"],
-        "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)",
-    )
+    for job_name in ("backend-lint", "fast-contracts"):
+        assert _needs(release_jobs[job_name]) == ["validate-version"]
+        assert release_jobs[job_name]["uses"] == ci_jobs[job_name]["uses"]
+        assert "continue-on-error" not in str(release_jobs[job_name])
 
-    release_mypy = next(step for step in job["steps"] if str(step.get("name", "")).startswith("Mypy"))
-    ci_mypy = next(
-        step
-        for step in ci_jobs["backend-lint"]["steps"]
-        if str(step.get("name", "")).startswith("Mypy")
-    )
-    assert release_mypy["run"] == ci_mypy["run"]
+    release_lint = _resolved_job("release.yml", "backend-lint")
+    ci_lint = _resolved_job("ci.yml", "backend-lint")
+    gate_name = "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
+    assert _run_step(release_lint, gate_name) == _run_step(ci_lint, gate_name)
 
-    release_fast_contracts = _run_step(job, "Run fast contracts")
-    ci_fast_contracts = _run_step(ci_jobs["fast-contracts"], "Run fast contracts")
-    assert release_fast_contracts == ci_fast_contracts
-    for path in (
-        "tests/test_api_manifest.py",
-        "tests/test_openapi_schema.py",
-        "tests/test_execution_topology_invariants.py",
-    ):
-        assert path in release_fast_contracts
+    release_fast = _resolved_job("release.yml", "fast-contracts")
+    ci_fast = _resolved_job("ci.yml", "fast-contracts")
+    assert _run_step(release_fast, "Run fast contracts") == _run_step(ci_fast, "Run fast contracts")
 
 
 def test_release_postgres_contract_gates_artifacts() -> None:
     jobs = _load_workflow("release.yml")["jobs"]
-    job = jobs["postgres-contract"]
+    caller = jobs["postgres-contract"]
+    job = _resolved_job("release.yml", "postgres-contract")
 
-    assert _needs(job) == ["validate-version"]
-    assert "continue-on-error" not in str(job)
+    assert _needs(caller) == ["validate-version"]
+    assert "continue-on-error" not in str(caller)
     assert job["services"]["postgres"]["image"] == "postgres:17-alpine"
     assert job["services"]["postgres"]["env"] == {
         "POSTGRES_USER": "leagent",
@@ -260,8 +258,10 @@ def test_release_postgres_contract_gates_artifacts() -> None:
 
 
 def test_ci_postgres_contract_runs_explicit_live_bootstrap_smoke() -> None:
-    job = _load_workflow("ci.yml")["jobs"]["postgres-contract"]
+    caller = _load_workflow("ci.yml")["jobs"]["postgres-contract"]
+    job = _resolved_job("ci.yml", "postgres-contract")
 
+    assert "continue-on-error" not in str(caller)
     assert "continue-on-error" not in str(job)
     assert job["services"]["postgres"]["image"] == "postgres:17-alpine"
     assert job["env"]["DATABASE_URL"] == "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent"
@@ -277,24 +277,19 @@ def test_ci_postgres_contract_runs_explicit_live_bootstrap_smoke() -> None:
 
 def test_release_security_scan_is_blocking_and_unconditional() -> None:
     release_jobs = _load_workflow("release.yml")["jobs"]
-    ci_job = _load_workflow("ci.yml")["jobs"]["security-scan"]
-    job = release_jobs["security-scan"]
+    caller = release_jobs["security-scan"]
+    ci_job = _resolved_job("ci.yml", "security-scan")
+    job = _resolved_job("release.yml", "security-scan")
 
-    assert _needs(job) == ["validate-version"]
+    assert _needs(caller) == ["validate-version"]
+    assert caller["uses"] == _load_workflow("ci.yml")["jobs"]["security-scan"]["uses"]
+    assert "continue-on-error" not in str(caller)
     assert "continue-on-error" not in str(job)
     assert "|| echo" not in str(job)
     assert "needs.changes" not in str(job)
 
-    run_steps = {
-        step.get("name"): step
-        for step in job["steps"]
-        if step.get("run")
-    }
-    ci_run_steps = {
-        step.get("name"): step
-        for step in ci_job["steps"]
-        if step.get("run")
-    }
+    run_steps = {step.get("name"): step for step in job["steps"] if step.get("run")}
+    ci_run_steps = {step.get("name"): step for step in ci_job["steps"] if step.get("run")}
     for name in (
         "Export Python production requirements",
         "Audit Python production dependencies",
@@ -311,17 +306,20 @@ def test_release_security_scan_is_blocking_and_unconditional() -> None:
 
 def test_release_docker_smoke_reuses_ci_runtime_probe() -> None:
     release_jobs = _load_workflow("release.yml")["jobs"]
-    ci_job = _load_workflow("ci.yml")["jobs"]["docker-build"]
-    job = release_jobs["docker-smoke"]
+    ci_job = _resolved_job("ci.yml", "docker-build")
+    caller = release_jobs["docker-smoke"]
+    job = _resolved_job("release.yml", "docker-smoke")
 
-    assert set(_needs(job)) == {
-        "backend-quality",
-        "backend-tests",
+    assert set(_needs(caller)) == {
+        "backend-lint",
+        "backend-test",
+        "fast-contracts",
         "postgres-contract",
         "security-scan",
-        "frontend-tests",
-        "frontend-build",
+        "frontend",
     }
+    assert caller["uses"] == _load_workflow("ci.yml")["jobs"]["docker-build"]["uses"]
+    assert "continue-on-error" not in str(caller)
     assert "continue-on-error" not in str(job)
 
     release_build = _step(job, "Build Docker image")
@@ -348,9 +346,11 @@ def test_release_docker_smoke_reuses_ci_runtime_probe() -> None:
 def test_release_frontend_build_gates_downstream_artifacts() -> None:
     workflow = _load_workflow("release.yml")
     jobs = workflow["jobs"]
-    frontend_build = jobs["frontend-build"]
+    frontend_caller = jobs["frontend"]
+    frontend_build = _resolved_job("release.yml", "frontend")
 
-    assert _needs(frontend_build) == ["validate-version"]
+    assert _needs(frontend_caller) == ["validate-version"]
+    assert frontend_caller["with"]["build"] is True
     assert _run_step(frontend_build, "Build") == "npm run build"
     assert _run_step(frontend_build, "Check bundle budget") == "npm run check:bundle"
     verify_css = _run_step(frontend_build, "Verify non-empty CSS in dist")
@@ -358,19 +358,19 @@ def test_release_frontend_build_gates_downstream_artifacts() -> None:
     assert "find frontend/dist" in verify_css
 
     for job_name in ("build-wheel", "desktop-linux", "desktop-macos", "desktop-windows"):
-        assert "frontend-build" in _needs(jobs[job_name]), job_name
+        assert "frontend" in _needs(jobs[job_name]), job_name
 
 
 def test_release_artifact_builds_wait_for_all_quality_gates() -> None:
     jobs = _load_workflow("release.yml")["jobs"]
     artifact_gate_jobs = {
-        "backend-quality",
-        "backend-tests",
+        "backend-lint",
+        "backend-test",
+        "fast-contracts",
         "postgres-contract",
         "security-scan",
         "docker-smoke",
-        "frontend-tests",
-        "frontend-build",
+        "frontend",
     }
 
     assert set(_needs(jobs["build-wheel"])) == artifact_gate_jobs
@@ -396,7 +396,9 @@ def test_release_publishes_only_after_required_artifacts_exist() -> None:
         assert all(step["with"].get("if-no-files-found") == "error" for step in upload_steps), job_name
 
     release_steps = jobs["publish-release"]["steps"]
-    release_index = next(i for i, step in enumerate(release_steps) if step.get("name") == "Create draft release with all artifacts")
+    release_index = next(
+        i for i, step in enumerate(release_steps) if step.get("name") == "Create draft release with all artifacts"
+    )
     pypi_index = next(i for i, step in enumerate(release_steps) if step.get("name") == "Publish to PyPI")
     flip_index = next(i for i, step in enumerate(release_steps) if step.get("name") == "Flip release to public")
     release_step = release_steps[release_index]
@@ -423,6 +425,30 @@ def test_desktop_beta_release_fails_when_packaged_artifacts_are_missing() -> Non
 
     workflow_text = (_WORKFLOW_DIR / "desktop-release.yml").read_text(encoding="utf-8")
     assert "pypa/gh-action-pypi-publish" not in workflow_text
+
+
+def test_desktop_updater_publishes_to_the_canonical_release_repository() -> None:
+    """The installed updater must fetch release metadata from the product repo."""
+    package = json.loads((_REPO_ROOT / "desktop" / "electron" / "package.json").read_text(encoding="utf-8"))
+    publish = yaml.safe_load((_REPO_ROOT / "desktop" / "electron" / "electron-builder.yml").read_text(encoding="utf-8"))["publish"]
+    repository = urlparse(package["homepage"]).path.strip("/").split("/")
+
+    assert publish["provider"] == "github"
+    assert (publish["owner"], publish["repo"]) == tuple(repository)
+
+
+def test_release_uploads_desktop_updater_metadata_with_every_platform_artifact() -> None:
+    """electron-updater needs its generated channel manifest on every platform."""
+    workflow = _load_workflow("release.yml")
+    for job_name, installer_glob in (
+        ("desktop-linux", "desktop/electron/dist-pack/*.AppImage"),
+        ("desktop-macos", "desktop/electron/dist-pack/*.dmg"),
+        ("desktop-windows", "desktop/electron/dist-pack/*.exe"),
+    ):
+        upload = _step(workflow["jobs"][job_name], "Upload artifacts")
+        artifact_paths = str(upload["with"]["path"])
+        assert installer_glob in artifact_paths
+        assert "desktop/electron/dist-pack/latest*.yml" in artifact_paths
 
 
 def test_desktop_packaging_scripts_run_unit_tests_before_packaging() -> None:

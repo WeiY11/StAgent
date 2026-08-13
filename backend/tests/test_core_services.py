@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import timedelta
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-
 
 # ===========================================================================
 # CacheEntry + InMemoryCache
@@ -20,6 +16,7 @@ import pytest
 class TestInMemoryCache:
     async def test_set_and_get(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("key1", "value1")
         result = await cache.get("key1")
@@ -27,12 +24,14 @@ class TestInMemoryCache:
 
     async def test_get_missing_key_returns_none(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         result = await cache.get("nonexistent")
         assert result is None
 
     async def test_set_with_ttl_expires(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("short_lived", "data", ttl=100)
         result = await cache.get("short_lived")
@@ -44,6 +43,7 @@ class TestInMemoryCache:
 
     async def test_delete_existing_key(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("to_delete", "value")
         deleted = await cache.delete("to_delete")
@@ -52,12 +52,14 @@ class TestInMemoryCache:
 
     async def test_delete_missing_key_returns_false(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         result = await cache.delete("nonexistent")
         assert result is False
 
     async def test_exists(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("exists_key", 42)
         assert await cache.exists("exists_key") is True
@@ -65,6 +67,7 @@ class TestInMemoryCache:
 
     async def test_lru_eviction(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache(max_size=3)
         for i in range(5):
             await cache.set(f"key{i}", f"value{i}")
@@ -72,6 +75,7 @@ class TestInMemoryCache:
 
     async def test_overwrite_key(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("k", "v1")
         await cache.set("k", "v2")
@@ -79,6 +83,7 @@ class TestInMemoryCache:
 
     async def test_clear(self) -> None:
         from leagent.services.cache.service import InMemoryCache
+
         cache = InMemoryCache()
         await cache.set("a", 1)
         await cache.set("b", 2)
@@ -94,7 +99,7 @@ class TestInMemoryCache:
 
 class TestAuthService:
     def test_passthrough_auth(self) -> None:
-        from leagent.services.auth.service import AuthService, LOCAL_USER_ID
+        from leagent.services.auth.service import LOCAL_USER_ID, AuthService
 
         class _S:
             host = "127.0.0.1"
@@ -147,6 +152,7 @@ class TestAuthService:
 class TestEventManager:
     def _manager(self):
         from leagent.services.event.manager import EventManager
+
         settings = MagicMock()
         settings.event = MagicMock()
         return EventManager(settings=settings)
@@ -159,6 +165,7 @@ class TestEventManager:
             received.append(event)
 
         from leagent.services.event.manager import EventType
+
         manager.subscribe(EventType.TASK_CREATED, handler)
         await manager.emit_typed(EventType.TASK_CREATED, source="test", data={"task_id": "t-1"}, wait=True)
 
@@ -172,6 +179,7 @@ class TestEventManager:
             received.append(event)
 
         from leagent.services.event.manager import EventType
+
         sub_id = manager.subscribe(EventType.TASK_STARTED, handler)
         manager.unsubscribe(sub_id)
         await manager.emit_typed(EventType.TASK_STARTED, source="test", data={})
@@ -181,6 +189,7 @@ class TestEventManager:
     async def test_emit_with_no_subscribers(self) -> None:
         manager = self._manager()
         from leagent.services.event.manager import EventType
+
         await manager.emit_typed(EventType.SYSTEM_STARTUP, source="test", data={})
 
     async def test_multiple_subscribers_same_event(self) -> None:
@@ -194,6 +203,7 @@ class TestEventManager:
             calls.append("h2")
 
         from leagent.services.event.manager import EventType
+
         manager.subscribe(EventType.AGENT_MESSAGE, h1)
         manager.subscribe(EventType.AGENT_MESSAGE, h2)
         await manager.emit_typed(EventType.AGENT_MESSAGE, source="test", data={}, wait=True)
@@ -212,6 +222,7 @@ class TestEventManager:
             calls.append("good")
 
         from leagent.services.event.manager import EventType
+
         manager.subscribe(EventType.CUSTOM, bad_handler)
         manager.subscribe(EventType.CUSTOM, good_handler)
         await manager.emit_typed(EventType.CUSTOM, source="test", data={}, wait=True)

@@ -38,6 +38,61 @@ def _load_manager(tmp_path: Path) -> Any:
 
 
 class TestSkillsFileAPI:
+    def test_run_script_passes_tool_parameter_contract(
+        self,
+        client: TestClient,
+        skills_auth_header: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from leagent.tools.skills.script import SkillScriptTool
+
+        captured: dict[str, Any] = {}
+
+        async def _execute(_tool: SkillScriptTool, params: dict[str, Any], context: Any) -> dict[str, Any]:
+            captured["params"] = params
+            captured["user_id"] = context.user_id
+            return {"ok": True}
+
+        monkeypatch.setattr(SkillScriptTool, "execute", _execute)
+        response = client.post(
+            "/api/v1/skills/demo/scripts/scripts/run.py/run",
+            headers=skills_auth_header,
+            json={"args": ["--check"]},
+        )
+
+        assert response.status_code == 200, response.text
+        assert captured["params"] == {
+            "name": "demo",
+            "script_path": "scripts/run.py",
+            "args": ["--check"],
+            "timeout_s": 60,
+        }
+        assert isinstance(captured["user_id"], str)
+
+    def test_get_declared_resource_returns_payload(
+        self,
+        client: TestClient,
+        skills_auth_header: dict[str, str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from leagent.api.v1 import skills as skills_api
+
+        skill_dir = _write_skill(tmp_path, "resource-skill")
+        references = skill_dir / "references"
+        references.mkdir()
+        (references / "guide.txt").write_text("resource payload", encoding="utf-8")
+        manager = _load_manager(tmp_path)
+        monkeypatch.setattr(skills_api, "get_skills_manager", lambda: manager)
+
+        response = client.get(
+            "/api/v1/skills/resource-skill/resources/references/guide.txt",
+            headers=skills_auth_header,
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["content"] == "resource payload"
+
     def test_get_file_returns_raw_skill_md(
         self,
         client: TestClient,

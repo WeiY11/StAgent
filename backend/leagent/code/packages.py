@@ -68,7 +68,7 @@ class UvPipInstallTool(BaseTool):
     is_concurrency_safe = False
     is_read_only = False
     is_destructive = True
-    interrupt_behavior = "deny"
+    interrupt_behavior = "block"
     max_result_size_chars = 120_000
 
     def __init__(self, *, config: CodeExecutionConfig | None = None) -> None:

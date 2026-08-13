@@ -51,6 +51,7 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
     }
 )
 
+
 class _HasId(Protocol):
     id: Any
 
@@ -175,9 +176,7 @@ async def load_chat_session_by_id(
     from leagent.db.models.message import ChatSession
 
     if session_dialect_name(session) == "sqlite":
-        stmt = select(ChatSession).where(
-            uuid_column_equals(session, ChatSession.id, chat_session_id)
-        )
+        stmt = select(ChatSession).where(uuid_column_equals(session, ChatSession.id, chat_session_id))
         row = await _scalar_first(session, stmt)
         if row is None:
             return None
@@ -229,25 +228,15 @@ async def sqlite_insert_message(session: AsyncSession, message: Any) -> Any:
     from leagent.db.models.message import Message
 
     session_id = await sqlite_parent_id_text(session, "chat_sessions", message.session_id)
-    flow_id = (
-        await sqlite_parent_id_text(session, "flows", message.flow_id)
-        if message.flow_id is not None
-        else None
-    )
-    user_id = (
-        await sqlite_parent_id_text(session, "users", message.user_id)
-        if message.user_id is not None
-        else None
-    )
+    flow_id = await sqlite_parent_id_text(session, "flows", message.flow_id) if message.flow_id is not None else None
+    user_id = await sqlite_parent_id_text(session, "users", message.user_id) if message.user_id is not None else None
     workspace_id = (
         await sqlite_parent_id_text(session, "workspaces", message.workspace_id)
         if message.workspace_id is not None
         else None
     )
     parent_id = (
-        await sqlite_parent_id_text(session, "messages", message.parent_id)
-        if message.parent_id is not None
-        else None
+        await sqlite_parent_id_text(session, "messages", message.parent_id) if message.parent_id is not None else None
     )
 
     await session.execute(
@@ -295,9 +284,7 @@ async def sqlite_insert_message(session: AsyncSession, message: Any) -> Any:
             "parent_id": parent_id,
         },
     )
-    result = await session.exec(
-        select(Message).where(uuid_column_equals(session, Message.id, message.id))
-    )
+    result = await session.exec(select(Message).where(uuid_column_equals(session, Message.id, message.id)))
     row = result.first()
     if row is None:
         raise RuntimeError("Inserted message row could not be reloaded")
@@ -335,6 +322,8 @@ def file_status_from_db(raw: object) -> FileStatus:
 def file_model_from_sqlite_row(row: Mapping[str, Any]) -> File:
     """Hydrate :class:`File` from a raw SQLite row (avoids broken enum coercion)."""
     from leagent.db.models.file import File as FileModel
+    from leagent.db.models.file import LibraryScope
+    from leagent.db.models.knowledge_acl import KnowledgeAccessScope
 
     d = dict(row)
     return FileModel(
@@ -350,17 +339,13 @@ def file_model_from_sqlite_row(row: Mapping[str, Any]) -> File:
         size=int(d["size"]),
         status=file_status_from_db(d["status"]),
         user_id=parse_uuid_stored(str(d["user_id"])) if d.get("user_id") is not None else None,
-        workspace_id=(
-            parse_uuid_stored(str(d["workspace_id"]))
-            if d.get("workspace_id") is not None
-            else None
+        workspace_id=(parse_uuid_stored(str(d["workspace_id"])) if d.get("workspace_id") is not None else None),
+        knowledge_space_id=(
+            parse_uuid_stored(str(d["knowledge_space_id"])) if d.get("knowledge_space_id") is not None else None
         ),
-        folder_id=(
-            parse_uuid_stored(str(d["folder_id"])) if d.get("folder_id") is not None else None
-        ),
-        session_id=(
-            parse_uuid_stored(str(d["session_id"])) if d.get("session_id") is not None else None
-        ),
+        access_scope=KnowledgeAccessScope(str(d.get("access_scope") or KnowledgeAccessScope.PRIVATE.value)),
+        folder_id=(parse_uuid_stored(str(d["folder_id"])) if d.get("folder_id") is not None else None),
+        session_id=(parse_uuid_stored(str(d["session_id"])) if d.get("session_id") is not None else None),
         storage_path=d["storage_path"],
         storage_bucket=d.get("storage_bucket"),
         checksum=d.get("checksum"),
@@ -372,6 +357,7 @@ def file_model_from_sqlite_row(row: Mapping[str, Any]) -> File:
         embedding_id=d.get("embedding_id"),
         is_indexed=bool(d.get("is_indexed", False)),
         expires_at=d.get("expires_at"),
+        library_scope=LibraryScope(str(d.get("library_scope") or LibraryScope.WORKSPACE.value)),
     )
 
 

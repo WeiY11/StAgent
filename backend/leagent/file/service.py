@@ -193,17 +193,23 @@ class FileService:
         # Content dedup: reuse an existing blob when the same user already has
         # an identical checksum+size row (new catalog entry, shared storage).
         reused_path: str | None = None
+        reused_storage_key: str | None = None
         if dedup and user_id is not None:
             reused_path = await self._find_reusable_storage_path(
-                user_id, checksum=checksum, size=file_size
+                user_id,
+                checksum=checksum,
+                size=file_size,
+                backend=backend,
             )
+            if reused_path:
+                reused_storage_key = self._storage_key_from_path(backend, reused_path)
 
         scope_prefix = ""
         if session_id:
             scope_prefix = f"{session_id}/"
-        storage_key = f"{scope_prefix}{file_id}_{safe_name}"
+        storage_key = reused_storage_key or f"{scope_prefix}{file_id}_{safe_name}"
 
-        if reused_path:
+        if reused_path and reused_storage_key:
             store_meta = {
                 "size": file_size,
                 "checksum": checksum,
@@ -236,7 +242,7 @@ class FileService:
             metadata={
                 **(metadata or {}),
                 "storage_path": store_meta.get("storage_path", ""),
-                "dedup_reused": bool(reused_path),
+                "dedup_reused": bool(reused_path and reused_storage_key),
             },
         )
         self._refs[file_id] = ref
@@ -367,8 +373,77 @@ class FileService:
 
     # ── internal helpers ─────────────────────────────────────────
 
+    @staticmethod
+    def _storage_key_from_path(backend: StorageBackend, storage_path: str) -> str | None:
+        """Ask a backend to convert its persisted path/URI back to a key."""
+        converter = getattr(backend, "key_from_storage_path", None)
+        if not callable(converter):
+            return None
+        try:
+            key = converter(storage_path)
+        except Exception:  # noqa: BLE001 - stale rows must not break uploads
+            return None
+        return key if isinstance(key, str) and key else None
+
+    def _backend_and_key_from_path(self, storage_path: str) -> tuple[str, str]:
+        """Resolve a durable database path/URI into a registered backend key."""
+        for backend_name, backend in self._backends.items():
+            key = self._storage_key_from_path(backend, storage_path)
+            if key is not None:
+                return backend_name, key
+        # Preserve legacy rows that stored a direct backend key instead of an
+        # absolute path. A later get() will still fail closed if the backend is
+        # unavailable in the current deployment.
+        return self._default_backend_name, storage_path
+
+    def ref_from_persisted_record(
+        self,
+        *,
+        file_id: UUID,
+        filename: str,
+        storage_path: str,
+        content_type: str | None = None,
+        size: int | None = None,
+        checksum: str | None = None,
+        user_id: UUID | None = None,
+        session_id: UUID | None = None,
+        library_scope: str = "workspace",
+    ) -> FileRef:
+        """Build a usable :class:`FileRef` from a durable catalog record.
+
+        Callers that already hold an authorised ``File`` row can use this
+        without reopening a database session. It is especially important for
+        object-storage tasks, which otherwise need a second DB connection just
+        to turn an ``s3://`` URI into its backend key.
+        """
+        backend_name, storage_key = self._backend_and_key_from_path(storage_path)
+        return FileRef(
+            id=file_id,
+            filename=filename,
+            storage_key=storage_key,
+            backend_name=backend_name,
+            content_type=content_type or "application/octet-stream",
+            size=size or 0,
+            checksum=checksum or "",
+            user_id=user_id,
+            session_id=session_id,
+            scope=(
+                FileScope.KNOWLEDGE
+                if library_scope == FileScope.KNOWLEDGE.value
+                else FileScope.SESSION
+            ),
+            category="upload",
+            library_scope=library_scope or "workspace",
+            metadata={"storage_path": storage_path},
+        )
+
     async def _find_reusable_storage_path(
-        self, user_id: UUID, *, checksum: str, size: int
+        self,
+        user_id: UUID,
+        *,
+        checksum: str,
+        size: int,
+        backend: StorageBackend | None = None,
     ) -> str | None:
         """Return an existing ``storage_path`` when an identical blob is known."""
         if self._database is None or not checksum:
@@ -387,12 +462,18 @@ class FileService:
                     .where(File.size == size)
                     .where(File.is_deleted == False)  # noqa: E712
                     .where(File.storage_path.is_not(None))  # type: ignore[attr-defined]
-                    .limit(1)
+                    .limit(20)
                 )
                 result = await db.exec(stmt)
-                path = result.first()
-                if path and Path(path).is_file():
-                    return path
+                for path in result.all():
+                    if not path:
+                        continue
+                    normalized_path = str(path)
+                    if backend is not None:
+                        if self._storage_key_from_path(backend, normalized_path) is not None:
+                            return normalized_path
+                    elif Path(normalized_path).is_file():
+                        return normalized_path
         except Exception as exc:
             logger.debug("dedup_lookup_failed: %s", exc)
         return None
@@ -465,18 +546,18 @@ class FileService:
                 row = result.scalars().first()
                 if row is None:
                     return None
-                return FileRef(
-                    id=row.id,
+                storage_path = row.storage_path or ""
+                library_scope = getattr(row.library_scope, "value", row.library_scope)
+                return self.ref_from_persisted_record(
+                    file_id=row.id,
                     filename=row.name,
-                    storage_key=row.storage_path or "",
-                    backend_name="local",
-                    content_type=row.mime_type or "application/octet-stream",
-                    size=row.size or 0,
-                    checksum=row.checksum or "",
+                    storage_path=storage_path,
+                    content_type=row.mime_type,
+                    size=row.size,
+                    checksum=row.checksum,
                     user_id=row.user_id,
                     session_id=row.session_id,
-                    scope=FileScope.SESSION,
-                    category="upload",
+                    library_scope=str(library_scope or "workspace"),
                 )
         except Exception as exc:
             logger.debug("file_service_db_resolve_failed: %s", exc)

@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/vixues/LeAgent?display_name=tag&sort=semver&color=blue" alt="Latest Release"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/WeiY11/StAgent?display_name=tag&sort=semver&color=blue" alt="Latest Release"></a>
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776ab.svg" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/React-19-61dafb.svg" alt="React 19">
   <img src="https://img.shields.io/badge/Database-SQLite%20%7C%20PostgreSQL-003b57.svg" alt="SQLite / PostgreSQL">
@@ -23,7 +23,7 @@
   <a href="README_lzh.md">汉文</a> ·
   <a href="./docs/tutorial.md">Tutorial</a> ·
   <a href="AGENTS.md">Contributor guide</a> ·
-  <a href="https://github.com/vixues/LeAgent/releases">Releases</a>
+  <a href="https://github.com/WeiY11/StAgent/releases">Releases</a>
 </p>
 
 <p align="center">
@@ -188,7 +188,7 @@ Cost-tiered routing (`tier1` reasoning / `tier2` fast) with automatic failover �
 **Prerequisites:** git, [uv](https://docs.astral.sh/uv/), Node.js 20+ or 22+
 
 ```bash
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 ./start.sh                # backend :7860 + frontend :5173
 ```
@@ -251,7 +251,7 @@ Installers for each platform ship with every GitHub release — download and run
 | **macOS (Intel)** | [`LeAgent-*.dmg`](../../releases/latest) | Same Gatekeeper note as above |
 | **Linux (x64)** | [`LeAgent-*.AppImage`](../../releases/latest) / [`LeAgent-*.deb`](../../releases/latest) | AppImage: `chmod +x` then run. `.deb`: `sudo dpkg -i` |
 
-See all releases: **<https://github.com/vixues/LeAgent/releases>**
+See all releases: **<https://github.com/WeiY11/StAgent/releases>**
 
 ## Tech stack
 

@@ -138,12 +138,12 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
             <p>
               {t('about.githubLabel')}:{' '}
               <a
-                href="https://github.com/vixues/LeAgent"
+                href="https://github.com/WeiY11/StAgent"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline font-medium text-foreground/90"
               >
-                github.com/vixues/LeAgent
+                github.com/WeiY11/StAgent
               </a>
             </p>
           </div>

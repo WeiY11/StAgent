@@ -5,7 +5,7 @@
 #   bash scripts/install.sh --help
 #
 # Environment (flags override when passed):
-#   LEAGENT_GIT_URL       Clone URL (default: https://github.com/vixues/LeAgent.git)
+#   LEAGENT_GIT_URL       Clone URL (default: https://github.com/WeiY11/StAgent.git)
 #   LEAGENT_CLONE_DIR     Install directory (default: $HOME/leagent-desktop)
 #   LEAGENT_REF           Branch or tag (default: main)
 #   LEAGENT_SKIP_START    1 = clone + sync only, do not run start.sh
@@ -35,7 +35,7 @@ error() { printf "${RED}[leagent]${RESET} %s\n" "$*" >&2; }
 die()   { error "$@"; exit 1; }
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-LEAGENT_GIT_URL="${LEAGENT_GIT_URL:-https://github.com/vixues/LeAgent.git}"
+LEAGENT_GIT_URL="${LEAGENT_GIT_URL:-https://github.com/WeiY11/StAgent.git}"
 LEAGENT_CLONE_DIR="${LEAGENT_CLONE_DIR:-$HOME/leagent-desktop}"
 LEAGENT_REF="${LEAGENT_REF:-main}"
 LEAGENT_SKIP_START="${LEAGENT_SKIP_START:-0}"

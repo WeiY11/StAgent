@@ -86,14 +86,14 @@ def _node_inner(node: dict[str, Any]) -> str:
         eyebrow = _esc(props.get("eyebrow", ""))
         title = _esc(props.get("title", ""))
         description = _esc(props.get("description", ""))
-        bits = []
+        section_parts: list[str] = []
         if eyebrow:
-            bits.append(f"<p class='eyebrow'>{eyebrow}</p>")
+            section_parts.append(f"<p class='eyebrow'>{eyebrow}</p>")
         if title:
-            bits.append(f"<h2 class='h'>{title}</h2>")
+            section_parts.append(f"<h2 class='h'>{title}</h2>")
         if description:
-            bits.append(f"<p class='p'>{description}</p>")
-        return "".join(bits) if bits else ""
+            section_parts.append(f"<p class='p'>{description}</p>")
+        return "".join(section_parts) if section_parts else ""
     if kind == "SlideDeck":
         inner = "".join(_node_inner(ch) for ch in children)
         return f"<div class='blk slidedeck'>{inner}</div>"
@@ -162,10 +162,11 @@ def _node_inner(node: dict[str, Any]) -> str:
                     continue
                 nm = str(s.get("name", "Series"))
                 vals_raw = s.get("values")
-                vals: list[str] = []
-                if isinstance(vals_raw, list):
-                    for v in vals_raw:
-                        vals.append("" if v is None else str(v))
+                vals = (
+                    ["" if value is None else str(value) for value in vals_raw]
+                    if isinstance(vals_raw, list)
+                    else []
+                )
                 series_rows.append((nm, vals))
         cap = f"<p class='muted'>{chart_t} chart (table)</p>"
         head_html = ""
@@ -217,9 +218,9 @@ def _node_inner(node: dict[str, Any]) -> str:
     if kind == "Avatar":
         name = str(props.get("name", "") or "")
         initials = "".join(w[0] for w in name.split() if w)[:2].upper() or "?"
-        src = props.get("src") or props.get("avatarUrl")
-        if isinstance(src, str) and src.strip():
-            return f'<div class="avatar"><img src="{_esc(src)}" alt="{_esc(name)}"/></div>'
+        avatar_src = props.get("src") or props.get("avatarUrl")
+        if isinstance(avatar_src, str) and avatar_src.strip():
+            return f'<div class="avatar"><img src="{_esc(avatar_src)}" alt="{_esc(name)}"/></div>'
         return f'<div class="avatar circ">{_esc(initials)}</div>'
     if kind == "Divider":
         return "<hr class='hrule'/>"
@@ -236,15 +237,15 @@ def _node_inner(node: dict[str, Any]) -> str:
         nested = "".join(_node_inner(ch) for ch in children)
         return f"<li>{prefix}{text}{nested}</li>"
     if kind == "Card":
-        bits: list[str] = []
+        card_parts: list[str] = []
         if props.get("eyebrow"):
-            bits.append(f"<p class='eyebrow'>{_esc(props.get('eyebrow'))}</p>")
+            card_parts.append(f"<p class='eyebrow'>{_esc(props.get('eyebrow'))}</p>")
         if props.get("title"):
-            bits.append(f"<p class='p'><strong>{_esc(props.get('title'))}</strong></p>")
+            card_parts.append(f"<p class='p'><strong>{_esc(props.get('title'))}</strong></p>")
         if props.get("subtitle"):
-            bits.append(f"<p class='muted'>{_esc(props.get('subtitle'))}</p>")
+            card_parts.append(f"<p class='muted'>{_esc(props.get('subtitle'))}</p>")
         inner = "".join(_node_inner(ch) for ch in children)
-        return f"<div class='cardblk'>{''.join(bits)}{inner}</div>"
+        return f"<div class='cardblk'>{''.join(card_parts)}{inner}</div>"
     if kind == "DataCard":
         title = _esc(props.get("title", ""))
         value = _esc(props.get("value", ""))
@@ -261,12 +262,12 @@ def _node_inner(node: dict[str, Any]) -> str:
         value = _esc(props.get("value", ""))
         delta = _esc(props.get("delta", ""))
         period = _esc(props.get("period", ""))
-        bits = f"<p class='muted'>{title}</p><p class='statval'>{value}</p>"
+        metric_html = f"<p class='muted'>{title}</p><p class='statval'>{value}</p>"
         if delta:
-            bits += f"<p class='muted'>{delta}</p>"
+            metric_html += f"<p class='muted'>{delta}</p>"
         if period:
-            bits += f"<p class='muted'>{period}</p>"
-        return f"<div class='cardblk'>{bits}</div>"
+            metric_html += f"<p class='muted'>{period}</p>"
+        return f"<div class='cardblk'>{metric_html}</div>"
     if kind in {"Alert", "AlertCard", "Callout"}:
         msg = _esc(props.get("message") or props.get("title") or props.get("description") or "")
         return f"<div class='callout'><p class='p'>{msg}</p></div>"

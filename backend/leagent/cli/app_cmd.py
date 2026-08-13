@@ -97,9 +97,11 @@ def start(
     from leagent.config.settings import get_settings
 
     try:
+        settings = get_settings()
         topology = validate_deployment_topology(
-            database_backend=get_settings().database.backend,
+            database_backend=settings.database.backend,
             workers=workers,
+            redis_enabled=settings.redis.enabled,
         )
     except DeploymentTopologyError as exc:
         raise click.UsageError(str(exc)) from exc
@@ -115,9 +117,9 @@ def start(
     console.print(f"  [dim]Log Level:[/]  {log_level}")
     console.print(f"  [dim]Mode:[/]       {'Production (Gunicorn)' if production else 'Development (Uvicorn)'}")
     if reload:
-        console.print(f"  [dim]Auto-reload:[/] Enabled")
+        console.print("  [dim]Auto-reload:[/] Enabled")
     if ssl_keyfile:
-        console.print(f"  [dim]SSL:[/]        Enabled")
+        console.print("  [dim]SSL:[/]        Enabled")
     console.print()
 
     if production:
@@ -140,7 +142,7 @@ def _run_uvicorn(
         import uvicorn
     except ImportError:
         print_error("uvicorn is not installed. Install it with: pip install uvicorn")
-        raise click.Abort()
+        raise click.Abort() from None
 
     print_success(f"Starting Uvicorn server on {host}:{port}")
     console.print("[dim]Press Ctrl+C to stop.[/]\n")
@@ -177,7 +179,7 @@ def _run_gunicorn(
         from gunicorn.app.base import BaseApplication
     except ImportError:
         print_error("gunicorn is not installed. Install it with: pip install gunicorn")
-        raise click.Abort()
+        raise click.Abort() from None
 
     import multiprocessing
     import os
@@ -185,10 +187,7 @@ def _run_gunicorn(
     if workers <= 0:
         cpu_count = multiprocessing.cpu_count()
         env_override = os.getenv("LEAGENT_WORKERS")
-        if env_override:
-            workers = int(env_override)
-        else:
-            workers = min(cpu_count * 2 + 1, 8)
+        workers = int(env_override) if env_override else min(cpu_count * 2 + 1, 8)
 
     class LeAgentApplication(BaseApplication):
         def __init__(self, options: dict | None = None) -> None:

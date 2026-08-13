@@ -80,6 +80,19 @@ describe('tryGetPayloadHash / needsRuntimeUpgrade', () => {
     const { needsRuntimeUpgrade } = await import('./runtime-installer.js');
     expect(needsRuntimeUpgrade()).toBe(true);
   });
+
+  it('detects a venv created from a different packaged Python path', async () => {
+    const payload = path.join(tmpRoot, 'backend-payload');
+    fs.writeFileSync(path.join(payload, 'pyproject.toml'), '[project]\nname="x"\n');
+    fs.writeFileSync(path.join(payload, 'uv.lock'), 'version = 1\n');
+    const venv = path.join(tmpRoot, 'venv');
+    fs.mkdirSync(path.join(venv, 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(venv, 'bin', 'python'), 'stub');
+    fs.writeFileSync(path.join(venv, 'pyvenv.cfg'), 'home = /old/python\n');
+
+    const { runtimeVenvNeedsRecreate } = await import('./runtime-installer.js');
+    expect(runtimeVenvNeedsRecreate()).toBe(true);
+  });
 });
 
 describe('payload validation item mapping', () => {

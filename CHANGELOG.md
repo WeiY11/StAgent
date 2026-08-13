@@ -1392,19 +1392,19 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - **Minor (0.X.0)**: New features, backward compatible
 - **Patch (0.0.X)**: Bug fixes, security patches
 
-[Unreleased]: https://github.com/vixues/LeAgent/compare/v1.2.7...HEAD
-[1.2.7]: https://github.com/vixues/LeAgent/compare/v1.2.6...v1.2.7
-[1.2.6]: https://github.com/vixues/LeAgent/compare/v1.2.5...v1.2.6
-[1.2.5]: https://github.com/vixues/LeAgent/compare/v1.2.4...v1.2.5
-[1.2.4]: https://github.com/vixues/LeAgent/compare/v1.2.3...v1.2.4
-[1.2.3]: https://github.com/vixues/LeAgent/compare/v1.2.2...v1.2.3
-[1.2.2]: https://github.com/vixues/LeAgent/compare/v1.2.1...v1.2.2
-[1.2.1]: https://github.com/vixues/LeAgent/compare/v1.2.0...v1.2.1
-[1.2.0]: https://github.com/vixues/LeAgent/compare/v1.1.3...v1.2.0
-[1.1.3]: https://github.com/vixues/LeAgent/releases/tag/v1.1.3
-[1.1.2]: https://github.com/vixues/LeAgent/releases/tag/v1.1.2
-[1.1.1]: https://github.com/vixues/LeAgent/releases/tag/v1.1.1
-[1.1.0]: https://github.com/vixues/LeAgent/releases/tag/v1.1.0
-[1.0.0]: https://github.com/vixues/LeAgent/releases/tag/v1.0.0
-[0.9.0]: https://github.com/vixues/LeAgent/releases/tag/v0.9.0
-[0.8.0]: https://github.com/vixues/LeAgent/releases/tag/v0.8.0
+[Unreleased]: https://github.com/WeiY11/StAgent/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/WeiY11/StAgent/compare/v1.2.6...v1.2.7
+[1.2.6]: https://github.com/WeiY11/StAgent/compare/v1.2.5...v1.2.6
+[1.2.5]: https://github.com/WeiY11/StAgent/compare/v1.2.4...v1.2.5
+[1.2.4]: https://github.com/WeiY11/StAgent/compare/v1.2.3...v1.2.4
+[1.2.3]: https://github.com/WeiY11/StAgent/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/WeiY11/StAgent/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/WeiY11/StAgent/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/WeiY11/StAgent/compare/v1.1.3...v1.2.0
+[1.1.3]: https://github.com/WeiY11/StAgent/releases/tag/v1.1.3
+[1.1.2]: https://github.com/WeiY11/StAgent/releases/tag/v1.1.2
+[1.1.1]: https://github.com/WeiY11/StAgent/releases/tag/v1.1.1
+[1.1.0]: https://github.com/WeiY11/StAgent/releases/tag/v1.1.0
+[1.0.0]: https://github.com/WeiY11/StAgent/releases/tag/v1.0.0
+[0.9.0]: https://github.com/WeiY11/StAgent/releases/tag/v0.9.0
+[0.8.0]: https://github.com/WeiY11/StAgent/releases/tag/v0.8.0

@@ -17,7 +17,10 @@ import math
 import time
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from leagent.knowledge.evidence import AnswerGroundingResult
 
 
 @dataclass(frozen=True)
@@ -73,6 +76,28 @@ class RetrievalEvaluationReport:
             "citation_accuracy": self.citation_accuracy,
             "hallucination_rate": self.hallucination_rate,
             "gate": self.gate,
+        }
+
+
+@dataclass(frozen=True)
+class CitationValidationReport:
+    """Aggregate automatic citation-token validation results.
+
+    ``hallucination_rate`` intentionally remains ``None``. Citation identity
+    checks prove neither entailment nor completeness of an answer.
+    """
+
+    answers: int
+    strict_acceptance_rate: float | None
+    citation_reference_accuracy: float | None
+    hallucination_rate: None = None
+
+    def to_dict(self) -> dict[str, float | int | None]:
+        return {
+            "answers": self.answers,
+            "strict_acceptance_rate": self.strict_acceptance_rate,
+            "citation_reference_accuracy": self.citation_reference_accuracy,
+            "hallucination_rate": self.hallucination_rate,
         }
 
 
@@ -190,8 +215,25 @@ async def evaluate_retriever(
     )
 
 
+def evaluate_citation_validation(
+    results: Sequence[AnswerGroundingResult],
+) -> CitationValidationReport:
+    """Summarize reference validity without claiming semantic grounding."""
+    answers = len(results)
+    references = sum(len(result.referenced_citation_ids) for result in results)
+    invalid = sum(len(result.invalid_citation_ids) for result in results)
+    accepted = sum(1 for result in results if result.accepted)
+    return CitationValidationReport(
+        answers=answers,
+        strict_acceptance_rate=(accepted / answers) if answers else None,
+        citation_reference_accuracy=(references - invalid) / references if references else None,
+    )
+
+
 __all__ = [
+    "CitationValidationReport",
     "RetrievalEvaluationCase",
     "RetrievalEvaluationReport",
     "evaluate_retriever",
+    "evaluate_citation_validation",
 ]

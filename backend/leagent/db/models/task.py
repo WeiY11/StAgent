@@ -62,6 +62,7 @@ class TaskType(str, Enum):
     EXPORT = "export"
     MONITOR = "monitor"
     DREAM = "dream"
+    KNOWLEDGE_VECTOR_REBUILD = "knowledge_vector_rebuild"
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ _TASK_ID_PREFIXES: dict[str, str] = {
     TaskType.EXPORT.value: "e",
     TaskType.MONITOR.value: "m",
     TaskType.DREAM.value: "d",
+    TaskType.KNOWLEDGE_VECTOR_REBUILD.value: "v",
 }
 
 _TASK_ID_ALPHABET = string.digits + string.ascii_lowercase  # 36 chars

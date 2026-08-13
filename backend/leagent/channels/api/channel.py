@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import time
+from contextlib import suppress
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -23,8 +24,6 @@ from ..base import (
     ChannelEvent,
     ChannelMessage,
     ChannelType,
-    MessageStatus,
-    MessageType,
 )
 from ..renderer import MessageRenderer, RenderStyle
 
@@ -53,7 +52,7 @@ class WebhookPayload:
         Returns:
             Formatted payload dictionary.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "id": message.id,
             "type": "message",
             "channel": message.channel_type.value,
@@ -87,7 +86,7 @@ class WebhookPayload:
         Returns:
             Formatted payload dictionary.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "id": event.id,
             "type": "event",
             "event_type": event.event_type,
@@ -298,10 +297,10 @@ class APIChannel(BaseChannel):
         headers_str = os.getenv("API_CHANNEL_HEADERS", "")
         headers = {}
         if headers_str:
-            try:
-                headers = json.loads(headers_str)
-            except json.JSONDecodeError:
-                pass
+            with suppress(json.JSONDecodeError):
+                parsed_headers = json.loads(headers_str)
+                if isinstance(parsed_headers, dict):
+                    headers = parsed_headers
 
         return cls(
             enabled=os.getenv("API_CHANNEL_ENABLED", "1") == "1",

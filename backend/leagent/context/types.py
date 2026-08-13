@@ -154,3 +154,6 @@ class TurnContext:
     recall_handle: Any | None  # RecallHandle
     task_id: UUID
     project_memory_sources: list[ProjectMemorySource] = field(default_factory=list)
+    #: Kept blocks expose typed, non-rendered metadata to the agent runtime
+    #: (for example the evidence bundle behind a knowledge attachment).
+    blocks: list[ContextBlock] = field(default_factory=list)

@@ -153,7 +153,7 @@ def parse_code_source(
     selected = detect_code_language(path, source) if language == "auto" else language
     if selected == "python":
         return _parse_python_source(source, path=path)
-    if selected in {"typescript", "javascript"}:
+    if selected == "typescript" or selected == "javascript":
         return _parse_ts_js_source(source, path=path, language=selected)
     return _base_result(
         path=path,
@@ -609,9 +609,9 @@ def _python_exported_value_symbols(
             and name in exported_names
             and name not in existing_names
         ):
-            updated: CodeSymbol = dict(symbol)
-            updated["exported"] = True
-            out.append(updated)
+            exported_symbol = symbol.copy()
+            exported_symbol["exported"] = True
+            out.append(exported_symbol)
     return out
 
 
@@ -623,9 +623,9 @@ def _mark_python_exported_symbols(
     for symbol in symbols:
         name = symbol.get("name")
         if isinstance(name, str) and "." not in name and name in exported_names:
-            updated: CodeSymbol = dict(symbol)
-            updated["exported"] = True
-            marked.append(updated)
+            exported_symbol = symbol.copy()
+            exported_symbol["exported"] = True
+            marked.append(exported_symbol)
             continue
         marked.append(symbol)
     return marked
@@ -662,7 +662,7 @@ def _python_import_from(node: ast.ImportFrom) -> CodeImport:
         "line": int(node.lineno),
         "end_line": _node_end_line(node) or int(node.lineno),
     }
-    aliases = [
+    aliases: list[dict[str, str | None]] = [
         {"name": alias.name, "asname": alias.asname}
         for alias in node.names
         if alias.asname
@@ -674,6 +674,7 @@ def _python_import_from(node: ast.ImportFrom) -> CodeImport:
 
 def _python_all_names(node: ast.Assign | ast.AnnAssign) -> list[str]:
     target: ast.expr | None = None
+    value: ast.expr | None
     if isinstance(node, ast.Assign):
         for candidate in node.targets:
             if isinstance(candidate, ast.Name) and candidate.id == "__all__":

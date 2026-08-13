@@ -1,0 +1,21 @@
+date,region,product,units,unit_price,revenue
+2025-01-05,North,Widget A,120,9.99,1198.80
+2025-01-05,South,Widget B,80,14.50,1160.00
+2025-01-12,North,Widget A,95,9.99,949.05
+2025-01-12,East,Widget C,60,22.00,1320.00
+2025-01-19,South,Widget B,110,14.50,1595.00
+2025-01-19,West,Widget A,70,9.99,699.30
+2025-01-26,North,Widget C,45,22.00,990.00
+2025-02-02,East,Widget B,130,14.50,1885.00
+2025-02-02,West,Widget C,55,22.00,1210.00
+2025-02-09,South,Widget A,140,9.99,1398.60
+2025-02-09,North,Widget B,85,14.50,1232.50
+2025-02-16,East,Widget A,100,9.99,999.00
+2025-02-16,West,Widget B,75,14.50,1087.50
+2025-02-23,North,Widget C,65,22.00,1430.00
+2025-02-23,South,Widget C,50,22.00,1100.00
+2025-03-02,East,Widget A,115,9.99,1148.85
+2025-03-02,West,Widget A,90,9.99,899.10
+2025-03-09,North,Widget B,105,14.50,1522.50
+2025-03-09,South,Widget B,95,14.50,1377.50
+2025-03-16,East,Widget C,70,22.00,1540.00

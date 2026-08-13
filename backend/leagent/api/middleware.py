@@ -151,30 +151,40 @@ class ContentSizeLimitMiddleware:
                 await response(scope, receive, send)
                 return
 
-        # Wrap ``receive`` to enforce a hard cap on the streamed body size for
-        # requests that omit (or understate) Content-Length.
-        streamed = 0
         cap = self.max_streaming_size
-        over = False
-
-        async def _limited_receive():  # type: ignore[no-untyped-def]
-            nonlocal streamed, over
-            message = await receive()
-            if message.get("type") == "http.request":
-                body = message.get("body", b"")
-                streamed += len(body)
-                if streamed > cap:
-                    over = True
-            return message
 
         if cap and cap > 0:
-            try:
-                await self.app(scope, _limited_receive, send)
-            finally:
-                if over:
-                    # The downstream app already consumed the body; the cap is a
-                    # best-effort signal recorded for access logs / metrics.
-                    pass
+            # Buffer a bounded request before handing it to application code.
+            # A receive wrapper alone only notices an oversized chunk after the
+            # downstream handler has started consuming the request (and can
+            # therefore already have performed work or sent a response).
+            buffered: list[dict] = []
+            streamed = 0
+            while True:
+                message = await receive()
+                buffered.append(message)
+                if message.get("type") != "http.request":
+                    break
+
+                streamed += len(message.get("body", b""))
+                if streamed > cap:
+                    response = _build_413_response(cap)
+                    await response(scope, receive, send)
+                    return
+                if not message.get("more_body", False):
+                    break
+
+            message_index = 0
+
+            async def _replay_receive():  # type: ignore[no-untyped-def]
+                nonlocal message_index
+                if message_index < len(buffered):
+                    message = buffered[message_index]
+                    message_index += 1
+                    return message
+                return {"type": "http.disconnect"}
+
+            await self.app(scope, _replay_receive, send)
             return
 
         await self.app(scope, receive, send)

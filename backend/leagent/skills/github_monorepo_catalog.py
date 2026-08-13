@@ -1,7 +1,7 @@
 """Discover and install skills from a GitHub monorepo (folder per skill + SKILL.md).
 
 Listing + SKILL.md metadata prefer one ``codeload.github.com`` tarball per catalog key,
-extracted under ``CACHE_DIR/github-skills-hub/``, refreshed at most once per TTL — avoiding
+extracted under ``CACHE_DIR/github-skills-hub/``, refreshed at most once per TTL -avoiding
 GitHub REST ``/contents`` rate limits. Falls back to REST + ``raw.githubusercontent.com``
 only if tarball download/extract fails.
 """
@@ -31,7 +31,7 @@ from leagent.skills.markdown_loader import parse_skill_markdown
 
 logger = structlog.get_logger(__name__)
 
-USER_AGENT = "LeAgent/1.2.0 (+https://github.com/vixues/LeAgent) skills-hub"
+USER_AGENT = "LeAgent/1.2.0 (+https://github.com/WeiY11/StAgent) skills-hub"
 
 # Match frontend skills hub persistence (~24h): avoid hammering GitHub REST / raw on every page load.
 GITHUB_HUB_CACHE_TTL_S = 86400.0
@@ -415,7 +415,7 @@ class GitHubMonorepoCatalog:
         return list(names)
 
     async def _fetch_skill_md_raw(self, skill_name: str) -> str:
-        # Static raw host — one GET per skill metadata refresh.
+        # Static raw host -one GET per skill metadata refresh.
         path = f"{self._skills_path}/{skill_name}/SKILL.md".strip("/")
         path_q = quote(path)
         url = f"https://raw.githubusercontent.com/{self._owner}/{self._repo}/{self._ref}/{path_q}"

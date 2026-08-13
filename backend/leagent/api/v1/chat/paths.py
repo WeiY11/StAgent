@@ -16,6 +16,10 @@ def dedupe_resolved_paths(paths: list[str]) -> list[str]:
     for raw in paths:
         if not raw:
             continue
+        if str(raw).strip().lower().startswith("s3://"):
+            # Object-storage URIs must be materialized through FileService
+            # before they can be handed to a local-path consumer.
+            continue
         try:
             resolved = str(Path(raw).expanduser().resolve())
         except Exception:  # noqa: BLE001
@@ -34,6 +38,8 @@ def attachment_local_path_for_sse(storage_path: str | None) -> str | None:
     the backend filesystem directly.
     """
     if not storage_path or not str(storage_path).strip():
+        return None
+    if str(storage_path).strip().lower().startswith("s3://"):
         return None
     try:
         from leagent.config.settings import get_settings

@@ -57,7 +57,7 @@ class IterativeRefineNode(WorkflowNode):
         state = hidden.workflow_state
         node_id = hidden.unique_id
         var = str(inputs.get("iteration_var") or "refine_iteration")
-        max_iter = int(inputs.get("max_iterations") if inputs.get("max_iterations") is not None else 3)
+        max_iter = max(1, min(_coerce_int(inputs.get("max_iterations"), 3), 20))
 
         current = 0
         if state is not None:
@@ -94,5 +94,15 @@ def _control_for(hidden: HiddenHolder, node_id: str | None) -> dict[str, Any]:
     prompt = hidden.prompt or {}
     node = prompt.get(node_id) if isinstance(prompt, dict) else None
     if isinstance(node, dict):
-        return node.get("control", {}) or {}
+        control = node.get("control")
+        return control if isinstance(control, dict) else {}
     return {}
+
+
+def _coerce_int(value: Any, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

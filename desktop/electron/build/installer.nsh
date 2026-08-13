@@ -10,8 +10,20 @@
 ; ── Custom pages ──
 
 !macro customInit
-  ; Per-user install by default
-  StrCpy $INSTDIR "$LOCALAPPDATA\LeAgent"
+  ; ``initMultiUser`` restores InstallLocation before this hook. Only select
+  ; our legacy per-user default on a fresh install; overwriting $INSTDIR here
+  ; would move upgrades away from a user-selected location.
+  ; A caller's explicit `/D=...` must win as well. This is needed for
+  ; unattended deployment and prevents the default below from silently
+  ; redirecting an install to a different location.
+  ${GetParameters} $R0
+  ${GetOptions} $R0 "/D=" $R1
+  ${If} ${Errors}
+    ${if} $hasPerUserInstallation == "0"
+    ${andif} $hasPerMachineInstallation == "0"
+      StrCpy $INSTDIR "$LOCALAPPDATA\LeAgent"
+    ${endif}
+  ${EndIf}
 !macroend
 
 ; ── Uninstall prompt for user data ──

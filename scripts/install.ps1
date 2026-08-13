@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 function Write-LeAgentInfo([string]$msg) { Write-Host "[leagent] $msg" -ForegroundColor Green }
 function Write-LeAgentWarn([string]$msg) { Write-Host "[leagent] $msg" -ForegroundColor Yellow }
 
-$GitUrl = if ($GitUrl) { $GitUrl } elseif ($env:LEAGENT_GIT_URL) { $env:LEAGENT_GIT_URL } else { 'https://github.com/vixues/LeAgent.git' }
+$GitUrl = if ($GitUrl) { $GitUrl } elseif ($env:LEAGENT_GIT_URL) { $env:LEAGENT_GIT_URL } else { 'https://github.com/WeiY11/StAgent.git' }
 $CloneDir = if ($Dir) { $Dir } elseif ($env:LEAGENT_CLONE_DIR) { $env:LEAGENT_CLONE_DIR } else { Join-Path $HOME 'leagent-desktop' }
 $Ref = if ($Ref) { $Ref } elseif ($Version) { $Version } elseif ($env:LEAGENT_REF) { $env:LEAGENT_REF } else { 'main' }
 $SkipStart = $SkipStart -or ($env:LEAGENT_SKIP_START -eq '1')

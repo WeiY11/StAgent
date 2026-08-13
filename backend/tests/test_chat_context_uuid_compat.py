@@ -44,10 +44,7 @@ async def _insert_dashed_user_folder_file(
     now = datetime.utcnow().isoformat(sep=" ")
     async with db.session() as session:
         await session.execute(
-            text(
-                "INSERT INTO users (id, role, disabled) "
-                "VALUES (:id, 'user', 0)"
-            ),
+            text("INSERT INTO users (id, role, disabled) VALUES (:id, 'user', 0)"),
             {"id": str(user_id)},
         )
         if parent_id is not None:

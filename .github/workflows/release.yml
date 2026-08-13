@@ -154,6 +154,7 @@ jobs:
           path: |
             desktop/electron/dist-pack/*.AppImage
             desktop/electron/dist-pack/*.deb
+            desktop/electron/dist-pack/latest*.yml
           if-no-files-found: error
 
   desktop-macos:
@@ -182,6 +183,7 @@ jobs:
           path: |
             desktop/electron/dist-pack/*.dmg
             desktop/electron/dist-pack/*.zip
+            desktop/electron/dist-pack/latest*.yml
           if-no-files-found: error
 
   desktop-windows:
@@ -208,6 +210,7 @@ jobs:
           path: |
             desktop/electron/dist-pack/*.exe
             desktop/electron/dist-pack/*.exe.blockmap
+            desktop/electron/dist-pack/latest*.yml
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────

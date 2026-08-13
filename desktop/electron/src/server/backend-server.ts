@@ -21,6 +21,10 @@ import {
   runtimeVenvDir,
   runtimeVenvPython,
 } from '../paths/runtime-paths.js';
+import {
+  desktopBuildVersionEnv,
+  desktopSkillsInteropDiscoveryEnv,
+} from './backend-env.js';
 
 const backendFileLog = createFileLogger('backend', 'backend.log');
 
@@ -124,6 +128,8 @@ export class BackendServer {
       LEAGENT_HOME: home,
       LEAGENT_DESKTOP: '1',
       LEAGENT_DESKTOP_MODE: '1',
+      LEAGENT_BUILD_VERSION: desktopBuildVersionEnv(app.getVersion()),
+      LEAGENT_SKILLS_INTEROP_DISCOVERY: desktopSkillsInteropDiscoveryEnv(process.env),
       ...(app.isPackaged ? { LEAGENT_FRONTEND_DIST: frontend } : {}),
       PYTHONDONTWRITEBYTECODE: '0',
       PYTHONUNBUFFERED: '1',

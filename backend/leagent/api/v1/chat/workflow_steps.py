@@ -144,6 +144,7 @@ async def run_chat_workflow_step(
                 session_id,
                 [raw_ui],
                 user_id=user_id,
+                reject_unknown=False,
             )
             extra_paths = resolved_refs or None
         att_extra = await tool_extra_for_chat_session(

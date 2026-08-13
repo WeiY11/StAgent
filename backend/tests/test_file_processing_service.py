@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -12,7 +14,6 @@ from leagent.services.file_processing.service import (
     EXTENSION_HANDLER_MAP,
     FileProcessingService,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -213,6 +214,250 @@ class TestProcessFile:
         assert result.get("extracted_text") is None
 
 
+@pytest.mark.asyncio
+async def test_s3_source_is_staged_only_for_path_based_extraction() -> None:
+    file_id = uuid4()
+
+    class _Ref:
+        filename = "evidence.txt"
+        metadata = {"storage_path": "s3://kb/leagent/evidence.txt"}
+
+    class _FileService:
+        async def resolve(self, requested_id):  # noqa: ANN001
+            assert requested_id == file_id
+            return _Ref()
+
+        async def download(self, ref):  # noqa: ANN001
+            assert isinstance(ref, _Ref)
+            return b"remote evidence", "text/plain"
+
+    class _ServiceManager:
+        file_service = _FileService()
+
+    path, staged_path = await FileProcessingService._materialize_processing_source(
+        _ServiceManager(),
+        file_id=str(file_id),
+        storage_path="s3://kb/leagent/evidence.txt",
+        original_name="evidence.txt",
+    )
+    try:
+        assert staged_path == path
+        assert Path(path).read_bytes() == b"remote evidence"
+    finally:
+        if staged_path:
+            os.unlink(staged_path)
+
+
+@pytest.mark.asyncio
+async def test_reindex_removes_stale_vectors_before_upserting_replacements(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A changed document must not leave prior chunk vectors in Milvus."""
+    file_id = uuid4()
+    owner_id = uuid4()
+
+    class _Session:
+        async def __aenter__(self) -> _Session:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class _Chunks:
+        async def replace_for_file(self, *_args: object) -> int:
+            return 1
+
+        async def list_ids_for_file(self, *_args: object) -> list[object]:
+            return [uuid4()]
+
+    class _Db:
+        repositories = SimpleNamespace(document_chunks=_Chunks())
+
+        def session(self) -> _Session:
+            return _Session()
+
+    operations: list[tuple[str, object]] = []
+
+    class _VectorIndex:
+        available = True
+
+        async def delete_for_file(self, logical_id):  # noqa: ANN001
+            operations.append(("delete", logical_id))
+            return 1
+
+        async def upsert_chunks(self, logical_id, *_args: object, **_kwargs: object) -> int:
+            operations.append(("upsert", logical_id))
+            return 1
+
+    manager = SimpleNamespace(db=_Db())
+    service = FileProcessingService()
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: manager,
+    )
+
+    async def load_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            user_id=owner_id,
+            mime_type="text/plain",
+            original_name="proof.txt",
+            name="proof.txt",
+        )
+
+    monkeypatch.setattr("leagent.db.sqlite_compat.load_entity_by_id", load_file)
+    monkeypatch.setattr(
+        "leagent.knowledge.vector_index.get_knowledge_vector_index",
+        lambda: _VectorIndex(),
+    )
+    monkeypatch.setattr(service, "_set_index_state", AsyncMock())
+    monkeypatch.setattr(service, "_update_file_record", AsyncMock())
+
+    await service._index_chunks(str(file_id), {"extracted_text": "fresh RAG evidence"})
+
+    assert operations == [("delete", file_id), ("upsert", file_id)]
+
+
+@pytest.mark.asyncio
+async def test_unchanged_content_reindexes_when_index_version_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An embedding/index upgrade must not reuse an older ready projection."""
+    file_id = uuid4()
+    content_hash = "same-content-hash"
+
+    class _Result:
+        def __init__(self, value: object) -> None:
+            self._value = value
+
+        def first(self) -> object:
+            return self._value
+
+    class _Session:
+        async def __aenter__(self) -> _Session:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def exec(self, statement: object) -> _Result:
+            text = str(statement)
+            if "file_contents" in text:
+                return _Result(content_hash)
+            if "document_chunks" in text:
+                return _Result(uuid4())
+            if "knowledge_index_states" in text:
+                return _Result(
+                    SimpleNamespace(
+                        index_version="rag-v1",
+                        status="ready",
+                        content_hash=content_hash,
+                    )
+                )
+            raise AssertionError(f"unexpected statement: {text}")
+
+    class _Db:
+        def session(self) -> _Session:
+            return _Session()
+
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: SimpleNamespace(db=_Db()),
+    )
+    monkeypatch.setattr(
+        "leagent.db.sqlite_compat.uuid_column_equals",
+        lambda *_args: True,
+    )
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: SimpleNamespace(knowledge=SimpleNamespace(index_version="rag-v2")),
+    )
+
+    service = FileProcessingService()
+
+    assert not await service._content_unchanged(str(file_id), content_hash)
+
+
+@pytest.mark.asyncio
+async def test_index_state_lookup_failure_does_not_mask_file_processing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Best-effort state reads must not turn their own logging into an error."""
+
+    class _Session:
+        async def __aenter__(self) -> _Session:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def exec(self, _statement: object) -> object:
+            raise RuntimeError("index state table unavailable")
+
+    class _Db:
+        def session(self) -> _Session:
+            return _Session()
+
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: SimpleNamespace(db=_Db()),
+    )
+
+    assert await FileProcessingService()._get_index_state(str(uuid4())) is None
+
+
+@pytest.mark.asyncio
+async def test_index_lifecycle_records_the_configured_index_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Jobs and durable state must identify the same active index version."""
+    file_id = uuid4()
+    user_id = uuid4()
+    enqueued: list[dict[str, object]] = []
+    states: list[dict[str, object]] = []
+
+    class _Session:
+        async def __aenter__(self) -> _Session:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class _IndexRepository:
+        async def enqueue(self, *_args: object, **kwargs: object) -> str:
+            enqueued.append(kwargs)
+            return "job-1"
+
+        async def upsert_state(self, *_args: object, **kwargs: object) -> None:
+            states.append(kwargs)
+
+    class _Db:
+        repositories = SimpleNamespace(knowledge_index=_IndexRepository())
+
+        def session(self) -> _Session:
+            return _Session()
+
+    async def load_file(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(user_id=user_id)
+
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: SimpleNamespace(db=_Db()),
+    )
+    monkeypatch.setattr("leagent.db.sqlite_compat.load_entity_by_id", load_file)
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: SimpleNamespace(knowledge=SimpleNamespace(index_version="rag-v2")),
+    )
+
+    service = FileProcessingService()
+
+    assert await service._enqueue_index_job(str(file_id), "hash") == "job-1"
+    await service._set_index_state(str(file_id), "ready", content_hash="hash")
+
+    assert enqueued == [{"content_hash": "hash", "index_version": "rag-v2"}]
+    assert states[0]["index_version"] == "rag-v2"
+
+
 # ---------------------------------------------------------------------------
 # Extension map completeness
 # ---------------------------------------------------------------------------
@@ -226,9 +471,16 @@ class TestExtensionMap:
 
     def test_all_handlers_valid_names(self) -> None:
         valid = {
-            "pdf_reader", "word_reader", "excel_reader", "csv_processor",
-            "html_processor", "markdown_processor", "text_processor",
-            "config_file", "archive_manager", "image_ocr",
+            "pdf_reader",
+            "word_reader",
+            "excel_reader",
+            "csv_processor",
+            "html_processor",
+            "markdown_processor",
+            "text_processor",
+            "config_file",
+            "archive_manager",
+            "image_ocr",
         }
         for ext, handler in EXTENSION_HANDLER_MAP.items():
             assert handler in valid, f"Unknown handler {handler!r} for extension {ext}"

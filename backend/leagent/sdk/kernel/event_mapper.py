@@ -17,8 +17,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-import structlog
-
 from leagent.agent.base import (
     ConversationContext,
     ExecutionStep,
@@ -28,14 +26,13 @@ from leagent.agent.base import (
     ToolResult,
 )
 from leagent.agent.transitions import TerminalReason
+from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from leagent.agent.base import AgentContext
     from leagent.sdk.events import AgentEvent
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class KernelEventMapper:
@@ -78,8 +75,6 @@ class KernelEventMapper:
         turn_message_start: int,
     ) -> Any:
         """Process one kernel event. Returns an AgentResponse on ``result``, else None."""
-        from leagent.agent.base import AgentResponse  # noqa: F811
-
         mtype = event.type
         data = event.data
 
@@ -110,7 +105,9 @@ class KernelEventMapper:
     async def _handle_stream_delta(self, data: dict[str, Any]) -> None:
         if not self.streaming_phase_marked:
             self._update_task_phase(
-                self.context.session_id, self.context.task_id, "streaming",
+                self.context.session_id,
+                self.context.task_id,
+                "streaming",
             )
             self.streaming_phase_marked = True
         token = data.get("content", "")
@@ -169,9 +166,7 @@ class KernelEventMapper:
         rc = data.get("reasoning_content")
         reasoning = rc if isinstance(rc, str) and rc.strip() else None
         if isinstance(tcs, list):
-            self.conversation.append_assistant_message(
-                text, tool_calls=tcs, reasoning_content=reasoning
-            )
+            self.conversation.append_assistant_message(text, tool_calls=tcs, reasoning_content=reasoning)
 
     def _handle_assistant(self, data: dict[str, Any]) -> None:
         text = data.get("content") or ""
@@ -201,7 +196,10 @@ class KernelEventMapper:
 
         if reason == TerminalReason.AWAITING_USER_INPUT.value:
             return await self._build_awaiting_user_response(
-                data, usage, result_checkpoint_id, turn_message_start,
+                data,
+                usage,
+                result_checkpoint_id,
+                turn_message_start,
             )
 
         response = self.context.finalize_turn(

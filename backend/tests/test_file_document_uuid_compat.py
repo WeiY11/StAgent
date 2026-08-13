@@ -9,17 +9,25 @@ from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 from sqlalchemy import text
 
 from leagent.api.v1 import documents as documents_api
+from leagent.api.v1 import knowledge as knowledge_api
 from leagent.api.v1.documents import search_documents
-from leagent.api.v1.files import FileRenameRequest, delete_file, rename_file, search_files
+from leagent.api.v1.files import (
+    FileRenameRequest,
+    _resolve_file_for_serve,
+    delete_file,
+    rename_file,
+    search_files,
+)
 from leagent.config.settings import Settings
-from leagent.db.repositories.document_chunks import ChunkHit
 from leagent.db.models.knowledge_index import KnowledgeIndexStatus
-from leagent.library.chunking import chunk_auto
-from leagent.knowledge.acl import ensure_personal_knowledge_space
+from leagent.db.repositories.document_chunks import ChunkHit
 from leagent.db.service import DatabaseService
+from leagent.knowledge.acl import ensure_personal_knowledge_space
+from leagent.library.chunking import chunk_auto
 from leagent.services.file_processing.service import FileProcessingService
 from leagent.tools.base import ToolContext
 from leagent.tools.doc.knowledge_search import KnowledgeSearchTool
@@ -341,10 +349,7 @@ async def test_delete_file_decrements_folder_count_for_dashed_sqlite_row(
     async with file_doc_db.session() as session:
         folder_count = (
             await session.execute(
-                text(
-                    "SELECT file_count FROM folders "
-                    "WHERE lower(replace(CAST(id AS TEXT), '-', ''))=:id_hex"
-                ),
+                text("SELECT file_count FROM folders WHERE lower(replace(CAST(id AS TEXT), '-', ''))=:id_hex"),
                 {"id_hex": folder_id.hex.lower()},
             )
         ).scalar_one()
@@ -502,20 +507,348 @@ async def test_file_processing_reindexes_changed_content_after_existing_index(
 
     async with file_doc_db.session() as session:
         chunk_texts = (
-            await session.execute(
-                text(
-                    "SELECT text FROM document_chunks "
-                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex "
-                    "ORDER BY seq"
-                ),
-                {"id_hex": file_id.hex.lower()},
+            (
+                await session.execute(
+                    text(
+                        "SELECT text FROM document_chunks "
+                        "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex "
+                        "ORDER BY seq"
+                    ),
+                    {"id_hex": file_id.hex.lower()},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert "_index_skipped" not in first
     assert "_index_skipped" not in second
     assert chunk_texts
     assert "updated source text" in chunk_texts[0]
+
+
+@pytest.mark.asyncio
+async def test_file_processing_reindexes_unchanged_content_after_index_version_upgrade(
+    file_doc_db: DatabaseService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A new RAG index version must rebuild an otherwise unchanged document."""
+    user_id = uuid4()
+    file_id = uuid4()
+    path = tmp_path / "versioned-content.txt"
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="versioned-content.txt",
+        storage_path=path,
+        extracted_text="initial source text",
+        library_scope="knowledge",
+    )
+
+    class _ServiceManager:
+        db = file_doc_db
+
+    knowledge_settings = types.SimpleNamespace(
+        index_version="rag-v1",
+        opensearch_url="",
+    )
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: _ServiceManager(),
+    )
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: types.SimpleNamespace(knowledge=knowledge_settings),
+    )
+    service = FileProcessingService()
+
+    async def _fake_process_file(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {
+            "extracted_text": "stable source text",
+            "metadata": {},
+            "handler": "text_processor",
+        }
+
+    monkeypatch.setattr(service, "process_file", _fake_process_file)
+
+    first = await service.process_and_update_db(
+        str(file_id),
+        str(path),
+        mime_type="text/plain",
+        original_name="versioned-content.txt",
+    )
+    unchanged = await service.process_and_update_db(
+        str(file_id),
+        str(path),
+        mime_type="text/plain",
+        original_name="versioned-content.txt",
+    )
+    knowledge_settings.index_version = "rag-v2"
+    reindexed = await service.process_and_update_db(
+        str(file_id),
+        str(path),
+        mime_type="text/plain",
+        original_name="versioned-content.txt",
+    )
+
+    async with file_doc_db.session() as session:
+        state = (
+            await session.execute(
+                text(
+                    "SELECT index_version, status FROM knowledge_index_states "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).one()
+
+    assert "_index_skipped" not in first
+    assert unchanged["_index_skipped"] is True
+    assert "_index_skipped" not in reindexed
+    assert state._mapping["index_version"] == "rag-v2"
+    assert state._mapping["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_bulk_reindex_queues_only_stale_writable_documents(
+    file_doc_db: DatabaseService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A version upgrade must queue only documents the caller can rebuild."""
+    user_id = uuid4()
+    other_user_id = uuid4()
+    stale_file_id = uuid4()
+    current_file_id = uuid4()
+    other_file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=stale_file_id,
+        user_id=user_id,
+        name="stale.txt",
+        storage_path=tmp_path / "stale.txt",
+    )
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=current_file_id,
+        user_id=user_id,
+        name="current.txt",
+        storage_path=tmp_path / "current.txt",
+    )
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=other_file_id,
+        user_id=other_user_id,
+        name="other.txt",
+        storage_path=tmp_path / "other.txt",
+    )
+    await file_doc_db.repositories.knowledge_index.upsert_state(
+        stale_file_id,
+        user_id,
+        status=KnowledgeIndexStatus.READY,
+        index_version="rag-v1",
+        content_hash="old",
+    )
+    await file_doc_db.repositories.knowledge_index.upsert_state(
+        current_file_id,
+        user_id,
+        status=KnowledgeIndexStatus.READY,
+        index_version="rag-v2",
+        content_hash="current",
+    )
+    await file_doc_db.repositories.knowledge_index.upsert_state(
+        other_file_id,
+        other_user_id,
+        status=KnowledgeIndexStatus.READY,
+        index_version="rag-v1",
+        content_hash="other",
+    )
+
+    queued: list[dict[str, object]] = []
+
+    async def _enqueue(*_args: object, **kwargs: object) -> str:
+        queued.append(kwargs)
+        return "task-1"
+
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
+    )
+    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+
+    endpoint = getattr(knowledge_api, "reindex_stale_knowledge_documents", None)
+    assert endpoint is not None, "knowledge bulk reindex endpoint is missing"
+    response = await endpoint(
+        knowledge_api.KnowledgeBulkReindexRequest(limit=10),
+        user_id,
+        file_doc_db,
+    )
+
+    async with file_doc_db.session() as session:
+        statuses = dict(
+            (
+                await session.execute(
+                    text("SELECT id, status FROM files WHERE id IN (:stale, :current, :other)"),
+                    {
+                        "stale": str(stale_file_id),
+                        "current": str(current_file_id),
+                        "other": str(other_file_id),
+                    },
+                )
+            ).all()
+        )
+
+    assert response.index_version == "rag-v2"
+    assert response.matched == 1
+    assert response.accepted == 1
+    assert response.unavailable == 0
+    assert [item["file_id"] for item in queued] == [str(stale_file_id)]
+    assert statuses[str(stale_file_id)] == "processing"
+    assert statuses[str(current_file_id)] == "processed"
+    assert statuses[str(other_file_id)] == "processed"
+
+
+@pytest.mark.asyncio
+async def test_bulk_reindex_marks_unavailable_source_as_failed(
+    file_doc_db: DatabaseService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A stale document with no recoverable source cannot remain falsely ready."""
+    user_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="missing-source.txt",
+        storage_path=tmp_path / "existing.txt",
+    )
+    await file_doc_db.repositories.knowledge_index.upsert_state(
+        file_id,
+        user_id,
+        status=KnowledgeIndexStatus.READY,
+        index_version="rag-v1",
+        content_hash="old",
+    )
+    async with file_doc_db.session() as session:
+        await session.execute(
+            text("UPDATE files SET storage_path = :path WHERE id = :id"),
+            {"path": str(tmp_path / "missing.txt"), "id": str(file_id)},
+        )
+
+    queued: list[dict[str, object]] = []
+
+    async def _enqueue(*_args: object, **kwargs: object) -> str:
+        queued.append(kwargs)
+        return "task-1"
+
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
+    )
+    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+
+    response = await knowledge_api.reindex_stale_knowledge_documents(
+        knowledge_api.KnowledgeBulkReindexRequest(limit=10),
+        user_id,
+        file_doc_db,
+    )
+
+    async with file_doc_db.session() as session:
+        file_row = (
+            await session.execute(
+                text("SELECT status, is_indexed FROM files WHERE id = :id"),
+                {"id": str(file_id)},
+            )
+        ).one()
+        state_row = (
+            await session.execute(
+                text(
+                    "SELECT index_version, status, last_error FROM knowledge_index_states "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).one()
+
+    assert response.matched == 1
+    assert response.accepted == 0
+    assert response.unavailable == 1
+    assert queued == []
+    assert file_row._mapping["status"] == "failed"
+    assert bool(file_row._mapping["is_indexed"]) is False
+    assert state_row._mapping["index_version"] == "rag-v2"
+    assert state_row._mapping["status"] == "failed"
+    assert state_row._mapping["last_error"] == "reindex_source_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_bulk_reindex_repairs_state_when_task_enqueue_fails(
+    file_doc_db: DatabaseService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Queue errors must not strand a stale document in processing."""
+    user_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="queue-failure.txt",
+        storage_path=tmp_path / "queue-failure.txt",
+    )
+    await file_doc_db.repositories.knowledge_index.upsert_state(
+        file_id,
+        user_id,
+        status=KnowledgeIndexStatus.READY,
+        index_version="rag-v1",
+        content_hash="old",
+    )
+
+    async def _enqueue(*_args: object, **_kwargs: object) -> str:
+        raise RuntimeError("task queue unavailable")
+
+    monkeypatch.setattr(
+        "leagent.config.settings.get_settings",
+        lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
+    )
+    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+
+    response = await knowledge_api.reindex_stale_knowledge_documents(
+        knowledge_api.KnowledgeBulkReindexRequest(limit=10),
+        user_id,
+        file_doc_db,
+    )
+
+    async with file_doc_db.session() as session:
+        file_row = (
+            await session.execute(
+                text("SELECT status, is_indexed FROM files WHERE id = :id"),
+                {"id": str(file_id)},
+            )
+        ).one()
+        state_row = (
+            await session.execute(
+                text(
+                    "SELECT index_version, status, last_error FROM knowledge_index_states "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', '')) = :id_hex"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).one()
+
+    assert response.matched == 1
+    assert response.accepted == 0
+    assert response.unavailable == 0
+    assert file_row._mapping["status"] == "failed"
+    assert bool(file_row._mapping["is_indexed"]) is False
+    assert state_row._mapping["index_version"] == "rag-v2"
+    assert state_row._mapping["status"] == "failed"
+    assert state_row._mapping["last_error"] == "reindex_enqueue_failed"
 
 
 @pytest.mark.asyncio
@@ -560,6 +893,27 @@ async def test_knowledge_index_queue_is_idempotent_and_claimable(
     assert claimed[0].id == first_job
     assert claimed[0].attempt_count == 1
 
+    await repo.mark_failed(first_job, "temporary embedding outage", retry_after_seconds=60)
+
+    # Make the retry deadline due without sleeping; failed jobs must remain
+    # claimable and retain their attempt history.
+    async with file_doc_db.session() as session:
+        await session.execute(
+            text(
+                "UPDATE knowledge_index_jobs SET available_at=:available_at "
+                "WHERE lower(replace(CAST(id AS TEXT), '-', ''))=:id_hex"
+            ),
+            {
+                "available_at": datetime.utcnow(),
+                "id_hex": first_job.hex.lower(),
+            },
+        )
+
+    retried = await repo.claim_batch("worker-b", limit=5)
+    assert len(retried) == 1
+    assert retried[0].id == first_job
+    assert retried[0].attempt_count == 2
+
     await repo.mark_succeeded(first_job, chunk_count=3, embedded_count=3)
 
     async with file_doc_db.session() as session:
@@ -583,6 +937,55 @@ async def test_knowledge_index_queue_is_idempotent_and_claimable(
     assert row._mapping["chunk_count"] == 3
     assert row._mapping["embedded_count"] == 3
     assert job_row._mapping["status"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_stale_index_job_cannot_overwrite_newer_projection(
+    file_doc_db: DatabaseService,
+    tmp_path: Path,
+) -> None:
+    user_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=user_id,
+        name="versioned.txt",
+        storage_path=tmp_path / "versioned.txt",
+        library_scope="knowledge",
+    )
+
+    repo = file_doc_db.repositories.knowledge_index
+    await repo.upsert_state(
+        file_id,
+        user_id,
+        status=KnowledgeIndexStatus.EXTRACTING,
+        content_hash="hash-v1",
+    )
+    old_job = await repo.enqueue(file_id, user_id, content_hash="hash-v1")
+    await repo.claim_batch("worker-a", limit=1)
+
+    await repo.upsert_state(
+        file_id,
+        user_id,
+        status=KnowledgeIndexStatus.EXTRACTING,
+        content_hash="hash-v2",
+    )
+    await repo.mark_succeeded(old_job, chunk_count=1)
+
+    async with file_doc_db.session() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT status, content_hash FROM knowledge_index_states "
+                    "WHERE lower(replace(CAST(file_id AS TEXT), '-', ''))=:id_hex"
+                ),
+                {"id_hex": file_id.hex.lower()},
+            )
+        ).one()
+
+    assert row._mapping["status"] == KnowledgeIndexStatus.EXTRACTING.value
+    assert row._mapping["content_hash"] == "hash-v2"
 
 
 @pytest.mark.asyncio
@@ -691,6 +1094,102 @@ async def test_knowledge_search_applies_space_membership_acl(
         "alpha",
         library_scope="knowledge",
     )
+
+
+@pytest.mark.asyncio
+async def test_knowledge_space_member_can_preview_shared_file(
+    file_doc_db: DatabaseService,
+    tmp_path: Path,
+) -> None:
+    """A reader who can discover a shared document can retrieve its bytes."""
+    owner_id = uuid4()
+    viewer_id = uuid4()
+    stranger_id = uuid4()
+    workspace_id = uuid4()
+    space_id = uuid4()
+    file_id = uuid4()
+    await _insert_dashed_file(
+        file_doc_db,
+        file_id=file_id,
+        user_id=owner_id,
+        name="shared-preview.txt",
+        storage_path=tmp_path / "shared-preview.txt",
+        library_scope="knowledge",
+    )
+    now = datetime.utcnow().isoformat(sep=" ")
+    async with file_doc_db.session() as session:
+        for user_id in (viewer_id, stranger_id):
+            await session.execute(
+                text("INSERT OR IGNORE INTO users (id, role, disabled) VALUES (:id, 'user', 0)"),
+                {"id": str(user_id)},
+            )
+        await session.execute(text("INSERT INTO workspaces (id) VALUES (:id)"), {"id": str(workspace_id)})
+        for member_id, member_user in ((uuid4(), owner_id), (uuid4(), viewer_id)):
+            await session.execute(
+                text(
+                    "INSERT INTO workspace_members "
+                    "(id, created_at, updated_at, workspace_id, user_id, role) "
+                    "VALUES (:id, :now, :now, :workspace_id, :user_id, 'member')"
+                ),
+                {
+                    "id": str(member_id),
+                    "now": now,
+                    "workspace_id": str(workspace_id),
+                    "user_id": str(member_user),
+                },
+            )
+        await session.execute(
+            text(
+                "INSERT INTO knowledge_spaces "
+                "(id, created_at, updated_at, workspace_id, name, slug, "
+                "default_access_scope, is_default, is_deleted) "
+                "VALUES (:id, :now, :now, :workspace_id, 'Shared previews', 'shared-previews', 'space', 0, 0)"
+            ),
+            {"id": str(space_id), "now": now, "workspace_id": str(workspace_id)},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO knowledge_space_members "
+                "(id, created_at, updated_at, space_id, user_id, role) "
+                "VALUES (:id, :now, :now, :space_id, :user_id, 'viewer')"
+            ),
+            {
+                "id": str(uuid4()),
+                "now": now,
+                "space_id": str(space_id),
+                "user_id": str(viewer_id),
+            },
+        )
+        await session.execute(
+            text(
+                "UPDATE files SET workspace_id=:workspace_id, knowledge_space_id=:space_id, "
+                "access_scope='space' WHERE id=:file_id"
+            ),
+            {
+                "workspace_id": str(workspace_id),
+                "space_id": str(space_id),
+                "file_id": str(file_id),
+            },
+        )
+
+    shared = await _resolve_file_for_serve(
+        file_id,
+        token=None,
+        jwt_user_id=viewer_id,
+        required_scope="preview",
+        db=file_doc_db,
+    )
+    assert shared.id == file_id
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _resolve_file_for_serve(
+            file_id,
+            token=None,
+            jwt_user_id=stranger_id,
+            required_scope="download",
+            db=file_doc_db,
+        )
+    assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio

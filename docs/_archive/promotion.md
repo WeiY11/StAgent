@@ -1,6 +1,6 @@
 # V2EX
 
-- GitHub：[github.com/vixues/LeAgent](https://github.com/vixues/LeAgent)
+- GitHub：[github.com/WeiY11/StAgent](https://github.com/WeiY11/StAgent)
 - Website：[vixues.com.cn](https://vixues.com.cn)
 
 这是一个自己 vibe 出来的项目，前后端代码和网站基本都是自己写的。个人水平有限，大家多多包涵。试玩的时候如果遇到问题，也欢迎多提意见。为了不浪费大家时间，我又测试了一周，基本保证演示里的功能都可以正常体验。
@@ -100,7 +100,7 @@ LeAgent 内置 100+ 离线工具，覆盖文档、网页研究、数据处理、
 
 项目方表示，LeAgent 的出发点是服务对数据安全、内网使用与二次开发有明确需求的用户——相对强依赖外部平台或登录体系的桌面 Agent，它更强调可控、可审计与可改造。目前项目仍处于持续迭代的开源阶段，适合本地 Agent、办公自动化与 AI 产品交互方向的开发者体验、研究与二次开发。
 
-**项目地址：** [https://github.com/vixues/LeAgent](https://github.com/vixues/LeAgent)  
+**项目地址：** [https://github.com/WeiY11/StAgent](https://github.com/WeiY11/StAgent)
 **项目官网：** [https://vixues.com.cn](https://vixues.com.cn)
 
 ---
@@ -341,7 +341,7 @@ LeAgent 更靠近最后一类：**桌面 / 自托管的 Agent 工作台**，默�
 - 要自主权、要本地/内网、要办公文档和工作流 → 可以看 LeAgent 这类开源桌面栈。  
 - 要自己改运行时、提示词分层、工具注册、记忆结构 → 当学习沙盘也够看。
 
-项目开源地址：github.com/vixues/LeAgent  
+项目开源地址：github.com/WeiY11/StAgent
 站点：vixues.com.cn  
 默认中文，带中英 i18n。欢迎试玩、提 issue；个人维护节奏有限，能点个 Star 也谢谢。
 
@@ -444,7 +444,7 @@ A：Markdown 适合叙述；看板、步骤、画廊这种「给人盯结论」�
 > 最近自己在用 / 维护一个开源桌面 Agent：LeAgent。定位偏本地办公工作台——规划+工具调用、Word/Excel/PPT/PDF、论文 PDF 研读、脏表清洗、可视化工作流、生成式 UI（聊天里长看板/幻灯片），默认数据落本机，模型可 DeepSeek / 通义 / OpenAI / Ollama 等。  
 > 适合：内网或材料敏感、要正式附件、想把重复活固化成流程的人。  
 > 不适合：只想网页随手聊、完全零运维、或重度 Coding 主力场景。  
-> 仓库：github.com/vixues/LeAgent ，站：vixues.com.cn 。还是学习项目气质，欢迎挑剔使用。
+> 仓库：github.com/WeiY11/StAgent ，站：vixues.com.cn 。还是学习项目气质，欢迎挑剔使用。
 
 ### 结尾收束（专栏常用）
 
@@ -499,7 +499,7 @@ LeAgent 里聊天是入口，Agent 循环负责干活，工作流负责沉淀。
 如果要极省心、能接受云端沙箱，选成熟云端产品。  
 如果在意本地/内网、要 Word/Excel/PPT、想把重复活固化——可以试一下。
 
-仓库：https://github.com/vixues/LeAgent  
+仓库：https://github.com/WeiY11/StAgent
 站点：https://vixues.com.cn  
 
 欢迎挑剔使用。能少浪费你一次安装时间，这篇就值。
@@ -538,7 +538,7 @@ LeAgent 默认本机跑、数据落本地；可接云端密钥，也可本地推
 
 只想手机随手聊、完全零运维、核心诉求是超复杂工程——可以先路过。制度红头、盖章、人工审批也轮不到 Agent 拍板。
 
-链接：github.com/vixues/LeAgent ，vixues.com.cn 。有问题直接提 issue，我尽量回。
+链接：github.com/WeiY11/StAgent ，vixues.com.cn 。有问题直接提 issue，我尽量回。
 
 ---
 
@@ -574,7 +574,7 @@ LeAgent 默认本机跑、数据落本地；可接云端密钥，也可本地推
 
 如果你所在处室正好有上面那些痛点，可以当工具试用一下；如果只是好奇 Agent 怎么设计，也可以当实验场——提示词分层、工具注册、记忆、工作流怎么拼，代码都在仓库里。
 
-https://github.com/vixues/LeAgent  
+https://github.com/WeiY11/StAgent
 https://vixues.com.cn  
 
 ---
@@ -598,7 +598,7 @@ LeAgent 里有一套偏论文向的用法，逻辑很土，但好用：
 
 附带办公能力有时也用得上：笔记整理进 Word，表格数据洗一洗出图，引用列表导出。不是学术万能工具，只是把扫读和摘录的断点少打断几次。
 
-项目开源，桌面 / 自托管都能玩：github.com/vixues/LeAgent
+项目开源，桌面 / 自托管都能玩：github.com/WeiY11/StAgent
 
 如果你也有「PDF 一开就头疼」的同感，欢迎试试看，踩坑了提 issue。
 
@@ -619,7 +619,7 @@ LeAgent 里有一套偏论文向的用法，逻辑很土，但好用：
 说实话：还是学习项目，要自己装、自己配密钥，别当完美成品。不过功能演示里那几块，我测过一轮，基本能玩起来。
 
 对本地 Agent、办公自动化、生成式 UI 感兴趣的可以瞅一眼。  
-GitHub：github.com/vixues/LeAgent  
+GitHub：github.com/WeiY11/StAgent
 官网：vixues.com.cn  
 欢迎提意见，顺手点个 Star 感谢。
 
@@ -629,7 +629,7 @@ GitHub：github.com/vixues/LeAgent
 
 ### 成稿六 · 短讯 / 动态（200 字内）
 
-做了个开源本地办公 Agent：LeAgent。规划+工具调用，Word/Excel/PPT/PDF，论文 PDF 研读，脏表清洗出图，可视化工作流和定时任务，聊天里能长出可交互看板再导出。默认数据落本机，模型可云可本地。取向是行政/业务岗能交差的小活儿，不是纯 Coding IDE。学习项目，欢迎试错。github.com/vixues/LeAgent · vixues.com.cn
+做了个开源本地办公 Agent：LeAgent。规划+工具调用，Word/Excel/PPT/PDF，论文 PDF 研读，脏表清洗出图，可视化工作流和定时任务，聊天里能长出可交互看板再导出。默认数据落本机，模型可云可本地。取向是行政/业务岗能交差的小活儿，不是纯 Coding IDE。学习项目，欢迎试错。github.com/WeiY11/StAgent · vixues.com.cn
 
 ---
 
@@ -647,7 +647,7 @@ GitHub：github.com/vixues/LeAgent
 
 架构上 Agent 内核、工具执行、文件层、工作流执行器是拆开的，想研究提示词分层、上下文压缩、检查点恢复，也可以当沙盘翻。前端占比不小，GenUI 和工作流页欢迎拍砖。
 
-仓库还是：https://github.com/vixues/LeAgent
+仓库还是：https://github.com/WeiY11/StAgent
 
 ---
 
@@ -686,7 +686,7 @@ Agent 的核心区别是，它会围绕一个目标连续行动：
 
 如果只需要润色、翻译和知识问答，普通聊天已经足够。只有当任务涉及多个步骤、多个工具或需要实际产物时，Agent 的价值才会明显。
 
-项目地址：https://github.com/vixues/LeAgent
+项目地址：https://github.com/WeiY11/StAgent
 
 ---
 
@@ -994,7 +994,7 @@ LeAgent 提供本地数据库、任务、工作流、规则、文件层、模型
 
 所以答案不是「市面上的都不好」，而是它们选择了不同的边界。LeAgent 选择的是本地优先、办公场景和可视化交互这条线。
 
-项目地址：https://github.com/vixues/LeAgent  
+项目地址：https://github.com/WeiY11/StAgent
 官网：https://vixues.com.cn
 
 ---
@@ -1289,7 +1289,7 @@ LeAgent 更像一个可审查、可修改的基础栈，提供实现安全边界
 
 企业真正需要的，也不是一个拥有无限权限的「数字员工」，而是一个在制度边界内工作、每一步都有依据、必要时把决定交还给人的执行系统。
 
-LeAgent 项目地址：https://github.com/vixues/LeAgent  
+LeAgent 项目地址：https://github.com/WeiY11/StAgent
 官网：https://vixues.com.cn
 
 ---
@@ -1450,7 +1450,7 @@ LeAgent 把 Generative UI 当作一等能力，而不是聊天里的装饰。大
 
 如果你关心的是「Agent 除了会说，会不会把结论交成人能开会用的东西」，生成式 UI 是一个值得认真看的方向。
 
-LeAgent：https://github.com/vixues/LeAgent  
+LeAgent：https://github.com/WeiY11/StAgent
 站点：https://vixues.com.cn
 
 ---
@@ -1617,7 +1617,7 @@ Agent 热度里，最容易被刷掉的是场景选择：你是要省心，还�
 如果你也在找一个能本地跑、能交附件、能把重复活固化下来的开源 Agent，欢迎试一下。踩坑提 issue，顺手点个 Star，都非常感谢。
 
 **项目地址**  
-GitHub：https://github.com/vixues/LeAgent  
+GitHub：https://github.com/WeiY11/StAgent
 官网：https://vixues.com.cn
 
 【配图14｜文末：GitHub 仓库页或官网首页截图】  
@@ -1646,4 +1646,3 @@ GitHub：https://github.com/vixues/LeAgent
 
 **字数：** 正文约 1800–2200 字（不含标题与表格）。  
 **推送备注：** 文内尽量少贴长链接，GitHub / 官网放文末「阅读原文」；配图统一裁 16:9 或公众号常用宽图，文字说明可做成图注。
-

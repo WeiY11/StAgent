@@ -214,9 +214,11 @@ class MCPClient:
                 resp = await tmp_client.post(self.config.oauth_token_url, data=payload)
                 resp.raise_for_status()
                 token_data = resp.json()
+                if not isinstance(token_data, dict):
+                    raise MCPProtocolError("OAuth token response must be an object")
                 token = token_data.get("access_token")
                 logger.info("OAuth token acquired", server=self.name, expires_in=token_data.get("expires_in"))
-                return token
+                return token if isinstance(token, str) and token else None
         except Exception as e:
             logger.error("OAuth token fetch failed", server=self.name, error=str(e))
             return None
@@ -295,7 +297,7 @@ class MCPClient:
             method: Notification method name.
             params: Notification parameters.
         """
-        notification = {
+        notification: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": method,
         }
@@ -319,7 +321,10 @@ class MCPClient:
             error = response["error"]
             raise MCPProtocolError(error.get("message", "Unknown error"), error.get("code"))
 
-        return response.get("result", {})
+        result = response.get("result", {})
+        if not isinstance(result, dict):
+            raise MCPProtocolError("JSON-RPC result must be an object")
+        return result
 
     async def _write_stdio(self, data: dict[str, Any]) -> None:
         """Write JSON-RPC message to stdio."""
@@ -349,9 +354,12 @@ class MCPClient:
                 raise MCPProtocolError("Connection closed")
 
             try:
-                return json.loads(line.decode())
+                response = json.loads(line.decode())
             except json.JSONDecodeError as e:
-                raise MCPProtocolError(f"Invalid JSON response: {e}")
+                raise MCPProtocolError(f"Invalid JSON response: {e}") from e
+            if not isinstance(response, dict):
+                raise MCPProtocolError("JSON-RPC response must be an object")
+            return response
 
     async def _send_http_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send request over HTTP transport."""
@@ -362,12 +370,17 @@ class MCPClient:
             response = await self._http_client.post("/rpc", json=request)
             response.raise_for_status()
             data = response.json()
+            if not isinstance(data, dict):
+                raise MCPProtocolError("JSON-RPC response must be an object")
 
             if "error" in data:
                 error = data["error"]
                 raise MCPProtocolError(error.get("message", "Unknown error"), error.get("code"))
 
-            return data.get("result", {})
+            result = data.get("result", {})
+            if not isinstance(result, dict):
+                raise MCPProtocolError("JSON-RPC result must be an object")
+            return result
 
         except httpx.HTTPStatusError as e:
             raise MCPProtocolError(f"HTTP error: {e.response.status_code}")

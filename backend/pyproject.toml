@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "leagent"
-version = "1.2.7"
+version = "1.2.12"
 description = "LeAgent — Intelligent Office Agent Platform"
 readme = "README.md"
 license = "Apache-2.0"
@@ -24,7 +24,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.36",
     "alembic>=1.14.0",
     "aiosqlite>=0.20.0",
-    "sqlite-vec>=0.1.6",
+    "sqlite-vec>=0.1.9,<0.2",
     "apscheduler>=3.10.0",
     "croniter>=2.0.0",
     "pytz>=2024.1",
@@ -109,6 +109,14 @@ office = [
 # (`uv sync --extra postgres`) to run against PostgreSQL via ``DATABASE_URL``.
 postgres = [
     "asyncpg>=0.30.0",
+]
+# Shared cache/run state plus S3-compatible file storage. Kept optional so
+# SQLite + local files remains the zero-dependency developer default.
+production = [
+    "redis>=5.0.0",
+    "boto3>=1.35.0",
+    # KnowledgeVectorIndex uses the stable PyMilvus 2.x Collection API.
+    "pymilvus>=2.5,<3",
 ]
 paddle = [
     "paddleocr",

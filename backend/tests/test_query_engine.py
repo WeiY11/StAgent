@@ -42,6 +42,7 @@ from leagent.context.sources.gated_policy import (
     CANVAS_INTENT_MAX_OUTPUT_TOKENS,
     resolve_canvas_intent_max_output_tokens,
 )
+from leagent.knowledge.evidence import Citation, EvidenceBundle, EvidenceStatus
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext, ToolPermissionContext
 from leagent.tools.executor import ToolExecutor
 from leagent.tools.registry import ToolRegistry
@@ -93,6 +94,56 @@ class _SleepTool(BaseTool):
     async def execute(self, params: dict[str, Any], context: ToolContext) -> dict[str, str]:
         await asyncio.sleep(float(params.get("delay", 0)))
         return {"slept": str(params.get("delay", 0))}
+
+
+class _KnowledgeSearchTool(BaseTool):
+    """Deterministic tool result shaped like the real knowledge search API."""
+
+    name = "knowledge_search"
+    description = "Search knowledge."
+    category = ToolCategory.DOC
+    is_concurrency_safe = True
+    is_read_only = True
+
+    def __init__(self) -> None:
+        self.file_id = uuid4()
+        self.chunk_id = uuid4()
+
+    @property
+    def parameters(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {"action": {"type": "string"}},
+            "required": ["action"],
+        }
+
+    async def execute(self, params: dict[str, Any], context: ToolContext) -> dict[str, Any]:
+        return {
+            "action": "search",
+            "query": "policy",
+            "evidence_status": "sufficient",
+            "results": [
+                {
+                    "citation_id": "K1",
+                    "file_id": str(self.file_id),
+                    "chunk_id": str(self.chunk_id),
+                    "name": "policy.md",
+                    "score": 0.95,
+                    "start_offset": 0,
+                    "end_offset": 42,
+                    "snippet": "verified policy evidence",
+                }
+            ],
+            "citations": [
+                {
+                    "citation_id": "K1",
+                    "file_id": str(self.file_id),
+                    "chunk_id": str(self.chunk_id),
+                    "start_offset": 0,
+                    "end_offset": 42,
+                }
+            ],
+        }
 
 
 class _CanvasPublishStub(BaseTool):
@@ -217,6 +268,23 @@ def _make_ctx(
     )
 
 
+def _knowledge_evidence() -> EvidenceBundle:
+    return EvidenceBundle(
+        status=EvidenceStatus.SUFFICIENT,
+        citations=(
+            Citation(
+                citation_id="K1",
+                file_id=uuid4(),
+                file_name="guide.md",
+                chunk_id=uuid4(),
+                start_offset=0,
+                end_offset=20,
+                score=0.9,
+            ),
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Transition enum sanity
 # ---------------------------------------------------------------------------
@@ -241,6 +309,137 @@ class TestTransitions:
 
 
 class TestQueryLoop:
+    @pytest.mark.asyncio
+    async def test_strict_knowledge_grounding_buffers_and_replaces_uncited_draft(self) -> None:
+        params = QueryParams(
+            messages=[{"role": "user", "content": "answer from knowledge"}],
+            system_prompt="test",
+            tool_use_context=_make_ctx(_make_registry()),
+            deps=_make_deps(
+                [
+                    [
+                        ModelStreamEvent(content_delta="Unsupported claim"),
+                        ModelStreamEvent(message_stop={"finish_reason": "stop", "usage": {}}),
+                    ]
+                ]
+            ),
+            grounding_evidence=_knowledge_evidence(),
+            strict_evidence=True,
+        )
+
+        events = [item async for item in query(params)]
+        assistant = next(item for item in events if isinstance(item, AssistantMessage))
+        visible_deltas = [
+            item.content_delta
+            for item in events
+            if isinstance(item, ModelStreamEvent) and item.content_delta
+        ]
+        terminal = next(item for item in events if isinstance(item, Terminal))
+
+        assert "Unsupported claim" not in assistant.content
+        assert visible_deltas == [assistant.content]
+        assert terminal.meta["grounding_rejected"] is True
+        assert terminal.meta["grounding_reason"] == "missing_citation"
+
+    @pytest.mark.asyncio
+    async def test_strict_knowledge_grounding_releases_valid_cited_answer_after_validation(self) -> None:
+        params = QueryParams(
+            messages=[{"role": "user", "content": "answer from knowledge"}],
+            system_prompt="test",
+            tool_use_context=_make_ctx(_make_registry()),
+            deps=_make_deps(
+                [
+                    [
+                        ModelStreamEvent(content_delta="Supported claim [K1]"),
+                        ModelStreamEvent(message_stop={"finish_reason": "stop", "usage": {}}),
+                    ]
+                ]
+            ),
+            grounding_evidence=_knowledge_evidence(),
+            strict_evidence=True,
+        )
+
+        events = [item async for item in query(params)]
+        assistant = next(item for item in events if isinstance(item, AssistantMessage))
+        visible_deltas = [
+            item.content_delta
+            for item in events
+            if isinstance(item, ModelStreamEvent) and item.content_delta
+        ]
+
+        assert assistant.content.startswith("Supported claim [K1]")
+        assert "Sources:\n- [K1] guide.md (excerpt 0-20)" in assistant.content
+        assert visible_deltas == [assistant.content]
+
+    @pytest.mark.asyncio
+    async def test_strict_grounding_refuses_when_retrieval_has_no_evidence(self) -> None:
+        params = QueryParams(
+            messages=[{"role": "user", "content": "answer from knowledge"}],
+            system_prompt="test",
+            tool_use_context=_make_ctx(_make_registry()),
+            deps=_make_deps(
+                [
+                    [
+                        ModelStreamEvent(content_delta="Invented answer [K1]"),
+                        ModelStreamEvent(message_stop={"finish_reason": "stop", "usage": {}}),
+                    ]
+                ]
+            ),
+            grounding_evidence=EvidenceBundle(EvidenceStatus.INSUFFICIENT, ()),
+            strict_evidence=True,
+        )
+
+        events = [item async for item in query(params)]
+        assistant = next(item for item in events if isinstance(item, AssistantMessage))
+        terminal = next(item for item in events if isinstance(item, Terminal))
+
+        assert "Invented answer" not in assistant.content
+        assert terminal.meta["grounding_rejected"] is True
+        assert terminal.meta["grounding_reason"] == "invalid_citation"
+
+    @pytest.mark.asyncio
+    async def test_tool_driven_knowledge_search_enables_strict_grounding_for_final_answer(self) -> None:
+        """A search tool result must not bypass the final-answer citation gate."""
+        registry = _make_registry(_KnowledgeSearchTool())
+        params = QueryParams(
+            messages=[{"role": "user", "content": "find the policy"}],
+            system_prompt="test",
+            tool_use_context=_make_ctx(registry),
+            deps=_make_deps(
+                [
+                    [
+                        ModelStreamEvent(
+                            tool_call={
+                                "id": "knowledge-1",
+                                "name": "knowledge_search",
+                                "arguments": {"action": "search"},
+                            }
+                        ),
+                        ModelStreamEvent(message_stop={"finish_reason": "tool_calls", "usage": {}}),
+                    ],
+                    [
+                        ModelStreamEvent(content_delta="Unsupported claim"),
+                        ModelStreamEvent(message_stop={"finish_reason": "stop", "usage": {}}),
+                    ],
+                ]
+            ),
+            strict_evidence=True,
+        )
+
+        events = [item async for item in query(params)]
+        assistant = [item for item in events if isinstance(item, AssistantMessage)][-1]
+        visible_deltas = [
+            item.content_delta
+            for item in events
+            if isinstance(item, ModelStreamEvent) and item.content_delta
+        ]
+        terminal = next(item for item in events if isinstance(item, Terminal))
+
+        assert "Unsupported claim" not in assistant.content
+        assert visible_deltas == [assistant.content]
+        assert terminal.meta["grounding_rejected"] is True
+        assert terminal.meta["grounding_reason"] == "missing_citation"
+
     @pytest.mark.asyncio
     async def test_completes_without_tools(self) -> None:
         """No tool calls → assistant message → Terminal(completed)."""

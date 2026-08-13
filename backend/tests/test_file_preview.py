@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 
+from leagent.api.v1.files import preview_response_policy
 from leagent.config.settings import get_settings
 from leagent.services.auth.signed_url import (
     SignedUrlError,
@@ -85,6 +86,28 @@ class TestSignedTokenRoundTrip:
         assert "/preview" in preview
         assert "/download" in download
         assert preview != download
+
+
+@pytest.mark.parametrize(
+    ("mime", "expected"),
+    [
+        ("image/png", ("image/png", "inline")),
+        ("image/jpeg", ("image/jpeg", "inline")),
+        ("application/pdf", ("application/pdf", "inline")),
+        ("audio/mpeg", ("audio/mpeg", "inline")),
+        ("video/mp4", ("video/mp4", "inline")),
+        ("text/html", ("application/octet-stream", "attachment")),
+        ("image/svg+xml", ("application/octet-stream", "attachment")),
+        ("application/javascript", ("application/octet-stream", "attachment")),
+        ("application/xml", ("application/octet-stream", "attachment")),
+    ],
+)
+def test_preview_response_policy_forces_active_content_to_download(
+    mime: str,
+    expected: tuple[str, str],
+) -> None:
+    """Preview responses must not navigate browsers to active uploaded content."""
+    assert preview_response_policy(mime) == expected
 
 
 class TestSignedTokenFailures:

@@ -5,6 +5,11 @@ from typing import Any
 import pytest
 
 from leagent.config.settings import Settings
+from leagent.knowledge.query import LLMQueryRewriter
+from leagent.knowledge.vector_index import (
+    get_knowledge_vector_index,
+    set_knowledge_vector_index,
+)
 from leagent.services.base import ServiceState
 from leagent.services.service_manager import ServiceManager
 from leagent.workflow.engine import CacheServiceWorkflowProvider
@@ -100,3 +105,122 @@ async def test_workflow_executor_receives_cache_service_provider(
     assert provider._cache is manager.cache
     assert manager.workflow_service is not None
     await manager.cache.stop()
+
+
+@pytest.mark.asyncio
+async def test_knowledge_pipeline_uses_llm_rewriter_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An enabled rewrite policy receives the configured LLM at RAG bootstrap."""
+    settings = Settings()
+    settings.knowledge.query_rewrite_enabled = True
+    manager = ServiceManager(settings)
+    manager._db = object()  # type: ignore[assignment]
+    manager._llm_service = object()  # type: ignore[assignment]
+    captured: dict[str, Any] = {}
+
+    class _Pipeline:
+        def __init__(self, _db: object, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr("leagent.library.retrieval.KnowledgeRetrievalPipeline", _Pipeline)
+    monkeypatch.setattr(
+        "leagent.library.retrieval.set_knowledge_retrieval_pipeline",
+        lambda pipeline: captured.setdefault("pipeline", pipeline),
+    )
+
+    await manager._start_knowledge_retrieval()
+
+    assert isinstance(captured["query_rewriter"], LLMQueryRewriter)
+
+
+@pytest.mark.asyncio
+async def test_knowledge_bootstrap_keeps_vector_index_unset_for_deepseek_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A chat-only DeepSeek route must not create a misleading vector index."""
+    settings = Settings()
+    settings.knowledge.milvus_enabled = True
+    settings.knowledge.embedding_enabled = True
+    settings.knowledge.embedding_provider = "deepseek"
+    settings.knowledge.embedding_model = "deepseek-v4-flash"
+    manager = ServiceManager(settings)
+    manager._db = object()  # type: ignore[assignment]
+
+    class _Registry:
+        def has_provider(self, name: str) -> bool:
+            return name == "deepseek"
+
+        def get_provider(self, name: str) -> object:
+            assert name == "deepseek"
+            return type("DeepSeek", (), {"supports_embeddings": False})()
+
+    manager._llm_service = type("LLM", (), {"registry": _Registry()})()  # type: ignore[assignment]
+
+    class _Pipeline:
+        def __init__(self, _db: object, **_kwargs: object) -> None:
+            return None
+
+    monkeypatch.setattr("leagent.library.retrieval.KnowledgeRetrievalPipeline", _Pipeline)
+    monkeypatch.setattr(
+        "leagent.library.retrieval.set_knowledge_retrieval_pipeline",
+        lambda _pipeline: None,
+    )
+
+    await manager._start_knowledge_retrieval()
+
+    assert get_knowledge_vector_index() is None
+    assert manager.knowledge_retrieval_status["vector"]["reason"] == "provider_lacks_embeddings"
+
+
+@pytest.mark.asyncio
+async def test_knowledge_bootstrap_wires_vector_index_for_embedding_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A declared embedding-capable provider enables the optional vector plane."""
+    settings = Settings()
+    settings.knowledge.milvus_enabled = True
+    settings.knowledge.embedding_enabled = True
+    settings.knowledge.embedding_provider = "ollama"
+    settings.knowledge.embedding_model = "nomic-embed-text"
+    settings.knowledge.embedding_dimension = 768
+    manager = ServiceManager(settings)
+    manager._db = object()  # type: ignore[assignment]
+
+    class _Registry:
+        def has_provider(self, name: str) -> bool:
+            return name == "ollama"
+
+        def get_provider(self, name: str) -> object:
+            assert name == "ollama"
+            return type("Ollama", (), {"supports_embeddings": True})()
+
+    manager._llm_service = type("LLM", (), {"registry": _Registry()})()  # type: ignore[assignment]
+
+    class _Pipeline:
+        def __init__(self, _db: object, **_kwargs: object) -> None:
+            return None
+
+    class _Index:
+        def __init__(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+
+    monkeypatch.setattr("leagent.library.retrieval.KnowledgeRetrievalPipeline", _Pipeline)
+    monkeypatch.setattr(
+        "leagent.library.retrieval.set_knowledge_retrieval_pipeline",
+        lambda _pipeline: None,
+    )
+    monkeypatch.setattr("leagent.knowledge.vector_index.KnowledgeVectorIndex", _Index)
+
+    try:
+        await manager._start_knowledge_retrieval()
+        assert isinstance(get_knowledge_vector_index(), _Index)
+        assert manager.knowledge_retrieval_status["vector"] == {
+            "enabled": True,
+            "provider": "ollama",
+            "model": "nomic-embed-text",
+            "dimension": 768,
+            "reason": "ready",
+        }
+    finally:
+        set_knowledge_vector_index(None)

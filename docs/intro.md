@@ -198,7 +198,7 @@ LeAgent 支持以下模型接入方式：
 环境要求：Git、uv 和 Node.js 20+ 或 22+。
 
 ```bash
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 ./start.sh
 ```
@@ -210,7 +210,7 @@ cd LeAgent
 ### Docker
 
 ```bash
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent/deploy
 cp .env.example .env
 docker compose up -d --build

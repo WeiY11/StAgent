@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -20,10 +20,6 @@ if TYPE_CHECKING:
     from leagent.config.settings import Settings
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T", bound=BaseModel)
-EventCallback = Callable[[Any], Coroutine[Any, Any, None]]
-
 
 def _run_id_as_uuid(run_id: str | None) -> UUID | None:
     if not run_id:
@@ -38,7 +34,7 @@ def _run_id_as_uuid(run_id: str | None) -> UUID | None:
         return None
 
 
-class EventType(str, Enum):
+class EventType(str, Enum):  # noqa: UP042 - preserve legacy Enum string semantics
     """Standard event types."""
 
     TASK_CREATED = "task.created"
@@ -87,7 +83,7 @@ class EventPriority(int, Enum):
     CRITICAL = 3
 
 
-class Event(BaseModel, Generic[T]):
+class Event(BaseModel):
     """Base event model."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -130,6 +126,9 @@ class AgentEvent(Event):
     tool_name: str | None = None
     tool_input: dict[str, Any] | None = None
     tool_output: Any | None = None
+
+
+EventCallback = Callable[[Any], Awaitable[None]]
 
 
 @dataclass
@@ -311,7 +310,7 @@ class EventManager(Service):
         subscriptions.sort(key=lambda s: s.priority.value, reverse=True)
 
         to_remove: list[tuple[str, Subscription]] = []
-        tasks: list[asyncio.Task] = []
+        tasks: list[asyncio.Task[None]] = []
 
         for sub in subscriptions:
             if sub.filter_func and not sub.filter_func(event):
@@ -606,7 +605,7 @@ class EventManager(Service):
         *,
         priority: EventPriority = EventPriority.NORMAL,
         filter_func: Callable[[Event], bool] | None = None,
-    ):
+    ) -> Callable[[EventCallback], EventCallback]:
         """Decorator for subscribing to events.
 
         Usage:
@@ -631,7 +630,7 @@ class EventManager(Service):
         event_type: EventType | str,
         *,
         priority: EventPriority = EventPriority.NORMAL,
-    ):
+    ) -> Callable[[EventCallback], EventCallback]:
         """Decorator for one-time event subscription."""
 
         def decorator(func: EventCallback) -> EventCallback:

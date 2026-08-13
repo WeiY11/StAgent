@@ -42,7 +42,7 @@ from leagent.api.v1.chat.context_sources import (
     authorized_root_paths_for_session as _authorized_root_paths_for_session,
 )
 from leagent.api.v1.chat.context_sources import (
-    resolve_knowledge_message_paths as _resolve_knowledge_message_paths,
+    materialize_knowledge_message_paths as _materialize_knowledge_message_paths,
 )
 from leagent.api.v1.chat.sse import format_openai_chunk as _format_openai_chunk
 from leagent.api.v1.chat_deps import ChatSvc, build_agent_controller
@@ -79,6 +79,7 @@ async def _generate_openai_sse(
     *,
     attachments: list[str] | None = None,
     persisted_user_message_id: UUID | None = None,
+    db: DatabaseService | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Generate OpenAI-compatible SSE chunks."""
 
@@ -102,52 +103,74 @@ async def _generate_openai_sse(
 
         if agent is not None:
             from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
+
             try:
                 await apply_pet_personality_to_agent(agent, get_database_service(), user_id)
             except Exception:
                 logger.debug("openai_sse_apply_pet_personality_failed", exc_info=True)
             last_user_msg = next(
-                (m.content for m in reversed(request.messages) if m.role == MessageRole.USER), "",
+                (m.content for m in reversed(request.messages) if m.role == MessageRole.USER),
+                "",
             )
             openai_auth_roots = await _authorized_root_paths_for_session(
-                chat_svc, session_id, user_id,
+                chat_svc,
+                session_id,
+                user_id,
             )
             openai_agent_task_id = uuid4()
-            async for etype, edata, acc_text in _run_agent_stream(
-                agent, last_user_msg, session_id, user_id,
-                attachments=attachments,
-                authorized_roots=openai_auth_roots,
-                persisted_user_message_id=persisted_user_message_id,
-                agent_task_id=openai_agent_task_id,
-            ):
-                response_content = acc_text
-                if etype == "token":
-                    token = edata.get("token", "")
-                    output_tokens += 1
-                    yield _format_openai_chunk(completion_id, created, model, {"content": token})
-                elif etype == "thinking":
-                    yield {"event": "thinking", "data": json.dumps({"thought": edata.get("thought", "")})}
-                elif etype == "tool_call_delta":
-                    yield {"event": "tool_call_delta", "data": json.dumps(edata)}
-                elif etype == "nested_agent_preview":
-                    yield {"event": "nested_agent_preview", "data": json.dumps(edata)}
-                elif etype in ("tool_call", "tool_result"):
-                    yield {"event": etype, "data": json.dumps(edata)}
-                elif etype == "workflow":
-                    yield {"event": "workflow", "data": json.dumps(edata)}
-                    if isinstance(edata, dict):
-                        last_extensions_json = _accumulate_workflow_extensions(
-                            last_extensions_json, edata
-                        )
-                elif etype == "complete" and response_content and output_tokens == 0:
-                    yield _format_openai_chunk(completion_id, created, model, {"content": response_content})
-                elif etype == "error":
-                    yield {"event": "error", "data": json.dumps({"error": edata.get("error", "Unknown error"), "type": "agent_error"})}
+            async with _materialize_knowledge_message_paths(
+                user_id,
+                db,
+                last_user_msg,
+            ) as knowledge_paths:
+                merged_attachments = _merge_agent_attachment_paths(
+                    attachments,
+                    knowledge_paths,
+                )
+                async for etype, edata, acc_text in _run_agent_stream(
+                    agent,
+                    last_user_msg,
+                    session_id,
+                    user_id,
+                    attachments=merged_attachments,
+                    authorized_roots=openai_auth_roots,
+                    persisted_user_message_id=persisted_user_message_id,
+                    agent_task_id=openai_agent_task_id,
+                ):
+                    response_content = acc_text
+                    if etype == "token":
+                        token = edata.get("token", "")
+                        output_tokens += 1
+                        yield _format_openai_chunk(completion_id, created, model, {"content": token})
+                    elif etype == "thinking":
+                        yield {"event": "thinking", "data": json.dumps({"thought": edata.get("thought", "")})}
+                    elif etype == "tool_call_delta":
+                        yield {"event": "tool_call_delta", "data": json.dumps(edata)}
+                    elif etype == "nested_agent_preview":
+                        yield {"event": "nested_agent_preview", "data": json.dumps(edata)}
+                    elif etype in ("tool_call", "tool_result"):
+                        yield {"event": etype, "data": json.dumps(edata)}
+                    elif etype == "workflow":
+                        yield {"event": "workflow", "data": json.dumps(edata)}
+                        if isinstance(edata, dict):
+                            last_extensions_json = _accumulate_workflow_extensions(last_extensions_json, edata)
+                    elif etype == "complete" and response_content and output_tokens == 0:
+                        yield _format_openai_chunk(completion_id, created, model, {"content": response_content})
+                    elif etype == "error":
+                        yield {
+                            "event": "error",
+                            "data": json.dumps({"error": edata.get("error", "Unknown error"), "type": "agent_error"}),
+                        }
         else:
-            yield {"event": "error", "data": json.dumps({
-                "error": "No LLM provider configured",
-                "type": "configuration_error",
-            })}
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {
+                        "error": "No LLM provider configured",
+                        "type": "configuration_error",
+                    }
+                ),
+            }
 
         yield _format_openai_chunk(completion_id, created, model, {}, finish_reason="stop")
         yield {"event": "message", "data": "[DONE]"}
@@ -170,14 +193,14 @@ async def _generate_openai_sse(
         yield {"event": "error", "data": json.dumps({"error": str(e), "type": "stream_error"})}
 
 
-@router.post("/completions")
+@router.post("/completions", response_model=None)
 async def create_chat_completion(
     request: ChatCompletionRequest,
     user_id: CurrentUserId,
     chat_svc: ChatSvc,
     db: Annotated[DatabaseService, Depends(get_database_service)],
     x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
-):
+) -> EventSourceResponse | ChatCompletionResponse:
     """Create a chat completion (OpenAI-compatible). Streaming or non-streaming."""
     if not request.messages:
         raise HTTPException(
@@ -211,22 +234,20 @@ async def create_chat_completion(
         )
 
     last_user_message = next(
-        (m for m in reversed(request.messages) if m.role == MessageRole.USER), None,
+        (m for m in reversed(request.messages) if m.role == MessageRole.USER),
+        None,
     )
     persisted_openai_user_id: UUID | None = None
     if last_user_message:
         um_row = await chat_svc.add_message(
-            session_id, MessageRole.USER, last_user_message.content, user_id=user_id,
+            session_id,
+            MessageRole.USER,
+            last_user_message.content,
+            user_id=user_id,
         )
         persisted_openai_user_id = um_row.id
 
-    last_user_text = (
-        last_user_message.content
-        if last_user_message
-        else ""
-    )
-    knowledge_paths = await _resolve_knowledge_message_paths(user_id, db, last_user_text)
-    merged_attachments = _merge_agent_attachment_paths(None, knowledge_paths)
+    last_user_text = last_user_message.content if last_user_message else ""
 
     if request.stream:
         return EventSourceResponse(
@@ -235,8 +256,8 @@ async def create_chat_completion(
                 session_id,
                 user_id,
                 chat_svc,
-                attachments=merged_attachments,
                 persisted_user_message_id=persisted_openai_user_id,
+                db=db,
             ),
             media_type="text/event-stream",
         )
@@ -254,23 +275,32 @@ async def create_chat_completion(
     )
     if agent is not None:
         from leagent.services.chat.pet_personality import apply_pet_personality_to_agent
+
         await apply_pet_personality_to_agent(agent, db, user_id)
         last_user_msg = next(
-            (m.content for m in reversed(request.messages) if m.role == MessageRole.USER), "",
+            (m.content for m in reversed(request.messages) if m.role == MessageRole.USER),
+            "",
         )
         completion_auth_roots = await _authorized_root_paths_for_session(
-            chat_svc, session_id, user_id,
-        )
-        agent_response = await agent.run(
-            last_user_msg,
+            chat_svc,
             session_id,
-            user_id=user_id,
-            attachments=merged_attachments,
-            authorized_roots=completion_auth_roots,
-            persisted_user_message_id=persisted_openai_user_id,
-            agent_task_id=uuid4(),
+            user_id,
         )
-        response_content = agent_response.text
+        async with _materialize_knowledge_message_paths(
+            user_id,
+            db,
+            last_user_text,
+        ) as knowledge_paths:
+            agent_response = await agent.run(
+                last_user_msg,
+                session_id,
+                user_id=user_id,
+                attachments=_merge_agent_attachment_paths(None, knowledge_paths),
+                authorized_roots=completion_auth_roots,
+                persisted_user_message_id=persisted_openai_user_id,
+                agent_task_id=uuid4(),
+            )
+            response_content = agent_response.text
     else:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

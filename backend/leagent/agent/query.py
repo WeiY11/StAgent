@@ -24,7 +24,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from leagent.agent.deps import ModelStreamEvent, QueryDeps
@@ -37,6 +37,7 @@ from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from leagent.agent.tool_use_context import ToolUseContext
+    from leagent.knowledge.evidence import EvidenceBundle
 
 logger = get_logger(__name__)
 
@@ -83,9 +84,7 @@ class _CanvasLengthSalvage:
 
 def _has_truncated_tool_args(tool_calls: list[dict[str, Any]]) -> bool:
     return any(
-        isinstance(tc.get("arguments"), dict)
-        and isinstance(tc["arguments"].get("__raw__"), str)
-        for tc in tool_calls
+        isinstance(tc.get("arguments"), dict) and isinstance(tc["arguments"].get("__raw__"), str) for tc in tool_calls
     )
 
 
@@ -177,9 +176,7 @@ def _prepare_canvas_length_salvage(
             # Blob / html_files path — treat as executable without completeness probe.
             salvaged_bytes = max(salvaged_bytes, 0)
 
-        tc["arguments"] = {
-            k: v for k, v in recovered.items() if not str(k).startswith("_")
-        }
+        tc["arguments"] = {k: v for k, v in recovered.items() if not str(k).startswith("_")}
         any_salvaged = True
 
     if not any_salvaged:
@@ -207,10 +204,12 @@ def _build_length_recovery_state(
     recovery_attempt = state.max_output_tokens_recovery_count + 1
     recovery_messages = list(state.messages)
     if _should_inject_recovery_hint(tool_calls):
-        recovery_messages.append({
-            "role": "user",
-            "content": _TRUNCATION_RECOVERY_HINT,
-        })
+        recovery_messages.append(
+            {
+                "role": "user",
+                "content": _TRUNCATION_RECOVERY_HINT,
+            }
+        )
     if recovery_attempt >= 2:
         state.tool_use_context.extra["force_sharded_html"] = True
     return QueryState(
@@ -246,6 +245,8 @@ def _length_recovery_log_extra(
         "salvaged_html_bytes": salvaged_html_bytes,
         "executed_vs_regenerated": executed_vs_regenerated,
     }
+
+
 # Placeholder tool body so OpenAI-shaped history always has a tool row after ask_user tool_calls.
 ASK_USER_PENDING_TOOL_JSON = '{"_wa_pending": true}'
 
@@ -335,11 +336,7 @@ def _inject_pending_ask_user_tool_stubs(messages: list[dict[str, Any]]) -> None:
             idx += 1
             continue
 
-        ask_ids = [
-            tid
-            for tid, name in _tool_call_id_name_pairs(tcs)
-            if name == ASK_USER_TOOL_NAME
-        ]
+        ask_ids = [tid for tid, name in _tool_call_id_name_pairs(tcs) if name == ASK_USER_TOOL_NAME]
         if not ask_ids:
             idx += 1
             continue
@@ -374,10 +371,7 @@ def _inject_pending_ask_user_tool_stubs(messages: list[dict[str, Any]]) -> None:
 INTERRUPTED_TOOL_RESULT_JSON = json.dumps(
     {
         "_interrupted": True,
-        "detail": (
-            "No tool result was stored (the run was cancelled or disconnected "
-            "before this tool finished)."
-        ),
+        "detail": ("No tool result was stored (the run was cancelled or disconnected before this tool finished)."),
     },
     ensure_ascii=False,
 )
@@ -403,9 +397,7 @@ def drop_orphan_tool_messages(messages: list[dict[str, Any]]) -> None:
         if role == "assistant":
             tcs = msg.get("tool_calls")
             if isinstance(tcs, list) and tcs:
-                pending_ids = {
-                    tid for tid, _ in _tool_call_id_name_pairs(tcs) if tid
-                }
+                pending_ids = {tid for tid, _ in _tool_call_id_name_pairs(tcs) if tid}
             else:
                 pending_ids = None
             kept.append(msg)
@@ -551,6 +543,8 @@ class QueryParams:
     model_provider: str | None = None
     model_name: str | None = None
     model_task: str | None = None
+    grounding_evidence: EvidenceBundle | None = None
+    strict_evidence: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -674,9 +668,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         messages_for_query = list(state.messages)
 
         _stage_started = time.perf_counter()
-        messages_for_query = await params.deps.microcompact(
-            messages_for_query, state.tool_use_context
-        )
+        messages_for_query = await params.deps.microcompact(messages_for_query, state.tool_use_context)
         try:
             from leagent.utils.metrics import get_metrics
 
@@ -732,8 +724,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 from leagent.agent.base import AgentContext
 
                 _compact_ctx = AgentContext(
-                    session_id=getattr(state.tool_use_context, "session_id", None)
-                    or _uuid4(),
+                    session_id=getattr(state.tool_use_context, "session_id", None) or _uuid4(),
                     user_id=getattr(state.tool_use_context, "user_id", None),
                 )
                 await _hooks.dispatch_pre_compact(_compact_ctx, "autocompact")
@@ -776,6 +767,8 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         assistant_content_parts: list[str] = []
         assistant_reasoning_parts: list[str] = []
         tool_calls: list[dict[str, Any]] = []
+        buffer_grounded_output = bool(params.strict_evidence and params.grounding_evidence is not None)
+        deferred_stream_stops: list[ModelStreamEvent] = []
         stream_error: dict[str, Any] | None = None
         finish_reason = "stop"
         usage: dict[str, Any] = {}
@@ -788,9 +781,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 "tools": params.tools_schema,
                 "tool_use_context": state.tool_use_context,
                 "temperature": params.temperature,
-                "max_output_tokens": (
-                    state.max_output_tokens_override or params.max_output_tokens
-                ),
+                "max_output_tokens": (state.max_output_tokens_override or params.max_output_tokens),
             }
             if params.model_provider:
                 call_kwargs["model_provider"] = params.model_provider
@@ -806,7 +797,22 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                     yield Terminal(reason=TerminalReason.ABORTED_STREAMING)
                     return
 
-                yield event  # surface the raw stream event to SDK callers
+                if buffer_grounded_output and (event.content_delta or event.message_stop):
+                    if event.message_stop:
+                        deferred_stream_stops.append(
+                            replace(
+                                event,
+                                content_delta=None,
+                                reasoning_delta=None,
+                                tool_call=None,
+                                tool_call_delta=None,
+                            )
+                        )
+                    visible_event = replace(event, content_delta=None, message_stop=None)
+                    if visible_event.reasoning_delta or visible_event.tool_call or visible_event.tool_call_delta:
+                        yield visible_event
+                else:
+                    yield event  # surface the raw stream event to SDK callers
 
                 if event.content_delta:
                     assistant_content_parts.append(event.content_delta)
@@ -877,6 +883,41 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 )
             effective_tool_calls = ask_user_calls[:1]
 
+        grounding_rejected = False
+        grounding_reason: str | None = None
+        if buffer_grounded_output and not effective_tool_calls and params.grounding_evidence is not None:
+            from leagent.knowledge.evidence import (
+                render_citation_legend,
+                validate_answer_citations,
+            )
+
+            grounding = validate_answer_citations(
+                assistant_text,
+                params.grounding_evidence,
+                strict=True,
+            )
+            if not grounding.accepted:
+                grounding_rejected = True
+                grounding_reason = grounding.reason
+                assistant_text = (
+                    "I cannot provide a verifiable answer from the current retrieved evidence. "
+                    "Please refine the search or inspect the cited source excerpts."
+                )
+                logger.warning(
+                    "query_loop_grounding_rejected",
+                    extra={"reason": grounding.reason},
+                )
+            else:
+                assistant_text += render_citation_legend(
+                    params.grounding_evidence,
+                    grounding.referenced_citation_ids,
+                )
+
+        if buffer_grounded_output:
+            yield ModelStreamEvent(content_delta=assistant_text)
+            for deferred_event in deferred_stream_stops:
+                yield deferred_event
+
         assistant_msg = AssistantMessage(
             content=assistant_text,
             tool_calls=effective_tool_calls,
@@ -898,9 +939,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
             agg["total_tokens"] += int(usage.get("total_tokens", 0) or 0)
 
         if params.max_total_tokens and params.max_total_tokens > 0:
-            total_so_far = int(
-                tracking.get("usage", {}).get("total_tokens", 0) or 0
-            )
+            total_so_far = int(tracking.get("usage", {}).get("total_tokens", 0) or 0)
             if total_so_far >= params.max_total_tokens:
                 logger.warning(
                     "query_loop_token_budget_exceeded",
@@ -919,26 +958,43 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 )
                 return
 
+        if grounding_rejected:
+            yield Terminal(
+                reason=TerminalReason.COMPLETED,
+                meta={
+                    "turn_count": state.turn_count,
+                    "usage": tracking.get("usage", {}),
+                    "grounding_rejected": True,
+                    "grounding_reason": grounding_reason,
+                },
+            )
+            return
+
         canvas_length_salvage: _CanvasLengthSalvage | None = None
 
-        def _try_length_regenerate() -> bool:
+        def _try_length_regenerate(
+            current_effective_tool_calls: list[dict[str, Any]],
+            current_assistant_msg: AssistantMessage,
+            current_assistant_text: str,
+            current_tool_calls: list[dict[str, Any]],
+        ) -> bool:
             """Return True if the loop should ``continue`` with a regenerate recovery.
 
             When ``canvas_publish`` args are salvageable, mutate them in place and
             fall through to tool dispatch instead of discarding the generation.
             """
             nonlocal canvas_length_salvage, state
-            salvage = _prepare_canvas_length_salvage(effective_tool_calls)
+            salvage = _prepare_canvas_length_salvage(current_effective_tool_calls)
             if salvage is not None:
                 canvas_length_salvage = salvage
                 # Keep assistant_msg tool_calls in sync (same list refs when possible).
-                assistant_msg.tool_calls = effective_tool_calls
+                current_assistant_msg.tool_calls = current_effective_tool_calls
                 logger.info(
                     "query_loop_length_truncation_recovery",
                     extra=_length_recovery_log_extra(
                         state=state,
-                        tool_calls=effective_tool_calls,
-                        assistant_text=assistant_text,
+                        tool_calls=current_effective_tool_calls,
+                        assistant_text=current_assistant_text,
                         executed_vs_regenerated="executed",
                         salvaged_html_bytes=salvage.salvaged_html_bytes,
                     ),
@@ -948,20 +1004,23 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 "query_loop_length_truncation_recovery",
                 extra=_length_recovery_log_extra(
                     state=state,
-                    tool_calls=tool_calls,
-                    assistant_text=assistant_text,
+                    tool_calls=current_tool_calls,
+                    assistant_text=current_assistant_text,
                     executed_vs_regenerated="regenerated",
                 ),
             )
-            state = _build_length_recovery_state(state, params, tool_calls)
+            state = _build_length_recovery_state(state, params, current_tool_calls)
             return True
 
         if stream_error is not None:
             err_kind = str(stream_error.get("error", "")).lower()
-            if (
-                "max_output" in err_kind or finish_reason == "length"
-            ) and state.max_output_tokens_recovery_count < 2:
-                if _try_length_regenerate():
+            if ("max_output" in err_kind or finish_reason == "length") and state.max_output_tokens_recovery_count < 2:
+                if _try_length_regenerate(
+                    effective_tool_calls,
+                    assistant_msg,
+                    assistant_text,
+                    tool_calls,
+                ):
                     continue
             else:
                 yield Terminal(
@@ -977,12 +1036,13 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         # tool calls — falls through to the "no tool calls → completed"
         # branch and silently terminates the agent mid-answer.
         # Salvageable canvas_publish falls through to tool dispatch above.
-        if (
-            canvas_length_salvage is None
-            and finish_reason == "length"
-            and state.max_output_tokens_recovery_count < 2
-        ):
-            if _try_length_regenerate():
+        if canvas_length_salvage is None and finish_reason == "length" and state.max_output_tokens_recovery_count < 2:
+            if _try_length_regenerate(
+                effective_tool_calls,
+                assistant_msg,
+                assistant_text,
+                tool_calls,
+            ):
                 continue
 
         if state.max_output_tokens_recovery_count >= 2:
@@ -992,11 +1052,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         # 3b) Exhausted output-length recovery: emit a user-visible error
         #     instead of silently completing with no output.
         # ------------------------------------------------------------------
-        if (
-            finish_reason == "length"
-            and state.max_output_tokens_recovery_count >= 2
-            and not assistant_msg.tool_calls
-        ):
+        if finish_reason == "length" and state.max_output_tokens_recovery_count >= 2 and not assistant_msg.tool_calls:
             logger.warning(
                 "query_loop_length_recovery_exhausted",
                 extra={
@@ -1005,17 +1061,19 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
                 },
             )
             fallback_text = (
-                assistant_text
-                + "\n\n"
-                + "[The response was interrupted because the generated "
-                "content exceeded the maximum output length. Please try "
-                "a simpler request, or ask me to break the task into "
-                "smaller steps.]"
-            ) if assistant_text.strip() else (
-                "[The response could not be completed because the "
-                "generated content exceeded the maximum output length "
-                "after multiple attempts. Please try a simpler request, "
-                "or ask me to break the task into smaller steps.]"
+                (
+                    assistant_text + "\n\n" + "[The response was interrupted because the generated "
+                    "content exceeded the maximum output length. Please try "
+                    "a simpler request, or ask me to break the task into "
+                    "smaller steps.]"
+                )
+                if assistant_text.strip()
+                else (
+                    "[The response could not be completed because the "
+                    "generated content exceeded the maximum output length "
+                    "after multiple attempts. Please try a simpler request, "
+                    "or ask me to break the task into smaller steps.]"
+                )
             )
             yield AssistantMessage(
                 content=fallback_text,
@@ -1075,7 +1133,8 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         # ------------------------------------------------------------------
         capped = effective_tool_calls[: params.max_tool_calls_per_turn]
         approval_terminal = await _approval_pause_terminal(
-            capped, state.tool_use_context,
+            capped,
+            state.tool_use_context,
             turn_count=state.turn_count,
             usage=tracking.get("usage", {}),
         )
@@ -1088,6 +1147,7 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         # ------------------------------------------------------------------
         tool_results = await _dispatch_tools(capped, state.tool_use_context)
         for tr in tool_results:
+            _accumulate_knowledge_tool_evidence(params, tr)
             yield tr
             new_messages.append(tr.to_openai())
 
@@ -1103,17 +1163,17 @@ async def _query_loop(params: QueryParams) -> AsyncIterator[Any]:
         # 6) Next turn
         # ------------------------------------------------------------------
         if canvas_length_salvage is not None and canvas_length_salvage.incomplete:
-            new_messages.append({
-                "role": "user",
-                "content": _CANVAS_TRUNCATION_INCOMPLETE_HINT,
-            })
+            new_messages.append(
+                {
+                    "role": "user",
+                    "content": _CANVAS_TRUNCATION_INCOMPLETE_HINT,
+                }
+            )
             state = QueryState(
                 messages=new_messages,
                 tool_use_context=state.tool_use_context,
                 auto_compact_tracking=state.auto_compact_tracking,
-                max_output_tokens_recovery_count=max(
-                    1, state.max_output_tokens_recovery_count
-                ),
+                max_output_tokens_recovery_count=max(1, state.max_output_tokens_recovery_count),
                 has_attempted_reactive_compact=False,
                 max_output_tokens_override=_length_recovery_token_override(params),
                 turn_count=state.turn_count + 1,
@@ -1187,7 +1247,9 @@ async def _auto_review_resolved(
 
         sm = getattr(getattr(ctx, "executor", None), "_service_manager", None)
         decision, rationale = await auto_review_decision(
-            pending, args, service_manager=sm,
+            pending,
+            args,
+            service_manager=sm,
         )
     except Exception:  # noqa: BLE001
         logger.warning("auto_review_failed", exc_info=True)
@@ -1315,6 +1377,41 @@ def _tool_envelope_from_base(base: Any) -> dict[str, Any]:
     }
 
 
+def _accumulate_knowledge_tool_evidence(
+    params: QueryParams,
+    result: ToolResultMessage,
+) -> None:
+    """Carry verified evidence from ``knowledge_search`` into the next turn.
+
+    A tool-driven retrieval has no context block to seed ``QueryParams``.
+    Without this bridge, the final model turn could answer from the search
+    result without passing the same citation gate used for auto-attached
+    knowledge context.
+    """
+    if result.name != "knowledge_search" or not result.success:
+        return
+    envelope = result.envelope
+    if not isinstance(envelope, dict):
+        return
+    data = envelope.get("data")
+    if not isinstance(data, dict):
+        return
+
+    from leagent.knowledge.evidence import (
+        evidence_from_knowledge_search_payload,
+        merge_evidence_bundles,
+        rewrite_knowledge_search_citation_ids,
+    )
+
+    incoming = evidence_from_knowledge_search_payload(data)
+    if incoming is None:
+        return
+    merged, rewritten_ids = merge_evidence_bundles(params.grounding_evidence, incoming)
+    rewrite_knowledge_search_citation_ids(data, rewritten_ids)
+    params.grounding_evidence = merged
+    result.content = _serialize_tool_data(data)
+
+
 async def _dispatch_tools(
     tool_calls: list[dict[str, Any]],
     ctx: ToolUseContext,
@@ -1371,8 +1468,7 @@ async def _dispatch_tools(
             content = _serialize_result(base)
             err_text = str(getattr(base, "error", "") or "")
             if not getattr(base, "success", True) and (
-                "Malformed tool arguments JSON" in err_text
-                or "`code_execution` did not run:" in err_text
+                "Malformed tool arguments JSON" in err_text or "`code_execution` did not run:" in err_text
             ):
                 logger.warning(
                     "tool_dispatch_raw_args_unrecoverable",
@@ -1400,9 +1496,7 @@ async def _dispatch_tools(
             )
 
     if concurrent:
-        results.extend(
-            await asyncio.gather(*[_run_one(tc) for tc in concurrent])
-        )
+        results.extend(await asyncio.gather(*[_run_one(tc) for tc in concurrent]))
     for tc in serial:
         results.append(await _run_one(tc))
     # Preserve original call order (OpenAI tool-result API requires matching IDs).
@@ -1429,6 +1523,11 @@ def _serialize_result(result: Any) -> str:
         return f"Error: {error or 'Unknown error'}"
     if data is None:
         return ""
+    return _serialize_tool_data(data)
+
+
+def _serialize_tool_data(data: Any) -> str:
+    """Serialize tool data exactly as the model-facing tool message expects."""
     if isinstance(data, str):
         return data
     try:

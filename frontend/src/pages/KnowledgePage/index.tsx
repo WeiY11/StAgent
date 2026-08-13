@@ -66,6 +66,8 @@ import { useRealtimeFileSync } from '@/hooks/useRealtimeFileSync';
 import { UniversalFilePreview } from '@/components/files/UniversalFilePreview';
 import { downloadAuthenticatedFile } from '@/lib/auth/downloadAuthenticatedFile';
 import { useToast } from '@/components/ui/Toaster';
+import { useAuthStore } from '@/stores/auth';
+import { isAdminUser, userHasPermissions } from '@/lib/auth/authUser';
 import {
   type DocumentSearchResponse,
   deriveIndexStatus,
@@ -80,6 +82,11 @@ const KNOWLEDGE_PAGE_SIZE = 20;
 export default function KnowledgePage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const authUser = useAuthStore((state) => state.user);
+  const authStatus = useAuthStore((state) => state.authStatus);
+  const canManageSemantic = Boolean(
+    authStatus && (!authStatus.enforce_auth || isAdminUser(authUser) || userHasPermissions(authUser, 'admin:panel')),
+  );
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -107,6 +114,11 @@ export default function KnowledgePage() {
   useRealtimeFileSync(true);
 
   const { data: knowledgeSpaces = [] } = useKnowledgeSpaces();
+  const { data: semanticStatus, refetch: refetchSemantic } = useQuery({
+    queryKey: ['knowledge', 'semantic-status'],
+    queryFn: () => apiClient.get<{ status: string; model_id: string | null; active_version: string | null; candidate_version: string | null; task_progress: number | null; task_progress_message: string | null; document_count: number; chunk_count: number; capacity_warning: boolean; error: string | null }>('/knowledge/semantic/status'),
+    refetchInterval: 5000,
+  });
   const selectedSpace = knowledgeSpaces.find((space) => space.id === selectedSpaceId);
 
   const isSearchMode = committedQuery.length > 0;
@@ -574,6 +586,27 @@ export default function KnowledgePage() {
         </>
       }
     >
+      {semanticStatus && semanticStatus.status !== 'off' && (
+        <Card className="mb-4" padding="sm">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>{t('knowledge.semanticStatus', { status: semanticStatus.status, chunks: semanticStatus.chunk_count, documents: semanticStatus.document_count })}</span>
+            {canManageSemantic && <Button size="sm" variant="secondary" onClick={() => void apiClient.post('/knowledge/semantic/rebuild', {}).then(() => refetchSemantic()).catch((error: unknown) => toast({ variant: 'error', title: t('knowledge.semanticRebuildFailed'), description: error instanceof Error ? error.message : undefined }))}>{t('knowledge.semanticRebuild')}</Button>}
+          </div>
+          {semanticStatus.status === 'building' && semanticStatus.task_progress !== null && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{t('knowledge.semanticProgress', { progress: semanticStatus.task_progress })}</span>
+                {semanticStatus.task_progress_message && <span>{semanticStatus.task_progress_message}</span>}
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={semanticStatus.task_progress}>
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${semanticStatus.task_progress}%` }} />
+              </div>
+            </div>
+          )}
+          {semanticStatus.capacity_warning && <p className="mt-2 text-xs text-amber-600">{t('knowledge.semanticCapacityWarning')}</p>}
+          {semanticStatus.error && <p className="mt-1 text-xs text-muted-foreground">{semanticStatus.error}</p>}
+        </Card>
+      )}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 lg:grid-cols-[240px_minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card
           padding="none"

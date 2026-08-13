@@ -38,7 +38,8 @@ RUN uv sync \
     --no-editable \
     --no-install-project \
     --extra ocr \
-    --extra postgres
+    --extra postgres \
+    --extra production
 
 # Layer 2: Copy source and install the project itself.
 COPY backend/leagent/ leagent/
@@ -48,7 +49,8 @@ RUN uv sync \
     --no-dev \
     --no-editable \
     --extra ocr \
-    --extra postgres
+    --extra postgres \
+    --extra production
 
 # Browser install must succeed; a failure fails the build (no `|| true`).
 RUN playwright install chromium && \
@@ -154,7 +156,7 @@ USER root
 
 ARG UV_VERSION=0.11.6
 RUN pip install --no-cache-dir "uv==$UV_VERSION"
-RUN uv sync --frozen --no-editable --extra dev --extra ocr --extra postgres
+RUN uv sync --frozen --no-editable --extra dev --extra ocr --extra postgres --extra production
 
 USER $APP_USER
 
@@ -172,6 +174,6 @@ USER root
 
 ARG UV_VERSION=0.11.6
 RUN pip install --no-cache-dir "uv==$UV_VERSION"
-RUN uv sync --frozen --no-editable --extra ocr --extra paddle --extra postgres
+RUN uv sync --frozen --no-editable --extra ocr --extra paddle --extra postgres --extra production
 
 USER $APP_USER

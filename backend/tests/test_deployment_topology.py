@@ -23,10 +23,19 @@ def test_rejects_zero_workers() -> None:
 
 
 def test_postgres_multiworker_keeps_explicit_boundary_warning() -> None:
-    report = validate_deployment_topology(database_backend="postgresql", workers=4)
+    report = validate_deployment_topology(
+        database_backend="postgresql",
+        workers=4,
+        redis_enabled=True,
+    )
     assert report.safe is True
     assert "sticky sessions" in " ".join(report.warnings).lower()
     assert "event bus" in " ".join(report.warnings).lower()
+
+
+def test_postgres_multiworker_rejects_missing_shared_run_store() -> None:
+    with pytest.raises(DeploymentTopologyError, match="LEAGENT_REDIS_ENABLED"):
+        validate_deployment_topology(database_backend="postgresql", workers=2)
 
 
 def test_cli_start_rejects_sqlite_multiworker(monkeypatch: pytest.MonkeyPatch) -> None:

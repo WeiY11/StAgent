@@ -11,7 +11,7 @@ REM   LEAGENT_DRY_RUN LEAGENT_RUN_CHECK LEAGENT_SKIP_INIT LEAGENT_INSTALL_RETRIE
 REM   UV_SYNC_EXTRAS UV_INDEX_URL UV_VENV_CLEAR
 REM Clones or uses a local tree, checks git / Node / uv, then runs ./start.sh via Git Bash.
 
-if not defined LEAGENT_GIT_URL set "LEAGENT_GIT_URL=https://github.com/vixues/LeAgent.git"
+if not defined LEAGENT_GIT_URL set "LEAGENT_GIT_URL=https://github.com/WeiY11/StAgent.git"
 if not defined LEAGENT_CLONE_DIR set "LEAGENT_CLONE_DIR=%USERPROFILE%\leagent-desktop"
 if not defined LEAGENT_REF set "LEAGENT_REF=main"
 if not defined UV_SYNC_EXTRAS set "UV_SYNC_EXTRAS=dev browser"

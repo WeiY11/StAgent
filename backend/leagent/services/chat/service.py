@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -13,7 +12,6 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 from sqlalchemy import and_, delete, text
 from sqlalchemy import update as sa_update
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from leagent.db.models.agent_memory import AgentEpisode
@@ -45,6 +43,10 @@ from leagent.services.base import Service, ServiceType, service_factory
 from leagent.services.cache import build_scoped_cache_key
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
     from leagent.config.settings import Settings
     from leagent.db.service import DatabaseService
     from leagent.services.cache.service import CacheService
@@ -61,11 +63,15 @@ def estimate_tokens(text: str) -> int:
     return int(len(text) * TOKENS_PER_CHAR)
 
 
-async def _message_session_sid_eq(db: AsyncSession, session_id: UUID):
+async def _message_session_sid_eq(db: AsyncSession, session_id: UUID) -> Any:
     """Return session filter expression for ``Message`` rows."""
     if session_dialect_name(db) == "sqlite":
         return uuid_column_equals(db, Message.session_id, session_id)
     return Message.session_id == session_id
+
+
+def _result_rowcount(result: Any) -> int:
+    return int(getattr(result, "rowcount", 0) or 0)
 
 
 async def _sqlite_update_chat_session(
@@ -126,15 +132,15 @@ async def _delete_hard_session_dependents(db: AsyncSession, session_id: UUID) ->
             delete(Message).where(uuid_column_equals(db, Message.session_id, session_id))
         )
     else:
-        canvas_r = await db.execute(delete(CanvasDocument).where(CanvasDocument.session_id == session_id))
-        ep_r = await db.execute(delete(AgentEpisode).where(AgentEpisode.session_id == session_id))
-        file_r = await db.execute(delete(File).where(File.session_id == session_id))
-        msg_r = await db.execute(delete(Message).where(Message.session_id == session_id))
+        canvas_r = await db.execute(delete(CanvasDocument).where(col(CanvasDocument.session_id) == session_id))
+        ep_r = await db.execute(delete(AgentEpisode).where(col(AgentEpisode.session_id) == session_id))
+        file_r = await db.execute(delete(File).where(col(File.session_id) == session_id))
+        msg_r = await db.execute(delete(Message).where(col(Message.session_id) == session_id))
     return (
-        int(canvas_r.rowcount or 0),
-        int(ep_r.rowcount or 0),
-        int(file_r.rowcount or 0),
-        int(msg_r.rowcount or 0),
+        _result_rowcount(canvas_r),
+        _result_rowcount(ep_r),
+        _result_rowcount(file_r),
+        _result_rowcount(msg_r),
     )
 
 
@@ -344,10 +350,10 @@ class ChatService(Service):
             The session or None if not found
         """
         if self._cache:
-            cached = await self._cache.get(f"session:{session_id}", namespace="chat")
+            cached: Any = await self._cache.get(f"session:{session_id}", namespace="chat")
             if cached:
                 try:
-                    session = ChatSession.model_validate(cached)
+                    cached_session = ChatSession.model_validate(cached)
                 except ValidationError:
                     logger.warning(
                         "Invalid cached chat session %s; evicting cache entry",
@@ -355,8 +361,8 @@ class ChatService(Service):
                     )
                     await self._cache.delete(f"session:{session_id}", namespace="chat")
                 else:
-                    if user_id is None or same_user_id(session.user_id, user_id):
-                        return session
+                    if user_id is None or same_user_id(cached_session.user_id, user_id):
+                        return cached_session
 
         if self._db is None:
             return None
@@ -449,7 +455,7 @@ class ChatService(Service):
                     .limit(limit)
                 )
                 if active_only:
-                    stmt = stmt.where(ChatSession.is_active == True)
+                    stmt = stmt.where(col(ChatSession.is_active).is_(True))
                 if flow_id is not None:
                     stmt = stmt.where(ChatSession.flow_id == flow_id)
                 if project_id is not None:
@@ -512,7 +518,7 @@ class ChatService(Service):
             if project_id is not None:
                 stmt = stmt.where(ChatSession.project_id == project_id)
             result = await db.execute(stmt)
-            return result.scalar_one()
+            return int(result.scalar_one())
 
     async def move_session_to_project(
         self,
@@ -982,7 +988,7 @@ class ChatService(Service):
         user_id: UUID | None = None,
         flow_id: UUID | None = None,
         model: str | None = None,
-        tool_calls: list[dict] | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
         tool_call_id: str | None = None,
         attachments: list[str] | None = None,
         input_tokens: int | None = None,
@@ -1106,7 +1112,7 @@ class ChatService(Service):
         if chat is None:
             return False
 
-        from leagent.services.session.state import SessionMessage as SM
+        from leagent.services.session.state import SessionMessage
 
         async with self._db.session() as db:
             chat_row = await load_chat_session_by_id(db, session_id, owner_user_id=user_id)
@@ -1125,7 +1131,7 @@ class ChatService(Service):
             prev_at: datetime | None = None
 
             for sm in messages:
-                if not isinstance(sm, SM):
+                if not isinstance(sm, SessionMessage):
                     raise TypeError("messages must be SessionMessage instances")
                 role_raw = str(sm.role or "user").lower()
                 try:
@@ -1280,7 +1286,7 @@ class ChatService(Service):
                     "include_system": include_system,
                 },
             )
-            cached = await self._cache.get(cache_key, namespace="chat")
+            cached: Any = await self._cache.get(cache_key, namespace="chat")
             if cached:
                 return [MessageRead.model_validate(m) for m in cached]
 
@@ -1365,7 +1371,7 @@ class ChatService(Service):
         if max_tokens is None:
             max_tokens = self._settings.agent.context_window_tokens
 
-        result = []
+        result: list[dict[str, Any]] = []
         total_tokens = 0
 
         for msg in reversed(messages):
@@ -1373,13 +1379,13 @@ class ChatService(Service):
             if total_tokens + tokens > max_tokens:
                 break
 
-            msg_dict = {"role": msg.role.value, "content": msg.content}
+            msg_dict: dict[str, Any] = {
+                "role": msg.role.value,
+                "content": msg.content,
+            }
 
             if msg.tool_calls:
-                try:
-                    msg_dict["tool_calls"] = json.loads(msg.tool_calls)
-                except json.JSONDecodeError:
-                    pass
+                msg_dict["tool_calls"] = msg.tool_calls
 
             if msg.tool_call_id:
                 msg_dict["tool_call_id"] = msg.tool_call_id
@@ -1463,7 +1469,7 @@ class ChatService(Service):
         while True:
             async with self._db.session() as db:
                 sid_eq = await _message_session_sid_eq(db, session_id)
-                stmt = (
+                message_stmt = (
                     select(Message)
                     .where(
                         sid_eq,
@@ -1471,7 +1477,7 @@ class ChatService(Service):
                     )
                     .order_by(col(Message.created_at).asc(), col(Message.id).asc())
                 )
-                result = await db.execute(stmt)
+                result = await db.execute(message_stmt)
                 messages = list(result.scalars().all())
 
             for msg in messages:
@@ -1597,10 +1603,7 @@ class ChatService(Service):
                 return False
 
             updated_at = utc_now()
-            if rating is None:
-                value = None
-            else:
-                value = max(1, min(5, int(rating)))
+            value = None if rating is None else max(1, min(5, int(rating)))
             if session_dialect_name(db) == "sqlite":
                 await _sqlite_update_message(
                     db,

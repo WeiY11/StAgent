@@ -28,7 +28,7 @@ def _parse_json_text(value: Any) -> Any:
     return value
 
 
-class MessageRole(str, Enum):
+class MessageRole(str, Enum):  # noqa: UP042 - preserve persisted Enum semantics
     """Message sender role."""
 
     USER = "user"
@@ -37,7 +37,7 @@ class MessageRole(str, Enum):
     TOOL = "tool"
 
 
-class MessageStatus(str, Enum):
+class MessageStatus(str, Enum):  # noqa: UP042 - preserve persisted Enum semantics
     """Message processing status."""
 
     PENDING = "pending"
@@ -150,6 +150,7 @@ class MessageRead(MessageBase):
     user_id: UUID | None
     model: str | None
     tool_calls: list[dict[str, Any]] | None
+    tool_call_id: str | None
     attachments: list[Any] | None
     extensions: dict[str, Any] | None
     input_tokens: int | None

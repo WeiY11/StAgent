@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
-from leagent.agent.base import StreamEvent
+from leagent.agent.base import AgentConfig, AgentContext, ConversationContext, NoOpStreamHandler, StreamEvent
 from leagent.agent.controller import AgentController
 from leagent.agent.query_engine import SDKMessage
 from leagent.agent.transitions import TerminalReason
-from leagent.api.schemas.chat import SessionCancelResponse
+from leagent.api.schemas.chat import ResumeCheckpointRequest, SessionCancelResponse
+from leagent.api.v1 import chat as chat_api
 from leagent.api.v1.chat.agent_stream import run_agent_stream
 from leagent.sdk.kernel.checkpoint import InMemoryCheckpointStore, create_checkpoint
 from leagent.sdk.kernel.loop import RESUMABLE_CHECKPOINT_REASONS, run_loop
@@ -36,9 +39,7 @@ class _FakeEngine:
         self.mutable_messages.append({"role": "user", "content": str(prompt)})
         for msg in self._scripted:
             if msg.type == "assistant":
-                self.mutable_messages.append(
-                    {"role": "assistant", "content": msg.data.get("content", "")}
-                )
+                self.mutable_messages.append({"role": "assistant", "content": msg.data.get("content", "")})
             yield msg
 
 
@@ -100,6 +101,79 @@ async def test_checkpoint_aborted_turn_persists_and_stashes() -> None:
     assert saved.reason == TerminalReason.ABORTED_STREAMING.value
     assert saved.messages == engine.mutable_messages
     assert AgentController.peek_session_checkpoint(sid) == cpid
+
+
+@pytest.mark.asyncio
+async def test_controller_rejects_checkpoint_from_another_session() -> None:
+    """A checkpoint id must never import a different session's transcript."""
+    from leagent.runtime import AgentRuntime, RuntimeContext
+
+    owner_session_id = uuid4()
+    requested_session_id = uuid4()
+    store = InMemoryCheckpointStore()
+    foreign_checkpoint = create_checkpoint(
+        session_id=str(owner_session_id),
+        agent_name="default_agent",
+        turn=1,
+        messages=[{"role": "user", "content": "owner-only context"}],
+    )
+    await store.save(foreign_checkpoint)
+
+    ctrl = object.__new__(AgentController)
+    ctrl._runtime = AgentRuntime(RuntimeContext(checkpoint_store=store))
+    ctrl.config = AgentConfig()
+    ctrl.session_manager = None
+
+    with pytest.raises(ValueError, match="does not belong to session"):
+        await ctrl._run_via_query_engine(
+            "Continue",
+            ConversationContext(session_id=requested_session_id),
+            AgentContext(session_id=requested_session_id),
+            NoOpStreamHandler(),
+            checkpoint_id=foreign_checkpoint.checkpoint_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_resume_endpoint_rejects_checkpoint_from_another_session(monkeypatch) -> None:
+    """The HTTP handshake must not acknowledge a foreign session checkpoint."""
+    owner_session_id = uuid4()
+    requested_session_id = uuid4()
+    store = InMemoryCheckpointStore()
+    foreign_checkpoint = create_checkpoint(
+        session_id=str(owner_session_id),
+        agent_name="default_agent",
+        turn=1,
+    )
+    await store.save(foreign_checkpoint)
+
+    class _ChatService:
+        async def get_session(self, _session_id, *, user_id=None):  # noqa: ARG002
+            return SimpleNamespace(id=requested_session_id)
+
+    async def _allow_project_access(*args, **kwargs):  # noqa: ANN002, ANN003
+        return None
+
+    monkeypatch.setattr(
+        "leagent.services.service_manager.get_service_manager",
+        lambda: SimpleNamespace(database_service=object()),
+    )
+    monkeypatch.setattr(
+        "leagent.sdk.kernel.checkpoint.build_checkpoint_store",
+        lambda _database: store,
+    )
+    monkeypatch.setattr(chat_api, "_require_session_project_access", _allow_project_access)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await chat_api.resume_checkpoint(
+            requested_session_id,
+            ResumeCheckpointRequest(checkpoint_id=foreign_checkpoint.checkpoint_id),
+            uuid4(),
+            _ChatService(),
+            object(),
+        )
+
+    assert exc_info.value.status_code == 404
 
 
 @pytest.mark.asyncio

@@ -105,6 +105,7 @@ CORE_ROUTERS: tuple[RouterSpec, ...] = (
     RouterSpec("leagent.workflow.server", tags=("v1-workflow",)),
     RouterSpec("leagent.api.v1.documents", prefix="/documents", tags=("v1-documents",)),
     RouterSpec("leagent.api.v1.knowledge", prefix="/knowledge", tags=("v1-knowledge",)),
+    RouterSpec("leagent.api.v1.knowledge_semantic", prefix="/knowledge/semantic", tags=("v1-knowledge-semantic",)),
     RouterSpec(
         "leagent.api.v1.admin.tasks",
         prefix="/admin/tasks",

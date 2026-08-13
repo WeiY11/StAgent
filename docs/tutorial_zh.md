@@ -71,7 +71,7 @@ LeAgent 开箱即用地支持多个 LLM 提供商：
 
 ```bash
 # 克隆仓库
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 
 # 检查前置依赖并安装缺失项
@@ -104,7 +104,7 @@ cd backend && uv run leagent init && cd ..
 
 ```bash
 # 克隆仓库
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 
 # 设置必需的密钥

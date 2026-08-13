@@ -319,7 +319,8 @@ class KnowledgeSearchTool(BaseTool):
             ],
             "hint": (
                 "Use action=read with file_id and start_offset/end_offset from a hit "
-                "to load the matching text window."
+                "to load the matching text window. In the final answer, cite the returned "
+                "[K#] identifiers for every knowledge-based claim."
                 if results
                 else "No chunk matches. Try action=catalog or a broader query."
             ),

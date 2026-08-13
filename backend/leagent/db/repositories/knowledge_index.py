@@ -214,7 +214,15 @@ class DbKnowledgeIndexRepository:
                 KnowledgeIndexJob.index_version == index_version,
                 KnowledgeIndexJob.content_hash == content_hash,
                 KnowledgeIndexJob.status.in_(
-                    [KnowledgeIndexJobStatus.QUEUED, KnowledgeIndexJobStatus.RUNNING]
+                    [
+                        KnowledgeIndexJobStatus.QUEUED,
+                        KnowledgeIndexJobStatus.RUNNING,
+                        # A failed attempt remains the durable retry record
+                        # until its available_at deadline.  Reusing it keeps
+                        # re-uploads idempotent and avoids creating an
+                        # unbounded duplicate queue for the same content.
+                        KnowledgeIndexJobStatus.FAILED,
+                    ]
                 ),
             )
             existing = (await session.exec(stmt)).first()
@@ -274,7 +282,9 @@ class DbKnowledgeIndexRepository:
             stmt = (
                 select(KnowledgeIndexJob)
                 .where(
-                    KnowledgeIndexJob.status == KnowledgeIndexJobStatus.QUEUED,
+                    KnowledgeIndexJob.status.in_(
+                        [KnowledgeIndexJobStatus.QUEUED, KnowledgeIndexJobStatus.FAILED]
+                    ),
                     KnowledgeIndexJob.available_at <= now,
                 )
                 .order_by(KnowledgeIndexJob.available_at, KnowledgeIndexJob.created_at)
@@ -325,7 +335,7 @@ class DbKnowledgeIndexRepository:
             )
             await session.execute(
                 sa.update(KnowledgeIndexState)
-                .where(uuid_column_equals(session, KnowledgeIndexState.file_id, job.file_id))
+                .where(_state_matches_job(session, job))
                 .values(
                     status=KnowledgeIndexStatus.READY.value,
                     chunk_count=chunk_count,
@@ -361,13 +371,24 @@ class DbKnowledgeIndexRepository:
             )
             await session.execute(
                 sa.update(KnowledgeIndexState)
-                .where(uuid_column_equals(session, KnowledgeIndexState.file_id, job.file_id))
+                .where(_state_matches_job(session, job))
                 .values(
                     status=KnowledgeIndexStatus.FAILED.value,
                     last_error=error[:4000],
                     updated_at=now,
                 )
             )
+
+
+def _state_matches_job(session: object, job: KnowledgeIndexJob) -> sa.ColumnElement[bool]:
+    """Restrict job completion updates to the same index projection version."""
+    predicate = (
+        uuid_column_equals(session, KnowledgeIndexState.file_id, job.file_id)
+        & (KnowledgeIndexState.index_version == job.index_version)
+    )
+    if job.content_hash is not None:
+        predicate = predicate & (KnowledgeIndexState.content_hash == job.content_hash)
+    return predicate
 
 
 __all__ = ["INDEX_VERSION", "KnowledgeIndexRepository", "DbKnowledgeIndexRepository"]

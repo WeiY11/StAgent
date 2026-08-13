@@ -23,6 +23,7 @@ def test_critical_routes_are_present() -> None:
         "/api/v1/chat/stream",
         "/api/v1/chat/sessions",
         "/api/v1/files/upload",
+        "/api/v1/knowledge/semantic/status",
         "/api/v1/workflow/flows/{flow_id}/run",
         "/api/v1/health/ready",
     }
@@ -36,9 +37,7 @@ def test_openapi_operation_ids_are_unique() -> None:
         for method, operation in path_item.items()
         if method.lower() in {"get", "post", "put", "patch", "delete", "head", "options"}
     ]
-    duplicates = {
-        key: count for key, count in Counter(operation_ids).items() if count > 1
-    }
+    duplicates = {key: count for key, count in Counter(operation_ids).items() if count > 1}
     assert duplicates == {}
 
 

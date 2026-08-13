@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import mimetypes
 import os
-from collections.abc import Iterable
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # ── Constants ────────────────────────────────────────────────────────
 
@@ -196,7 +199,7 @@ def classify_file_kind(filename: str, mime: str | None = None) -> FileKind:
 
 # ── Path containment ─────────────────────────────────────────────────
 
-def is_path_inside(resolved: Path, roots: Iterable[Path]) -> bool:
+def is_path_inside(resolved: Path, roots: Iterable[Path] | Path) -> bool:
     """Return ``True`` if *resolved* equals or is contained by any root.
 
     The caller is responsible for calling ``.resolve()`` on *resolved*

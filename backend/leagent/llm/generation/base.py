@@ -109,8 +109,10 @@ class GenerationBackend(Protocol):
 
     #: Provider id, e.g. ``openai`` / ``dashscope`` / ``offline``.
     name: str
-    #: Media kinds this backend can produce.
-    kinds: tuple[str, ...]
+    @property
+    def kinds(self) -> tuple[str, ...]:
+        """Media kinds this backend can produce."""
+        ...
 
     def available(self) -> bool:
         """Whether this backend is usable (credentials present, etc.)."""

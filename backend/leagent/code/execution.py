@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import structlog
 
@@ -610,11 +610,11 @@ class CodeExecutionTool(BaseTool):
 
         if source_writes_webpage(source):
             ws_path = ""
-            persisted: str | None = None
+            persisted_webpage: str | None = None
             try:
                 ws = self._get_workspace(context)
                 ws_path = str(ws.path)
-                persisted = self._persist_source(source, context)
+                persisted_webpage = self._persist_source(source, context)
             except Exception:  # noqa: BLE001
                 ws_path = ""
             return attach_webpage_block(
@@ -626,7 +626,7 @@ class CodeExecutionTool(BaseTool):
                     workspace=ws_path,
                     returncode=-1,
                     include_source_echo=True,
-                    workspace_file=persisted,
+                    workspace_file=persisted_webpage,
                 )
             ), None
 
@@ -637,14 +637,14 @@ class CodeExecutionTool(BaseTool):
             from leagent.code.pipeline import CodeGenerationPipeline
 
             if CodeGenerationPipeline.should_block(artifact):
-                prim = artifact.diagnostics[0] if artifact.diagnostics else None
-                msg = prim["message"] if prim else "Python syntax error"
+                artifact_diagnostic = artifact.diagnostics[0] if artifact.diagnostics else None
+                msg = artifact_diagnostic["message"] if artifact_diagnostic else "Python syntax error"
                 ws_path = ""
-                persisted: str | None = None
+                persisted_artifact: str | None = None
                 try:
                     ws = self._get_workspace(context)
                     ws_path = str(ws.path)
-                    persisted = self._persist_source(source, context)
+                    persisted_artifact = self._persist_source(source, context)
                 except Exception:  # noqa: BLE001
                     ws_path = ""
                 return _build_envelope(
@@ -657,7 +657,7 @@ class CodeExecutionTool(BaseTool):
                     artifact_id=artifact.artifact_id,
                     syntax_diagnostics=artifact.diagnostics,
                     include_source_echo=True,
-                    workspace_file=persisted,
+                    workspace_file=persisted_artifact,
                 ), None
 
         if artifact is None and not skip_syntax:
@@ -670,14 +670,14 @@ class CodeExecutionTool(BaseTool):
                 context_lines=2,
             )
             if not syn.valid:
-                prim = syn.diagnostics[0] if syn.diagnostics else None
-                msg = prim.message if prim else "Python syntax error"
+                syntax_diagnostic = syn.diagnostics[0] if syn.diagnostics else None
+                msg = syntax_diagnostic.message if syntax_diagnostic else "Python syntax error"
                 ws_path = ""
-                persisted: str | None = None
+                persisted_syntax: str | None = None
                 try:
                     ws = self._get_workspace(context)
                     ws_path = str(ws.path)
-                    persisted = self._persist_source(source, context)
+                    persisted_syntax = self._persist_source(source, context)
                 except Exception:  # noqa: BLE001
                     ws_path = ""
                 return _build_envelope(
@@ -689,7 +689,7 @@ class CodeExecutionTool(BaseTool):
                     returncode=-1,
                     syntax_diagnostics=[d.to_dict() for d in syn.diagnostics],
                     include_source_echo=True,
-                    workspace_file=persisted,
+                    workspace_file=persisted_syntax,
                 ), None
 
         return source, artifact
@@ -891,27 +891,30 @@ class CodeExecutionTool(BaseTool):
 
             image_artifacts, file_artifacts = split_produced_artifacts(produced_files)
 
-        envelope = strip_inline_base64_payloads(
-            _build_envelope(
-                status=result.status,
-                source=source,
-                error=result.error,
-                error_type=error_type,
-                stdout=strip_base64_from_text(result.stdout),
-                stderr=result.stderr,
-                stdout_truncated=result.stdout_truncated,
-                stderr_truncated=result.stderr_truncated,
-                result=result.result,
-                produced_files=produced_files,
-                images=image_artifacts,
-                files=file_artifacts,
-                duration_ms=result.duration_ms,
-                workspace=str(workspace.path),
-                returncode=result.returncode,
-                artifact_id=artifact_id,
-                include_source_echo=is_error,
-                workspace_file=persisted_file,
-            )
+        envelope = cast(
+            dict[str, Any],
+            strip_inline_base64_payloads(
+                _build_envelope(
+                    status=result.status,
+                    source=source,
+                    error=result.error,
+                    error_type=error_type,
+                    stdout=strip_base64_from_text(result.stdout),
+                    stderr=result.stderr,
+                    stdout_truncated=result.stdout_truncated,
+                    stderr_truncated=result.stderr_truncated,
+                    result=result.result,
+                    produced_files=produced_files,
+                    images=image_artifacts,
+                    files=file_artifacts,
+                    duration_ms=result.duration_ms,
+                    workspace=str(workspace.path),
+                    returncode=result.returncode,
+                    artifact_id=artifact_id,
+                    include_source_echo=is_error,
+                    workspace_file=persisted_file,
+                )
+            ),
         )
         if managed_artifacts:
             envelope["managed_artifacts"] = managed_artifacts

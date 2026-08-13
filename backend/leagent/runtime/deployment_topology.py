@@ -29,12 +29,14 @@ def validate_deployment_topology(
     *,
     database_backend: str,
     workers: int,
+    redis_enabled: bool = False,
 ) -> DeploymentTopology:
     """Validate a (database backend, worker count) combination.
 
     Args:
         database_backend: Normalized backend, e.g. ``sqlite`` / ``postgresql``.
         workers: Number of server worker processes.
+        redis_enabled: Whether the shared Redis runtime is explicitly enabled.
 
     Returns:
         A :class:`DeploymentTopology` describing the validated combination and
@@ -51,11 +53,15 @@ def validate_deployment_topology(
         raise DeploymentTopologyError(
             "SQLite requires workers=1; switch to PostgreSQL before scaling processes"
         )
+    if workers > 1 and not redis_enabled:
+        raise DeploymentTopologyError(
+            "multi-worker mode requires LEAGENT_REDIS_ENABLED=true for shared run state"
+        )
     warnings: tuple[str, ...] = ()
     if workers > 1:
         warnings = (
             "Multi-worker mode still requires sticky sessions for chat/WebSocket affinity.",
-            "The in-process event bus is not made shared by RedisRunStore.",
+            "RedisRunStore shares active runs, but the in-process event bus is not shared.",
         )
     return DeploymentTopology(
         database_backend=backend,

@@ -68,7 +68,7 @@ class QualityGateNode(WorkflowNode):
     async def execute(self, *, hidden: HiddenHolder, **inputs: Any) -> NodeOutput:
         state = hidden.workflow_state
         node_id = hidden.unique_id
-        threshold = float(inputs.get("threshold") if inputs.get("threshold") is not None else 0.7)
+        threshold = max(0.0, min(_coerce_float(inputs.get("threshold"), 0.7), 1.0))
 
         score = self._resolve_score(inputs, state)
         passed = score >= threshold
@@ -126,15 +126,17 @@ class QualityGateNode(WorkflowNode):
                 iteration = int(state.get(var, 0) or 0)
             except (ValueError, TypeError):
                 iteration = 0
-        base = float(inputs.get("base_score") if inputs.get("base_score") is not None else 0.45)
-        step = float(inputs.get("score_step") if inputs.get("score_step") is not None else 0.3)
+        base = _coerce_float(inputs.get("base_score"), 0.45)
+        step = _coerce_float(inputs.get("score_step"), 0.3)
         return max(0.0, min(base + step * iteration, 1.0))
 
 
 def _first_then(control: dict[str, Any]) -> str | None:
     for cond in control.get("conditions", []) or []:
+        if not isinstance(cond, dict):
+            continue
         target = cond.get("then_node") or cond.get("then")
-        if target:
+        if isinstance(target, str) and target:
             return target
     return None
 
@@ -145,5 +147,15 @@ def _control_for(hidden: HiddenHolder, node_id: str | None) -> dict[str, Any]:
     prompt = hidden.prompt or {}
     node = prompt.get(node_id) if isinstance(prompt, dict) else None
     if isinstance(node, dict):
-        return node.get("control", {}) or {}
+        control = node.get("control")
+        return control if isinstance(control, dict) else {}
     return {}
+
+
+def _coerce_float(value: Any, default: float) -> float:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default

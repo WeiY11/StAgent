@@ -71,7 +71,7 @@ The `start.sh` script handles dependency checking, Python environment setup, dat
 
 ```bash
 # Clone the repository
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 
 # Check prerequisites and install missing deps
@@ -104,7 +104,7 @@ Other useful commands:
 
 ```bash
 # Clone the repository
-git clone https://github.com/vixues/LeAgent.git
+git clone https://github.com/WeiY11/StAgent.git
 cd LeAgent
 
 # Set required secret key

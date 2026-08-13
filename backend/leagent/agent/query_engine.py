@@ -120,6 +120,7 @@ class QueryEngineConfig:
     context_settings: ContextSettings | None = None
     recall_limit: int | None = None
     memory_formation: bool = True
+    knowledge_strict_evidence: bool | None = None
 
     context_manager: ContextManager | None = None
     file_state: FileState | None = None
@@ -438,6 +439,7 @@ class QueryEngine:
 
         self._last_built_prompt = turn.built_prompt
         system_prompt = turn.built_prompt.system_text
+        grounding_evidence = self._knowledge_evidence_from_turn(turn)
 
         messages_for_query = list(turn.attachment_messages) + list(self.mutable_messages)
 
@@ -497,6 +499,12 @@ class QueryEngine:
             model_provider=self.config.model_provider,
             model_name=self.config.model_name,
             model_task=self.config.model_task,
+            grounding_evidence=grounding_evidence,
+            # Keep the policy active even before a tool-driven knowledge
+            # search returns evidence. The query loop only buffers when a
+            # bundle is present, and can therefore apply the same rule to the
+            # final turn after ``knowledge_search``.
+            strict_evidence=self._strict_knowledge_evidence(),
         )
 
         from leagent.telemetry.otel import get_tracer
@@ -554,6 +562,32 @@ class QueryEngine:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _strict_knowledge_evidence(self) -> bool:
+        if self.config.knowledge_strict_evidence is not None:
+            return self.config.knowledge_strict_evidence
+        try:
+            from leagent.config.settings import get_settings
+
+            return bool(get_settings().knowledge.strict_evidence)
+        except Exception:
+            # Preserve the conservative default if a minimal test/runtime has
+            # no global settings singleton available.
+            return True
+
+    @staticmethod
+    def _knowledge_evidence_from_turn(turn: Any) -> Any | None:
+        """Extract typed evidence from the kept knowledge context block."""
+        from leagent.knowledge.evidence import EvidenceBundle
+
+        for block in getattr(turn, "blocks", []) or []:
+            if getattr(block, "source_id", "") != "knowledge_context":
+                continue
+            metadata = getattr(block, "metadata", {}) or {}
+            evidence = metadata.get("knowledge_evidence")
+            if isinstance(evidence, EvidenceBundle):
+                return evidence
+        return None
 
     async def _map_item(self, item: Any) -> AsyncIterator[SDKMessage]:
         from leagent.agent.deps import ModelStreamEvent

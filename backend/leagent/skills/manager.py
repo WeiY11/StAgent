@@ -16,9 +16,9 @@ The manager is the single entry point used by the rest of the app
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -29,8 +29,13 @@ from leagent.skills.base import (
     SkillStatus,
 )
 from leagent.skills.discovery import DiscoveryRoot, collect_discovery_roots
-from leagent.skills.github_monorepo_catalog import GitHubCatalogOverride
 from leagent.skills.loader import SkillLoader
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from leagent.skills.github_monorepo_catalog import GitHubCatalogOverride
+    from leagent.skills.registry import SkillRegistry
 
 logger = structlog.get_logger(__name__)
 
@@ -70,7 +75,7 @@ class SkillsManager:
         self,
         skills_dir: str | Path | None = None,
         *,
-        registry: Any | None = None,
+        registry: SkillRegistry | None = None,
         load_builtin: bool = True,
         enable_hot_reload: bool = True,
         include_interop_roots: bool = True,
@@ -107,7 +112,7 @@ class SkillsManager:
         return list(self._skills.keys())
 
     @property
-    def registry(self) -> Any:
+    def registry(self) -> SkillRegistry:
         """Return the registry, instantiating a default on first use."""
         if self._registry is None:
             from leagent.skills.registry import HTTPSkillRegistry, get_default_registry_url
@@ -233,7 +238,8 @@ class SkillsManager:
             self._skill_content_revision[name] = content_revision
 
     def _handle_skill_reload(self, skill: Skill) -> None:
-        was_active = self._skills.get(skill.name).is_active if skill.name in self._skills else False
+        existing = self._skills.get(skill.name)
+        was_active = existing.is_active if existing is not None else False
         self._skills[skill.name] = skill
         rev = ""
         for loader in self._loaders:
@@ -354,16 +360,14 @@ class SkillsManager:
             skill.status = SkillStatus.ACTIVE
             skill.error = None
             for cb in self._on_activate_callbacks:
-                try:
+                with suppress(Exception):
                     cb(skill)
-                except Exception:  # noqa: BLE001
-                    pass
             logger.info("skill_activated", name=name)
             return skill
         except Exception as exc:  # noqa: BLE001
             skill.status = SkillStatus.ERROR
             skill.error = str(exc)
-            raise SkillActivationError(name, str(exc))
+            raise SkillActivationError(name, str(exc)) from exc
 
     async def deactivate(self, name: str) -> bool:
         skill = self._skills.get(name)
@@ -373,10 +377,8 @@ class SkillsManager:
             return True
         skill.status = SkillStatus.INACTIVE
         for cb in self._on_deactivate_callbacks:
-            try:
+            with suppress(Exception):
                 cb(name)
-            except Exception:  # noqa: BLE001
-                pass
         logger.info("skill_deactivated", name=name)
         return True
 
@@ -674,10 +676,8 @@ class SkillsManager:
         if self._registry is not None:
             close = getattr(self._registry, "aclose", None)
             if close is not None:
-                try:
+                with suppress(Exception):
                     await close()
-                except Exception:  # noqa: BLE001
-                    pass
         try:
             from leagent.skills.github_monorepo_catalog import shutdown_github_monorepo_catalog
 

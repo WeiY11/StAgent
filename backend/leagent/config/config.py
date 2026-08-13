@@ -54,6 +54,21 @@ class HeartbeatConfig(BaseModel):
     failure_threshold: int = 3
 
 
+class KnowledgeSemanticConfig(BaseModel):
+    """Persisted operator preferences for the optional local vector plane."""
+
+    enabled: bool = False
+    vector_backend: str = "sqlite-vec"
+    local_model_id: str = ""
+    auto_reindex: bool = True
+
+
+class KnowledgeConfig(BaseModel):
+    """Knowledge settings kept in YAML when not managed by environment."""
+
+    semantic: KnowledgeSemanticConfig = Field(default_factory=KnowledgeSemanticConfig)
+
+
 class Config(BaseModel):
     """Top-level runtime configuration persisted to YAML."""
 
@@ -71,6 +86,7 @@ class Config(BaseModel):
         "default": AgentConfig(),
     })
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
+    knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     extra: dict[str, Any] = Field(default_factory=dict)
 
 

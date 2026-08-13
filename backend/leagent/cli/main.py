@@ -2,29 +2,29 @@
 
 Commands fall into three buckets:
 
-**Local agent (no HTTP server)** — bootstraps :class:`~leagent.llm.service.LLMService`,
+**Local agent (no HTTP server)** -bootstraps :class:`~leagent.llm.service.LLMService`,
 the unified :class:`~leagent.tools.registry.ToolRegistry`, rules, and skills, then runs
 turns through :class:`~leagent.agent.controller.AgentController` (the compatibility façade
 over :class:`~leagent.agent.query_engine.QueryEngine`). Prompts are assembled via
 :class:`~leagent.prompts.builder.PromptBuilder` and template layers when a provider is
 configured.
 
-**FastAPI monolith** — ``leagent run`` / ``leagent app start`` serve ``leagent.main:app``
+**FastAPI monolith** -``leagent run`` / ``leagent app start`` serve ``leagent.main:app``
 (Uvicorn or Gunicorn): REST, SSE, WebSockets, :class:`~leagent.services.session.manager.SessionManager`,
 optional :class:`~leagent.memory.agent_memory.AgentMemory`, workflow engine, cron, files, admin.
 
-**Server API clients** — ``workflows``, ``tasks``, ``chats`` (and similar) call
+**Server API clients** -``workflows``, ``tasks``, ``chats`` (and similar) call
 ``LEAGENT_API_URL`` (default ``http://localhost:7860``) with optional ``LEAGENT_API_KEY``.
 
 Examples:
     leagent                     # Interactive local agent (REPL)
     leagent chat                # Same as bare ``leagent``
-    leagent -m "…"              # One-shot local agent message
+    leagent -m "-              # One-shot local agent message
     leagent init                # ~/.leagent layout + config templates
     leagent run                  # Uvicorn ASGI (shortcut for ``app start``)
-    leagent app start            # Same stack with extra flags (SSL, workers, …)
+    leagent app start            # Same stack with extra flags (SSL, workers, -
     leagent workflows list       # Requires running server
-    leagent models migrate      # one-shot tier → v2 task routing migration
+    leagent models migrate      # one-shot tier ->v2 task routing migration
     leagent doctor               # Health / dependency sanity check
 """
 
@@ -56,7 +56,7 @@ from leagent.cli.workflows_cmd import workflows_group
 class AgenticGroup(click.Group):
     """Root Click group: default action is the local agent REPL (not ``--help``).
 
-    With no subcommand, the CLI starts :mod:`leagent.cli.chat_cmd` — the same
+    With no subcommand, the CLI starts :mod:`leagent.cli.chat_cmd` -the same
     QueryEngine-backed controller path as the web chat, but without
     ``SessionManager`` persistence or signed attachment URLs unless you add them.
     """
@@ -73,7 +73,7 @@ class AgenticGroup(click.Group):
                     debug=ctx.params.get("debug", False),
                 )
                 return
-            # No subcommand and no message — enter interactive mode
+            # No subcommand and no message -enter interactive mode
             ctx.invoke(chat_cmd, verbose=ctx.params.get("verbose_chat", False))
             return
         super().invoke(ctx)
@@ -94,22 +94,22 @@ class AgenticGroup(click.Group):
 )
 @click.pass_context
 def cli(ctx: click.Context, debug: bool, message: str | None, verbose_chat: bool) -> None:
-    """LeAgent — local-first agents, workflows, rules, and skills.
+    """LeAgent -local-first agents, workflows, rules, and skills.
 
-    **Local agent (default)** — No server: LLM + tools + rules + skills in-process.
+    **Local agent (default)** -No server: LLM + tools + rules + skills in-process.
 
-    **Platform** — ``init`` seeds ``~/.leagent``; ``run`` / ``app start`` / ``serve``
+    **Platform** -``init`` seeds ``~/.leagent``; ``run`` / ``app start`` / ``serve``
     expose the FastAPI app; ``upgrade`` applies Alembic migrations (packaged under
     ``leagent/alembic``, no repo ``alembic.ini`` required).
 
-    **Operators** — ``workflows``, ``tasks``, ``chats``, ``cron``, … talk to
+    **Operators** -``workflows``, ``tasks``, ``chats``, ``cron``, -talk to
     ``LEAGENT_API_URL`` (start the server first unless a command documents a local fallback).
     ``reset-password`` force-resets the access password (or a named user) locally.
 
     \b
     Quick start:
       leagent                  # Interactive agent REPL
-      leagent -m "…"           # One-shot agent turn
+      leagent -m "-           # One-shot agent turn
       leagent init             # First-time ~/.leagent + templates
       leagent run              # HTTP API (Uvicorn)
       leagent app start        # Same with SSL / Gunicorn / reload flags
@@ -118,7 +118,7 @@ def cli(ctx: click.Context, debug: bool, message: str | None, verbose_chat: bool
       leagent reset-password   # Force-reset forgotten access password
 
     \b
-    Docs: https://github.com/vixues/LeAgent
+    Docs: https://github.com/WeiY11/StAgent
     """
     ctx.ensure_object(dict)
     ctx.obj["debug"] = debug
@@ -214,7 +214,7 @@ def upgrade(revision: str) -> None:
 @cli.command()
 @click.option("--revision", "-r", default="-1", help="Target revision (default: -1)")
 def downgrade(revision: str) -> None:
-    """Revert Alembic migrations (destructive — use with care)."""
+    """Revert Alembic migrations (destructive -use with care)."""
     from alembic import command
 
     from leagent.alembic.runtime_config import load_alembic_config
@@ -442,7 +442,7 @@ def doctor() -> None:
 @click.option("--input", "-i", "input_file", type=click.Path(exists=True), help="Input JSON file")
 @click.option("--param", "-p", multiple=True, help="Parameters as key=value pairs")
 def execute(flow_id: str, input_file: str | None, param: tuple[str, ...]) -> None:
-    """POST ``/api/v1/workflow/flows/{id}/run`` — shortcut for ``leagent workflows run``."""
+    """POST ``/api/v1/workflow/flows/{id}/run`` -shortcut for ``leagent workflows run``."""
     import json
 
     from leagent.cli.http import CLIHttpError, get_client

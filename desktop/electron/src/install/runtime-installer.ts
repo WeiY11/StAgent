@@ -124,6 +124,31 @@ export function tryGetPayloadHash(): string | null {
   }
 }
 
+/**
+ * A virtual environment records the absolute location of its base Python in
+ * pyvenv.cfg. Packaged upgrades can move that base interpreter, so reusing the
+ * old venv would launch a stale or missing Python executable.
+ */
+export function runtimeVenvNeedsRecreate(): boolean {
+  if (!fs.existsSync(runtimeVenvPython())) return true;
+
+  const configPath = path.join(runtimeVenvDir(), 'pyvenv.cfg');
+  try {
+    const config = fs.readFileSync(configPath, 'utf8');
+    const home = config
+      .split(/\r?\n/)
+      .find((line) => line.trimStart().startsWith('home ='))
+      ?.split('=', 2)[1]
+      ?.trim();
+    if (!home) return true;
+
+    const expectedHome = path.resolve(path.dirname(pythonExe()));
+    return path.resolve(home) !== expectedHome;
+  } catch {
+    return true;
+  }
+}
+
 export function needsRuntimeUpgrade(): boolean {
   if (!app.isPackaged) return false;
   const marker = readInstalledMarker();
@@ -134,7 +159,7 @@ export function needsRuntimeUpgrade(): boolean {
   } catch {
     return true;
   }
-  return !fs.existsSync(runtimeVenvPython());
+  return runtimeVenvNeedsRecreate();
 }
 
 export async function isRuntimeReady(): Promise<boolean> {
@@ -166,6 +191,11 @@ export async function installRuntime(fresh = true): Promise<void> {
   };
 
   if (fresh && fs.existsSync(venvDir)) {
+    fs.rmSync(venvDir, { recursive: true, force: true });
+  }
+
+  if (!fresh && runtimeVenvNeedsRecreate() && fs.existsSync(venvDir)) {
+    log.info('Packaged Python changed; recreating runtime virtual environment');
     fs.rmSync(venvDir, { recursive: true, force: true });
   }
 

@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import asyncio
 import shutil
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = structlog.get_logger(__name__)
 
@@ -86,7 +88,7 @@ class SkillScriptTool(BaseTool):
             "required": ["name", "script_path"],
         }
 
-    async def execute(self, params: dict[str, Any], context: ToolContext) -> Any:
+    async def execute(self, params: dict[str, Any], context: ToolContext) -> dict[str, Any]:
         from leagent.config.settings import get_settings
 
         if not get_settings().skill_scripts_enabled:

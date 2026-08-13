@@ -17,6 +17,16 @@ from leagent.tools.base import ToolContext
 from leagent.tools.util.plan_tools import TodoReadTool, TodoWriteTool
 
 
+def test_tool_todos_fall_back_for_invalid_status_and_order() -> None:
+    todos = session_todos_from_tool_dicts(
+        [{"id": "bad", "content": "repair", "status": "unknown", "order": {}}]
+    )
+
+    assert len(todos) == 1
+    assert todos[0].status == "pending"
+    assert todos[0].order == 0
+
+
 def test_session_todo_round_trip() -> None:
     todo = SessionTodo(id="a", content="Step A", status="in_progress", order=0)
     state = SessionState(session_id=uuid4(), todos=[todo])

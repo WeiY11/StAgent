@@ -1,4 +1,4 @@
-const DEFAULT_REPO_URL = "https://github.com/vixues/LeAgent";
+const DEFAULT_REPO_URL = "https://github.com/WeiY11/StAgent";
 const DEFAULT_SITE_ORIGIN = "https://vixues.com.cn";
 
 export const SITE_ORIGIN =

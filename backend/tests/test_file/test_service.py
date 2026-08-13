@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import pytest
 
 from leagent.file.primitives import FileScope
 from leagent.file.service import FileRef, FileService
 from leagent.file.storage.local import LocalStorageBackend
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -80,7 +83,9 @@ async def test_delete(file_service: FileService):
 @pytest.mark.asyncio
 async def test_scope_in_ref(file_service: FileService):
     ref = await file_service.register(
-        b"k", filename="doc.pdf", scope=FileScope.KNOWLEDGE,
+        b"k",
+        filename="doc.pdf",
+        scope=FileScope.KNOWLEDGE,
     )
     assert ref.scope == FileScope.KNOWLEDGE
     d = ref.to_dict()
@@ -98,3 +103,25 @@ async def test_size_limit_enforcement(storage_root: Path):
     )
     with pytest.raises(ValueError, match="exceeds limit"):
         await svc.register(b"x" * 20, filename="big.bin")
+
+
+@pytest.mark.asyncio
+async def test_local_storage_rejects_sibling_prefix_traversal(tmp_path: Path) -> None:
+    """A sibling such as ``uploads_evil`` must not pass a prefix-only check."""
+    storage_root = tmp_path / "uploads"
+    sibling = tmp_path / "uploads_evil"
+    storage_root.mkdir()
+    sibling.mkdir()
+    (sibling / "secret.txt").write_text("private")
+    backend = LocalStorageBackend(storage_root)
+    escaped_key = "../uploads_evil/secret.txt"
+
+    with pytest.raises(PermissionError):
+        await backend.get(escaped_key)
+    with pytest.raises(PermissionError):
+        await backend.put(b"overwrite", escaped_key)
+    with pytest.raises(PermissionError):
+        await backend.delete(escaped_key)
+
+    await backend.put(b"safe", "nested/safe.txt")
+    assert await backend.get("nested/safe.txt") == (b"safe", "text/plain")

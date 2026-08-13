@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import inspect
 import json
 import os
 import re
@@ -17,6 +18,8 @@ import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from leagent.file.primitives import is_path_inside
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -72,14 +75,16 @@ class LocalModelRegistry:
         resolved_knowledge = knowledge_root.resolve()
         resolved_models = models_root.resolve()
         if (
-            not resolved_knowledge.is_relative_to(home)
-            or not resolved_models.is_relative_to(resolved_knowledge)
+            not is_path_inside(resolved_knowledge, home)
+            or not is_path_inside(resolved_models, resolved_knowledge)
             or resolved_models.parent != resolved_knowledge
         ):
             raise ModelValidationError("managed models root escapes LEAGENT_HOME/knowledge")
         self.models_dir = resolved_models
         self.staging_dir = self.models_dir / ".staging"
         self.catalog_path = self.models_dir / "catalog.json"
+        if self.catalog_path.is_symlink():
+            raise ModelValidationError("managed model catalog must not be a symlink")
         self.max_model_bytes = max_model_bytes
         self._probe_vector = probe_vector or self._probe_sentence_transformer
         self.models_dir.mkdir(parents=True, exist_ok=True)
@@ -151,12 +156,19 @@ class LocalModelRegistry:
             if not re.fullmatch(r"[0-9a-f]{7,64}", resolved_revision):
                 raise ModelValidationError("Hugging Face did not return an immutable commit SHA")
             snapshot_download: Callable[..., str] = hub.snapshot_download
-            snapshot_download(
-                repo_id=safe_repo,
-                revision=resolved_revision,
-                local_dir=str(stage),
-                local_dir_use_symlinks=False,
-            )
+            download_kwargs: dict[str, Any] = {
+                "repo_id": safe_repo,
+                "revision": resolved_revision,
+                "local_dir": str(stage),
+            }
+            try:
+                if "local_dir_use_symlinks" in inspect.signature(snapshot_download).parameters:
+                    download_kwargs["local_dir_use_symlinks"] = False
+            except (TypeError, ValueError):
+                # The post-download validation still rejects any symlinked
+                # files when a Hub client does not expose a stable signature.
+                pass
+            snapshot_download(**download_kwargs)
             return self._publish_stage(
                 stage,
                 display_name=display_name or safe_repo,
@@ -187,14 +199,19 @@ class LocalModelRegistry:
         return stage
 
     def _copy_source(self, source: Path, stage: Path) -> None:
+        source_root = source.resolve()
+        total_size = 0
         for item in source.rglob("*"):
-            if item.is_symlink():
+            if item.is_symlink() or not is_path_inside(item.resolve(), source_root):
                 raise ModelValidationError("symlinked model files are not allowed")
             relative = item.relative_to(source)
             target = stage / relative
             if item.is_dir():
-                target.mkdir(exist_ok=True)
+                target.mkdir(parents=True, exist_ok=True)
             elif item.is_file():
+                total_size += item.stat().st_size
+                if total_size > self.max_model_bytes:
+                    raise ModelValidationError("model exceeds configured safe size limit")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(item, target)
 
@@ -269,8 +286,9 @@ class LocalModelRegistry:
         total_size = 0
         manifest: list[tuple[str, int, str]] = []
         has_safetensors = False
+        stage_root = stage.resolve()
         for item in sorted(stage.rglob("*")):
-            if item.is_symlink():
+            if item.is_symlink() or not is_path_inside(item.resolve(), stage_root):
                 raise ModelValidationError("symlinked model files are not allowed")
             if not item.is_file():
                 continue
@@ -283,7 +301,7 @@ class LocalModelRegistry:
             if total_size > self.max_model_bytes:
                 raise ModelValidationError("model exceeds configured safe size limit")
             relative = item.relative_to(stage).as_posix()
-            digest = hashlib.sha256(item.read_bytes()).hexdigest()
+            digest = self._hash_file(item)
             manifest.append((relative, size, digest))
             has_safetensors = has_safetensors or item.suffix.lower() == ".safetensors"
             if item.suffix.lower() == ".json":
@@ -292,6 +310,14 @@ class LocalModelRegistry:
             raise ModelValidationError("model must contain safetensors weights")
         blob = json.dumps(manifest, ensure_ascii=True, separators=(",", ":"))
         return hashlib.sha256(blob.encode()).hexdigest(), total_size
+
+    @staticmethod
+    def _hash_file(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
 
     @staticmethod
     def _reject_remote_code(item: Path) -> None:
@@ -304,10 +330,13 @@ class LocalModelRegistry:
 
     @staticmethod
     def _fingerprint(*, manifest_hash: str, **kwargs: Any) -> str:
+        source_type = str(kwargs["source_type"])
         identity = {
-            "source_type": kwargs["source_type"],
-            "source_reference": kwargs["source_reference"],
-            "resolved_revision": kwargs["resolved_revision"],
+            "source_type": source_type,
+            # A local absolute path is not model identity: importing the same
+            # validated files from another server directory must be stable.
+            # Hub identity is the immutable commit SHA returned by model_info.
+            "resolved_revision": kwargs["resolved_revision"] if source_type == "huggingface" else "",
             "manifest_hash": manifest_hash,
             "dimension": kwargs["dimension"],
             "query_prompt": kwargs["query_prompt"],
@@ -318,6 +347,8 @@ class LocalModelRegistry:
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def _read_catalog(self) -> dict[str, ManagedLocalModel]:
+        if self.catalog_path.is_symlink():
+            raise ModelValidationError("managed model catalog must not be a symlink")
         if not self.catalog_path.exists():
             return {}
         raw = json.loads(self.catalog_path.read_text(encoding="utf-8"))
@@ -325,6 +356,8 @@ class LocalModelRegistry:
 
     def _write_catalog(self, catalog: dict[str, ManagedLocalModel]) -> None:
         temporary = self.catalog_path.with_suffix(".tmp")
+        if temporary.is_symlink():
+            raise ModelValidationError("managed model catalog staging file must not be a symlink")
         payload = {key: asdict(value) for key, value in catalog.items()}
         temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         os.replace(temporary, self.catalog_path)

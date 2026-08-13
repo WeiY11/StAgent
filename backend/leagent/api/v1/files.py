@@ -11,14 +11,17 @@ import re
 import tempfile
 import zipfile
 from datetime import datetime
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy import update as sa_update
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
@@ -47,6 +50,7 @@ from leagent.db.sqlite_compat import (
 )
 from leagent.db.sqlite_compat import session_dialect_name as _session_dialect_name
 from leagent.file.primitives import classify_file_kind, sanitize_filename
+from leagent.knowledge.acl import knowledge_file_access_clause
 from leagent.services.auth import (
     CurrentUserId,
     OptionalUserId,
@@ -114,6 +118,100 @@ async def _store_blob(
         origin_ref=origin_ref,
         persist_db_row=False,
     )
+
+
+def _managed_file_service(db: DatabaseService) -> Any:
+    """Return the configured managed storage service for an endpoint DB."""
+    from leagent.services.service_manager import get_service_manager
+
+    sm = get_service_manager()
+    if sm.file_service is not None and getattr(sm, "db", None) is db:
+        return sm.file_service
+
+    from leagent.file.service import FileService
+    from leagent.file.storage.local import LocalStorageBackend
+
+    return FileService(
+        default_backend=LocalStorageBackend(_upload_dir()),
+        default_backend_name="local",
+        database=db,
+    )
+
+
+async def _read_managed_file_bytes(
+    file: FileModel,
+    db: DatabaseService,
+) -> tuple[bytes, str]:
+    """Read a catalog file through its configured storage backend.
+
+    Legacy local rows retain a direct-file fallback. S3 rows are always read
+    through ``FileService`` so a restart does not reinterpret an ``s3://`` URI
+    as a local path.
+    """
+    storage_path = str(file.storage_path or "")
+    if storage_path and os.path.isfile(storage_path):
+        raw = await asyncio.to_thread(Path(storage_path).read_bytes)
+        return raw, file.mime_type or "application/octet-stream"
+
+    service = _managed_file_service(db)
+    ref = service.ref_from_persisted_record(
+        file_id=file.id,
+        filename=file.name,
+        storage_path=storage_path,
+        content_type=file.mime_type,
+        size=file.size,
+        checksum=file.checksum,
+        user_id=file.user_id,
+        session_id=file.session_id,
+        library_scope=str(getattr(file.library_scope, "value", file.library_scope) or "workspace"),
+    )
+    try:
+        return await service.download(ref)
+    except FileNotFoundError:
+        pass
+    raise FileNotFoundError(f"Managed file is unavailable: {file.id}")
+
+
+async def _managed_file_exists(file: FileModel, db: DatabaseService) -> bool:
+    """Check either a legacy local path or the configured object store."""
+    storage_path = str(file.storage_path or "")
+    if storage_path and os.path.isfile(storage_path):
+        return True
+    try:
+        service = _managed_file_service(db)
+        ref = service.ref_from_persisted_record(
+            file_id=file.id,
+            filename=file.name,
+            storage_path=storage_path,
+            content_type=file.mime_type,
+            size=file.size,
+            checksum=file.checksum,
+            user_id=file.user_id,
+            session_id=file.session_id,
+            library_scope=str(getattr(file.library_scope, "value", file.library_scope) or "workspace"),
+        )
+        return await service.exists(ref)
+    except (FileNotFoundError, RuntimeError):
+        return False
+
+
+def _bytes_file_response(
+    raw: bytes,
+    *,
+    filename: str | None,
+    media_type: str,
+    disposition: str,
+    headers: dict[str, str] | None = None,
+) -> Response:
+    """Create a safe response for object-store bytes without exposing a path."""
+    safe_name = sanitize_filename(filename or "download") or "download"
+    ascii_name = safe_name.encode("ascii", "ignore").decode() or "download"
+    response_headers = dict(headers or {})
+    response_headers["Content-Disposition"] = (
+        f"{disposition}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(safe_name)}"
+    )
+    return Response(content=raw, media_type=media_type, headers=response_headers)
+
 
 # Multi-file ZIP download (POST /files/bundle/download)
 MAX_BUNDLE_FILE_COUNT = 80
@@ -261,10 +359,13 @@ def get_file_type(mime_type: str | None, filename: str | None = None) -> FileTyp
     return _FILE_KIND_TO_TYPE.get(kind.value, FileType.OTHER)
 
 
-async def _background_process_file(file_id: str, storage_path: str, mime_type: str | None, original_name: str | None) -> None:
+async def _background_process_file(
+    file_id: str, storage_path: str, mime_type: str | None, original_name: str | None
+) -> None:
     """Background task to auto-process an uploaded file."""
     try:
         from leagent.services.service_manager import get_service_manager
+
         sm = get_service_manager()
         if sm.file_processing:
             await sm.file_processing.process_and_update_db(
@@ -299,9 +400,7 @@ async def persist_uploaded_file(
     file_size = len(content)
 
     if file_size > MAX_FILE_SIZE:
-        raise ValueError(
-            f"File too large ({file_size} bytes). Maximum is {MAX_FILE_SIZE // (1024 * 1024)}MB"
-        )
+        raise ValueError(f"File too large ({file_size} bytes). Maximum is {MAX_FILE_SIZE // (1024 * 1024)}MB")
 
     if folder_id is not None:
         async with db.session() as session:
@@ -385,9 +484,7 @@ async def persist_pet_space_file(
     file_size = len(content)
 
     if file_size > MAX_FILE_SIZE:
-        raise ValueError(
-            f"File too large ({file_size} bytes). Maximum is {MAX_FILE_SIZE // (1024 * 1024)}MB"
-        )
+        raise ValueError(f"File too large ({file_size} bytes). Maximum is {MAX_FILE_SIZE // (1024 * 1024)}MB")
 
     resolved_mime = resolve_pet_space_upload_mime_type(upload.filename, upload.content_type, content)
 
@@ -551,9 +648,7 @@ async def upload_file(
             with contextlib.suppress(Exception):
                 from leagent.services.chat.project_files import resolve_session_project_file_space
 
-                space = await resolve_session_project_file_space(
-                    db, session_id=session_id, user_id=user_id
-                )
+                space = await resolve_session_project_file_space(db, session_id=session_id, user_id=user_id)
                 if space is not None:
                     effective_folder_id = space.folder_id
 
@@ -742,11 +837,6 @@ async def download_file_bundle(
             compresslevel=6,
         ) as zf:
             for f in ordered:
-                if not f.storage_path or not os.path.isfile(f.storage_path):
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"File missing on storage: {f.id}",
-                    )
                 arc = _sanitize_bundle_arcname(f.original_name or f.name, f.id)
                 base, ext = os.path.splitext(arc)
                 candidate = arc
@@ -755,7 +845,22 @@ async def download_file_bundle(
                     candidate = f"{base}_{n}{ext}"
                     n += 1
                 used_arcnames.add(candidate)
-                zf.write(f.storage_path, arcname=candidate)
+                if str(f.storage_path or "").startswith("s3://"):
+                    try:
+                        raw, _content_type = await _read_managed_file_bytes(f, db)
+                    except (FileNotFoundError, RuntimeError) as exc:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"File missing on storage: {f.id}",
+                        ) from exc
+                    zf.writestr(candidate, raw)
+                elif f.storage_path and os.path.isfile(f.storage_path):
+                    zf.write(f.storage_path, arcname=candidate)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"File missing on storage: {f.id}",
+                    )
     except HTTPException:
         _unlink_quiet(tmp_path)
         raise
@@ -804,9 +909,7 @@ async def _resolve_file_for_serve(
         try:
             signed = verify_signed_token(settings, token)
         except SignedUrlError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
         if signed.scope != required_scope:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -833,25 +936,38 @@ async def _resolve_file_for_serve(
             )
             row = r.mappings().first()
             if row is None or row["is_deleted"]:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-                )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
             file = file_model_from_sqlite_row(row)
         else:
             file = await session.get(FileModel, file_id)
             if not file or file.is_deleted:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-                )
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
         effective_user = owner_id_from_token or jwt_user_id
-        if effective_user is not None and not same_user_id(file.user_id, effective_user):
+        is_owner = effective_user is None or same_user_id(file.user_id, effective_user)
+        has_knowledge_access = False
+        if (
+            not is_owner
+            and owner_id_from_token is None
+            and jwt_user_id is not None
+            and file.library_scope == LibraryScope.KNOWLEDGE
+        ):
+            has_knowledge_access = (
+                await session.exec(
+                    select(FileModel.id)
+                    .where(uuid_column_equals(session, FileModel.id, file_id))
+                    .where(FileModel.is_deleted == False)  # noqa: E712
+                    .where(FileModel.library_scope == LibraryScope.KNOWLEDGE)
+                    .where(knowledge_file_access_clause(session, jwt_user_id))
+                )
+            ).first() is not None
+        if not is_owner and not has_knowledge_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied to this file",
             )
 
-        if not os.path.exists(file.storage_path):
+        if not str(file.storage_path or "").startswith("s3://") and not os.path.exists(file.storage_path):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="File not found on storage",
@@ -859,22 +975,38 @@ async def _resolve_file_for_serve(
         return file
 
 
-_INLINE_MIME_PREFIXES = ("image/", "text/", "audio/", "video/")
-_INLINE_EXTRA_MIME = {
-    "application/pdf",
-    "application/json",
-    "application/xml",
-    "application/javascript",
-}
+_INLINE_IMAGE_MIME_TYPES = frozenset(
+    {
+        "image/avif",
+        "image/bmp",
+        "image/gif",
+        "image/heic",
+        "image/jpeg",
+        "image/png",
+        "image/tiff",
+        "image/webp",
+        "image/x-icon",
+    }
+)
+_INLINE_EXACT_MIME_TYPES = frozenset({"application/pdf"})
+_INLINE_MIME_PREFIXES = ("audio/", "video/")
 
 
-def _is_inline_safe(mime: str | None) -> bool:
-    """Return ``True`` when the browser can safely render ``mime`` inline."""
-    if not mime:
-        return False
-    if mime in _INLINE_EXTRA_MIME:
-        return True
-    return any(mime.startswith(p) for p in _INLINE_MIME_PREFIXES)
+def preview_response_policy(mime: str | None) -> tuple[str, str]:
+    """Return the MIME and disposition allowed for a browser file preview.
+
+    Uploaded HTML, SVG, XML, and JavaScript are active content. They must be
+    downloaded rather than rendered in a same-origin tab or converted into a
+    blob URL by an authenticated client.
+    """
+    normalized = (mime or "").split(";", 1)[0].strip().lower()
+    if (
+        normalized in _INLINE_IMAGE_MIME_TYPES
+        or normalized in _INLINE_EXACT_MIME_TYPES
+        or any(normalized.startswith(prefix) for prefix in _INLINE_MIME_PREFIXES)
+    ):
+        return normalized, "inline"
+    return "application/octet-stream", "attachment"
 
 
 @router.get("/events/stream")
@@ -911,7 +1043,7 @@ async def download_file(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     user_id: OptionalUserId = None,
     token: str | None = Query(default=None),
-) -> FileResponse:
+) -> Response:
     """Download a file by ID.
 
     Accepts either a bearer JWT or a ``?token=`` signed URL with
@@ -924,6 +1056,20 @@ async def download_file(
         required_scope="download",
         db=db,
     )
+    if str(file.storage_path or "").startswith("s3://"):
+        try:
+            raw, content_type = await _read_managed_file_bytes(file, db)
+        except (FileNotFoundError, RuntimeError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found on storage",
+            ) from exc
+        return _bytes_file_response(
+            raw,
+            filename=file.original_name,
+            media_type=file.mime_type or content_type,
+            disposition="attachment",
+        )
     return FileResponse(
         path=file.storage_path,
         filename=file.original_name,
@@ -937,7 +1083,7 @@ async def preview_file(
     db: Annotated[DatabaseService, Depends(get_database_service)],
     user_id: OptionalUserId = None,
     token: str | None = Query(default=None),
-) -> FileResponse:
+) -> Response:
     """Serve a session attachment inline for in-browser preview.
 
     Accepts either a bearer JWT or a ``?token=`` signed URL with
@@ -954,17 +1100,31 @@ async def preview_file(
         required_scope="preview",
         db=db,
     )
-    mime = file.mime_type or "application/octet-stream"
-    if not _is_inline_safe(mime):
-        mime = "application/octet-stream"
+    mime, disposition = preview_response_policy(file.mime_type)
     headers = {
         "Cache-Control": "private, max-age=60",
+        "X-Content-Type-Options": "nosniff",
     }
+    if str(file.storage_path or "").startswith("s3://"):
+        try:
+            raw, content_type = await _read_managed_file_bytes(file, db)
+        except (FileNotFoundError, RuntimeError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found on storage",
+            ) from exc
+        return _bytes_file_response(
+            raw,
+            filename=file.original_name,
+            media_type=mime or content_type,
+            disposition=disposition,
+            headers=headers,
+        )
     return FileResponse(
         path=file.storage_path,
         filename=file.original_name,
         media_type=mime,
-        content_disposition_type="inline",
+        content_disposition_type=disposition,
         headers=headers,
     )
 
@@ -980,10 +1140,7 @@ async def delete_file(
         if _session_dialect_name(session) == "sqlite":
             id_txt = await sqlite_parent_id_text(session, "files", file_id)
             r = await session.execute(
-                text(
-                    "SELECT user_id, is_deleted, folder_id FROM files "
-                    "WHERE CAST(id AS TEXT) = :id"
-                ),
+                text("SELECT user_id, is_deleted, folder_id FROM files WHERE CAST(id AS TEXT) = :id"),
                 {"id": id_txt},
             )
             row = r.mappings().first()
@@ -999,10 +1156,7 @@ async def delete_file(
                 )
             now = datetime.utcnow()
             await session.execute(
-                text(
-                    "UPDATE files SET is_deleted = 1, deleted_at = :d, updated_at = :u "
-                    "WHERE CAST(id AS TEXT) = :id"
-                ),
+                text("UPDATE files SET is_deleted = 1, deleted_at = :d, updated_at = :u WHERE CAST(id AS TEXT) = :id"),
                 {"d": now, "u": now, "id": id_txt},
             )
             folder_id = UUID(str(row["folder_id"])) if row["folder_id"] else None

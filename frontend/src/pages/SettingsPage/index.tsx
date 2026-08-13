@@ -104,6 +104,7 @@ import {
 } from './constants';
 import { SettingRow } from './components/SettingRow';
 import { PythonPackagesTab } from './components/PythonPackagesTab';
+import { LocalEmbeddingCard } from './components/LocalEmbeddingCard';
 
 /* ── Types and constants imported from ./constants.ts ── */
 /* ── Sub-component SettingRow imported from ./components/SettingRow.tsx ── */
@@ -155,12 +156,12 @@ function AboutTabContent() {
       label: t('about.githubLabel'),
       value: (
         <a
-          href="https://github.com/vixues/LeAgent"
+          href="https://github.com/WeiY11/StAgent"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary-600 dark:text-primary-400 hover:underline"
         >
-          github.com/vixues/LeAgent
+          github.com/WeiY11/StAgent
         </a>
       ),
     },
@@ -1376,6 +1377,7 @@ export default function SettingsPage() {
           {/* ── Models tab ── */}
           {activeTab === 'models' && (
             <>
+              <LocalEmbeddingCard />
               <Card>
                 <CardHeader>
                   <CardTitle>{t('settings.defaultModelCardTitle')}</CardTitle>

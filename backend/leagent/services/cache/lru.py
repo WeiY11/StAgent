@@ -349,7 +349,7 @@ class ShardedLRU:
 
     @property
     def stats(self) -> dict[str, Any]:
-        agg = {
+        agg: dict[str, int | float] = {
             "size": 0,
             "max_size": 0,
             "hits": 0,

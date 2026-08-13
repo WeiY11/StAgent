@@ -96,3 +96,57 @@ async def test_milvus_collection_optional_off_never_connects(monkeypatch: pytest
     assert result.error == "milvus_optional_off"
     assert await collection.search(vector=[0.0] * 8, limit=1) == []
     assert attempts == {"connect": 0}
+
+
+@pytest.mark.asyncio
+async def test_milvus_collection_initializes_existing_collection_before_first_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A restarted worker must search vectors indexed by an earlier worker."""
+
+    class _ExistingCollection:
+        def search(self, **kwargs: object) -> list[list[SimpleNamespace]]:  # noqa: ARG002
+            return [[SimpleNamespace(id="existing-chunk", distance=0.95)]]
+
+    collection = MilvusCollection(
+        name="knowledge_chunks",
+        dimension=8,
+        connection=MilvusConnectionConfig(enabled=True),
+    )
+
+    def initialize_existing_collection() -> bool:
+        collection._collection = _ExistingCollection()  # noqa: SLF001 - simulate persisted Milvus state
+        collection._ensured = True  # noqa: SLF001 - simulate successful lazy initialization
+        collection.available = True
+        return True
+
+    monkeypatch.setattr(collection, "_ensure", initialize_existing_collection)
+
+    results = await collection.search(vector=[0.0] * 8, limit=1)
+
+    assert results == [("existing-chunk", 0.95)]
+
+
+@pytest.mark.asyncio
+async def test_milvus_collection_deletes_all_vectors_for_a_scope() -> None:
+    """A reindexed document must be able to remove its obsolete vectors."""
+    expressions: list[str] = []
+
+    class _ExistingCollection:
+        def delete(self, expression: str) -> SimpleNamespace:
+            expressions.append(expression)
+            return SimpleNamespace(delete_count=3)
+
+    collection = MilvusCollection(
+        name="knowledge_chunks",
+        dimension=8,
+        connection=MilvusConnectionConfig(enabled=True),
+    )
+    collection._collection = _ExistingCollection()  # noqa: SLF001 - connected collection fixture
+    collection._ensured = True  # noqa: SLF001 - connected collection fixture
+    collection.available = True
+
+    deleted = await collection.delete_scope("file-123")
+
+    assert deleted == 3
+    assert expressions == ['scope == "file-123"']

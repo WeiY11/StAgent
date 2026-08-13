@@ -30,11 +30,7 @@ _EXCLUDED_DIRS = ("__pycache__",)
 
 def _python_files(root: Path) -> list[Path]:
     """Collect all .py files under *root*, excluding __pycache__."""
-    return [
-        p
-        for p in root.rglob("*.py")
-        if "__pycache__" not in str(p) and ".pyc" not in p.suffix
-    ]
+    return [p for p in root.rglob("*.py") if "__pycache__" not in str(p) and ".pyc" not in p.suffix]
 
 
 def _blob_path_files() -> list[tuple[Path, str]]:
@@ -81,6 +77,7 @@ class TestINV1_NoDirectWriteInBlobPaths:
         "cron/repository.py": "atomic write of the cron jobs registry file",
         "extensions/manager.py": "persists the installed-extensions registry",
         "harness/report.py": "writes harness episode reports under LEAGENT_HOME reports dir",
+        "knowledge/local_models.py": "atomically persists the validated local-model catalog",
         "tools/data/stock_alert.py": "persists the stock-alert registry JSON under LEAGENT_HOME",
         "mcp/manager.py": "persists the mcp_servers.yaml config file",
         "channels/weixin/store.py": "atomic write of Weixin credential/context-token store",
@@ -160,10 +157,7 @@ class TestINV5_ProjectNeverImportsFileService:
                 if pattern.search(line):
                     violations.append(f"{py.relative_to(BACKEND_ROOT)}:{i}: {line.strip()}")
 
-        assert not violations, (
-            "leagent/project/ must not reference FileService/FileRef:\n"
-            + "\n".join(violations)
-        )
+        assert not violations, "leagent/project/ must not reference FileService/FileRef:\n" + "\n".join(violations)
 
 
 class TestINV7_PathContainmentInBlobLayer:
@@ -190,6 +184,5 @@ class TestINV7_PathContainmentInBlobLayer:
 
         assert not violations, (
             "Inline path-containment found in blob-layer code outside "
-            "primitives.py. Use leagent.file.primitives.is_path_inside:\n"
-            + "\n".join(violations)
+            "primitives.py. Use leagent.file.primitives.is_path_inside:\n" + "\n".join(violations)
         )

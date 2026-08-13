@@ -13,14 +13,11 @@ from typing import Any
 
 import click
 
-from leagent.cli.http import CLIHttpError, get_client, require_server
+from leagent.cli.http import CLIHttpError, get_client
 from leagent.cli.utils import (
     console,
     create_table,
-    format_bytes,
-    format_duration,
     format_timestamp,
-    print_dim,
     print_error,
     print_info,
     print_success,
@@ -141,6 +138,7 @@ def _get_local_chats(limit: int, offset: int) -> list[dict[str, Any]]:
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON.")
 def show_chat(chat_id: str, as_json: bool) -> None:
     """Show details of a specific chat session."""
+    chat: dict[str, Any] | None
     try:
         client = get_client()
         chat = client.get(f"/api/v1/chat/sessions/{chat_id}")
@@ -149,7 +147,7 @@ def show_chat(chat_id: str, as_json: bool) -> None:
         chat = _get_local_chat(chat_id)
         if not chat:
             print_error(f"Chat '{chat_id}' not found.")
-            raise click.Abort()
+            raise click.Abort() from None
 
     if as_json:
         console.print_json(data=chat)
@@ -231,7 +229,8 @@ def _get_local_chat(chat_id: str) -> dict[str, Any] | None:
         if chat_file.stem.startswith(chat_id):
             try:
                 with open(chat_file, encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                return data if isinstance(data, dict) else None
             except Exception:
                 pass
 
@@ -339,11 +338,13 @@ def export_chats(
     if export_all:
         _export_all_chats(output_dir, output_format, output)
     else:
+        assert chat_id is not None
         _export_single_chat(chat_id, output_format, output)
 
 
 def _export_single_chat(chat_id: str, output_format: str, output_path: str | None) -> None:
     """Export a single chat session."""
+    chat: dict[str, Any] | None
     try:
         client = get_client()
         chat = client.get(f"/api/v1/chat/sessions/{chat_id}")
@@ -351,7 +352,7 @@ def _export_single_chat(chat_id: str, output_format: str, output_path: str | Non
         chat = _get_local_chat(chat_id)
         if not chat:
             print_error(f"Chat '{chat_id}' not found.")
-            raise click.Abort()
+            raise click.Abort() from None
 
     if output_path:
         output_file = Path(output_path)

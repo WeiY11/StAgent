@@ -83,7 +83,7 @@ export function buildMenu(mainWindow: BrowserWindow): void {
         {
           label: 'LeAgent Documentation',
           click: () => {
-            shell.openExternal('https://github.com/vixues/LeAgent');
+            shell.openExternal('https://github.com/WeiY11/StAgent');
           },
         },
       ],

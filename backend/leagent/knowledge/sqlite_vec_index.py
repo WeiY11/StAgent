@@ -10,6 +10,7 @@ import asyncio
 import logging
 import math
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -18,7 +19,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from leagent.knowledge.vector_backend import canonical_index_version, version_table_name
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from leagent.library.chunking import Chunk
     from leagent.memory.embeddings import EmbeddingProvider
@@ -66,8 +67,15 @@ class SqliteVecKnowledgeIndex:
         return self._index_version
 
     def _connect(self) -> sqlite3.Connection:
-        import sqlite_vec  # type: ignore[import-untyped]
+        import sqlite_vec
 
+        if self.path.parent.is_symlink():
+            raise sqlite3.DatabaseError("knowledge vector directory must not be a symlink")
+        if self.path.is_symlink():
+            raise sqlite3.DatabaseError("knowledge vector sidecar must not be a symlink")
+        for suffix in ("-wal", "-shm"):
+            if Path(f"{self.path}{suffix}").is_symlink():
+                raise sqlite3.DatabaseError("knowledge vector journal must not be a symlink")
         if self.path.exists() and self.path.stat().st_size:
             with self.path.open("rb") as sidecar:
                 if sidecar.read(16) != b"SQLite format 3\x00":
@@ -82,10 +90,20 @@ class SqliteVecKnowledgeIndex:
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
 
+    @contextmanager
+    def _managed_connection(self) -> Iterator[sqlite3.Connection]:
+        """Commit/rollback through SQLite's context manager and always close."""
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _initialize(self) -> bool:
         with self._init_lock:
             try:
-                with self._connect() as connection:
+                with self._managed_connection() as connection:
                     connection.execute(
                         "CREATE TABLE IF NOT EXISTS knowledge_vector_versions "
                         "(singleton INTEGER PRIMARY KEY CHECK (singleton = 1), active_version TEXT NOT NULL)"
@@ -115,6 +133,15 @@ class SqliteVecKnowledgeIndex:
                         if persisted_active is None:
                             raise ValueError("persisted index version is invalid")
                         self._index_version = persisted_active
+                        active_table = version_table_name(self._index_version)
+                        if (
+                            connection.execute(
+                                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                                (active_table,),
+                            ).fetchone()
+                            is None
+                        ):
+                            raise sqlite3.DatabaseError("active vector table is missing")
                         connection.execute(
                             "UPDATE knowledge_vector_version_state SET status = 'retired' "
                             "WHERE status = 'active' AND version != ?",
@@ -126,6 +153,7 @@ class SqliteVecKnowledgeIndex:
                             (self._index_version,),
                         )
                     self._ensure_table(connection, self._index_version)
+                    self._verify_integrity(connection)
                 return True
             except Exception:  # noqa: BLE001 - projection must never prevent RAG startup
                 logger.warning("knowledge_sqlite_vec_unavailable", exc_info=True)
@@ -141,6 +169,19 @@ class SqliteVecKnowledgeIndex:
             f"chunk_id TEXT PRIMARY KEY, embedding FLOAT[{self._dimension}], file_id TEXT)"
         )
         return table
+
+    def _verify_integrity(self, connection: sqlite3.Connection) -> None:
+        """Fail initialization when SQLite or any persisted vec table is damaged."""
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if not integrity or str(integrity[0]).lower() != "ok":
+            raise sqlite3.DatabaseError("knowledge vector sidecar integrity check failed")
+        table_names = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'vec_%'"
+        ).fetchall()
+        for (table_name,) in table_names:
+            # Touch each virtual table, including retired/candidate versions,
+            # so a damaged projection is quarantined before it can be selected.
+            connection.execute(f"SELECT count(*) FROM {table_name}").fetchone()
 
     @staticmethod
     def _normalized(vector: Sequence[float], dimension: int) -> list[float]:
@@ -169,8 +210,7 @@ class SqliteVecKnowledgeIndex:
             return 0
         try:
             rows = [
-                (str(chunk_id), self._normalized(vector, self._dimension), str(file_id))
-                for chunk_id, vector in vectors
+                (str(chunk_id), self._normalized(vector, self._dimension), str(file_id)) for chunk_id, vector in vectors
             ]
         except (TypeError, ValueError):
             return 0
@@ -183,9 +223,9 @@ class SqliteVecKnowledgeIndex:
                 return 0
 
     def _upsert_sync(self, version: str, rows: list[tuple[str, list[float], str]]) -> int:
-        import sqlite_vec  # type: ignore[import-untyped]
+        import sqlite_vec
 
-        with self._connect() as connection:
+        with self._managed_connection() as connection:
             table = self._ensure_table(connection, version)
             for start in range(0, len(rows), _UPSERT_BATCH):
                 batch = [
@@ -218,7 +258,9 @@ class SqliteVecKnowledgeIndex:
             return 0
         pairs = [
             (
-                chunk_ids[index] if chunk_ids and index < len(chunk_ids) else uuid5(NAMESPACE_URL, f"leagent:knowledge:{file_id}:{index}"),
+                chunk_ids[index]
+                if chunk_ids and index < len(chunk_ids)
+                else uuid5(NAMESPACE_URL, f"leagent:knowledge:{file_id}:{index}"),
                 vector,
             )
             for index, vector in enumerate(vectors)
@@ -253,10 +295,8 @@ class SqliteVecKnowledgeIndex:
 
     def _delete_sync(self, version: str, file_id: str) -> int:
         try:
-            with self._connect() as connection:
-                result = connection.execute(
-                    f"DELETE FROM {version_table_name(version)} WHERE file_id = ?", (file_id,)
-                )
+            with self._managed_connection() as connection:
+                result = connection.execute(f"DELETE FROM {version_table_name(version)} WHERE file_id = ?", (file_id,))
                 return max(0, result.rowcount)
         except sqlite3.OperationalError as exc:
             if "no such table" in str(exc).lower():
@@ -295,12 +335,14 @@ class SqliteVecKnowledgeIndex:
         """Protocol spelling retained for retrieval adapters."""
         return await self.search(query_vector, **kwargs)  # type: ignore[arg-type]
 
-    def _search_sync(self, version: str, vector: list[float], limit: int, file_ids: list[str]) -> list[tuple[str, float]]:
-        import sqlite_vec  # type: ignore[import-untyped]
+    def _search_sync(
+        self, version: str, vector: list[float], limit: int, file_ids: list[str]
+    ) -> list[tuple[str, float]]:
+        import sqlite_vec
 
         best: dict[str, float] = {}
         try:
-            with self._connect() as connection:
+            with self._managed_connection() as connection:
                 table = version_table_name(version)
                 # vec0 metadata IN filtering is parameterized; batching avoids SQLite's bind limit.
                 for start in range(0, len(file_ids), _SQLITE_PARAMETER_BATCH):
@@ -334,7 +376,7 @@ class SqliteVecKnowledgeIndex:
                 return False
 
     def _begin_sync(self, version: str) -> None:
-        with self._connect() as connection:
+        with self._managed_connection() as connection:
             active = connection.execute(
                 "SELECT active_version FROM knowledge_vector_versions WHERE singleton = 1"
             ).fetchone()
@@ -361,13 +403,15 @@ class SqliteVecKnowledgeIndex:
                 return False
 
     def _activate_sync(self, version: str) -> None:
-        with self._connect() as connection:
+        with self._managed_connection() as connection:
             candidate = connection.execute(
                 "SELECT status FROM knowledge_vector_version_state WHERE version = ?", (version,)
             ).fetchone()
             if candidate is None or candidate[0] != "candidate":
                 raise ValueError("index version is not a persisted candidate")
-            connection.execute("UPDATE knowledge_vector_versions SET active_version = ? WHERE singleton = 1", (version,))
+            connection.execute(
+                "UPDATE knowledge_vector_versions SET active_version = ? WHERE singleton = 1", (version,)
+            )
             connection.execute(
                 "UPDATE knowledge_vector_version_state SET status = 'retired' WHERE status = 'active' AND version != ?",
                 (version,),
@@ -391,7 +435,7 @@ class SqliteVecKnowledgeIndex:
                 return False
 
     def _discard_sync(self, version: str) -> None:
-        with self._connect() as connection:
+        with self._managed_connection() as connection:
             connection.execute(f"DROP TABLE IF EXISTS {version_table_name(version)}")
             connection.execute("DELETE FROM knowledge_vector_version_state WHERE version = ?", (version,))
 
@@ -406,10 +450,8 @@ class SqliteVecKnowledgeIndex:
             return {}
 
     def _version_status_sync(self) -> dict[str, str]:
-        with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT version, status FROM knowledge_vector_version_state"
-            ).fetchall()
+        with self._managed_connection() as connection:
+            rows = connection.execute("SELECT version, status FROM knowledge_vector_version_state").fetchall()
         return {str(version): str(status) for version, status in rows}
 
 

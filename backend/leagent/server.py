@@ -17,9 +17,11 @@ def _validate_topology(workers: int) -> None:
 
     from leagent.config.settings import get_settings
 
+    settings = get_settings()
     topology = validate_deployment_topology(
-        database_backend=get_settings().database.backend,
+        database_backend=settings.database.backend,
         workers=workers,
+        redis_enabled=settings.redis.enabled,
     )
     logger = logging.getLogger(__name__)
     for warning in topology.warnings:
