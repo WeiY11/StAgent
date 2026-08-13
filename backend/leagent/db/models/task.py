@@ -63,6 +63,7 @@ class TaskType(str, Enum):
     MONITOR = "monitor"
     DREAM = "dream"
     KNOWLEDGE_VECTOR_REBUILD = "knowledge_vector_rebuild"
+    MISSION = "mission"
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +104,7 @@ _TASK_ID_PREFIXES: dict[str, str] = {
     TaskType.MONITOR.value: "m",
     TaskType.DREAM.value: "d",
     TaskType.KNOWLEDGE_VECTOR_REBUILD.value: "v",
+    TaskType.MISSION.value: "n",
 }
 
 _TASK_ID_ALPHABET = string.digits + string.ascii_lowercase  # 36 chars

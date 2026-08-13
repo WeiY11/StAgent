@@ -26,15 +26,20 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Awaitable, Callable, Iterable
 from typing import TYPE_CHECKING, Any, TypedDict
-from uuid import UUID, uuid4
+from uuid import uuid4
 
+from leagent.mission.verifier import (
+    _expected_verify_tokens,
+    assess_verification_gap,
+)
 from leagent.tools.base import BaseTool, ToolCategory, ToolContext
 from leagent.tools.context import resolve_subagent_run_identity
 from leagent.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable
+
     from leagent.agent.controller import AgentController
     from leagent.agent.query_engine import QueryEngine
     from leagent.tools.executor import ToolExecutor
@@ -127,7 +132,7 @@ def fork_scoped_engine(
 def _paths_from_unified_diff(diff: str) -> list[str]:
     paths: list[str] = []
     for line in diff.splitlines():
-        if line.startswith("+++ ") or line.startswith("--- "):
+        if line.startswith(("+++ ", "--- ")):
             raw = line[4:].strip()
             if raw in ("/dev/null",):
                 continue
@@ -268,79 +273,6 @@ def _shell_command_blob(inp: dict[str, Any], summary: str | None = None) -> str:
     return " ".join(parts).lower()
 
 
-#: Heuristic map: changed-file extension → verification command tokens.
-_VERIFY_BY_EXT: dict[str, tuple[str, ...]] = {
-    ".py": ("pytest", "python -m pytest", "python -m unittest", "mypy", "ruff", "pyright"),
-    ".pyi": ("mypy", "pyright"),
-    ".ts": ("vitest", "jest", "npm test", "pnpm test", "yarn test", "tsc", "eslint"),
-    ".tsx": ("vitest", "jest", "npm test", "pnpm test", "yarn test", "tsc", "eslint"),
-    ".js": ("vitest", "jest", "npm test", "pnpm test", "yarn test", "eslint"),
-    ".jsx": ("vitest", "jest", "npm test", "pnpm test", "yarn test", "eslint"),
-    ".rs": ("cargo test", "cargo check", "cargo clippy"),
-    ".go": ("go test", "golangci-lint"),
-    ".java": ("mvn test", "gradle test", "./gradlew test"),
-}
-
-
-def _expected_verify_tokens(changed_paths: set[str]) -> list[str]:
-    """Union of verification tokens implied by the changed file set."""
-    tokens: list[str] = []
-    seen: set[str] = set()
-    for path in changed_paths:
-        lower = path.lower()
-        for ext, cands in _VERIFY_BY_EXT.items():
-            if lower.endswith(ext):
-                for t in cands:
-                    if t not in seen:
-                        seen.add(t)
-                        tokens.append(t)
-                break
-    return tokens
-
-
-def _matched_verification(
-    shell_blobs: list[str],
-    expected_tokens: list[str],
-) -> bool:
-    """True when at least one shell invocation matches an expected verify token."""
-    if not expected_tokens:
-        # Unknown toolchain: any project_shell counts (legacy heuristic).
-        return bool(shell_blobs)
-    joined = "\n".join(shell_blobs)
-    return any(tok in joined for tok in expected_tokens)
-
-
-def assess_verification_gap(
-    *,
-    changed_paths: set[str],
-    shell_blobs: list[str],
-    enforce: bool,
-    partial: bool,
-    error: str | None,
-) -> str | None:
-    """Return a verification_gap message when changed files lack matching tests.
-
-    Upgrades the old "did any shell run?" check to "did a shell command
-    matching the changed-files toolchain run?" (pytest / vitest / cargo …).
-    """
-    if not enforce or not changed_paths or partial or error is not None:
-        return None
-    expected = _expected_verify_tokens(changed_paths)
-    if _matched_verification(shell_blobs, expected):
-        return None
-    if not shell_blobs:
-        hint = ", ".join(expected[:4]) if expected else "tests/lint/typecheck"
-        return (
-            "Files were modified but project_shell was not run for "
-            f"verification ({hint})."
-        )
-    hint = ", ".join(expected[:4]) if expected else "a matching test/lint command"
-    return (
-        "Files were modified and project_shell ran, but no command matched "
-        f"the expected verification for the changed files ({hint})."
-    )
-
-
 async def _run_engine(
     engine: QueryEngine,
     prompt: str,
@@ -443,12 +375,10 @@ async def _run_engine(
                     parsed.get("detail"), dict
                 ):
                     inner = parsed["detail"]
-                for entry in inner.get("produced_files") or []:
-                    if isinstance(entry, dict):
-                        produced_files.append(entry)
-                for entry in inner.get("images") or []:
-                    if isinstance(entry, dict):
-                        images.append(entry)
+                produced_files.extend(
+                    entry for entry in inner.get("produced_files") or [] if isinstance(entry, dict)
+                )
+                images.extend(entry for entry in inner.get("images") or [] if isinstance(entry, dict))
             for j in range(len(activity_rows) - 1, -1, -1):
                 if activity_rows[j].get("tool_call_id") == tid:
                     tname = str(activity_rows[j].get("tool") or "")
@@ -968,4 +898,8 @@ __all__ = [
     "fork_scoped_engine",
     "make_child_executor",
     "AgentTool",
+    # Re-exported from leagent.mission.verifier (kept importable from the
+    # historical subagent location for backwards compatibility).
+    "assess_verification_gap",
+    "_expected_verify_tokens",
 ]

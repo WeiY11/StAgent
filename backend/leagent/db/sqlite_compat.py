@@ -48,6 +48,7 @@ PARENT_ID_TABLES: frozenset[str] = frozenset(
         "workflow_executions",
         "complaints",
         "knowledge_spaces",
+        "agent_missions",
     }
 )
 

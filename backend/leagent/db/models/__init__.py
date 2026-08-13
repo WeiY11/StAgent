@@ -112,6 +112,15 @@ from leagent.db.models.message import (
     SessionCreate,
     SessionRead,
 )
+from leagent.db.models.mission import (
+    Mission,
+    MissionAutonomy,
+    MissionStep,
+    MissionStepKind,
+    MissionStepStatus,
+    MissionStatus,
+    MissionVerifyLevel,
+)
 from leagent.db.models.pet_project import (
     PetProject,
     PetProjectFile,
@@ -202,6 +211,14 @@ __all__ = [
     "AgentTrace",
     "AgentTraceSpan",
     "AgentTraceExperiment",
+    # Mission (goal-scoped autonomous execution)
+    "Mission",
+    "MissionStep",
+    "MissionStatus",
+    "MissionAutonomy",
+    "MissionVerifyLevel",
+    "MissionStepKind",
+    "MissionStepStatus",
     # Task
     "Task",
     "TaskContext",

@@ -38,6 +38,7 @@ from leagent.db.repositories.messages import (
     DbMessageRepository,
     MessageRepository,
 )
+from leagent.db.repositories.missions import DbMissionRepository, MissionRepository
 from leagent.db.repositories.knowledge_index import (
     DbKnowledgeIndexRepository,
     KnowledgeIndexRepository,
@@ -69,6 +70,7 @@ class Repositories:
         self._coding_projects: DbCodingProjectRepository | None = None
         self._complaints: DbComplaintRepository | None = None
         self._knowledge_index: DbKnowledgeIndexRepository | None = None
+        self._missions: DbMissionRepository | None = None
 
     @property
     def files(self) -> DbFileRepository:
@@ -142,6 +144,12 @@ class Repositories:
             self._knowledge_index = DbKnowledgeIndexRepository(self._db)
         return self._knowledge_index
 
+    @property
+    def missions(self) -> DbMissionRepository:
+        if self._missions is None:
+            self._missions = DbMissionRepository(self._db)
+        return self._missions
+
 
 __all__ = [
     "Repositories",
@@ -169,4 +177,6 @@ __all__ = [
     "DbWorkflowExecutionRepository",
     "KnowledgeIndexRepository",
     "DbKnowledgeIndexRepository",
+    "MissionRepository",
+    "DbMissionRepository",
 ]
