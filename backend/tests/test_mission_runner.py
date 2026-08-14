@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
-from uuid import UUID
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -21,10 +19,15 @@ from leagent.mission import (
     MissionPlan,
     MissionRunner,
     MissionStepState,
+    MissionUsage,
     SegmentResult,
     StaticPlanner,
     VerificationResult,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from uuid import UUID
 
 
 class FakeMissionStore:
@@ -113,10 +116,10 @@ class ScriptedExecutor:
 
     def __init__(self, script: Callable[[int, int], SegmentResult]) -> None:
         self._script = script
-        self.calls: list[tuple[int, int]] = []
+        self.calls: list[tuple[int, int, str]] = []
 
     async def execute(self, *, mission, step, prompt, attempt):
-        self.calls.append((step.step_no, attempt))
+        self.calls.append((step.step_no, attempt, prompt))
         return self._script(step.step_no, attempt)
 
 
@@ -361,6 +364,53 @@ async def test_token_budget_pauses_mission():
     result = await runner.run(mission)
     assert result.status == MissionStatus.PAUSED
     assert result.pause_reason == "budget"
+
+
+async def test_cost_budget_pauses_mission_and_accumulates_ledger():
+    store = FakeMissionStore()
+    budget = MissionBudget(max_cost_usd=1.0).to_json()
+    mission = make_mission(budget_json=budget)
+    await store.create(mission)
+    runner = MissionRunner(
+        store=store,
+        planner=StaticPlanner(linear_plan("单步任务")),
+        executor=ScriptedExecutor(
+            lambda step_no, attempt: SegmentResult(text="烧钱", usage={"total_tokens": 10, "cost_usd": 1.25})
+        ),
+    )
+    result = await runner.run(mission)
+    assert result.status == MissionStatus.PAUSED
+    assert result.pause_reason == "budget"
+    usage = MissionUsage.from_json(mission.usage_json)
+    assert usage.segments == 1
+    assert usage.cost_usd == 1.25
+
+
+async def test_continuation_folds_partial_text_into_summary_and_prompt():
+    store = FakeMissionStore()
+    mission = make_mission()
+    await store.create(mission)
+
+    def script(step_no: int, attempt: int) -> SegmentResult:
+        if attempt == 0:
+            return SegmentResult(reason="max_turns", text="已完成一半", checkpoint_id="cp-1")
+        return SegmentResult(reason="completed", text="全部完成")
+
+    executor = ScriptedExecutor(script)
+    runner = MissionRunner(
+        store=store,
+        planner=StaticPlanner(linear_plan("单步任务")),
+        executor=executor,
+    )
+    result = await runner.run(mission)
+    assert result.status == MissionStatus.COMPLETED
+    steps = await store.list_steps(mission.id, plan_id=0)
+    assert steps[0].status == MissionStepStatus.PASSED
+    assert steps[0].checkpoint_id == "cp-1"
+    # The continuation prompt carries the exhausted segment's partial text.
+    continuation_prompt = executor.calls[1][2]
+    assert "已有进展" in continuation_prompt
+    assert "已完成一半" in continuation_prompt
 
 
 async def test_deadline_expires_mission():

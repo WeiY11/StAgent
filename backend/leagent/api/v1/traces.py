@@ -441,6 +441,66 @@ async def list_trace_spans(trace_id: str, user_id: CurrentUserId) -> list[TraceS
     return [_span(s) for s in spans]
 
 
+class TraceSpanDetail(TraceSpanRead):
+    """Span plus the full (untruncated) input/output payloads."""
+
+    input_full: str | None = None
+    output_full: str | None = None
+
+
+def _load_span_payload(payload_ref: str) -> dict[str, Any] | None:
+    """Read the span payload file, refusing paths outside ``TRACES_DIR``."""
+    from pathlib import Path
+
+    import json
+
+    from leagent.config.constants import TRACES_DIR
+
+    try:
+        base = Path(TRACES_DIR).resolve()
+        path = Path(payload_ref).resolve()
+        if base != path and base not in path.parents:
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _payload_field(payload: dict[str, Any] | None, key: str) -> str | None:
+    """Stringify one payload field (payloads store arbitrary JSON values)."""
+    if not payload:
+        return None
+    import json
+
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+@router.get("/{trace_id}/spans/{span_id}", response_model=TraceSpanDetail)
+async def get_trace_span(trace_id: str, span_id: str, user_id: CurrentUserId) -> TraceSpanDetail:
+    """Return one span with full payloads (payload file when present, preview fallback)."""
+    store = get_trace_store()
+    await _load_trace_for_user(trace_id, user_id)
+    spans = await store.list_spans(trace_id)
+    row = next((s for s in spans if s.span_id == span_id), None)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Span not found")
+    payload = _load_span_payload(row.payload_ref) if row.payload_ref else None
+    return TraceSpanDetail(
+        **_span(row).model_dump(),
+        input_full=_payload_field(payload, "input") or row.input_preview,
+        output_full=_payload_field(payload, "output") or row.output_preview,
+    )
+
+
 @router.get("/{trace_id}/export")
 async def export_trace(trace_id: str, user_id: CurrentUserId) -> Response:
     store = get_trace_store()

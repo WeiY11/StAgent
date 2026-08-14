@@ -292,6 +292,19 @@ class SessionCancelResponse(BaseModel):
     checkpoint_id: str | None = None
 
 
+class SessionForkRequest(BaseModel):
+    """Fork a session by copying the message prefix up to one message."""
+
+    up_to_message_id: UUID
+    new_name: str | None = None
+
+
+class SessionForkResponse(BaseModel):
+    session_id: str
+    message_count: int = 0
+
+
+
 class ResumeCheckpointRequest(BaseModel):
     checkpoint_id: str
     prompt: str = ""

@@ -226,3 +226,84 @@ async def test_experiment_list_and_detail_are_user_scoped(
     with pytest.raises(HTTPException) as exc:
         await traces_api.get_experiment("other-exp", owner)
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_trace_span_returns_full_payload(
+    fake_trace_store: _FakeTraceStore,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner = uuid4()
+    fake_trace_store.traces["t1"] = _trace_row("t1", user_id=owner)
+
+    payload_dir = tmp_path / "traces" / "t1"
+    payload_dir.mkdir(parents=True)
+    payload_file = payload_dir / "span-1.json"
+    payload_file.write_text(
+        json.dumps({"input": "full input", "output": {"text": "full output"}}),
+        encoding="utf-8",
+    )
+
+    row = _span_row("t1")
+    row.payload_ref = str(payload_file)
+    row.input_preview = "prev-in"
+    row.output_preview = "prev-out"
+    fake_trace_store.spans["t1"] = [row]
+
+    from leagent.config import constants as trace_constants
+
+    monkeypatch.setattr(trace_constants, "TRACES_DIR", str(tmp_path / "traces"))
+
+    detail = await traces_api.get_trace_span("t1", "span-1", owner)
+
+    assert detail.input_full == "full input"
+    assert detail.output_full == json.dumps(
+        {"text": "full output"}, ensure_ascii=False
+    )
+    assert detail.input_preview == "prev-in"
+
+
+@pytest.mark.asyncio
+async def test_get_trace_span_falls_back_to_preview(
+    fake_trace_store: _FakeTraceStore,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner = uuid4()
+    fake_trace_store.traces["t1"] = _trace_row("t1", user_id=owner)
+
+    row = _span_row("t1")
+    # No payload file: preview must be used as-is.
+    row.input_preview = "prev-in"
+    row.output_preview = "prev-out"
+    fake_trace_store.spans["t1"] = [row]
+
+    from leagent.config import constants as trace_constants
+
+    monkeypatch.setattr(trace_constants, "TRACES_DIR", str(tmp_path / "traces"))
+
+    detail = await traces_api.get_trace_span("t1", "span-1", owner)
+
+    assert detail.input_full == "prev-in"
+    assert detail.output_full == "prev-out"
+
+    # Payload reference escaping TRACES_DIR must be ignored (preview wins).
+    escaping = tmp_path / "outside.json"
+    escaping.write_text(json.dumps({"input": "evil"}), encoding="utf-8")
+    row.payload_ref = str(escaping)
+    detail = await traces_api.get_trace_span("t1", "span-1", owner)
+    assert detail.input_full == "prev-in"
+
+
+@pytest.mark.asyncio
+async def test_get_trace_span_not_found(
+    fake_trace_store: _FakeTraceStore,
+) -> None:
+    owner = uuid4()
+    fake_trace_store.traces["t1"] = _trace_row("t1", user_id=owner)
+    fake_trace_store.spans["t1"] = [_span_row("t1")]
+
+    with pytest.raises(HTTPException) as exc:
+        await traces_api.get_trace_span("t1", "missing-span", owner)
+    assert exc.value.status_code == 404

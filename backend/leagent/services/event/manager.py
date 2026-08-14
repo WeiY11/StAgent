@@ -50,6 +50,25 @@ class EventType(str, Enum):  # noqa: UP042 - preserve legacy Enum string semanti
     FLOW_COMPLETED = "flow.completed"
     FLOW_FAILED = "flow.failed"
 
+    MISSION_PLANNED = "mission.planned"
+    MISSION_PLAN_REJECTED = "mission.plan_rejected"
+    MISSION_STEP_STARTED = "mission.step.started"
+    MISSION_STEP_VERIFYING = "mission.step.verifying"
+    MISSION_STEP_VERIFIED = "mission.step.verified"
+    MISSION_STEP_VERIFY_FAILED = "mission.step.verify_failed"
+    MISSION_STEP_AWAITING_APPROVAL = "mission.step.awaiting_approval"
+    MISSION_STEP_APPROVED = "mission.step.approved"
+    MISSION_STEP_PASSED = "mission.step.passed"
+    MISSION_STEP_FAILED = "mission.step.failed"
+    MISSION_REPLANNED = "mission.replanned"
+    MISSION_SEGMENT_CONTINUED = "mission.segment.continued"
+    MISSION_PAUSED = "mission.paused"
+    MISSION_RESUMED = "mission.resumed"
+    MISSION_COMPLETED = "mission.completed"
+    MISSION_FAILED = "mission.failed"
+    MISSION_ABORTED = "mission.aborted"
+    MISSION_EXPIRED = "mission.expired"
+
     AGENT_MESSAGE = "agent.message"
     AGENT_THINKING = "agent.thinking"
     AGENT_TOOL_CALL = "agent.tool_call"
@@ -531,6 +550,38 @@ class EventManager(Service):
             )
         except Exception:
             logger.debug("agent_event_publish_failed", exc_info=True)
+
+    async def publish_mission_lifecycle(
+        self,
+        event_type: EventType,
+        *,
+        mission_id: str | None = None,
+        run_id: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        """Publish a mission lifecycle event with the mission id on the payload."""
+        payload = dict(data or {})
+        if mission_id:
+            payload["mission_id"] = mission_id
+        if run_id:
+            payload["run_id"] = run_id
+        try:
+            mission_uuid: UUID | None = None
+            if mission_id:
+                try:
+                    mission_uuid = UUID(mission_id)
+                except (TypeError, ValueError):
+                    mission_uuid = None
+            await self.emit(
+                Event(
+                    type=event_type,
+                    source="mission",
+                    data=payload,
+                    correlation_id=mission_uuid or _run_id_as_uuid(run_id),
+                )
+            )
+        except Exception:
+            logger.debug("mission_event_publish_failed", exc_info=True)
 
     async def bridge_workflow_progress_event(
         self,

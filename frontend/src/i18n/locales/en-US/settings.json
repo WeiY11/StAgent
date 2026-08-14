@@ -291,6 +291,18 @@
     "localEmbeddingDeleteConfirm": "Delete this managed local model?",
     "localEmbeddingDisableConfirm": "Disable local semantic retrieval?",
     "localEmbeddingOperationFailed": "Local embedding operation failed",
+    "budget": {
+      "title": "Monthly Cost Budget",
+      "description": "Set a soft monthly USD budget used for dashboard reminders; it never blocks calls. Enter 0 to clear.",
+      "label": "Budget (USD)",
+      "placeholder": "Not set",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Budget updated",
+      "cleared": "Budget cleared",
+      "saveFailed": "Failed to save budget",
+      "current": "Current budget: {{budget}}, month to date: {{spent}}"
+    },
     "mockTools": {
       "webSearch": { "name": "Web search", "description": "Fetch web content via search engines" },
       "fileRead": { "name": "File read", "description": "Read local or remote file contents" },

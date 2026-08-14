@@ -31,6 +31,7 @@ export const TRANSLATION_BUNDLE_FILES = [
   'about',
   'codingProjects',
   'complaints',
+  'missions',
 ] as const;
 
 export type TranslationBundleName = (typeof TRANSLATION_BUNDLE_FILES)[number];

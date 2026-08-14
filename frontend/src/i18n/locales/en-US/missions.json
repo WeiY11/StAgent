@@ -1,0 +1,86 @@
+{
+  "missions": {
+    "title": "Missions",
+    "description": "Goal-scoped autonomous runs: plan, execute, verify — with budgets and approvals.",
+    "create": "New mission",
+    "createTitle": "New mission",
+    "loading": "Loading missions…",
+    "loadingDetail": "Loading mission…",
+    "emptyTitle": "No missions",
+    "emptyDescription": "Create a mission and let the agent plan and execute it autonomously.",
+    "selectTitle": "Select a mission",
+    "selectDescription": "Pick a mission to inspect its plan and step timeline.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "abort": "Abort",
+    "delete": "Delete",
+    "approve": "Approve",
+    "reject": "Reject",
+    "autonomyLabel": "Autonomy",
+    "expectedOutputLabel": "Expected output",
+    "progressLabel": "Progress",
+    "stepsUnit": "steps passed",
+    "tokensLabel": "Tokens",
+    "costLabel": "Cost",
+    "errorLabel": "Error",
+    "timelineTitle": "Plan timeline",
+    "noStepsYet": "No steps planned yet.",
+    "attemptLabel": "attempt",
+    "dependsOnLabel": "depends on",
+    "verifyFeedback": "Verification feedback",
+    "segmentSummary": "Segment summary",
+    "runningBadge": "live",
+    "statusTab": {
+      "all": "All",
+      "active": "Active",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "status": {
+      "planning": "Planning",
+      "ready": "Ready",
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "aborted": "Aborted",
+      "expired": "Expired"
+    },
+    "stepStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "verifying": "Verifying",
+      "waiting_approval": "Awaiting approval",
+      "passed": "Passed",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "blocked": "Blocked"
+    },
+    "autonomy": {
+      "full": "Full autonomy",
+      "step_confirm": "Confirm each step",
+      "readonly": "Read-only"
+    },
+    "verifyLevel": {
+      "none": "No verification",
+      "heuristic": "Heuristic",
+      "llm_critic": "LLM critic",
+      "experimental": "experimental"
+    },
+    "form": {
+      "goal": "Goal",
+      "goalPlaceholder": "Describe the outcome you want the agent to achieve…",
+      "expectedOutput": "Expected output",
+      "expectedOutputPlaceholder": "Optional: what does “done” look like?",
+      "autonomy": "Autonomy",
+      "verifyLevel": "Verification",
+      "budget": "Budget",
+      "maxSteps": "Max steps",
+      "maxTokens": "Max total tokens",
+      "maxCost": "Max cost (USD)",
+      "deadline": "Deadline",
+      "submit": "Create & start"
+    }
+  }
+}

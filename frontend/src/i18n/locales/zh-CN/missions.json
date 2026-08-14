@@ -1,0 +1,86 @@
+{
+  "missions": {
+    "title": "自主任务",
+    "description": "以目标为范围的自主执行：规划、执行、验证 —— 带预算与人工审批。",
+    "create": "新建任务",
+    "createTitle": "新建自主任务",
+    "loading": "正在加载任务…",
+    "loadingDetail": "正在加载任务详情…",
+    "emptyTitle": "暂无任务",
+    "emptyDescription": "创建一个任务，让智能体自主规划并执行。",
+    "selectTitle": "选择一个任务",
+    "selectDescription": "选择任务以查看其计划与步骤时间线。",
+    "pause": "暂停",
+    "resume": "恢复",
+    "abort": "终止",
+    "delete": "删除",
+    "approve": "批准",
+    "reject": "驳回",
+    "autonomyLabel": "自治级别",
+    "expectedOutputLabel": "期望产出",
+    "progressLabel": "进度",
+    "stepsUnit": "步已通过",
+    "tokensLabel": "Tokens",
+    "costLabel": "花费",
+    "errorLabel": "错误",
+    "timelineTitle": "计划时间线",
+    "noStepsYet": "尚未生成计划步骤。",
+    "attemptLabel": "尝试",
+    "dependsOnLabel": "依赖于",
+    "verifyFeedback": "验证反馈",
+    "segmentSummary": "执行段摘要",
+    "runningBadge": "进行中",
+    "statusTab": {
+      "all": "全部",
+      "active": "进行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "status": {
+      "planning": "规划中",
+      "ready": "就绪",
+      "running": "运行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "aborted": "已终止",
+      "expired": "已过期"
+    },
+    "stepStatus": {
+      "pending": "待执行",
+      "running": "执行中",
+      "verifying": "验证中",
+      "waiting_approval": "等待审批",
+      "passed": "已通过",
+      "failed": "失败",
+      "skipped": "已跳过",
+      "blocked": "已阻塞"
+    },
+    "autonomy": {
+      "full": "完全自主",
+      "step_confirm": "逐步确认",
+      "readonly": "只读"
+    },
+    "verifyLevel": {
+      "none": "不验证",
+      "heuristic": "启发式验证",
+      "llm_critic": "LLM 评审",
+      "experimental": "实验性"
+    },
+    "form": {
+      "goal": "目标",
+      "goalPlaceholder": "描述你希望智能体达成的最终结果…",
+      "expectedOutput": "期望产出",
+      "expectedOutputPlaceholder": "可选：什么状态算“完成”？",
+      "autonomy": "自治级别",
+      "verifyLevel": "验证方式",
+      "budget": "预算限制",
+      "maxSteps": "最大步骤数",
+      "maxTokens": "最大总 Tokens",
+      "maxCost": "最大花费（USD）",
+      "deadline": "截止时间",
+      "submit": "创建并启动"
+    }
+  }
+}

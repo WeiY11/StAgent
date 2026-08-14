@@ -115,6 +115,14 @@ class SegmentResult:
             return int(total)
         return int(self.usage.get("input_tokens") or 0) + int(self.usage.get("output_tokens") or 0)
 
+    @property
+    def cost_usd(self) -> float:
+        """Best-effort cost in USD carried by the usage payload (0 when absent)."""
+        try:
+            return float(self.usage.get("cost_usd") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
 
 @dataclass
 class VerificationResult:
@@ -137,6 +145,7 @@ class MissionUsage:
         """Fold one segment's usage into the ledger."""
         self.segments += 1
         self.tokens += result.tokens_used
+        self.cost_usd += result.cost_usd
 
     def over(self, budget: MissionBudget) -> bool:
         """True when any mission-level quota is exceeded."""
@@ -223,9 +232,7 @@ class MissionPlan:
             seen.add(step.step_no)
         for step in self.steps:
             errors.extend(
-                f"step {step.step_no} depends on unknown step {dep}"
-                for dep in step.depends_on
-                if dep not in seen
+                f"step {step.step_no} depends on unknown step {dep}" for dep in step.depends_on if dep not in seen
             )
         if errors:
             return errors

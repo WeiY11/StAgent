@@ -93,10 +93,7 @@ def assess_verification_gap(
         return None
     if not shell_blobs:
         hint = ", ".join(expected[:4]) if expected else "tests/lint/typecheck"
-        return (
-            "Files were modified but project_shell was not run for "
-            f"verification ({hint})."
-        )
+        return f"Files were modified but project_shell was not run for verification ({hint})."
     hint = ", ".join(expected[:4]) if expected else "a matching test/lint command"
     return (
         "Files were modified and project_shell ran, but no command matched "

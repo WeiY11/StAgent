@@ -382,6 +382,68 @@ class ChatService(Service):
 
         return session
 
+    async def fork_session(
+        self,
+        user_id: UUID,
+        session_id: UUID,
+        *,
+        up_to_message_id: UUID,
+        new_name: str | None = None,
+    ) -> ChatSession:
+        """Fork a session by copying the message prefix up to *up_to_message_id*.
+
+        The new session keeps the source's flow/project bindings and gets a
+        fresh copy of every user/assistant message (system rows are skipped;
+        tool-call JSON and extensions are preserved verbatim). Message IDs are
+        new — the fork is a content copy, not a reference.
+
+        Raises:
+            ValueError: If *up_to_message_id* is not part of the session.
+        """
+        if self._db is None:
+            raise RuntimeError("Database service not initialized")
+
+        source = await self.get_session(session_id, user_id=user_id)
+        if source is None:
+            raise ValueError(f"Session {session_id} not found")
+
+        messages = await self._db.repositories.messages.list_for_session(
+            session_id, limit=10000
+        )
+        prefix: list[Message] = []
+        for message in messages:
+            prefix.append(message)
+            if message.id == up_to_message_id:
+                break
+        else:
+            raise ValueError(f"Message {up_to_message_id} not found in session {session_id}")
+
+        forked = await self.create_session(
+            user_id,
+            name=new_name or f"Fork: {source.name or 'Chat'}",
+            flow_id=source.flow_id,
+            project_id=source.project_id,
+        )
+
+        for message in prefix:
+            if message.role not in (MessageRole.USER, MessageRole.ASSISTANT):
+                continue
+            await self.add_message(
+                forked.id,
+                message.role,
+                message.content,
+                user_id=user_id if message.role == MessageRole.USER else None,
+                model=message.model,
+                tool_calls=json.loads(message.tool_calls) if message.tool_calls else None,
+                attachments=json.loads(message.attachments) if message.attachments else None,
+                input_tokens=message.input_tokens,
+                output_tokens=message.output_tokens,
+                latency_ms=message.latency_ms,
+                extensions=message.extensions,
+            )
+
+        return forked
+
     async def list_sessions(
         self,
         user_id: UUID,

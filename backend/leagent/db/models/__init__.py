@@ -138,6 +138,7 @@ from leagent.db.models.task import (
     generate_task_id,
     is_terminal_task_status,
 )
+from leagent.db.models.user_setting import UserSetting
 from leagent.db.models.workflow_execution import (
     WorkflowExecution,
     WorkflowExecutionRead,
@@ -269,4 +270,6 @@ __all__ = [
     "ComplaintCreate",
     "ComplaintUpdate",
     "ComplaintRead",
+    # User settings (per-user key/value store)
+    "UserSetting",
 ]

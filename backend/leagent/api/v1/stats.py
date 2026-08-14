@@ -7,17 +7,21 @@ dashboard reflects all activity – background tasks **and** workflow runs.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import case
 from sqlmodel import func, select
 
 from leagent.db import DatabaseService, get_database_service
-from leagent.db.models import Flow, Task, TaskStatus
+from leagent.db.models import AgentTrace, Flow, Task, TaskStatus
 from leagent.db.models.workflow_execution import WorkflowExecution
 from leagent.db.sqlite_compat import uuid_column_equals
 from leagent.services.auth import AdminUserId, CurrentUserId
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 router = APIRouter()
 
@@ -95,6 +99,62 @@ class CacheConfigUpdate(BaseModel):
     max_items: int | None = None
 
 
+class CostDayPoint(BaseModel):
+    """Per-day cost/usage bucket (UTC days)."""
+
+    date: str
+    cost_usd: float
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    runs: int
+    errors: int
+
+
+class CostTotals(BaseModel):
+    cost_usd: float
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    runs: int
+    errors: int
+
+
+class CostBudgetStatus(BaseModel):
+    """Soft monthly budget status (advisory only — never blocks LLM calls)."""
+
+    monthly_budget_usd: float | None = None
+    month_to_date_usd: float = 0.0
+    #: Spent / budget as a percentage (``0.0`` when no budget is set).
+    pct: float = 0.0
+    exceeded: bool = False
+
+
+class CostsResponse(BaseModel):
+    days: list[CostDayPoint]
+    totals: CostTotals
+    budget: CostBudgetStatus
+
+
+class CostByModelPoint(BaseModel):
+    model: str
+    runs: int
+    cost_usd: float
+    avg_latency_ms: float
+    total_tokens: int
+    success_rate: float
+
+
+class BudgetStatus(BaseModel):
+    monthly_budget_usd: float | None = None
+
+
+class BudgetUpdate(BaseModel):
+    """Soft-budget write payload; ``0``/``null`` clears the budget."""
+
+    monthly_budget_usd: float | None = None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -112,6 +172,53 @@ def _fmt_duration(ms: float) -> str:
     if ms < 60_000:
         return f"{ms / 1000:.1f}s"
     return f"{ms / 60_000:.1f}m"
+
+
+#: ``user_settings`` key holding the soft monthly cost budget (USD).
+COST_BUDGET_KEY = "cost_monthly_budget_usd"
+
+
+async def _load_monthly_budget(db: DatabaseService, user_id: UUID) -> float | None:
+    """Read the stored soft monthly budget, or ``None`` when unset/invalid."""
+    import json
+
+    raw = await db.repositories.user_settings.get(user_id, COST_BUDGET_KEY)
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    value = float(value)
+    return value if value > 0 else None
+
+
+async def _month_to_date_usd(db: DatabaseService, user_id: UUID) -> float:
+    """Sum ``agent_traces.total_cost_usd`` since the start of the current UTC month."""
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    async with db.session() as session:
+        res = await session.exec(
+            select(func.sum(AgentTrace.total_cost_usd)).where(
+                AgentTrace.user_id == str(user_id),
+                AgentTrace.started_at >= month_start,
+            )
+        )
+        return float(res.one() or 0.0)
+
+
+async def _budget_status(db: DatabaseService, user_id: UUID) -> CostBudgetStatus:
+    budget = await _load_monthly_budget(db, user_id)
+    month_to_date = await _month_to_date_usd(db, user_id)
+    pct = round(month_to_date / budget * 100, 1) if budget else 0.0
+    return CostBudgetStatus(
+        monthly_budget_usd=budget,
+        month_to_date_usd=round(month_to_date, 4),
+        pct=pct,
+        exceeded=bool(budget is not None and month_to_date > budget),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -537,3 +644,115 @@ async def update_cache_config(
         overall_hit_rate=snapshot["overall_hit_rate"],
         config=config,
     )
+
+
+@router.get("/costs", response_model=CostsResponse)
+async def get_cost_stats(
+    user_id: CurrentUserId,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+    days: int = Query(default=30, ge=1, le=90),
+) -> CostsResponse:
+    """Return daily cost/usage buckets from ``agent_traces`` plus the soft budget status."""
+    now = datetime.utcnow()
+    since = now - timedelta(days=days)
+
+    day_expr = func.date(AgentTrace.started_at).label("day")
+    error_case = case((AgentTrace.error.is_not(None), 1), else_=0)  # type: ignore[union-attr]
+
+    async with db.session() as session:
+        res = await session.exec(
+            select(  # type: ignore[call-overload]
+                day_expr,
+                func.sum(AgentTrace.total_cost_usd),
+                func.sum(AgentTrace.input_tokens),
+                func.sum(AgentTrace.output_tokens),
+                func.sum(AgentTrace.cache_read_tokens),
+                func.count(),
+                func.sum(error_case),
+            )
+            .where(
+                AgentTrace.user_id == str(user_id),
+                AgentTrace.started_at >= since,
+            )
+            .group_by(day_expr)
+            .order_by(day_expr)
+        )
+        grouped = {str(row[0]): row for row in res.all()}
+
+    points: list[CostDayPoint] = []
+    for offset in reversed(range(days)):
+        day = (now - timedelta(days=offset)).date()
+        row = grouped.get(day.isoformat()) or (None, None, None, None, None, None, None)
+        points.append(
+            CostDayPoint(
+                date=day.isoformat(),
+                cost_usd=round(float(row[1] or 0.0), 4),
+                input_tokens=int(row[2] or 0),
+                output_tokens=int(row[3] or 0),
+                cache_read_tokens=int(row[4] or 0),
+                runs=int(row[5] or 0),
+                errors=int(row[6] or 0),
+            )
+        )
+
+    totals = CostTotals(
+        cost_usd=round(sum(p.cost_usd for p in points), 4),
+        input_tokens=sum(p.input_tokens for p in points),
+        output_tokens=sum(p.output_tokens for p in points),
+        cache_read_tokens=sum(p.cache_read_tokens for p in points),
+        runs=sum(p.runs for p in points),
+        errors=sum(p.errors for p in points),
+    )
+    budget = await _budget_status(db, user_id)
+    return CostsResponse(days=points, totals=totals, budget=budget)
+
+
+@router.get("/costs/by-model", response_model=list[CostByModelPoint])
+async def get_cost_stats_by_model(
+    user_id: CurrentUserId,
+    days: int = Query(default=30, ge=1, le=365),
+) -> list[CostByModelPoint]:
+    """Return per-model cost/latency/success-rate aggregates for the current user."""
+    from leagent.telemetry.trace.store import get_trace_store
+
+    rows = await get_trace_store().stats_by_model(days=days, user_id=str(user_id))
+    return [
+        CostByModelPoint(
+            model=row["model"],
+            runs=row["runs"],
+            cost_usd=round(float(row["total_cost_usd"] or 0.0), 4),
+            avg_latency_ms=round(float(row["avg_latency_ms"] or 0.0), 1),
+            total_tokens=int(row["total_input_tokens"] or 0) + int(row["total_output_tokens"] or 0),
+            success_rate=round(float(row["success_rate"] or 0.0) * 100, 1),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/costs/budget", response_model=BudgetStatus)
+async def get_cost_budget(
+    user_id: CurrentUserId,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+) -> BudgetStatus:
+    """Return the stored soft monthly cost budget (``null`` when unset)."""
+    return BudgetStatus(monthly_budget_usd=await _load_monthly_budget(db, user_id))
+
+
+@router.put("/costs/budget", response_model=BudgetStatus)
+async def put_cost_budget(
+    user_id: CurrentUserId,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+    payload: BudgetUpdate,
+) -> BudgetStatus:
+    """Upsert (``>0``) or clear (``0``/``null``) the soft monthly cost budget."""
+    import json
+
+    value = payload.monthly_budget_usd
+    if value is not None:
+        if value < 0:
+            raise HTTPException(status_code=422, detail="monthly_budget_usd must be >= 0")
+        value = value or None
+    await db.repositories.user_settings.set(
+        user_id, COST_BUDGET_KEY, json.dumps(value) if value is not None else None
+    )
+    return BudgetStatus(monthly_budget_usd=value)

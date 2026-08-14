@@ -198,3 +198,23 @@ async def test_definition_uses_mission_agent_and_memory_disabled():
     assert runtime.definition.prompt_variant == "coding_agent"
     assert runtime.definition.memory.enabled is False
     assert runtime.calls[0]["tool_extra"]["step_no"] == 1
+
+
+async def test_tool_extra_carries_mission_step_attempt_context():
+    events = [
+        AgentEvent(type="assistant", data={"content": "完成"}),
+        AgentEvent(type="result", data={"reason": "completed"}),
+    ]
+    runtime = FakeRuntime(events)
+    executor = KernelSegmentExecutor(runtime=runtime)
+    mission = make_mission()
+    await executor.execute(
+        mission=mission,
+        step=make_step(),
+        prompt="修 bug",
+        attempt=2,
+    )
+    tool_extra = runtime.calls[0]["tool_extra"]
+    assert tool_extra["mission_id"] == str(mission.id)
+    assert tool_extra["step_no"] == 1
+    assert tool_extra["attempt"] == 2

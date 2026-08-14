@@ -291,6 +291,18 @@
     "localEmbeddingDeleteConfirm": "确定删除此受管本地模型吗？",
     "localEmbeddingDisableConfirm": "确定停用本地语义检索吗？",
     "localEmbeddingOperationFailed": "本地 Embedding 操作失败",
+    "budget": {
+      "title": "月度成本预算",
+      "description": "设置软性月度 USD 预算，用于仪表盘提醒；不会阻断任何调用。填 0 可清除。",
+      "label": "预算（USD）",
+      "placeholder": "未设置",
+      "save": "保存",
+      "saving": "保存中...",
+      "saved": "预算已更新",
+      "cleared": "预算已清除",
+      "saveFailed": "保存预算失败",
+      "current": "当前预算：{{budget}}，本月已用 {{spent}}"
+    },
     "mockTools": {
       "webSearch": { "name": "网页搜索", "description": "通过搜索引擎获取网页内容" },
       "fileRead": { "name": "文件读取", "description": "读取本地或远程文件内容" },

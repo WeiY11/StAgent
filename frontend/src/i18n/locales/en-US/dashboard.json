@@ -59,6 +59,26 @@
       "progress": "Progress",
       "time": "Time",
       "actions": "Actions"
+    },
+    "costCard": {
+      "title": "Cost & Usage",
+      "monthSpend": "Month to date",
+      "todaySpend": "Today",
+      "runs": "Runs",
+      "errors": "Errors",
+      "monthlyBudget": "Monthly budget",
+      "budgetUnset": "Not set",
+      "budgetExceeded": "Monthly budget exceeded",
+      "budgetNearLimit": "Approaching monthly budget",
+      "budgetHint": "The budget is advisory only and never blocks calls; configure it in Settings.",
+      "dailyCost": "Daily cost, last 30 days (USD)",
+      "byModel": "By model",
+      "model": "Model",
+      "modelRuns": "Runs",
+      "modelCost": "Cost",
+      "modelLatency": "Avg latency",
+      "modelTokens": "Tokens",
+      "modelSuccessRate": "Success rate"
     }
   },
   "playground": {

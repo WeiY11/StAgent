@@ -32,6 +32,7 @@ import {
   DocsPage,
   FolderPage,
   TasksPage,
+  MissionsPage,
   PetSpacePage,
 } from './routes/lazyPages';
 import { AuthGatePage } from './pages/AuthGatePage';
@@ -133,6 +134,8 @@ export default function App() {
               <Route path="complaints" element={<ComplaintsPage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tasks/:taskId" element={<TasksPage />} />
+              <Route path="missions" element={<MissionsPage />} />
+              <Route path="missions/:missionId" element={<MissionsPage />} />
               <Route path="playground" element={<PlaygroundPage />} />
               <Route
                 path="chat-workflow-templates"

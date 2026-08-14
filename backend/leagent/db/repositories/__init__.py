@@ -44,6 +44,10 @@ from leagent.db.repositories.knowledge_index import (
     KnowledgeIndexRepository,
 )
 from leagent.db.repositories.tasks import DbTaskRepository, TaskRepository
+from leagent.db.repositories.user_settings import (
+    DbUserSettingRepository,
+    UserSettingRepository,
+)
 from leagent.db.repositories.workflow_executions import (
     DbWorkflowExecutionRepository,
     WorkflowExecutionRepository,
@@ -71,6 +75,7 @@ class Repositories:
         self._complaints: DbComplaintRepository | None = None
         self._knowledge_index: DbKnowledgeIndexRepository | None = None
         self._missions: DbMissionRepository | None = None
+        self._user_settings: DbUserSettingRepository | None = None
 
     @property
     def files(self) -> DbFileRepository:
@@ -150,6 +155,12 @@ class Repositories:
             self._missions = DbMissionRepository(self._db)
         return self._missions
 
+    @property
+    def user_settings(self) -> DbUserSettingRepository:
+        if self._user_settings is None:
+            self._user_settings = DbUserSettingRepository(self._db)
+        return self._user_settings
+
 
 __all__ = [
     "Repositories",
@@ -179,4 +190,6 @@ __all__ = [
     "DbKnowledgeIndexRepository",
     "MissionRepository",
     "DbMissionRepository",
+    "UserSettingRepository",
+    "DbUserSettingRepository",
 ]

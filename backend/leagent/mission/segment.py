@@ -175,9 +175,7 @@ class KernelSegmentExecutor:
 
         sm = self._sm
         if sm is None:
-            raise RuntimeError(
-                "KernelSegmentExecutor requires service_manager or an injected runtime"
-            )
+            raise RuntimeError("KernelSegmentExecutor requires service_manager or an injected runtime")
         tool_registry = get_registry()
         settings = get_settings()
         budget = resolve_runtime_budget(self._runtime_profile, settings=settings)

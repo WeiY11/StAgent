@@ -129,7 +129,12 @@ class AlwaysPassVerifier:
 
 
 class IdentityContinuer:
-    """Default continuer: re-issue the step with a continuation directive."""
+    """Default continuer: re-issue the step with a continuation directive.
+
+    The exhausted segment's text (the cross-segment memory carrier) is
+    folded into the continuation prompt so the fresh context window can
+    pick up where the previous one left off without replaying history.
+    """
 
     async def continue_prompt(
         self,
@@ -138,9 +143,12 @@ class IdentityContinuer:
         step: MissionStep,
         result: SegmentResult,
     ) -> str:
-        return (
-            f"继续步骤 {step.step_no}({step.description})。上一个执行段因预算耗尽而中断,请基于已有进展继续完成该步骤。"
-        )
+        parts = [f"步骤 {step.step_no}({step.description})的上一个执行段因预算耗尽而中断。"]
+        partial = (result.text or "").strip()
+        if partial:
+            parts.append(f"上一段的已有进展:\n{_truncate(partial, _SEGMENT_SUMMARY_LIMIT)}")
+        parts.append("请基于已有进展继续完成该步骤。")
+        return "\n\n".join(parts)
 
 
 class StepOutcome(StrEnum):
@@ -371,6 +379,14 @@ class MissionRunner:
                 await self._pause(mission, reason="awaiting_user_input")
                 return StepOutcome.PAUSED
             if result.continuable:
+                # The finished segment's text is the cross-segment memory
+                # carrier: fold the partial progress into the step summary
+                # so the continuation prompt and downstream steps can see
+                # it without replaying history.
+                if result.text:
+                    step.segment_summary = _truncate(result.text, _SEGMENT_SUMMARY_LIMIT)
+                step.checkpoint_id = result.checkpoint_id or step.checkpoint_id
+                await self._store.upsert_step(step)
                 await self._emit(
                     "mission_segment_continued",
                     {

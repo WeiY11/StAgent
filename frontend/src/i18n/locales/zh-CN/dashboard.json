@@ -59,6 +59,26 @@
       "progress": "进度",
       "time": "时间",
       "actions": "操作"
+    },
+    "costCard": {
+      "title": "成本与用量",
+      "monthSpend": "本月花费",
+      "todaySpend": "今日花费",
+      "runs": "运行次数",
+      "errors": "失败次数",
+      "monthlyBudget": "月度预算",
+      "budgetUnset": "未设置",
+      "budgetExceeded": "已超出月度预算",
+      "budgetNearLimit": "接近月度预算",
+      "budgetHint": "预算仅为软提醒，不会阻断调用；可在设置页配置。",
+      "dailyCost": "近 30 天每日成本（USD）",
+      "byModel": "按模型明细",
+      "model": "模型",
+      "modelRuns": "次数",
+      "modelCost": "成本",
+      "modelLatency": "平均延迟",
+      "modelTokens": "Tokens",
+      "modelSuccessRate": "成功率"
     }
   },
   "playground": {

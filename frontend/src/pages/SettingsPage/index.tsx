@@ -105,6 +105,7 @@ import {
 import { SettingRow } from './components/SettingRow';
 import { PythonPackagesTab } from './components/PythonPackagesTab';
 import { LocalEmbeddingCard } from './components/LocalEmbeddingCard';
+import { BudgetCard } from './components/BudgetCard';
 
 /* ── Types and constants imported from ./constants.ts ── */
 /* ── Sub-component SettingRow imported from ./components/SettingRow.tsx ── */
@@ -1378,6 +1379,7 @@ export default function SettingsPage() {
           {activeTab === 'models' && (
             <>
               <LocalEmbeddingCard />
+              <BudgetCard />
               <Card>
                 <CardHeader>
                   <CardTitle>{t('settings.defaultModelCardTitle')}</CardTitle>

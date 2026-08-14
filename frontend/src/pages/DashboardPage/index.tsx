@@ -8,6 +8,7 @@ import { MetricsCards } from './components/MetricsCards';
 import { TaskTable } from './components/TaskTable';
 import { ActivityFeed } from './components/ActivityFeed';
 import { UsageChart } from './components/UsageChart';
+import { CostCard } from './components/CostCard';
 import { DueThisWeekCard } from './components/DueThisWeekCard';
 
 export default function DashboardPage() {
@@ -51,6 +52,8 @@ export default function DashboardPage() {
       }
     >
       <MetricsCards />
+
+      <CostCard />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

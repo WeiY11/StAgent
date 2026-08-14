@@ -1,7 +1,9 @@
 # Mission Mode — Durable Goal-Scoped Autonomous Execution
 
-> **Status:** incubating — P1 skeleton landed (persistence + runner state
-> machine); kernel wiring, verifiers, LLM planner, API, and UI pending.
+> **Status:** incubating — P1 core landed (persistence + runner state
+> machine + `run_loop` segment executor + LLM planner + heuristic
+> verifier + bounded continuation + `readonly` scoping); REST/SSE API
+> and UI pending.
 > **Package:** `leagent.mission` · **Persistence:** `agent_missions` /
 > `agent_mission_steps` (migration `0023_agent_missions`)
 
@@ -94,8 +96,13 @@ backend/leagent/mission/
 ├── __init__.py       # public exports
 ├── types.py          # MissionBudget / MissionUsage / MissionPlan / MissionStepState /
 │                     # SegmentResult / VerificationResult (DB-agnostic working shapes)
-└── runner.py         # MissionRunner state machine + seam protocols + P1 stubs
-                      # (StaticPlanner / AlwaysPassVerifier / IdentityContinuer)
+├── runner.py         # MissionRunner state machine + seam protocols
+│                     # (StaticPlanner / AlwaysPassVerifier / IdentityContinuer)
+├── segment.py        # KernelSegmentExecutor — one bounded AgentRuntime.stream /
+│                     # run_loop invocation per step; readonly tool scoping
+├── planner.py        # LLMMissionPlanner — plan / replan via the shared planner prompts
+└── verifier.py       # HeuristicVerifier — verification gate (assess_verification_gap)
+```
 
 backend/leagent/db/
 ├── models/mission.py           # Mission / MissionStep SQLModel + enums
@@ -312,8 +319,9 @@ background task (`task_type=MISSION`).
 
 | Layer | Coverage |
 |---|---|
-| Unit (P1, landed) | plan validation + cycle detection; wave grouping; continuation within step budget; budget exhaustion → pause; verify retry then pass / exhausted → fail; step_confirm pause + approve; failure without replanner → pause; replan under plan_id+1; token/deadline caps; stuck-step recovery; abort terminality; store CRUD / upsert idempotence / plan-scoped replace / user listing / cascade delete |
-| Integration (planned) | mock-LLM end-to-end 3-step mission; budget exhaustion → auto-continue → complete; process restart via `recover_pending_jobs`; `readonly` whitelist interception; verify-fail → replan → pause path |
+| Unit (landed) | plan validation (duplicate `step_no` / unknown deps / cycle detection / `max_steps` cap); wave grouping; continuation within step budget (partial text folded into `segment_summary` + continuation prompt); budget exhaustion → pause (token + cost caps); verify retry then pass / exhausted → fail; step_confirm pause + approve; failure without replanner → pause; replan under plan_id+1; invalid replan → pause; token/deadline caps; stuck-step recovery; abort terminality; usage ledger accumulation; store CRUD / upsert idempotence / plan-scoped replace / user listing / cascade delete |
+| Integration (landed) | mock-LLM end-to-end 3-step mission over the SQL store; budget exhaustion → auto-continue → complete; `readonly` whitelist interception; verify-fail → invalid-replan → pause path (`tests/integration/test_mission_autonomy_loop.py`) |
+| Integration (planned) | process restart via `recover_pending_jobs`; task-queue liveness |
 | Regression | chat/task paths untouched (`run_loop` contract intact); `test_file/test_invariants.py` green; UUID-compat suite green |
 
 ## Implementation Status
@@ -324,12 +332,13 @@ background task (`task_type=MISSION`).
 | `MissionRepository` + `Repositories.missions` wiring | ✅ landed |
 | `leagent/mission/types.py` (budget/usage/plan/segment/verification shapes) | ✅ landed |
 | `MissionRunner` state machine + seam protocols + stubs (`StaticPlanner` / `AlwaysPassVerifier` / `IdentityContinuer`) | ✅ landed |
-| Unit tests (`tests/test_mission_store.py`, `tests/test_mission_runner.py` — 22 cases) | ✅ green |
 | `TaskType.MISSION` (+ id prefix `n`) | ✅ landed |
-| Segment executor wired to `run_loop` (`mission/segment.py`) | ⏳ next |
-| LLM planner + replan prompts (`mission/planner.py`) | ⏳ |
-| Heuristic verifier (generalize `assess_verification_gap`) | ⏳ |
-| `readonly` autonomy enforcement | ⏳ |
+| Segment executor wired to `run_loop` (`mission/segment.py`, `KernelSegmentExecutor`) | ✅ landed |
+| LLM planner + replan prompts (`mission/planner.py`, `LLMMissionPlanner`) | ✅ landed |
+| Heuristic verifier (`mission/verifier.py`, generalized `assess_verification_gap`) | ✅ landed |
+| `readonly` autonomy enforcement (registry-scoped tool allow-list + `tool_extra` context) | ✅ landed |
+| Unit tests (`test_mission_store` / `test_mission_runner` / `test_mission_planner` / `test_mission_verifier` / `test_mission_segment` / `test_mission_types`) | ✅ green |
+| Integration tests (`tests/integration/test_mission_autonomy_loop.py`) | ✅ green |
 | `mission_*` events on EventManager + `ExecutionRun` scope | ⏳ |
 | `/api/v1/missions` router + SSE | ⏳ |
 | Frontend Missions page + chat MissionCard + i18n | ⏳ |
@@ -339,8 +348,8 @@ background task (`task_type=MISSION`).
 
 | Phase | Scope |
 |---|---|
-| **P1 (MVP, in progress)** | persistence + runner state machine ✅; segment executor → `run_loop`; heuristic verification gate; bounded continuation; REST + SSE; Missions page (timeline); `mission_*` events |
-| **P2** | parallel waves (via task queue parent/child tasks, not by opening `AgentTool` concurrency); `step_confirm` / `readonly`; chat MissionCard; cron-triggered missions; ReactFlow plan preview; LLM critic verifier |
+| **P1 (MVP, in progress)** | persistence + runner state machine ✅; segment executor → `run_loop` ✅; heuristic verification gate ✅; bounded continuation ✅; `readonly` scoping ✅; REST + SSE; Missions page (timeline); `mission_*` events |
+| **P2** | parallel waves (via task queue parent/child tasks, not by opening `AgentTool` concurrency); chat MissionCard; cron-triggered missions; ReactFlow plan preview; LLM critic verifier |
 | **P3** | failure-experience distillation into procedural memory (new formation weights); budget/cost dashboard; mission templates |
 
 ## Risks & Mitigations

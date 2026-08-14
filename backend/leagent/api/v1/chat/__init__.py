@@ -132,6 +132,8 @@ from leagent.api.schemas.chat import (  # noqa: E402
     SessionAttachmentsResponse,
     SessionCancelResponse,
     SessionExecutionRead,
+    SessionForkRequest,
+    SessionForkResponse,
     SessionUpdateRequest,
 )
 from leagent.api.v1.chat._common import (  # noqa: E402,F401
@@ -1838,6 +1840,38 @@ async def cancel_session(
         message=msg,
         checkpoint_id=checkpoint_id,
     )
+
+
+@router.post("/sessions/{session_id}/fork", response_model=SessionForkResponse, status_code=status.HTTP_201_CREATED)
+async def fork_session(
+    session_id: UUID,
+    body: SessionForkRequest,
+    user_id: CurrentUserId,
+    chat_svc: ChatSvc,
+    db: Annotated[DatabaseService, Depends(get_database_service)],
+    x_chat_project_token: str | None = Header(default=None, alias="X-Chat-Project-Token"),
+) -> SessionForkResponse:
+    """Fork a session: copy the message prefix up to ``up_to_message_id`` into a new session."""
+    session = await chat_svc.get_session(session_id, user_id=user_id)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    await _require_session_project_access(
+        db,
+        session=session,
+        user_id=user_id,
+        unlock_token=x_chat_project_token,
+    )
+    try:
+        forked = await chat_svc.fork_session(
+            user_id,
+            session_id,
+            up_to_message_id=body.up_to_message_id,
+            new_name=body.new_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    logger.info("Forked chat session %s -> %s for user %s", session_id, forked.id, user_id)
+    return SessionForkResponse(session_id=str(forked.id), message_count=forked.message_count)
 
 
 @router.get("/sessions/{session_id}/terminal-stream")
