@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, Pencil, FileText, Puzzle, Pin } from 'lucide-react';
+import { Copy, Check, Pencil, FileText, Puzzle, Pin, GitBranch } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toaster';
 import { parseUserMessageRefs } from '@/lib/chat/parseUserMessageRefs';
 import { useChatStore } from '@/stores/chat';
 import type { Message } from '@/types/chat';
@@ -24,7 +25,9 @@ function UserMessageInner({
   sessionId = null,
 }: UserMessageProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const togglePinMessage = useChatStore((s) => s.togglePinMessage);
+  const forkSession = useChatStore((s) => s.forkSession);
   const isPinned = useChatStore((s) => {
     if (!sessionId) return false;
     const sess = s.sessions.find((x) => x.id === sessionId);
@@ -34,6 +37,7 @@ function UserMessageInner({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
   const [submitting, setSubmitting] = useState(false);
+  const [forking, setForking] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -54,6 +58,21 @@ function UserMessageInner({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [message.content]);
+
+  const handleFork = useCallback(async () => {
+    if (!sessionId || forking) return;
+    setForking(true);
+    try {
+      const forkedId = await forkSession(sessionId, message.id);
+      if (forkedId) {
+        toast({ variant: 'success', title: t('chat.message.forkSuccess') });
+      } else {
+        toast({ variant: 'error', title: t('chat.message.forkFailed') });
+      }
+    } finally {
+      setForking(false);
+    }
+  }, [sessionId, message.id, forkSession, forking, t, toast]);
 
   const startEdit = useCallback(() => {
     if (!onEditAndResend || isStreaming) return;
@@ -298,6 +317,21 @@ function UserMessageInner({
               <Copy className="w-3.5 h-3.5" />
             )}
           </button>
+          {sessionId ? (
+            <button
+              type="button"
+              onClick={() => void handleFork()}
+              disabled={forking}
+              className={cn(
+                'p-1.5 rounded-md text-muted-foreground-tertiary hover:text-foreground hover:bg-surface-sunken transition-colors',
+                forking && 'opacity-40 cursor-not-allowed',
+              )}
+              aria-label={t('chat.message.forkFromHere', { defaultValue: 'Branch from here' })}
+              title={t('chat.message.forkFromHere', { defaultValue: 'Branch from here' })}
+            >
+              <GitBranch className="w-3.5 h-3.5" aria-hidden />
+            </button>
+          ) : null}
           {onEditAndResend && (
             <button
               type="button"

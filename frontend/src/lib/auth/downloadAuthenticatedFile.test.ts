@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { openAuthenticatedFilePreview } from './downloadAuthenticatedFile';
 
 vi.mock('@/api/client', () => ({
   getAccessToken: vi.fn(() => 'access-token'),
 }));
-
-import { openAuthenticatedFilePreview } from './downloadAuthenticatedFile';
 
 describe('openAuthenticatedFilePreview', () => {
   beforeEach(() => {

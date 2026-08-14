@@ -46,6 +46,11 @@ export interface TraceSpan {
   children?: TraceSpan[];
 }
 
+export interface TraceSpanDetail extends TraceSpan {
+  input_full?: string | null;
+  output_full?: string | null;
+}
+
 export interface TraceDetail {
   trace: TraceSummary;
   spans: TraceSpan[];
@@ -97,6 +102,11 @@ export const tracesApi = {
   get: (traceId: string) => apiClient.get<TraceDetail>(`/traces/${traceId}`),
 
   spans: (traceId: string) => apiClient.get<TraceSpan[]>(`/traces/${traceId}/spans`),
+
+  getSpan: (traceId: string, spanId: string) =>
+    apiClient.get<TraceSpanDetail>(
+      `/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}`,
+    ),
 
   exportUrl: (traceId: string) => `/api/v1/traces/${traceId}/export`,
 

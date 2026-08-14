@@ -9,8 +9,17 @@ import {
   Cpu,
   Wrench,
   Bot,
+  Copy,
+  Check,
 } from 'lucide-react';
-import { tracesApi, type TraceDetail, type TraceSpan, type TraceSummary } from '@/api/traces';
+import {
+  tracesApi,
+  type TraceDetail,
+  type TraceSpan,
+  type TraceSpanDetail,
+  type TraceSummary,
+} from '@/api/traces';
+import { Modal, ModalBody, ModalHeader } from '@/components/ui/Modal';
 import { cn } from '@/lib/utils/utils';
 
 interface ChatTraceInspectorProps {
@@ -149,6 +158,68 @@ function SpanAttrRows({ attrs }: { attrs: Record<string, unknown> }) {
   );
 }
 
+function SpanPayloadModal({
+  span,
+  onClose,
+}: {
+  span: TraceSpanDetail | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [copiedField, setCopiedField] = useState<'input' | 'output' | null>(null);
+
+  const copyField = async (field: 'input' | 'output') => {
+    const text = field === 'input' ? span?.input_full : span?.output_full;
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  if (!span) return null;
+
+  const sections: Array<{ key: 'input' | 'output'; label: string; text?: string | null }> = [
+    { key: 'input', label: t('chat.trace.fullInput'), text: span.input_full },
+    { key: 'output', label: t('chat.trace.fullOutput'), text: span.output_full },
+  ];
+
+  return (
+    <Modal isOpen onClose={onClose} size="4xl">
+      <ModalHeader onClose={onClose}>
+        <span className="font-mono text-base">{span.name}</span>
+      </ModalHeader>
+      <ModalBody className="space-y-3">
+        {sections.map(({ key, label, text }) => (
+          <div key={key}>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+              {text ? (
+                <button
+                  type="button"
+                  onClick={() => void copyField(key)}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                >
+                  {copiedField === key ? (
+                    <Check className="h-3 w-3 text-mint-500" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                  {t('common.copy', { defaultValue: 'Copy' })}
+                </button>
+              ) : null}
+            </div>
+            <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-all rounded border border-border-subtle/60 bg-muted/20 p-2 font-mono text-[11px] text-muted-foreground">
+              {text || t('chat.trace.fullEmpty')}
+            </pre>
+          </div>
+        ))}
+      </ModalBody>
+    </Modal>
+  );
+}
+
 function SpanRow({
   span,
   depth = 0,
@@ -157,11 +228,28 @@ function SpanRow({
   depth?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [fullSpan, setFullSpan] = useState<TraceSpanDetail | null>(null);
+  const [fullBusy, setFullBusy] = useState(false);
+  const [fullError, setFullError] = useState(false);
+  const { t } = useTranslation();
   const children = span.children ?? [];
   const attrs = useMemo(() => normalizeAttrs(span.attrs), [span.attrs]);
   const hasAttrs = Object.keys(attrs).length > 0;
   const hasDetail = Boolean(span.input_preview || span.output_preview || hasAttrs);
   const canExpand = hasDetail || children.length > 0;
+
+  const loadFull = async () => {
+    if (fullBusy) return;
+    setFullBusy(true);
+    setFullError(false);
+    try {
+      setFullSpan(await tracesApi.getSpan(span.trace_id, span.span_id));
+    } catch {
+      setFullError(true);
+    } finally {
+      setFullBusy(false);
+    }
+  };
 
   return (
     <li className="text-xs">
@@ -208,6 +296,31 @@ function SpanRow({
             <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all border-t border-border-subtle/40 pt-1">
               out: {span.output_preview}
             </pre>
+          ) : null}
+          {hasDetail ? (
+            <div className="flex items-center gap-2 border-t border-border-subtle/40 pt-1">
+              <button
+                type="button"
+                disabled={fullBusy}
+                onClick={() => void loadFull()}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/40 hover:text-foreground disabled:opacity-40"
+              >
+                {fullBusy ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Bot className="h-3 w-3" />
+                )}
+                {t('chat.trace.viewFull')}
+              </button>
+              {fullError ? (
+                <span className="text-[10px] text-red-600 dark:text-red-400">
+                  {t('chat.trace.fullLoadFailed')}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {fullSpan ? (
+            <SpanPayloadModal span={fullSpan} onClose={() => setFullSpan(null)} />
           ) : null}
         </div>
       ) : null}

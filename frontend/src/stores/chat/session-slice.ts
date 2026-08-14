@@ -224,6 +224,23 @@ export const createSessionSlice: StateCreator<
     void get().fetchSessionDetail(id);
   },
 
+  forkSession: async (sessionId, upToMessageId) => {
+    if (!isUuid(sessionId) || !isUuid(upToMessageId)) return null;
+    try {
+      const res = await apiClient.post<{ session_id: string; message_count: number }>(
+        `/chat/sessions/${sessionId}/fork`,
+        { up_to_message_id: upToMessageId },
+        { headers: getChatProjectHeaders(projectIdForSession(get, sessionId)) },
+      );
+      const forkedId = res.session_id;
+      await get().fetchSessions();
+      get().selectSession(forkedId);
+      return forkedId;
+    } catch {
+      return null;
+    }
+  },
+
   updateSessionTitle: (id, title) => {
     set((state) => ({
       sessions: state.sessions.map((s) =>

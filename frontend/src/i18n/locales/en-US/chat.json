@@ -131,6 +131,18 @@
     "send": "Send",
     "stop": "Stop",
     "branch": "Branch",
+    "message": {
+      "forkFromHere": "Branch from here",
+      "forkSuccess": "Branched chat created",
+      "forkFailed": "Failed to create branch"
+    },
+    "trace": {
+      "viewFull": "View full",
+      "fullInput": "Full input",
+      "fullOutput": "Full output",
+      "fullLoadFailed": "Unable to load full payload",
+      "fullEmpty": "Nothing to show"
+    },
     "stopGeneration": "Stop generation",
     "uploadFile": "Upload file",
     "newSession": "New Chat",

@@ -40,6 +40,8 @@ export interface SessionSliceActions {
   /** Server returned 404 — remove thread from local state without calling DELETE. */
   dropStaleSession: (id: string) => void;
   selectSession: (id: string) => void;
+  /** POST /chat/sessions/:id/fork — copy the prefix up to a message into a new session. */
+  forkSession: (sessionId: string, upToMessageId: string) => Promise<string | null>;
   updateSessionTitle: (id: string, title: string) => void;
   /** GET /chat/sessions/:id — refresh pins (and title/count) for one session. */
   fetchSessionDetail: (sessionId: string) => Promise<void>;

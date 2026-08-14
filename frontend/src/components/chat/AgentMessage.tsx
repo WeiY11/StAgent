@@ -24,6 +24,7 @@ import { isProjectFamilyTool } from '@/lib/agent/projectToolEnvelope';
 import { apiClient } from '@/api/client';
 import { queryClient } from '@/lib/utils/queryClient';
 import { useChatStore } from '@/stores/chat';
+import { useToast } from '@/components/ui/Toaster';
 import { useExecutionOverlay } from '@/features/workflow/store/executionOverlay';
 import { LazyGenUiInline } from '@/components/canvas/LazyGenUiInline';
 import {
@@ -180,6 +181,7 @@ function AgentMessageInner({
   streamActive,
 }: AgentMessageProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   const pickClickPetGreeting = useCallback((): PetBubblePayload => {
     const key =
@@ -190,6 +192,7 @@ function AgentMessageInner({
   const assistantStreamingLive = Boolean(message.isStreaming && streamActive);
   const [copied, setCopied] = useState(false);
   const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [forkBusy, setForkBusy] = useState(false);
   const feedbackLock = useRef(false);
   // Scope the subscription to this message's artifacts. Subscribing to the whole
   // `artifacts` map re-rendered every assistant row whenever any artifact was
@@ -346,6 +349,21 @@ function AgentMessageInner({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [message.content]);
+
+  const handleFork = useCallback(async () => {
+    if (!sessionId || forkBusy || assistantStreamingLive) return;
+    setForkBusy(true);
+    try {
+      const forkedId = await useChatStore.getState().forkSession(sessionId, message.id);
+      if (forkedId) {
+        toast({ variant: 'success', title: t('chat.message.forkSuccess') });
+      } else {
+        toast({ variant: 'error', title: t('chat.message.forkFailed') });
+      }
+    } finally {
+      setForkBusy(false);
+    }
+  }, [sessionId, message.id, forkBusy, assistantStreamingLive, t, toast]);
 
   const patchRating = useCallback(
     async (next: number | null) => {
@@ -573,6 +591,8 @@ function AgentMessageInner({
           onThumbsUp={onThumbsUp}
           onRegenerate={handleRegenerate}
           regenerateDisabled={!canRegenerate || streamActive}
+          onFork={() => void handleFork()}
+          forkDisabled={!sessionId || forkBusy || assistantStreamingLive}
         />
       ) : null}
 
@@ -625,6 +645,8 @@ interface AssistantMessageActionsProps {
   onThumbsUp: () => void;
   onRegenerate: () => void;
   regenerateDisabled: boolean;
+  onFork: () => void;
+  forkDisabled: boolean;
 }
 
 function AssistantMessageActions({
@@ -640,6 +662,8 @@ function AssistantMessageActions({
   onThumbsUp,
   onRegenerate,
   regenerateDisabled,
+  onFork,
+  forkDisabled,
 }: AssistantMessageActionsProps) {
   const togglePinMessage = useChatStore((s) => s.togglePinMessage);
   const isPinned = useChatStore((s) => {
@@ -739,9 +763,16 @@ function AssistantMessageActions({
       </button>
       <button
         type="button"
-        className="p-1.5 rounded-md text-muted-foreground-tertiary hover:text-foreground hover:bg-surface-sunken transition-colors"
-        aria-label={t('chat.branch', { defaultValue: 'Branch' })}
-        title={t('chat.branch', { defaultValue: 'Branch' })}
+        onClick={onFork}
+        disabled={forkDisabled}
+        className={cn(
+          'p-1.5 rounded-md transition-colors',
+          forkDisabled
+            ? 'opacity-40 cursor-not-allowed text-muted-foreground-tertiary'
+            : 'text-muted-foreground-tertiary hover:text-foreground hover:bg-surface-sunken',
+        )}
+        aria-label={t('chat.message.forkFromHere', { defaultValue: 'Branch from here' })}
+        title={t('chat.message.forkFromHere', { defaultValue: 'Branch from here' })}
       >
         <GitFork className="w-3.5 h-3.5" />
       </button>
