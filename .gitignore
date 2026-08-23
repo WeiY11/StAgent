@@ -54,9 +54,14 @@ MANIFEST
 
 # Local locks
 .leagent.lock
+.StAgent.lock
+
+# Agent tooling local state
+.zcode/
 
 # Backend local state (task logs, DB, etc.)
 backend/.leagent/
+backend/.StAgent/
 
 # Testing
 .tox/
@@ -208,6 +213,8 @@ docs/_build/
 # Installed Electron runtime dropped into the repo root (app installed in-place)
 /LeAgent.exe
 /Uninstall LeAgent.exe
+/StAgent/
+/Uninstall StAgent.exe
 /*.dll
 /*.pak
 /locales/
