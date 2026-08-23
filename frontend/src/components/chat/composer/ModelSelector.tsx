@@ -51,7 +51,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [recentModels, setRecentModels] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('leagent.recentModels') || '[]');
+      return JSON.parse(localStorage.getItem('StAgent.recentModels') || '[]');
     } catch {
       return [];
     }
@@ -117,7 +117,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
     if (modelId !== 'auto') {
       const next = [modelId, ...recentModels.filter((id) => id !== modelId)].slice(0, 5);
       setRecentModels(next);
-      localStorage.setItem('leagent.recentModels', JSON.stringify(next));
+      localStorage.setItem('StAgent.recentModels', JSON.stringify(next));
     }
     setOpen(false);
   };

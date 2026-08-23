@@ -31,12 +31,12 @@ describe('agentPathDisplay', () => {
   it('detects code-exec workspace roots', () => {
     expect(
       isCodeExecWorkspaceDir(
-        '/home/yqc/.leagent/working/code-exec/00000000-0000-0000-0000-000000000001__35f3971b-d115-4db5-8b6a-eca9c717325e',
+        '/home/yqc/.StAgent/working/code-exec/00000000-0000-0000-0000-000000000001__35f3971b-d115-4db5-8b6a-eca9c717325e',
       ),
     ).toBe(true);
     expect(
       isCodeExecWorkspaceDir(
-        '/home/yqc/.leagent/working/code-exec/local__35f3971b/out.csv',
+        '/home/yqc/.StAgent/working/code-exec/local__35f3971b/out.csv',
       ),
     ).toBe(false);
   });
@@ -44,12 +44,12 @@ describe('agentPathDisplay', () => {
   it('formats agent path labels for files and workspaces', () => {
     expect(
       formatAgentPathLabel(
-        '/home/yqc/.leagent/working/uploads/sess/7bec7309-e393-403b-9d79-469f1abe26be_report.xlsx',
+        '/home/yqc/.StAgent/working/uploads/sess/7bec7309-e393-403b-9d79-469f1abe26be_report.xlsx',
       ),
     ).toBe('report.xlsx');
     expect(
       formatAgentPathLabel(
-        '/home/yqc/.leagent/working/code-exec/local__35f3971b',
+        '/home/yqc/.StAgent/working/code-exec/local__35f3971b',
       ),
     ).toBe('local__35f3971b');
   });

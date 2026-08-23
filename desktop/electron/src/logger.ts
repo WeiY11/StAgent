@@ -11,7 +11,7 @@ export function initLogger(): void {
   log.transports.console.format = '{h}:{i}:{s}.{ms} [{level}] {text}';
 
   log.initialize();
-  log.info(`LeAgent Desktop v${app.getVersion()} — logs: ${logsDir}`);
+  log.info(`StAgent Desktop v${app.getVersion()} — logs: ${logsDir}`);
 }
 
 /** Named file logger (e.g. `backend` → `logs/backend.log`). */

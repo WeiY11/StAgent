@@ -9,18 +9,18 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from leagent.config.settings import WebSearchSettings
-from leagent.tools.web.web_fetch.extract import html_to_readable_text
-from leagent.tools.web.web_fetch.ssrf import assert_public_http_url
-from leagent.tools.web.web_fetch.summarize import maybe_summarize_content
-from leagent.tools.web.web_search.cache import reset_web_caches
-from leagent.tools.web.web_search.core import _normalize_focus, run_web_search
-from leagent.tools.web.web_search.protocol import SearchHit
-from leagent.tools.web.web_search.providers.brave import BraveWebSearchProvider
-from leagent.tools.web.web_search.providers.duckduckgo_lite import DuckDuckGoLiteProvider
-from leagent.tools.web.web_search.providers.serper import SerperWebSearchProvider
-from leagent.tools.web.web_search.providers.tavily import TavilyWebSearchProvider
-from leagent.tools.web.web_search.service import (
+from StAgent.config.settings import WebSearchSettings
+from StAgent.tools.web.web_fetch.extract import html_to_readable_text
+from StAgent.tools.web.web_fetch.ssrf import assert_public_http_url
+from StAgent.tools.web.web_fetch.summarize import maybe_summarize_content
+from StAgent.tools.web.web_search.cache import reset_web_caches
+from StAgent.tools.web.web_search.core import _normalize_focus, run_web_search
+from StAgent.tools.web.web_search.protocol import SearchHit
+from StAgent.tools.web.web_search.providers.brave import BraveWebSearchProvider
+from StAgent.tools.web.web_search.providers.duckduckgo_lite import DuckDuckGoLiteProvider
+from StAgent.tools.web.web_search.providers.serper import SerperWebSearchProvider
+from StAgent.tools.web.web_search.providers.tavily import TavilyWebSearchProvider
+from StAgent.tools.web.web_search.service import (
     WebSearchService,
     reset_web_search_service,
 )
@@ -97,8 +97,8 @@ def test_ssrf_blocks_when_only_private(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_hits_look_relevant() -> None:
-    from leagent.tools.web.web_search.providers.bing_playwright import hits_look_relevant
-    from leagent.tools.web.web_search.protocol import SearchHit
+    from StAgent.tools.web.web_search.providers.bing_playwright import hits_look_relevant
+    from StAgent.tools.web.web_search.protocol import SearchHit
 
     good = [SearchHit(title="长征十号运载火箭", url="https://zh.wikipedia.org/wiki/x", source="t")]
     bad = [SearchHit(title="How to get help in Windows", url="https://support.microsoft.com/", source="t")]
@@ -127,7 +127,7 @@ async def test_maybe_summarize_truncates_without_llm(monkeypatch: pytest.MonkeyP
         return None
 
     monkeypatch.setattr(
-        "leagent.tools.web.web_fetch.summarize._try_llm_summarize",
+        "StAgent.tools.web.web_fetch.summarize._try_llm_summarize",
         no_llm,
     )
     long = "x" * 10_000
@@ -157,7 +157,7 @@ async def test_brave_provider_parses(monkeypatch: pytest.MonkeyPatch) -> None:
 
     cfg = WebSearchSettings(brave_api_key="brave-key", provider="brave")
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=cfg),
     )
 
@@ -188,18 +188,18 @@ async def test_tavily_and_serper_providers(monkeypatch: pytest.MonkeyPatch) -> N
         return resp
 
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.providers.tavily.polite_request",
+        "StAgent.tools.web.web_search.providers.tavily.polite_request",
         fake_request,
     )
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.providers.serper.polite_request",
+        "StAgent.tools.web.web_search.providers.serper.polite_request",
         fake_request,
     )
 
     t_cfg = WebSearchSettings(tavily_api_key="tvly", provider="tavily")
     s_cfg = WebSearchSettings(serper_api_key="serp", provider="serper")
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=t_cfg),
     )
     t_hits = await TavilyWebSearchProvider().search(
@@ -208,7 +208,7 @@ async def test_tavily_and_serper_providers(monkeypatch: pytest.MonkeyPatch) -> N
     assert t_hits[0].source == "tavily"
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=s_cfg),
     )
     s_hits = await SerperWebSearchProvider().search(
@@ -246,7 +246,7 @@ async def test_service_failover_when_primary_unavailable(
             return [SearchHit(title="ok", url="https://example.com/", snippet="", source="bing_playwright")]
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_fetch=MagicMock(cache_ttl_minutes=0)),
     )
 
@@ -291,7 +291,7 @@ async def test_service_failover_on_http_error(monkeypatch: pytest.MonkeyPatch) -
             return [SearchHit(title="bing-pw", url="https://bing.example/", source="bing_playwright")]
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_fetch=MagicMock(cache_ttl_minutes=0)),
     )
 
@@ -309,7 +309,7 @@ async def test_service_failover_on_http_error(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_auto_resolves_to_bing_playwright_without_api_keys() -> None:
-    from leagent.tools.web.web_search.providers import build_default_providers
+    from StAgent.tools.web.web_search.providers import build_default_providers
 
     svc = WebSearchService()
     for p in build_default_providers():
@@ -327,11 +327,11 @@ def test_default_provider_is_tavily() -> None:
 
 
 def test_tavily_default_falls_back_without_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.tools.web.web_search.providers import build_default_providers
+    from StAgent.tools.web.web_search.providers import build_default_providers
 
     cfg = WebSearchSettings(provider="tavily")
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=cfg, web_fetch=MagicMock(cache_ttl_minutes=0)),
     )
     svc = WebSearchService()
@@ -343,11 +343,11 @@ def test_tavily_default_falls_back_without_key(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_auto_prefers_configured_tavily_over_brave(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.tools.web.web_search.providers import build_default_providers
+    from StAgent.tools.web.web_search.providers import build_default_providers
 
     cfg = WebSearchSettings(provider="auto", tavily_api_key="tk", brave_api_key="bk")
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=cfg, web_fetch=MagicMock(cache_ttl_minutes=0)),
     )
     svc = WebSearchService()
@@ -358,11 +358,11 @@ def test_auto_prefers_configured_tavily_over_brave(monkeypatch: pytest.MonkeyPat
 
 
 def test_auto_prefers_configured_brave(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.tools.web.web_search.providers import build_default_providers
+    from StAgent.tools.web.web_search.providers import build_default_providers
 
     cfg = WebSearchSettings(provider="auto", brave_api_key="bk")
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: MagicMock(web_search=cfg, web_fetch=MagicMock(cache_ttl_minutes=0)),
     )
     svc = WebSearchService()
@@ -393,11 +393,11 @@ async def test_run_web_search_recommends_tavily_when_unconfigured(
             return None
 
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.core.get_web_search_service",
+        "StAgent.tools.web.web_search.core.get_web_search_service",
         lambda: _Svc(),
     )
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.core.search_http_client",
+        "StAgent.tools.web.web_search.core.search_http_client",
         lambda **kwargs: _CM(),
     )
 
@@ -422,7 +422,7 @@ async def test_run_web_search_wikipedia_mocked(monkeypatch: pytest.MonkeyPatch) 
         ]
 
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.core._wikipedia_opensearch",
+        "StAgent.tools.web.web_search.core._wikipedia_opensearch",
         fake_wiki,
     )
 
@@ -434,7 +434,7 @@ async def test_run_web_search_wikipedia_mocked(monkeypatch: pytest.MonkeyPatch) 
             return None
 
     monkeypatch.setattr(
-        "leagent.tools.web.web_search.core.search_http_client",
+        "StAgent.tools.web.web_search.core.search_http_client",
         lambda **kwargs: _CM(),
     )
 
@@ -468,7 +468,7 @@ async def test_duckduckgo_lite_parses_html() -> None:
 
 
 def test_validate_web_search_provider_new_values() -> None:
-    from leagent.services.settings_configure import SettingsConfigureError, validate_env_updates
+    from StAgent.services.settings_configure import SettingsConfigureError, validate_env_updates
 
     validate_env_updates({"WEB_SEARCH_PROVIDER": "tavily"})
     validate_env_updates({"WEB_SEARCH_PROVIDER": "brave"})
@@ -483,8 +483,8 @@ def test_validate_web_search_provider_new_values() -> None:
 
 @pytest.mark.asyncio
 async def test_web_fetch_tool_ssrf(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.tools.web.web_fetch_tool import WebFetchTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.tools.web.web_fetch_tool import WebFetchTool
 
     tool = WebFetchTool()
     ctx = ToolContext(session_id="s", user_id="u")

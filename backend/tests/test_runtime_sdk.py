@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.runtime import (
+from StAgent.runtime import (
     AgentBuilder,
     AgentDefinition,
     AgentEvent,
@@ -182,7 +182,7 @@ def test_global_registry_initialises_builtins() -> None:
 
 
 def test_agent_event_sdk_roundtrip_preserves_wire_shape() -> None:
-    from leagent.agent.query_engine import SDKMessage
+    from StAgent.agent.query_engine import SDKMessage
 
     msg = SDKMessage(type="tool_use", data={"name": "web_search", "id": "1"})
     event = AgentEvent.from_sdk_message(msg)
@@ -200,7 +200,7 @@ def test_agent_event_terminal_flag() -> None:
 
 
 def test_agent_event_data_is_copied_not_aliased() -> None:
-    from leagent.agent.query_engine import SDKMessage
+    from StAgent.agent.query_engine import SDKMessage
 
     src = {"k": "v"}
     msg = SDKMessage(type="assistant", data=src)
@@ -224,9 +224,9 @@ def test_agent_result_success_semantics() -> None:
 @pytest.mark.asyncio
 async def test_delegate_threads_definition_policy_to_subagent_core(monkeypatch) -> None:
     """delegate must forward the child's recipe/model/memory policy."""
-    import leagent.agent.subagent as subagent_mod
-    from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-    from leagent.runtime import AgentRuntime, RuntimeContext
+    import StAgent.agent.subagent as subagent_mod
+    from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+    from StAgent.runtime import AgentRuntime, RuntimeContext
 
     captured: dict = {}
 

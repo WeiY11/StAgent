@@ -56,7 +56,7 @@ export const useLayoutStore = create<LayoutStore>()(
         set({ focusMode: on }),
     }),
     {
-      name: 'leagent-layout',
+      name: 'StAgent-layout',
       version: 1,
       migrate: (persisted, fromVersion) => {
         const p = persisted as { workspaceTab?: string };

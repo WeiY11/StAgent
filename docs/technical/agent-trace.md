@@ -6,7 +6,7 @@ Durable **debug / eval** telemetry for agent turns. This plane is separate from:
 |-------|---------|-------|
 | Chat transcript | User-visible SSOT | `TieredSessionStore` |
 | Resume | Pause / continue | `CheckpointStore` |
-| **Running trace** | Evaluation, model comparison, bug localization | `leagent.telemetry.trace` |
+| **Running trace** | Evaluation, model comparison, bug localization | `StAgent.telemetry.trace` |
 
 Inspired by Hermes (OTel / OpenInference span kinds), Codex (`trace.jsonl` + out-of-line payloads), and Claude session transcripts (append-only events).
 
@@ -23,10 +23,10 @@ Inspired by Hermes (OTel / OpenInference span kinds), Codex (`trace.jsonl` + out
 
 | Env | Default | Meaning |
 |-----|---------|---------|
-| `LEAGENT_TRACE__ENABLED` | `true` | Master switch |
-| `LEAGENT_TRACE__CAPTURE_PAYLOADS` | `false` | Write full I/O under `LEAGENT_HOME/traces/` |
-| `LEAGENT_TRACE__PREVIEW_CHARS` | `4096` | Truncated preview length |
-| `LEAGENT_TRACE__RETENTION_DAYS` | `30` | Intended retention (cleanup job TBD) |
+| `StAgent_TRACE__ENABLED` | `true` | Master switch |
+| `StAgent_TRACE__CAPTURE_PAYLOADS` | `false` | Write full I/O under `StAgent_HOME/traces/` |
+| `StAgent_TRACE__PREVIEW_CHARS` | `4096` | Truncated preview length |
+| `StAgent_TRACE__RETENTION_DAYS` | `30` | Intended retention (cleanup job TBD) |
 
 ## API
 

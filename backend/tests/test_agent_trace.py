@@ -8,16 +8,16 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.query_engine import SDKMessage
-from leagent.db.models.base import utc_now
-from leagent.sdk.events import AgentEvent
-from leagent.sdk.kernel.loop import run_loop
-from leagent.sdk.kernel.state import RunState
-from leagent.telemetry.trace.context import clear_trace_context, current_run_id
-from leagent.telemetry.trace.export import build_span_tree, export_trace_jsonl
-from leagent.telemetry.trace.models import dumps_json, loads_json, prompt_hash
-from leagent.telemetry.trace.recorder import TraceRecorder
-from leagent.telemetry.trace.store import TraceStore
+from StAgent.agent.query_engine import SDKMessage
+from StAgent.db.models.base import utc_now
+from StAgent.sdk.events import AgentEvent
+from StAgent.sdk.kernel.loop import run_loop
+from StAgent.sdk.kernel.state import RunState
+from StAgent.telemetry.trace.context import clear_trace_context, current_run_id
+from StAgent.telemetry.trace.export import build_span_tree, export_trace_jsonl
+from StAgent.telemetry.trace.models import dumps_json, loads_json, prompt_hash
+from StAgent.telemetry.trace.recorder import TraceRecorder
+from StAgent.telemetry.trace.store import TraceStore
 
 
 class _MemStore:
@@ -337,7 +337,7 @@ async def test_run_loop_emits_trace_events_without_raising() -> None:
     rec.start_trace(run_id="run-loop-1", session_id="sess-1")
     await rec.flush()
 
-    from leagent.telemetry import trace as trace_pkg
+    from StAgent.telemetry import trace as trace_pkg
 
     original = trace_pkg.get_trace_recorder
     trace_pkg.get_trace_recorder = lambda: rec  # type: ignore[assignment]
@@ -386,7 +386,7 @@ async def test_create_trace_survives_not_null_json_columns(tmp_path) -> None:
     from sqlalchemy.pool import NullPool
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-    from leagent.telemetry.trace.store import TraceStore
+    from StAgent.telemetry.trace.store import TraceStore
 
     engine = create_async_engine(
         f"sqlite+aiosqlite:///{tmp_path / 'legacy_trace.db'}",
@@ -519,7 +519,7 @@ async def test_export_trace_jsonl_roundtrip(tmp_path) -> None:
     from sqlmodel import SQLModel
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-    from leagent.db.models.agent_trace import (  # noqa: F401
+    from StAgent.db.models.agent_trace import (  # noqa: F401
         AgentTrace,
         AgentTraceExperiment,
         AgentTraceSpan,
@@ -569,7 +569,7 @@ async def test_export_trace_jsonl_roundtrip(tmp_path) -> None:
     await store.update_trace(tid, status="completed", terminal_reason="completed")
 
     body = await export_trace_jsonl(tid, store=store)
-    assert "leagent.agent_trace.v1" in body
+    assert "StAgent.agent_trace.v1" in body
     assert tid in body
     assert "span" in body
 
@@ -585,7 +585,7 @@ async def test_experiment_store_and_list(tmp_path) -> None:
     from sqlmodel import SQLModel
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-    from leagent.db.models.agent_trace import (  # noqa: F401
+    from StAgent.db.models.agent_trace import (  # noqa: F401
         AgentTrace,
         AgentTraceExperiment,
         AgentTraceSpan,

@@ -1,7 +1,7 @@
-# LeAgent Agent SDK — 技术参考
+# StAgent Agent SDK — 技术参考
 
 > **版本：** 0.1.0  
-> **包：** `leagent.sdk`
+> **包：** `StAgent.sdk`
 
 英文版：[agent_sdk.md](./agent_sdk.md)
 
@@ -10,7 +10,7 @@
 Agent SDK 是单一的、带版本的公共表面，所有调用方（聊天 API、后台任务、CLI、工作流节点、子 Agent 委派）都通过它与 Agent 栈交互。它用统一的、协议驱动的 API，取代了此前手工组装 `QueryEngine` + `ContextManager` + `AgentMemory` + `ServiceManager` 的模式。
 
 ```python
-from leagent.sdk import AgentRuntime, AgentBuilder
+from StAgent.sdk import AgentRuntime, AgentBuilder
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 result = await runtime.run("default_agent", "Summarise this PDF")
@@ -30,14 +30,14 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 
 | 符号 | 种类 | 映射到 |
 |------|------|--------|
-| `LLMClient` | Protocol | `leagent.llm.service.LLMService` |
-| `Provider` | Protocol | `leagent.llm.base.LLMProvider` |
-| `ContextAssembler` | Protocol | `leagent.context.manager.ContextManager` |
-| `MemoryStore` | Protocol | `leagent.memory.agent_memory.AgentMemory` |
-| `RecallProvider` | Protocol | `leagent.memory.agent_memory.RecallHandle` |
-| `EpisodicStoreProtocol` | Protocol | `leagent.memory.episodic.EpisodicStore` |
-| `SemanticStoreProtocol` | Protocol | `leagent.memory.semantic.SemanticStore` |
-| `ProceduralStoreProtocol` | Protocol | `leagent.memory.procedural.ProceduralStore` |
+| `LLMClient` | Protocol | `StAgent.llm.service.LLMService` |
+| `Provider` | Protocol | `StAgent.llm.base.LLMProvider` |
+| `ContextAssembler` | Protocol | `StAgent.context.manager.ContextManager` |
+| `MemoryStore` | Protocol | `StAgent.memory.agent_memory.AgentMemory` |
+| `RecallProvider` | Protocol | `StAgent.memory.agent_memory.RecallHandle` |
+| `EpisodicStoreProtocol` | Protocol | `StAgent.memory.episodic.EpisodicStore` |
+| `SemanticStoreProtocol` | Protocol | `StAgent.memory.semantic.SemanticStore` |
+| `ProceduralStoreProtocol` | Protocol | `StAgent.memory.procedural.ProceduralStore` |
 | `CheckpointStore` | Protocol | 持久化运行存储（`InMemoryCheckpointStore` / `SQLCheckpointStore`） |
 | `RunContext` | dataclass | 取代 `ToolUseContext` + `AgentContext` 鸭子类型 |
 | `ToolContext` | dataclass | 暴露给工具实现的 `RunContext` 窄子集 |
@@ -85,7 +85,7 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  leagent.sdk  (public surface, semver-versioned)│
+│  StAgent.sdk  (public surface, semver-versioned)│
 ├─────────────────────────────────────────────────┤
 │  Kernel   (run loop, RunState, checkpoint)      │
 ├────────┬────────┬────────┬──────────────────────┤
@@ -94,11 +94,11 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 └────────┴────────┴────────┴──────────────────────┘
 ```
 
-每个支柱通过 `leagent.sdk.protocols` 中定义的 **Protocol** 访问。具体实现位于各自的包中，并通过 `RuntimeContext` 接线。
+每个支柱通过 `StAgent.sdk.protocols` 中定义的 **Protocol** 访问。具体实现位于各自的包中，并通过 `RuntimeContext` 接线。
 
 ## 版本策略
 
-SDK 遵循**语义化版本**。版本存放在 `leagent/sdk/_version.py`，并以 `leagent.sdk.__version__` 导出。
+SDK 遵循**语义化版本**。版本存放在 `StAgent/sdk/_version.py`，并以 `StAgent.sdk.__version__` 导出。
 
 - **MAJOR** — 对公共表面的破坏性变更。
 - **MINOR** — 加法变更（新协议、新事件类型）。
@@ -106,30 +106,30 @@ SDK 遵循**语义化版本**。版本存放在 `leagent/sdk/_version.py`，并�
 
 ## 迁移指南
 
-### 从 `leagent.runtime`
+### 从 `StAgent.runtime`
 
-`leagent.runtime` 包继续作为再导出层工作。新代码应直接从 `leagent.sdk` 导入：
+`StAgent.runtime` 包继续作为再导出层工作。新代码应直接从 `StAgent.sdk` 导入：
 
 ```python
 # Before
-from leagent.runtime import AgentRuntime, AgentEvent
+from StAgent.runtime import AgentRuntime, AgentEvent
 
 # After
-from leagent.sdk import AgentRuntime, AgentEvent
+from StAgent.sdk import AgentRuntime, AgentEvent
 ```
 
 ### 从手工组装的引擎
 
 ```python
 # Before (manual wiring)
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
 config = QueryEngineConfig(llm=llm, tools=tools, executor=executor, ...)
 engine = QueryEngine(config)
 async for msg in engine.submit_message(prompt):
     ...
 
 # After (SDK)
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 runtime = AgentRuntime.from_service_manager(sm)
 result = await runtime.run("default_agent", prompt)
 ```

@@ -11,7 +11,7 @@ import json
 
 
 async def _run() -> None:
-    from leagent.workflow.nodes import bootstrap, get_registry
+    from StAgent.workflow.nodes import bootstrap, get_registry
 
     await bootstrap()
     print(json.dumps(get_registry().snapshot(), indent=2, ensure_ascii=False))

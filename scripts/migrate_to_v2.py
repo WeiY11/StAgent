@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Migrate LeAgent from tier1/tier2 config to providers.yaml v2 task routing.
+"""Migrate StAgent from tier1/tier2 config to providers.yaml v2 task routing.
 
 Usage (from repo root)::
 
     cd backend && uv run python ../scripts/migrate_to_v2.py
-    cd backend && uv run leagent models migrate
+    cd backend && uv run StAgent models migrate
 """
 
 from __future__ import annotations
@@ -23,11 +23,11 @@ if str(_BACKEND) not in sys.path:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Migrate tier config to v2 task routing")
     parser.add_argument("--dry-run", action="store_true", help="Show changes without writing files")
-    parser.add_argument("--env-only", action="store_true", help="Migrate ~/.leagent/.env only")
+    parser.add_argument("--env-only", action="store_true", help="Migrate ~/.StAgent/.env only")
     parser.add_argument("--providers-only", action="store_true", help="Migrate providers.yaml only")
     args = parser.parse_args()
 
-    from leagent.config.migrate_v2 import run_migration
+    from StAgent.config.migrate_v2 import run_migration
 
     report = run_migration(
         migrate_env=not args.providers_only,
@@ -53,7 +53,7 @@ def main() -> int:
     if args.dry_run:
         print("\n(dry-run: no files written)", file=sys.stderr)
     else:
-        print("\nMigration complete. Restart LeAgent.", file=sys.stderr)
+        print("\nMigration complete. Restart StAgent.", file=sys.stderr)
 
     return 0
 

@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.services.cache.service import CacheService
 
 
 @pytest.mark.asyncio

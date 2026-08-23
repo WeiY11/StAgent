@@ -19,8 +19,8 @@ export function getCameraAccessIssue(): CameraAccessIssue | null {
 export function stopIframeMediaTracks(iframe: HTMLIFrameElement | null): void {
   if (!iframe) return;
   try {
-    const win = iframe.contentWindow as (Window & { __leagentReleaseMedia?: () => void }) | null;
-    win?.__leagentReleaseMedia?.();
+    const win = iframe.contentWindow as (Window & { __StAgentReleaseMedia?: () => void }) | null;
+    win?.__StAgentReleaseMedia?.();
     const doc = win?.document;
     if (!doc) return;
     doc.querySelectorAll('video, audio').forEach((el) => {

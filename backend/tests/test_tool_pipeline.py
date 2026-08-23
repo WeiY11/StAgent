@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.tools.base import ToolContext, ToolResult
-from leagent.tools.pipeline import (
+from StAgent.tools.base import ToolContext, ToolResult
+from StAgent.tools.pipeline import (
     CircuitBreakerMiddleware,
     MiddlewareContext,
     build_default_pipeline,

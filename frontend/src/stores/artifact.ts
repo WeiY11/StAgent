@@ -130,7 +130,7 @@ export const useArtifactStore = create<ArtifactStore>()(
       },
     }),
     {
-      name: 'leagent-artifacts',
+      name: 'StAgent-artifacts',
       partialize: (state) => ({
         artifacts: state.artifacts,
         pinnedIds: state.pinnedIds,

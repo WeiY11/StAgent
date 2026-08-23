@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from leagent.db.models.mission import (
+from StAgent.db.models.mission import (
     Mission,
     MissionAutonomy,
     MissionStatus,
     MissionStep,
     MissionStepStatus,
 )
-from leagent.mission import (
+from StAgent.mission import (
     MissionBudget,
     MissionPlan,
     MissionRunner,

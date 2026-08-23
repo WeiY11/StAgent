@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.llm.generation import config as cfg
-from leagent.llm.generation.config import ImageGenConfigStore, ImageGenPreset
-from leagent.tools.base import ToolContext
-from leagent.tools.media.base import build_media_filename
+from StAgent.llm.generation import config as cfg
+from StAgent.llm.generation.config import ImageGenConfigStore, ImageGenPreset
+from StAgent.tools.base import ToolContext
+from StAgent.tools.media.base import build_media_filename
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def store(tmp_path, monkeypatch):
     path = tmp_path / "providers.yaml"
     s = ImageGenConfigStore(path=path)
     monkeypatch.setattr(cfg, "_STORE", s)
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     return s
 
 
@@ -29,7 +29,7 @@ def _ctx() -> ToolContext:
 
 @pytest.mark.asyncio
 async def test_image_generate_tool_offline(store):
-    from leagent.tools.image.image_generate import ImageGenerateTool
+    from StAgent.tools.image.image_generate import ImageGenerateTool
 
     res = await ImageGenerateTool().execute({"prompt": "a forest", "size": "256x256"}, _ctx())
     assert res["success"] is True
@@ -44,7 +44,7 @@ async def test_image_generate_tool_offline(store):
 
 @pytest.mark.asyncio
 async def test_image_generate_respects_explicit_filename(store):
-    from leagent.tools.image.image_generate import ImageGenerateTool
+    from StAgent.tools.image.image_generate import ImageGenerateTool
 
     res = await ImageGenerateTool().execute(
         {"prompt": "a forest", "filename": "sunset_cat.png", "size": "256x256"},
@@ -56,7 +56,7 @@ async def test_image_generate_respects_explicit_filename(store):
 
 @pytest.mark.asyncio
 async def test_video_generate_tool_offline(store):
-    from leagent.tools.media.video_generate import VideoGenerateTool
+    from StAgent.tools.media.video_generate import VideoGenerateTool
 
     res = await VideoGenerateTool().execute({"prompt": "a wave", "duration": 2}, _ctx())
     assert res["success"] is True
@@ -69,7 +69,7 @@ async def test_video_generate_tool_offline(store):
 
 @pytest.mark.asyncio
 async def test_audio_generate_tool_offline(store):
-    from leagent.tools.media.audio_generate import AudioGenerateTool
+    from StAgent.tools.media.audio_generate import AudioGenerateTool
 
     res = await AudioGenerateTool().execute({"prompt": "hello"}, _ctx())
     assert res["success"] is True
@@ -85,7 +85,7 @@ async def test_audio_tool_uses_default_preset_only_for_matching_kind(store, monk
                                        model="Kwai-Kolors/Kolors", kind="image"))
     store.set_default_preset("img-def")
 
-    from leagent.tools.media.base import resolve_preset_params
+    from StAgent.tools.media.base import resolve_preset_params
 
     provider, model, params = resolve_preset_params("audio", preset_id=None, provider=None)
     # the image default is skipped → no provider/model forced for audio

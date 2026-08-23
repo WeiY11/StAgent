@@ -29,14 +29,14 @@ import pytest
 import pytest_asyncio
 from sqlmodel import select
 
-from leagent.db.models.agent_memory import AgentEpisode, AgentFact
-from leagent.db.models.message import ChatSession
-from leagent.memory.maintenance import (
+from StAgent.db.models.agent_memory import AgentEpisode, AgentFact
+from StAgent.db.models.message import ChatSession
+from StAgent.memory.maintenance import (
     decay_episode_importance,
     decay_fact_confidence,
     forget_low_value_episodes,
 )
-from leagent.services.auth.service import LOCAL_USER_ID
+from StAgent.services.auth.service import LOCAL_USER_ID
 
 # ---------------------------------------------------------------------------
 # DB fixture
@@ -45,8 +45,8 @@ from leagent.services.auth.service import LOCAL_USER_ID
 
 @pytest_asyncio.fixture()
 async def db():
-    from leagent.config.settings import Settings
-    from leagent.db.service import DatabaseService
+    from StAgent.config.settings import Settings
+    from StAgent.db.service import DatabaseService
 
     with tempfile.TemporaryDirectory() as tmp:
         db_path = Path(tmp) / "maint.db"

@@ -238,7 +238,7 @@ export const useFoldersStore = create<FoldersState>()(
       },
     }),
     {
-      name: 'leagent-folders',
+      name: 'StAgent-folders',
       partialize: (state) => ({
         expandedFolderIds: Array.from(state.expandedFolderIds),
         selectedFolderId: state.selectedFolderId,

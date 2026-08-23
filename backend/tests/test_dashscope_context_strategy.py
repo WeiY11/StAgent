@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.context.strategies.dashscope import (
+from StAgent.context.strategies.dashscope import (
     QWEN_DEFAULT_CONTEXT_WINDOW,
     QWEN_LONG_CONTEXT_WINDOW,
     ContextBlock,

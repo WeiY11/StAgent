@@ -10,7 +10,7 @@ doesn't need tool-call orchestration just to see the data:
   region, top product).
 
 The file lives on disk at
-``leagent/backend/tests/fixtures/_cache/excel_sample.xlsx`` so both
+``StAgent/backend/tests/fixtures/_cache/excel_sample.xlsx`` so both
 ``tests/integration/test_deepseek_excel.py`` and
 ``scripts/run_excel_demo.py`` can point at the same artefact. The cache
 is regenerated idempotently whenever the source schema below changes.

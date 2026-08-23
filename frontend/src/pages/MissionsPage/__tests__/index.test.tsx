@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,11 +62,52 @@ const mocks = vi.hoisted(() => ({
       },
     ],
   } as Mission,
+  mission2: {
+    id: 'm-2',
+    goal: 'Ship the reports module',
+    expected_output: null,
+    agent_id: null,
+    session_id: null,
+    status: 'running',
+    autonomy: 'full',
+    verify_level: 'heuristic',
+    plan_id: 1,
+    pause_reason: null,
+    error: null,
+    started_at: '2026-08-01T00:00:00Z',
+    completed_at: null,
+    created_at: '2026-08-01T00:00:00Z',
+    updated_at: '2026-08-01T00:00:00Z',
+    budget: null,
+    usage: { segments: 0, tokens: 0, cost_usd: 0 },
+    running: true,
+    steps: [
+      {
+        step_no: 1,
+        plan_id: 1,
+        description: 'Draft the report schema',
+        kind: 'code',
+        depends_on: [],
+        wave: 0,
+        status: 'running',
+        attempt: 1,
+        verify_result: null,
+        segment_summary: null,
+        checkpoint_id: null,
+        error: null,
+        started_at: null,
+        completed_at: null,
+      },
+    ],
+  } as Mission,
 }));
 
 vi.mock('@/hooks/useMissions', () => ({
-  useMissions: () => ({ data: [mocks.mission], isLoading: false }),
-  useMission: (_missionId: string) => ({ data: mocks.mission, isLoading: false }),
+  useMissions: () => ({ data: [mocks.mission, mocks.mission2], isLoading: false }),
+  useMission: (missionId: string) => ({
+    data: missionId === 'm-2' ? mocks.mission2 : mocks.mission,
+    isLoading: false,
+  }),
   useCreateMission: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePauseMission: () => ({ mutate: vi.fn(), isPending: false }),
   useResumeMission: () => ({ mutate: vi.fn(), isPending: false }),
@@ -77,13 +119,15 @@ vi.mock('@/hooks/useMissions', () => ({
   }),
 }));
 
-function renderPage() {
+function renderPage(initialEntries: string[] = ['/missions']) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MissionsPage />
+      <MemoryRouter initialEntries={initialEntries}>
+        <MissionsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -97,6 +141,13 @@ describe('MissionsPage', () => {
     renderPage();
     // The goal appears in both the list row and the detail header.
     expect(screen.getAllByText('Refactor the auth module').length).toBeGreaterThan(0);
+  });
+
+  it('deep-links to the requested mission via ?select=', async () => {
+    renderPage(['/missions?select=m-2']);
+    // The detail panel shows mission 2's step, not the default first mission's.
+    expect(await screen.findByText('Draft the report schema')).toBeInTheDocument();
+    expect(screen.queryByText('Survey current auth flows')).not.toBeInTheDocument();
   });
 
   it('shows the step timeline with collapsible summaries', async () => {

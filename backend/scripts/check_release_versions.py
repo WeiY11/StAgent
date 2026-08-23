@@ -5,7 +5,7 @@ Compares the product version declared across the repository against the release
 tag. It prints only mismatched files and exits non-zero on any mismatch; it
 never rewrites files.
 
-``leagent.sdk.__version__`` is intentionally *excluded*: the Agent SDK is a
+``StAgent.sdk.__version__`` is intentionally *excluded*: the Agent SDK is a
 separately versioned public surface (e.g. ``0.1.0``) and must not be forced to
 match the product version (e.g. ``1.2.7``).
 """
@@ -25,7 +25,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 # absent (see module docstring).
 _PRODUCT_FILES = (
     "backend/pyproject.toml",
-    "backend/leagent/__init__.py",
+    "backend/StAgent/__init__.py",
     "frontend/package.json",
     "desktop/electron/package.json",
 )
@@ -61,7 +61,7 @@ def read_versions(root: Path) -> dict[str, str]:
     """Return the declared version for each product file, keyed by rel path."""
     return {
         "backend/pyproject.toml": _toml_version(root / "backend/pyproject.toml"),
-        "backend/leagent/__init__.py": _init_version(root / "backend/leagent/__init__.py"),
+        "backend/StAgent/__init__.py": _init_version(root / "backend/StAgent/__init__.py"),
         "frontend/package.json": _json_version(root / "frontend/package.json"),
         "desktop/electron/package.json": _json_version(root / "desktop/electron/package.json"),
     }

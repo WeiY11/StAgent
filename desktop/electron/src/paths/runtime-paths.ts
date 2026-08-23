@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { app } from 'electron';
-import { getLeagentHomeOverride } from '../config/desktop-config.js';
+import { getStAgentHomeOverride } from '../config/desktop-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,15 +59,20 @@ export function userDataDir(): string {
   return app.getPath('userData');
 }
 
-export function resolveLeagentHome(): string {
-  const override = getLeagentHomeOverride();
+export function resolveStAgentHome(): string {
+  const override = getStAgentHomeOverride();
   if (override) return override;
-  return path.join(userDataDir(), 'leagent');
+  return path.join(userDataDir(), 'StAgent');
 }
 
-/** @deprecated Use resolveLeagentHome */
-export function leagentHome(): string {
-  return resolveLeagentHome();
+/** @deprecated Use resolveStAgentHome */
+export function StAgentHome(): string {
+  return resolveStAgentHome();
+}
+
+/** @deprecated Use resolveStAgentHome. */
+export function resolveLeagentHome(): string {
+  return resolveStAgentHome();
 }
 
 export function runtimeVenvDir(): string {
@@ -100,7 +105,7 @@ export function backendLogPath(): string {
 
 export function ensureDirs(): void {
   const dirs = [
-    resolveLeagentHome(),
+    resolveStAgentHome(),
     path.join(userDataDir(), 'runtime'),
     path.join(userDataDir(), 'logs'),
   ];

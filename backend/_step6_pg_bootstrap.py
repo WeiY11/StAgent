@@ -15,8 +15,8 @@ import asyncio
 
 from sqlalchemy import text
 
-from leagent.config.settings import get_settings
-from leagent.db.service import init_database_service
+from StAgent.config.settings import get_settings
+from StAgent.db.service import init_database_service
 
 
 async def main() -> None:
@@ -30,7 +30,7 @@ async def main() -> None:
     print("CREATE_ALL_OK")
 
     # 2) Incremental migrations — exactly what main._run_db_migrations does.
-    from leagent.main import _run_db_migrations
+    from StAgent.main import _run_db_migrations
 
     await _run_db_migrations()
     print("ALEMBIC_UPGRADE_HEAD_OK")

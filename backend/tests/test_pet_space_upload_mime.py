@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.api.v1.files import resolve_pet_space_upload_mime_type
+from StAgent.api.v1.files import resolve_pet_space_upload_mime_type
 
 
 def test_declared_image_mime_passthrough() -> None:

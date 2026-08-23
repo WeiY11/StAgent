@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from leagent.context.strategies.deepseek import (
+from StAgent.context.strategies.deepseek import (
     DeepSeekContextStrategy,
     V4_CONTEXT_WINDOW,
     estimate_tokens,
@@ -46,7 +46,7 @@ def test_budget_scales_with_context_window() -> None:
 
 
 def test_order_blocks_places_stable_content_in_middle() -> None:
-    from leagent.context.strategies.deepseek import ContextBlock
+    from StAgent.context.strategies.deepseek import ContextBlock
 
     blocks = [
         ContextBlock(name="task", content="current task", priority=0.9, stability=0.1, position_hint="start"),

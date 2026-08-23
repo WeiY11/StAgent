@@ -4,10 +4,10 @@ Run: ``locust -f tests/load/locustfile.py --host=http://localhost:7860``.
 
 Environment:
 
-* ``LEAGENT_TOKEN`` — bearer token used for every request. Required.
-* ``LEAGENT_FLOW_ID`` — a saved flow id to run via the DAG engine; optional.
-* ``LEAGENT_PERF_P95_BUDGET_MS`` — p95 latency budget in ms (default 750).
-* ``LEAGENT_PERF_ERROR_BUDGET`` — allowed error fraction (default 0.01).
+* ``StAgent_TOKEN`` — bearer token used for every request. Required.
+* ``StAgent_FLOW_ID`` — a saved flow id to run via the DAG engine; optional.
+* ``StAgent_PERF_P95_BUDGET_MS`` — p95 latency budget in ms (default 750).
+* ``StAgent_PERF_ERROR_BUDGET`` — allowed error fraction (default 0.01).
 
 Only routes that actually exist are exercised: the multipart chat SSE stream,
 the workflow run endpoint (when a flow id is seeded), file upload, and health.
@@ -25,21 +25,21 @@ from typing import Any
 
 from locust import HttpUser, between, events, task
 
-TOKEN = os.getenv("LEAGENT_TOKEN", "")
-FLOW_ID = os.getenv("LEAGENT_FLOW_ID", "")
+TOKEN = os.getenv("StAgent_TOKEN", "")
+FLOW_ID = os.getenv("StAgent_FLOW_ID", "")
 
 
 def _rand(n: int = 16) -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
 
-class LeAgentUser(HttpUser):
+class StAgentUser(HttpUser):
     wait_time = between(0.5, 2.0)
 
     def on_start(self) -> None:
         if not TOKEN:
             events.quitting.fire(environment=self.environment)
-            raise RuntimeError("LEAGENT_TOKEN env var is required")
+            raise RuntimeError("StAgent_TOKEN env var is required")
         self.client.headers["Authorization"] = f"Bearer {TOKEN}"
         self.client.headers["x-request-id"] = _rand()
 
@@ -93,8 +93,8 @@ class LeAgentUser(HttpUser):
 
 # --- CI gate -----------------------------------------------------------------
 
-_P95_BUDGET_MS = float(os.getenv("LEAGENT_PERF_P95_BUDGET_MS", "750"))
-_ERROR_BUDGET = float(os.getenv("LEAGENT_PERF_ERROR_BUDGET", "0.01"))
+_P95_BUDGET_MS = float(os.getenv("StAgent_PERF_P95_BUDGET_MS", "750"))
+_ERROR_BUDGET = float(os.getenv("StAgent_PERF_ERROR_BUDGET", "0.01"))
 
 
 @events.quitting.add_listener
@@ -110,7 +110,7 @@ def _enforce_gates(environment: Any, **_: Any) -> None:
         "p95_ms": p95,
         "error_rate": error_rate,
     }
-    out = os.getenv("LEAGENT_LOCUST_SUMMARY")
+    out = os.getenv("StAgent_LOCUST_SUMMARY")
     if out:
         with open(out, "w", encoding="utf-8") as fh:
             json.dump(summary, fh, indent=2)

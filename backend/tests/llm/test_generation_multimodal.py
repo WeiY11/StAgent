@@ -12,19 +12,19 @@ import os
 
 import pytest
 
-from leagent.llm.capabilities import Modality, TaskType, kind_to_output, kind_to_task
-from leagent.llm.generation import (
+from StAgent.llm.capabilities import Modality, TaskType, kind_to_output, kind_to_task
+from StAgent.llm.generation import (
     GENERATION_KINDS,
     GenerationRequest,
     GenerationService,
     build_default_generation_service,
 )
-from leagent.llm.generation.backends import (
+from StAgent.llm.generation.backends import (
     HttpUpscaleBackend,
     HttpVfxBackend,
     OfflineGenerationBackend,
 )
-from leagent.llm.generation.placeholders import sprite_sheet_png
+from StAgent.llm.generation.placeholders import sprite_sheet_png
 
 
 # -- standardized request contract ------------------------------------------
@@ -134,15 +134,15 @@ async def test_controlnet_conditioning_recorded_in_meta():
 
 
 def test_http_backends_unavailable_without_env(monkeypatch):
-    for var in ("LEAGENT_VFX_GEN_URL", "LEAGENT_UPSCALE_URL"):
+    for var in ("StAgent_VFX_GEN_URL", "StAgent_UPSCALE_URL"):
         monkeypatch.delenv(var, raising=False)
     assert HttpVfxBackend().available() is False
     assert HttpUpscaleBackend().available() is False
 
 
 def test_http_backends_available_with_env(monkeypatch):
-    monkeypatch.setenv("LEAGENT_VFX_GEN_URL", "https://vfx.example/api")
-    monkeypatch.setenv("LEAGENT_UPSCALE_URL", "https://sr.example/api")
+    monkeypatch.setenv("StAgent_VFX_GEN_URL", "https://vfx.example/api")
+    monkeypatch.setenv("StAgent_UPSCALE_URL", "https://sr.example/api")
     assert HttpVfxBackend().available() is True
     assert HttpUpscaleBackend().available() is True
 

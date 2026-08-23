@@ -1,3 +1,3 @@
-﻿# Rules
+# Rules
 
 TODO: Write rules tutorial.

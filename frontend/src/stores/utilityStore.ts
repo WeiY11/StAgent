@@ -145,7 +145,7 @@ export const useUtilityStore = create<UtilityState>()(
       getIdleTime: () => Date.now() - get().lastActivityAt,
     }),
     {
-      name: 'leagent-utility',
+      name: 'StAgent-utility',
       partialize: (state) => ({
         clientId: state.clientId,
         featureFlags: state.featureFlags,

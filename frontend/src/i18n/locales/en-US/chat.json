@@ -7,12 +7,12 @@
     "done": "Get started",
     "steps": {
       "welcome": {
-        "title": "Welcome to LeAgent",
-        "body": "LeAgent is an AI assistant that actually gets work done: it plans its own steps, calls tools, and self-corrects until the job is finished. Three quick steps to get you productive."
+        "title": "Welcome to StAgent",
+        "body": "StAgent is an AI assistant that actually gets work done: it plans its own steps, calls tools, and self-corrects until the job is finished. Three quick steps to get you productive."
       },
       "data": {
         "title": "Analyze data by chatting",
-        "body": "Drop a CSV / Excel file into the composer and describe what you want to learn. LeAgent first builds a dataset profile (shape, column stats, quality warnings), then cleans, aggregates, and charts the data, ending with an interactive one-page analysis summary."
+        "body": "Drop a CSV / Excel file into the composer and describe what you want to learn. StAgent first builds a dataset profile (shape, column stats, quality warnings), then cleans, aggregates, and charts the data, ending with an interactive one-page analysis summary."
       },
       "build": {
         "title": "Save workflows and knowledge",
@@ -20,7 +20,7 @@
       },
       "start": {
         "title": "Ready to try?",
-        "body": "No data at hand? No problem — click the button below and LeAgent will run the full profile → clean → aggregate → chart → summary loop on a demo sales dataset, so you can see exactly how it works.",
+        "body": "No data at hand? No problem — click the button below and StAgent will run the full profile → clean → aggregate → chart → summary loop on a demo sales dataset, so you can see exactly how it works.",
         "cta": "Try data analysis"
       }
     }
@@ -124,7 +124,7 @@
     "contextUsageCompressing": "Compressing…",
     "contextUsageSrPercent": "{{pct}}% context window, {{tokens}} tokens",
     "contextUsageSrUnknown": "Context usage not yet available",
-    "welcomeTitle": "Welcome to LeAgent",
+    "welcomeTitle": "Welcome to StAgent",
     "welcomeMessage": "I'm your AI work assistant. I can help you with various tasks. How can I help you today?",
     "inputPlaceholder": "Type a message, press Enter to send...",
     "inputHint": "Press Enter to send, Shift + Enter for new line",
@@ -308,7 +308,7 @@
     "genUiOpenCanvas": "Open canvas",
     "genUiOpenCanvasNamed": "Open canvas: {{title}}",
     "genUiOpenCanvasAction": "Open",
-    "genUiAttribution": "Generated with LeAgent GenUI",
+    "genUiAttribution": "Generated with StAgent GenUI",
     "skillsBadge": "{{count}} skills available",
     "skillsBadge_one": "{{count}} skill available",
     "skillsBadge_other": "{{count}} skills available",
@@ -402,8 +402,8 @@
       "jsOff": "JavaScript disabled in preview",
       "jsOnShort": "JS On",
       "jsOffShort": "JS Off",
-      "leagentJsOn": "leagent.js enabled — embedded HTML may call LeAgent APIs",
-      "leagentJsOff": "leagent.js disabled — embedded HTML cannot call LeAgent APIs",
+      "StAgentJsOn": "StAgent.js enabled — embedded HTML may call StAgent APIs",
+      "StAgentJsOff": "StAgent.js disabled — embedded HTML cannot call StAgent APIs",
       "cameraAllowOn": "Camera allowed in preview",
       "cameraAllowOff": "Allow camera in preview",
       "cameraPermissionHint": "Allow camera access in the browser prompt, or check system privacy settings.",
@@ -529,6 +529,12 @@
       "failed": "Could not steer the running turn.",
       "queueFailed": "Could not queue the message."
     },
+    "goalCommand": {
+      "empty": "Describe a goal after /goal to start a mission, e.g. /goal refactor the auth module and add tests",
+      "tooLong": "The mission goal is limited to 4000 characters — please trim it down.",
+      "failed": "Could not start the mission.",
+      "busy": "A turn is still running — wait for it to finish before starting a mission."
+    },
     "dataUpload": {
       "hint": "Data file detected — try:",
       "dismissAria": "Dismiss data suggestions",
@@ -554,8 +560,8 @@
     },
     "suggestions": {
       "intro": {
-        "label": "What can LeAgent do here?",
-        "prompt": "In short bullets, explain what I can do with LeAgent in this app: chat with attachments and knowledge-base references, designing and running workflows, knowledge base and folder context, and practical limits (e.g. attach files before the agent can read them, how tools relate to workflows). Assume I’m new—keep it under ten short sentences—and mention sidebar/top-bar areas worth opening first."
+        "label": "What can StAgent do here?",
+        "prompt": "In short bullets, explain what I can do with StAgent in this app: chat with attachments and knowledge-base references, designing and running workflows, knowledge base and folder context, and practical limits (e.g. attach files before the agent can read them, how tools relate to workflows). Assume I’m new—keep it under ten short sentences—and mention sidebar/top-bar areas worth opening first."
       },
       "genuiResume": {
         "label": "Summarize this week's work",
@@ -563,7 +569,7 @@
       },
       "dataAnalysis": {
         "label": "Try data analysis",
-        "prompt": "I want to try LeAgent's data-analysis conversation mode. If I attached a data file (CSV/Excel) to this message, first run data_profile to build a dataset profile (shape, per-column stats, quality warnings, correlations), walk me through the highlights, and propose 2-3 analysis directions worth digging into. If I did not attach a file, build a demo sales dataset of about 60 rows yourself (date, region, category, units, revenue, with a few intentional missing values), then run the full loop: data_profile → cleaning notes → data_aggregate by region/category → chart visualization → finally a one-page GenUI analysis summary (key metrics + charts + conclusions), and tell me how to upload my own data next time to reuse this flow."
+        "prompt": "I want to try StAgent's data-analysis conversation mode. If I attached a data file (CSV/Excel) to this message, first run data_profile to build a dataset profile (shape, per-column stats, quality warnings, correlations), walk me through the highlights, and propose 2-3 analysis directions worth digging into. If I did not attach a file, build a demo sales dataset of about 60 rows yourself (date, region, category, units, revenue, with a few intentional missing values), then run the full loop: data_profile → cleaning notes → data_aggregate by region/category → chart visualization → finally a one-page GenUI analysis summary (key metrics + charts + conclusions), and tell me how to upload my own data next time to reuse this flow."
       },
       "petSpace": {
         "label": "Or adopt a desk pet first?",

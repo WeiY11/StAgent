@@ -1,4 +1,4 @@
-# LeAgent Cache Mechanism Optimization Implementation Plan
+# StAgent Cache Mechanism Optimization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -23,13 +23,13 @@
 
 ## Scope Boundary
 
-本计划完成本地单进程缓存的正确性和性能闭环，并定义后续共享后端接口。只有同时满足以下条件，才单独启动 Redis L2 子项目：`DATABASE_URL` 指向 PostgreSQL、`LEAGENT_WORKERS>1`、压测证明跨 worker 重算是主要瓶颈。Redis 子项目必须另写计划，覆盖序列化、失效广播、超时、熔断和多 worker 一致性；本计划不安装 Redis 包。
+本计划完成本地单进程缓存的正确性和性能闭环，并定义后续共享后端接口。只有同时满足以下条件，才单独启动 Redis L2 子项目：`DATABASE_URL` 指向 PostgreSQL、`StAgent_WORKERS>1`、压测证明跨 worker 重算是主要瓶颈。Redis 子项目必须另写计划，覆盖序列化、失效广播、超时、熔断和多 worker 一致性；本计划不安装 Redis 包。
 
 ## File Map
 
 ### New files
 
-- `backend/leagent/services/cache/keys.py`：生成不可串租户、可版本化的逻辑缓存键。
+- `backend/StAgent/services/cache/keys.py`：生成不可串租户、可版本化的逻辑缓存键。
 - `backend/tests/test_cache_keys.py`：键稳定性、隔离性、规范化测试。
 - `backend/tests/test_cache_service_manager.py`：验证缓存服务生命周期和依赖注入。
 - `backend/tests/test_cache_singleflight.py`：并发填充、取消和异常恢复测试。
@@ -41,23 +41,23 @@
 
 ### Existing files to modify
 
-- `backend/leagent/config/settings.py`：容量、单值大小、清扫周期、TTL 抖动和配置约束。
-- `backend/leagent/services/cache/lru.py`：单调 TTL、原子更新、精确分片容量。
-- `backend/leagent/services/cache/service.py`：single-flight、generation、容量拒绝、维护任务。
-- `backend/leagent/services/cache/observability.py`：拒绝、填充、合并和最近窗口指标。
-- `backend/leagent/services/cache/__init__.py`：导出新增公共接口。
-- `backend/leagent/services/service_manager.py`：启动、注入、健康检查和停止缓存服务。
-- `backend/leagent/services/chat/service.py`：聊天历史 generation 键与提交后失效。
-- `backend/leagent/services/session/manager.py`：移除未使用的 cache 参数。
-- `backend/leagent/services/session/store.py`：共享有界 LRU 原语，数据库成功后才发布缓存。
-- `backend/leagent/context/cache.py`、`backend/leagent/context/manager.py`：有界 TTL 和统一观测。
-- `backend/leagent/skills/resource_cache.py`、`backend/leagent/skills/bundle_payload_cache.py`：线程安全、单调 TTL、统一统计。
-- `backend/leagent/tools/web/web_search/cache.py`：复用共享 LRU 并保留 Web TTL 门面。
-- `backend/leagent/memory/embeddings.py`：使用 `CacheService` 和 single-flight。
-- `backend/leagent/memory/recall.py`、`backend/leagent/memory/agent_memory.py`：按 owner/generation 缓存 Recall，成功写后 bump。
-- `backend/leagent/memory/cache.py`：删除未进入生产路径的第二套 memory cache。
-- `backend/leagent/workflow/engine/caching.py`、`backend/leagent/workflow/engine/executor.py`、`backend/leagent/workflow/engine/runner.py`：有界默认值、执行范围隔离、大小观测。
-- `backend/leagent/api/v1/stats.py`：扩展只读统计；运行时配置端点增加边界验证并明确不持久化。
+- `backend/StAgent/config/settings.py`：容量、单值大小、清扫周期、TTL 抖动和配置约束。
+- `backend/StAgent/services/cache/lru.py`：单调 TTL、原子更新、精确分片容量。
+- `backend/StAgent/services/cache/service.py`：single-flight、generation、容量拒绝、维护任务。
+- `backend/StAgent/services/cache/observability.py`：拒绝、填充、合并和最近窗口指标。
+- `backend/StAgent/services/cache/__init__.py`：导出新增公共接口。
+- `backend/StAgent/services/service_manager.py`：启动、注入、健康检查和停止缓存服务。
+- `backend/StAgent/services/chat/service.py`：聊天历史 generation 键与提交后失效。
+- `backend/StAgent/services/session/manager.py`：移除未使用的 cache 参数。
+- `backend/StAgent/services/session/store.py`：共享有界 LRU 原语，数据库成功后才发布缓存。
+- `backend/StAgent/context/cache.py`、`backend/StAgent/context/manager.py`：有界 TTL 和统一观测。
+- `backend/StAgent/skills/resource_cache.py`、`backend/StAgent/skills/bundle_payload_cache.py`：线程安全、单调 TTL、统一统计。
+- `backend/StAgent/tools/web/web_search/cache.py`：复用共享 LRU 并保留 Web TTL 门面。
+- `backend/StAgent/memory/embeddings.py`：使用 `CacheService` 和 single-flight。
+- `backend/StAgent/memory/recall.py`、`backend/StAgent/memory/agent_memory.py`：按 owner/generation 缓存 Recall，成功写后 bump。
+- `backend/StAgent/memory/cache.py`：删除未进入生产路径的第二套 memory cache。
+- `backend/StAgent/workflow/engine/caching.py`、`backend/StAgent/workflow/engine/executor.py`、`backend/StAgent/workflow/engine/runner.py`：有界默认值、执行范围隔离、大小观测。
+- `backend/StAgent/api/v1/stats.py`：扩展只读统计；运行时配置端点增加边界验证并明确不持久化。
 - `deploy/.env.example`：缓存配置示例。
 
 ---
@@ -65,10 +65,10 @@
 ### Task 1: Freeze cache-key and configuration contracts
 
 **Files:**
-- Create: `backend/leagent/services/cache/keys.py`
+- Create: `backend/StAgent/services/cache/keys.py`
 - Create: `backend/tests/test_cache_keys.py`
-- Modify: `backend/leagent/config/settings.py:460-503`
-- Modify: `backend/leagent/services/cache/__init__.py`
+- Modify: `backend/StAgent/config/settings.py:460-503`
+- Modify: `backend/StAgent/services/cache/__init__.py`
 
 **Interfaces:**
 - Produces: `build_scoped_cache_key(logical_key: str, *, owner_id: object | None = None, resource_id: object | None = None, generation: int = 0, vary: Mapping[str, Any] | None = None) -> str`
@@ -82,8 +82,8 @@
 from pydantic import ValidationError
 import pytest
 
-from leagent.config.settings import CacheSettings
-from leagent.services.cache.keys import build_scoped_cache_key
+from StAgent.config.settings import CacheSettings
+from StAgent.services.cache.keys import build_scoped_cache_key
 
 
 def test_scoped_key_is_stable_for_canonical_vary_order() -> None:
@@ -117,16 +117,16 @@ def test_cache_settings_reject_more_shards_than_items() -> None:
 Run:
 
 ```powershell
-$env:UV_CACHE_DIR='D:\LeAgent\.uv-cache'
+$env:UV_CACHE_DIR='D:\StAgent\.uv-cache'
 uv run pytest tests/test_cache_keys.py -q
 ```
 
-Expected: FAIL because `leagent.services.cache.keys` and the new settings fields do not exist.
+Expected: FAIL because `StAgent.services.cache.keys` and the new settings fields do not exist.
 
 - [ ] **Step 3: Add the scoped key builder**
 
 ```python
-# backend/leagent/services/cache/keys.py
+# backend/StAgent/services/cache/keys.py
 from __future__ import annotations
 
 import hashlib
@@ -169,7 +169,7 @@ def build_scoped_cache_key(
 - [ ] **Step 4: Extend and validate `CacheSettings`**
 
 ```python
-# backend/leagent/config/settings.py imports
+# backend/StAgent/config/settings.py imports
 from pydantic import AliasChoices, Field, model_validator
 
 # inside CacheSettings
@@ -184,7 +184,7 @@ def validate_cache_capacity(self) -> "CacheSettings":
     return self
 ```
 
-Export `build_scoped_cache_key` from `backend/leagent/services/cache/__init__.py`.
+Export `build_scoped_cache_key` from `backend/StAgent/services/cache/__init__.py`.
 
 - [ ] **Step 5: Run key and existing configuration tests**
 
@@ -199,7 +199,7 @@ Expected: all tests PASS.
 - [ ] **Step 6: Commit the contract**
 
 ```powershell
-git add backend/leagent/services/cache/keys.py backend/leagent/services/cache/__init__.py backend/leagent/config/settings.py backend/tests/test_cache_keys.py
+git add backend/StAgent/services/cache/keys.py backend/StAgent/services/cache/__init__.py backend/StAgent/config/settings.py backend/tests/test_cache_keys.py
 git commit -m "feat(cache): define scoped keys and capacity constraints"
 ```
 
@@ -208,7 +208,7 @@ git commit -m "feat(cache): define scoped keys and capacity constraints"
 ### Task 2: Make the shared LRU primitive precise and atomic
 
 **Files:**
-- Modify: `backend/leagent/services/cache/lru.py`
+- Modify: `backend/StAgent/services/cache/lru.py`
 - Modify: `backend/tests/test_cache_primitives.py`
 
 **Interfaces:**
@@ -340,7 +340,7 @@ Expected: all tests PASS.
 - [ ] **Step 7: Commit the primitive hardening**
 
 ```powershell
-git add backend/leagent/services/cache/lru.py backend/tests/test_cache_primitives.py
+git add backend/StAgent/services/cache/lru.py backend/tests/test_cache_primitives.py
 git commit -m "fix(cache): make ttl and sharded updates precise"
 ```
 
@@ -349,8 +349,8 @@ git commit -m "fix(cache): make ttl and sharded updates precise"
 ### Task 3: Add single-flight, atomic generations and bounded values to CacheService
 
 **Files:**
-- Modify: `backend/leagent/services/cache/service.py`
-- Modify: `backend/leagent/services/cache/observability.py`
+- Modify: `backend/StAgent/services/cache/service.py`
+- Modify: `backend/StAgent/services/cache/observability.py`
 - Create: `backend/tests/test_cache_singleflight.py`
 - Modify: `backend/tests/test_cache_optimization.py`
 
@@ -370,8 +370,8 @@ from __future__ import annotations
 import asyncio
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.services.cache.service import CacheService
 
 
 @pytest.mark.asyncio
@@ -524,7 +524,7 @@ Rewrite `increment` to use the same atomic `update` path instead of `get` follow
 - [ ] **Step 5: Reject oversized values before insertion**
 
 ```python
-# backend/leagent/services/cache/service.py imports
+# backend/StAgent/services/cache/service.py imports
 import hashlib
 import sys
 
@@ -595,7 +595,7 @@ Expected: all tests PASS, including exactly one factory call and generation 100.
 - [ ] **Step 8: Commit the service behavior**
 
 ```powershell
-git add backend/leagent/services/cache/service.py backend/leagent/services/cache/observability.py backend/tests/test_cache_singleflight.py backend/tests/test_cache_optimization.py
+git add backend/StAgent/services/cache/service.py backend/StAgent/services/cache/observability.py backend/tests/test_cache_singleflight.py backend/tests/test_cache_optimization.py
 git commit -m "feat(cache): coalesce fills and version mutable data"
 ```
 
@@ -604,7 +604,7 @@ git commit -m "feat(cache): coalesce fills and version mutable data"
 ### Task 4: Wire CacheService into the actual service lifecycle
 
 **Files:**
-- Modify: `backend/leagent/services/service_manager.py:29-325`
+- Modify: `backend/StAgent/services/service_manager.py:29-325`
 - Create: `backend/tests/test_cache_service_manager.py`
 
 **Interfaces:**
@@ -621,9 +621,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.services.base import ServiceState
-from leagent.services.service_manager import ServiceManager
+from StAgent.config.settings import Settings
+from StAgent.services.base import ServiceState
+from StAgent.services.service_manager import ServiceManager
 
 
 @pytest.mark.asyncio
@@ -646,7 +646,7 @@ async def test_chat_receives_manager_cache(monkeypatch: pytest.MonkeyPatch) -> N
         captured["cache"] = cache
         return object()
 
-    monkeypatch.setattr("leagent.services.chat.service.init_chat_service", fake_init)
+    monkeypatch.setattr("StAgent.services.chat.service.init_chat_service", fake_init)
     await manager._start_chat()
     assert captured["cache"] is manager.cache
     await manager.cache.stop()
@@ -673,7 +673,7 @@ def cache(self) -> "CacheService | None":
     return self._cache
 
 async def _start_cache(self) -> None:
-    from leagent.services.cache.service import init_cache_service
+    from StAgent.services.cache.service import init_cache_service
     self._cache = await init_cache_service(self.settings)
     logger.info("CacheService initialized (memory, max_items=%d)", self.settings.cache.max_items)
 ```
@@ -705,7 +705,7 @@ Expected: all tests PASS.
 - [ ] **Step 6: Commit the runtime wiring**
 
 ```powershell
-git add backend/leagent/services/service_manager.py backend/tests/test_cache_service_manager.py
+git add backend/StAgent/services/service_manager.py backend/tests/test_cache_service_manager.py
 git commit -m "fix(runtime): wire cache service into application lifecycle"
 ```
 
@@ -714,9 +714,9 @@ git commit -m "fix(runtime): wire cache service into application lifecycle"
 ### Task 5: Make chat and session invalidation correct and O(1)
 
 **Files:**
-- Modify: `backend/leagent/services/chat/service.py:168-180,922-983`
-- Modify: `backend/leagent/services/session/manager.py:69-83`
-- Modify: `backend/leagent/services/session/store.py:79-141`
+- Modify: `backend/StAgent/services/chat/service.py:168-180,922-983`
+- Modify: `backend/StAgent/services/session/manager.py:69-83`
+- Modify: `backend/StAgent/services/session/store.py:79-141`
 - Modify: `backend/tests/test_chat_message_ordering.py`
 - Modify: `backend/tests/test_session_manager.py`
 
@@ -730,7 +730,7 @@ git commit -m "fix(runtime): wire cache service into application lifecycle"
 ```python
 # append to backend/tests/test_chat_message_ordering.py
 # change the fixture setup to:
-from leagent.services.cache.service import CacheService
+from StAgent.services.cache.service import CacheService
 
 settings = get_settings()
 cache = CacheService(settings)
@@ -881,7 +881,7 @@ Expected: all tests PASS; no transcript write path uses `delete_prefix("messages
 - [ ] **Step 7: Commit the state-cache correction**
 
 ```powershell
-git add backend/leagent/services/chat/service.py backend/leagent/services/session/manager.py backend/leagent/services/session/store.py backend/leagent/services/service_manager.py backend/tests/test_chat_message_ordering.py backend/tests/test_session_manager.py
+git add backend/StAgent/services/chat/service.py backend/StAgent/services/session/manager.py backend/StAgent/services/session/store.py backend/StAgent/services/service_manager.py backend/tests/test_chat_message_ordering.py backend/tests/test_session_manager.py
 git commit -m "fix(cache): version chat history and preserve session durability"
 ```
 
@@ -890,11 +890,11 @@ git commit -m "fix(cache): version chat history and preserve session durability"
 ### Task 6: Bound context, skill and web caches under one primitive
 
 **Files:**
-- Modify: `backend/leagent/context/cache.py`
-- Modify: `backend/leagent/context/manager.py:121,554-640`
-- Modify: `backend/leagent/skills/resource_cache.py`
-- Modify: `backend/leagent/skills/bundle_payload_cache.py`
-- Modify: `backend/leagent/tools/web/web_search/cache.py`
+- Modify: `backend/StAgent/context/cache.py`
+- Modify: `backend/StAgent/context/manager.py:121,554-640`
+- Modify: `backend/StAgent/skills/resource_cache.py`
+- Modify: `backend/StAgent/skills/bundle_payload_cache.py`
+- Modify: `backend/StAgent/tools/web/web_search/cache.py`
 - Modify: `backend/tests/test_context/test_cache.py`
 - Create or modify: cache tests next to skill and web-search tests.
 
@@ -1031,7 +1031,7 @@ Expected: `tests/test_skills.py` and `tests/test_web_search.py` PASS with the co
 - [ ] **Step 7: Commit the cache consolidation**
 
 ```powershell
-git add backend/leagent/context/cache.py backend/leagent/context/manager.py backend/leagent/skills/resource_cache.py backend/leagent/skills/bundle_payload_cache.py backend/leagent/tools/web/web_search/cache.py backend/tests/test_context/test_cache.py
+git add backend/StAgent/context/cache.py backend/StAgent/context/manager.py backend/StAgent/skills/resource_cache.py backend/StAgent/skills/bundle_payload_cache.py backend/StAgent/tools/web/web_search/cache.py backend/tests/test_context/test_cache.py
 git commit -m "refactor(cache): bound context skill and web caches"
 ```
 
@@ -1040,11 +1040,11 @@ git commit -m "refactor(cache): bound context skill and web caches"
 ### Task 7: Cache embeddings and recall through real runtime wiring
 
 **Files:**
-- Delete: `backend/leagent/memory/cache.py`
-- Modify: `backend/leagent/memory/embeddings.py`
-- Modify: `backend/leagent/memory/recall.py`
-- Modify: `backend/leagent/memory/agent_memory.py`
-- Modify: `backend/leagent/services/service_manager.py:624-675`
+- Delete: `backend/StAgent/memory/cache.py`
+- Modify: `backend/StAgent/memory/embeddings.py`
+- Modify: `backend/StAgent/memory/recall.py`
+- Modify: `backend/StAgent/memory/agent_memory.py`
+- Modify: `backend/StAgent/services/service_manager.py:624-675`
 - Modify: `backend/tests/test_cache_primitives.py`
 - Modify: `backend/tests/test_agent_memory.py`
 - Modify: `backend/tests/test_memory_vector.py`
@@ -1068,10 +1068,10 @@ from uuid import UUID
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
-from leagent.memory.recall import RecallOptions, RetrievalPipeline
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
+from StAgent.memory.recall import RecallOptions, RetrievalPipeline
+from StAgent.services.cache.service import CacheService
 
 
 class FakeLLM:
@@ -1277,10 +1277,10 @@ Construct `RetrievalPipeline(..., cache=cache, generation_getter=self._recall_ge
 After migrating imports, run:
 
 ```powershell
-rg -n "from leagent.memory.cache|EmbeddingCache|RecallCache|MemoryCache" backend/leagent backend/tests
+rg -n "from StAgent.memory.cache|EmbeddingCache|RecallCache|MemoryCache" backend/StAgent backend/tests
 ```
 
-Expected before deletion: production code has zero matches; only `backend/leagent/memory/cache.py` and the `MemoryCache` section in `backend/tests/test_cache_primitives.py` match. Delete `backend/leagent/memory/cache.py` and remove the `_FlakyL2` plus `MemoryCache`-only tests and imports from `backend/tests/test_cache_primitives.py`. The production Embedding and Recall paths above are the only memory result caches after this step.
+Expected before deletion: production code has zero matches; only `backend/StAgent/memory/cache.py` and the `MemoryCache` section in `backend/tests/test_cache_primitives.py` match. Delete `backend/StAgent/memory/cache.py` and remove the `_FlakyL2` plus `MemoryCache`-only tests and imports from `backend/tests/test_cache_primitives.py`. The production Embedding and Recall paths above are the only memory result caches after this step.
 
 - [ ] **Step 7: Run memory and integration suites**
 
@@ -1295,7 +1295,7 @@ Expected: all tests PASS; identical concurrent embedding requests produce one pr
 - [ ] **Step 8: Commit runtime memory caching**
 
 ```powershell
-git add backend/leagent/memory/cache.py backend/leagent/memory/embeddings.py backend/leagent/memory/recall.py backend/leagent/memory/agent_memory.py backend/leagent/services/service_manager.py backend/tests/test_cache_primitives.py backend/tests/test_cache_integration.py backend/tests/test_agent_memory.py backend/tests/test_memory_vector.py
+git add backend/StAgent/memory/cache.py backend/StAgent/memory/embeddings.py backend/StAgent/memory/recall.py backend/StAgent/memory/agent_memory.py backend/StAgent/services/service_manager.py backend/tests/test_cache_primitives.py backend/tests/test_cache_integration.py backend/tests/test_agent_memory.py backend/tests/test_memory_vector.py
 git commit -m "feat(memory): cache embeddings and version recall results"
 ```
 
@@ -1304,12 +1304,12 @@ git commit -m "feat(memory): cache embeddings and version recall results"
 ### Task 8: Close workflow cache isolation and capacity gaps
 
 **Files:**
-- Modify: `backend/leagent/workflow/engine/caching.py:35-390`
-- Modify: `backend/leagent/workflow/engine/executor.py:78-110`
-- Modify: `backend/leagent/workflow/engine/runner.py:180-280`
-- Modify: `backend/leagent/services/service_manager.py:481-490`
-- Modify: `backend/leagent/workflow/cli/workflow_worker.py:102-112`
-- Modify: `backend/leagent/workflow/nodes/builtin/subworkflow.py:65-80`
+- Modify: `backend/StAgent/workflow/engine/caching.py:35-390`
+- Modify: `backend/StAgent/workflow/engine/executor.py:78-110`
+- Modify: `backend/StAgent/workflow/engine/runner.py:180-280`
+- Modify: `backend/StAgent/services/service_manager.py:481-490`
+- Modify: `backend/StAgent/workflow/cli/workflow_worker.py:102-112`
+- Modify: `backend/StAgent/workflow/nodes/builtin/subworkflow.py:65-80`
 - Modify: `backend/tests/workflow/test_engine.py`
 - Modify: `backend/tests/workflow/test_execution_list.py`
 
@@ -1429,7 +1429,7 @@ Expected: all tests PASS; direct constructors are bounded; owner scopes never sh
 - [ ] **Step 7: Commit workflow cache isolation**
 
 ```powershell
-git add backend/leagent/workflow/engine/caching.py backend/leagent/workflow/engine/executor.py backend/leagent/workflow/engine/runner.py backend/leagent/services/service_manager.py backend/leagent/workflow/cli/workflow_worker.py backend/leagent/workflow/nodes/builtin/subworkflow.py backend/tests/workflow/test_engine.py backend/tests/workflow/test_execution_list.py
+git add backend/StAgent/workflow/engine/caching.py backend/StAgent/workflow/engine/executor.py backend/StAgent/workflow/engine/runner.py backend/StAgent/services/service_manager.py backend/StAgent/workflow/cli/workflow_worker.py backend/StAgent/workflow/nodes/builtin/subworkflow.py backend/tests/workflow/test_engine.py backend/tests/workflow/test_execution_list.py
 git commit -m "fix(workflow): bound and isolate node output caches"
 ```
 
@@ -1438,9 +1438,9 @@ git commit -m "fix(workflow): bound and isolate node output caches"
 ### Task 9: Finish observability and safe runtime controls
 
 **Files:**
-- Modify: `backend/leagent/services/cache/observability.py`
-- Modify: `backend/leagent/utils/metrics.py`
-- Modify: `backend/leagent/api/v1/stats.py:54-91,482-545`
+- Modify: `backend/StAgent/services/cache/observability.py`
+- Modify: `backend/StAgent/utils/metrics.py`
+- Modify: `backend/StAgent/api/v1/stats.py:54-91,482-545`
 - Modify: `backend/tests/test_cache_optimization.py`
 - Create: `backend/tests/test_stats_api.py`
 - Create: `backend/tests/test_cache_metrics.py`
@@ -1478,11 +1478,11 @@ def test_cache_config_response_is_explicitly_ephemeral(
 # backend/tests/test_cache_metrics.py
 from prometheus_client import CollectorRegistry
 
-from leagent.utils.metrics import LeAgentMetrics
+from StAgent.utils.metrics import StAgentMetrics
 
 
 def test_cache_pressure_metrics_use_only_cache_name_label() -> None:
-    metrics = LeAgentMetrics(CollectorRegistry())
+    metrics = StAgentMetrics(CollectorRegistry())
     metrics.record_cache_rejection("chat")
     metrics.record_cache_fill("chat", duration_sec=0.01, coalesced=4)
     payload = metrics.generate_metrics().decode("utf-8")
@@ -1536,7 +1536,7 @@ return {
 }
 ```
 
-In `update_limits`, reject `max_items < shard_count` with `ValueError`; translate it to HTTP 422. Change the mutation endpoint parameter from `user_id: CurrentUserId` to `_admin_id: AdminUserId`, imported from `leagent.services.auth.deps`. Keep the read-only stats endpoint on `CurrentUserId`.
+In `update_limits`, reject `max_items < shard_count` with `ValueError`; translate it to HTTP 422. Change the mutation endpoint parameter from `user_id: CurrentUserId` to `_admin_id: AdminUserId`, imported from `StAgent.services.auth.deps`. Keep the read-only stats endpoint on `CurrentUserId`.
 
 - [ ] **Step 6: Run observability and API suites**
 
@@ -1551,7 +1551,7 @@ Expected: all tests PASS; `/stats/cache` works after real `ServiceManager` start
 - [ ] **Step 7: Commit observability and controls**
 
 ```powershell
-git add backend/leagent/services/cache/observability.py backend/leagent/services/cache/service.py backend/leagent/utils/metrics.py backend/leagent/api/v1/stats.py backend/tests/test_cache_optimization.py backend/tests/test_stats_api.py
+git add backend/StAgent/services/cache/observability.py backend/StAgent/services/cache/service.py backend/StAgent/utils/metrics.py backend/StAgent/api/v1/stats.py backend/tests/test_cache_optimization.py backend/tests/test_stats_api.py
 git commit -m "feat(cache): expose pressure and fill observability"
 ```
 
@@ -1581,8 +1581,8 @@ import json
 import statistics
 import time
 
-from leagent.config.settings import Settings
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.services.cache.service import CacheService
 
 
 async def _measure(iterations: int) -> dict[str, float | int]:
@@ -1649,14 +1649,14 @@ Update the prompt-cache guide to distinguish provider prompt-prefix caching from
 
 ```dotenv
 # Process-local application cache (no Redis required)
-LEAGENT_CACHE_DEFAULT_TTL=3600
-LEAGENT_CACHE_MAX_ITEMS=10000
-LEAGENT_CACHE_MAX_VALUE_BYTES=1048576
-LEAGENT_CACHE_SHARD_COUNT=1
-LEAGENT_CACHE_MAINTENANCE_INTERVAL_SEC=30
-LEAGENT_CACHE_TTL_JITTER_RATIO=0.05
+StAgent_CACHE_DEFAULT_TTL=3600
+StAgent_CACHE_MAX_ITEMS=10000
+StAgent_CACHE_MAX_VALUE_BYTES=1048576
+StAgent_CACHE_SHARD_COUNT=1
+StAgent_CACHE_MAINTENANCE_INTERVAL_SEC=30
+StAgent_CACHE_TTL_JITTER_RATIO=0.05
 # JSON map; mutable recall is short, stable embeddings are longer-lived.
-LEAGENT_CACHE_NAMESPACE_TTLS={"embeddings":7200,"recall":300,"files":1800,"chat":900,"memory":1800,"webhooks":600,"variables":1800}
+StAgent_CACHE_NAMESPACE_TTLS={"embeddings":7200,"recall":300,"files":1800,"chat":900,"memory":1800,"webhooks":600,"variables":1800}
 ```
 
 - [ ] **Step 5: Commit docs and benchmark tooling**
@@ -1682,8 +1682,8 @@ git commit -m "docs(cache): add operations guide and hot-path benchmark"
 Run:
 
 ```powershell
-uv run ruff check leagent/services/cache leagent/services/service_manager.py leagent/services/chat/service.py leagent/services/session leagent/context leagent/skills leagent/tools/web/web_search/cache.py leagent/memory leagent/workflow/engine tests/test_cache_keys.py tests/test_cache_singleflight.py tests/test_cache_service_manager.py tests/test_cache_integration.py
-uv run black --check leagent/services/cache leagent/services/service_manager.py leagent/services/chat/service.py leagent/services/session leagent/context leagent/skills leagent/tools/web/web_search/cache.py leagent/memory leagent/workflow/engine tests/test_cache_keys.py tests/test_cache_singleflight.py tests/test_cache_service_manager.py tests/test_cache_integration.py
+uv run ruff check StAgent/services/cache StAgent/services/service_manager.py StAgent/services/chat/service.py StAgent/services/session StAgent/context StAgent/skills StAgent/tools/web/web_search/cache.py StAgent/memory StAgent/workflow/engine tests/test_cache_keys.py tests/test_cache_singleflight.py tests/test_cache_service_manager.py tests/test_cache_integration.py
+uv run black --check StAgent/services/cache StAgent/services/service_manager.py StAgent/services/chat/service.py StAgent/services/session StAgent/context StAgent/skills StAgent/tools/web/web_search/cache.py StAgent/memory StAgent/workflow/engine tests/test_cache_keys.py tests/test_cache_singleflight.py tests/test_cache_service_manager.py tests/test_cache_integration.py
 ```
 
 Expected: exit code 0 for both commands. Fix only reported files and rerun until clean.
@@ -1726,8 +1726,8 @@ Expected: every invariant holds. Latency is reported as local evidence, not a un
 Start the backend in a separate PowerShell terminal with:
 
 ```powershell
-$env:LEAGENT_PORT='7860'
-uv run python -m leagent.server
+$env:StAgent_PORT='7860'
+uv run python -m StAgent.server
 ```
 
 Then verify:
@@ -1746,7 +1746,7 @@ Run:
 ```powershell
 git diff --check
 git status --short
-git diff -- backend/leagent/services/cache backend/leagent/services/service_manager.py backend/leagent/services/chat/service.py backend/leagent/services/session backend/leagent/context backend/leagent/skills backend/leagent/tools/web/web_search/cache.py backend/leagent/memory backend/leagent/workflow/engine backend/leagent/api/v1/stats.py deploy/.env.example docs/technical/cache-architecture.md
+git diff -- backend/StAgent/services/cache backend/StAgent/services/service_manager.py backend/StAgent/services/chat/service.py backend/StAgent/services/session backend/StAgent/context backend/StAgent/skills backend/StAgent/tools/web/web_search/cache.py backend/StAgent/memory backend/StAgent/workflow/engine backend/StAgent/api/v1/stats.py deploy/.env.example docs/technical/cache-architecture.md
 ```
 
 Expected: no whitespace errors; no secret values; no Redis dependency; no unrelated user files staged.

@@ -26,6 +26,7 @@ import { useChatDraftStore } from '@/stores/chatDraft';
 import { useTerminalStore, selectSessionChunks, type TerminalChunk } from '@/stores/terminal';
 import { useCodingProjectLogs } from '@/hooks/useCodingProjects';
 import type { AgentSessionEvent } from '@/lib/agent/agentSessionEvents';
+import { lowerBoundSeq } from './terminalChunkUtils';
 
 interface SessionTerminalDockProps {
   events: AgentSessionEvent[];
@@ -210,10 +211,14 @@ export function SessionTerminalDock({
       }
     }
 
-    // Live chunk tail.
-    const newChunks = chunks.filter((c) => c.seq > writtenSeqRef.current);
-    for (const chunk of newChunks) {
-      writtenSeqRef.current = Math.max(writtenSeqRef.current, chunk.seq);
+    // Live chunk tail. Chunks are ordered by seq, so binary-search the first
+    // unwritten index instead of filtering the whole (up to 4000-entry)
+    // array on every render.
+    const fromIdx = lowerBoundSeq(chunks, writtenSeqRef.current);
+    for (const chunk of chunks.slice(fromIdx)) {
+      if (chunk.seq > writtenSeqRef.current) {
+        writtenSeqRef.current = chunk.seq;
+      }
       writeLiveChunk(term, chunk, openPromptCallRef);
     }
   }, [events, chunks, collapsed, tab, t]);

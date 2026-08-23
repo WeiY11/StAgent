@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.memory.compact import snap_autocompact_split
+from StAgent.memory.compact import snap_autocompact_split
 
 
 def test_snap_autocompact_split_moves_before_tool_block() -> None:

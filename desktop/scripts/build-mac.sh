@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #──────────────────────────────────────────────────────────────────────
-# LeAgent Desktop — macOS build (arm64 + x64)
+# StAgent Desktop — macOS build (arm64 + x64)
 #
 # Usage:
 #   ./build-mac.sh                        # version from electron/package.json
@@ -43,7 +43,7 @@ DESKTOP_ELECTRON="$REPO/desktop/electron"
 IFS=',' read -ra ARCHES <<< "$ARCH"
 
 echo "============================================"
-echo "  LeAgent Desktop — macOS Build"
+echo "  StAgent Desktop — macOS Build"
 echo "  Version : $VERSION"
 echo "  Arch    : $ARCH"
 echo "  Channel : $CHANNEL"
@@ -101,10 +101,10 @@ if [ "$SKIP_COMPILEALL" = false ]; then
       break
     fi
   done
-  if [ -n "$RUNTIME_PY" ] && [ -d "$PAYLOAD_DIR/leagent" ]; then
+  if [ -n "$RUNTIME_PY" ] && [ -d "$PAYLOAD_DIR/StAgent" ]; then
     echo ""
     echo "==> compileall backend payload"
-    "$RUNTIME_PY" -m compileall -q "$PAYLOAD_DIR/leagent" || echo "  ⚠ compileall failed (non-fatal)"
+    "$RUNTIME_PY" -m compileall -q "$PAYLOAD_DIR/StAgent" || echo "  ⚠ compileall failed (non-fatal)"
   fi
 else
   echo "  ⚠ SkipCompileall: .pyc cache not refreshed."

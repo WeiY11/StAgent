@@ -1,6 +1,6 @@
 # Demo: text-to-speech via a self-hosted OpenAI-compatible TTS server
 # (openedai-speech, Kokoro-FastAPI, ...). Configure:
-#   LEAGENT_LOCAL_TTS_URL=http://localhost:8880   (optional LEAGENT_LOCAL_TTS_MODEL)
+#   StAgent_LOCAL_TTS_URL=http://localhost:8880   (optional StAgent_LOCAL_TTS_MODEL)
 # The Model.tts.local node returns base64 MP3 audio on its data_b64 slot.
 id: demo_local_tts
 name: "Demo: Local TTS pipeline"
@@ -11,7 +11,7 @@ inputs:
   - name: text
     type: string
     required: false
-    default: "Hello from LeAgent. This audio was synthesised by a locally hosted model."
+    default: "Hello from StAgent. This audio was synthesised by a locally hosted model."
   - name: voice
     type: string
     required: false

@@ -7,15 +7,15 @@
   const versionEl = document.getElementById('version');
 
   // Receive runtime:status updates
-  if (window.leagent?.runtime?.onStatus) {
-    window.leagent.runtime.onStatus((status) => {
+  if (window.StAgent?.runtime?.onStatus) {
+    window.StAgent.runtime.onStatus((status) => {
       if (statusEl) statusEl.textContent = status;
     });
   }
 
   // Receive runtime:progress updates
-  if (window.leagent?.runtime?.onProgress) {
-    window.leagent.runtime.onProgress((data) => {
+  if (window.StAgent?.runtime?.onProgress) {
+    window.StAgent.runtime.onProgress((data) => {
       if (progressBar) {
         progressBar.style.width = Math.min(100, Math.max(0, data.percent)) + '%';
       }
@@ -26,14 +26,14 @@
   }
 
   // Set version from the bridge (async — contextBridge cannot expose sync version)
-  if (window.leagent?.app?.getVersion && versionEl) {
-    window.leagent.app.getVersion().then((v) => {
+  if (window.StAgent?.app?.getVersion && versionEl) {
+    window.StAgent.app.getVersion().then((v) => {
       if (v) versionEl.textContent = 'v' + v;
     }).catch(() => { /* keep placeholder */ });
   }
 
   // Simulate initial progress if no bridge (dev/testing)
-  if (!window.leagent) {
+  if (!window.StAgent) {
     let pct = 0;
     const msgs = [
       'Initializing…',

@@ -13,18 +13,18 @@ import pytest
 
 # Production modules that may invoke agent execution.
 _AGENT_ENTRY_MODULES = [
-    "leagent/tasks/handlers/agent_handler.py",
-    "leagent/agent/subagent.py",
-    "leagent/agent/controller.py",
-    "leagent/runtime/runtime.py",
-    "leagent/workflow/nodes/agent_exec.py",
+    "StAgent/tasks/handlers/agent_handler.py",
+    "StAgent/agent/subagent.py",
+    "StAgent/agent/controller.py",
+    "StAgent/runtime/runtime.py",
+    "StAgent/workflow/nodes/agent_exec.py",
 ]
 
 # Allowed to call submit_message directly (kernel internals + tests).
 _SUBMIT_MESSAGE_ALLOWLIST = {
-    "leagent/agent/query_engine.py",
-    "leagent/sdk/kernel/loop.py",
-    "leagent/agent/query.py",
+    "StAgent/agent/query_engine.py",
+    "StAgent/sdk/kernel/loop.py",
+    "StAgent/agent/query.py",
 }
 
 
@@ -67,37 +67,37 @@ def test_production_agent_entries_use_kernel(relative: str) -> None:
     if not path.exists():
         pytest.skip(f"{relative} not present")
     source = path.read_text(encoding="utf-8")
-    if relative == "leagent/agent/controller.py":
+    if relative == "StAgent/agent/controller.py":
         # Controller delegates to run_loop via _run_via_query_engine.
         assert "run_loop" in source
         return
-    if relative == "leagent/runtime/runtime.py":
+    if relative == "StAgent/runtime/runtime.py":
         assert "run_loop" in source
         return
-    if relative == "leagent/workflow/nodes/agent_exec.py":
+    if relative == "StAgent/workflow/nodes/agent_exec.py":
         assert "AgentRuntime" in source or "run_loop" in source
         return
-    if relative == "leagent/agent/subagent.py":
+    if relative == "StAgent/agent/subagent.py":
         assert "run_loop" in source
         assert not _calls_submit_message(source), (
             f"{relative} must route through run_loop, not submit_message"
         )
         return
-    if relative == "leagent/tasks/handlers/agent_handler.py":
+    if relative == "StAgent/tasks/handlers/agent_handler.py":
         assert "runtime.stream" in source or "run_loop" in source
         assert not _calls_submit_message(source)
         return
 
 
 def test_service_manager_exposes_runtime_context() -> None:
-    from leagent.services.service_manager import ServiceManager
+    from StAgent.services.service_manager import ServiceManager
 
     assert "runtime_context" in dir(ServiceManager)
 
 
 def test_chat_workflow_runner_does_not_call_execute_async_directly() -> None:
     """Chat step runner must route through WorkflowService, not the raw executor."""
-    path = _module_path("leagent/chat_workflow/runner.py")
+    path = _module_path("StAgent/chat_workflow/runner.py")
     assert path.exists(), "chat_workflow/runner.py must exist"
     source = path.read_text(encoding="utf-8")
     assert "run_compiled_document" in source
@@ -110,7 +110,7 @@ def test_chat_workflow_runner_does_not_call_execute_async_directly() -> None:
 def test_runtime_context_from_service_manager_builds_hooks() -> None:
     from unittest.mock import MagicMock
 
-    from leagent.runtime.context import RuntimeContext
+    from StAgent.runtime.context import RuntimeContext
 
     sm = MagicMock()
     sm.llm_service = MagicMock()

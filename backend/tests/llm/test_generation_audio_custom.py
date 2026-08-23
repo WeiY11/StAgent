@@ -1,7 +1,7 @@
 """Audio kind, custom providers, and ConfiguredGenerationBackend.
 
 All assertions run credential-free against a temp ``providers.yaml`` plus a
-stubbed HTTP transport, so the real ``~/.leagent`` file and network are never
+stubbed HTTP transport, so the real ``~/.StAgent`` file and network are never
 touched.
 """
 
@@ -11,10 +11,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.llm.generation import config as cfg
-from leagent.llm.generation.backends import ConfiguredGenerationBackend, OfflineGenerationBackend
-from leagent.llm.generation.config import CustomProvider, ImageGenConfigStore
-from leagent.llm.generation.service import build_default_generation_service
+from StAgent.llm.generation import config as cfg
+from StAgent.llm.generation.backends import ConfiguredGenerationBackend, OfflineGenerationBackend
+from StAgent.llm.generation.config import CustomProvider, ImageGenConfigStore
+from StAgent.llm.generation.service import build_default_generation_service
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ def store(tmp_path, monkeypatch):
 
 
 def test_audio_is_a_generation_kind():
-    from leagent.llm.generation.base import GENERATION_KINDS
+    from StAgent.llm.generation.base import GENERATION_KINDS
 
     assert "audio" in GENERATION_KINDS
 
@@ -150,7 +150,7 @@ class _FakeTransport:
 
 
 def _patch_transport(monkeypatch, post_response):
-    import leagent.llm.transport as transport_mod
+    import StAgent.llm.transport as transport_mod
 
     fake = _FakeTransport(post_response)
     monkeypatch.setattr(transport_mod, "HttpTransport", lambda *a, **k: fake)

@@ -2,7 +2,7 @@
 
 ## 定位、难度与先修
 
-- **定位**：理解 LeAgent「一条 think-act 路径」如何服务聊天、SDK、任务、子 Agent 与工作流。
+- **定位**：理解 StAgent「一条 think-act 路径」如何服务聊天、SDK、任务、子 Agent 与工作流。
 - **难度**：★★☆☆☆
 - **先修**：[01 Agent 与 Chatbot](01-agent-vs-chatbot.md)、[02 Think-Act Loop](02-think-act-loop.md)
 
@@ -17,7 +17,7 @@
 
 初学 Agent 时常见误区是：聊天有一套循环，CLI 又有一套，工作流节点再写一套。这会很快分叉出不一致的工具权限、钩子、检查点和追踪。
 
-LeAgent 的立场相反：
+StAgent 的立场相反：
 
 ```text
 Ingress（HTTP/SSE · WS · CLI · Task · Cron · Channel · Workflow）
@@ -34,30 +34,30 @@ Durable state + Observability
 
 **Facade 可以很多，Kernel 只应有一个。** 各门面负责组装会话、鉴权、流式传输和领域参数；真正的思考—行动循环集中在 `run_loop`。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
 权威契约见 [`docs/technical/execution-topology_zh.md`](../../technical/execution-topology_zh.md)。关键代码：
 
 | 调用方 | 入口文件 | 到达 Kernel 的方式 |
 |--------|----------|-------------------|
-| Chat SSE | `backend/leagent/agent/controller.py` | `_run_via_query_engine` → `run_loop` |
-| SDK | `backend/leagent/runtime/runtime.py` | `AgentRuntime.stream` / `run` → `run_loop` |
-| 后台任务 | `backend/leagent/tasks/handlers/agent_handler.py` | `AgentRuntime` → `run_loop` |
-| 子 Agent | `backend/leagent/agent/subagent.py` | `_run_engine` → `run_loop` |
-| 工作流 Agent 节点 | `backend/leagent/workflow/nodes/agent_exec.py` | `stream` / `delegate` / `resume` → `run_loop` |
+| Chat SSE | `backend/StAgent/agent/controller.py` | `_run_via_query_engine` → `run_loop` |
+| SDK | `backend/StAgent/runtime/runtime.py` | `AgentRuntime.stream` / `run` → `run_loop` |
+| 后台任务 | `backend/StAgent/tasks/handlers/agent_handler.py` | `AgentRuntime` → `run_loop` |
+| 子 Agent | `backend/StAgent/agent/subagent.py` | `_run_engine` → `run_loop` |
+| 工作流 Agent 节点 | `backend/StAgent/workflow/nodes/agent_exec.py` | `stream` / `delegate` / `resume` → `run_loop` |
 
-依赖装配单点是 `ServiceManager.runtime_context`（`backend/leagent/services/service_manager.py`）：统一提供 `ToolRegistry`、`ToolExecutor`、`HookManager`、`CheckpointStore`、`SessionManager`、`AgentMemory`、`LLMService`。聊天侧通过 `backend/leagent/api/v1/chat_deps.py` 的 `build_agent_controller()` 消费同一束服务。
+依赖装配单点是 `ServiceManager.runtime_context`（`backend/StAgent/services/service_manager.py`）：统一提供 `ToolRegistry`、`ToolExecutor`、`HookManager`、`CheckpointStore`、`SessionManager`、`AgentMemory`、`LLMService`。聊天侧通过 `backend/StAgent/api/v1/chat_deps.py` 的 `build_agent_controller()` 消费同一束服务。
 
 `AgentController` 模块注释历史上曾提到 Plan-Execute / Hybrid；当前实现里 planner 标注为 dormant，`run` **只**走 `_run_via_query_engine`。教学与集成都以统一 QueryEngine 路径为准。
 
-每次执行还会铸造一个 `ExecutionRun`（`backend/leagent/runtime/execution_factory.py`），携带 `run_id` / `parent_run_id` / `scope`。子作用域（子 Agent、工作流步骤）挂到父轮次，便于 trace 串联。注意：`ExecutionRunRegistry` 是**进程内**单例——多 worker 部署需要粘性会话。
+每次执行还会铸造一个 `ExecutionRun`（`backend/StAgent/runtime/execution_factory.py`），携带 `run_id` / `parent_run_id` / `scope`。子作用域（子 Agent、工作流步骤）挂到父轮次，便于 trace 串联。注意：`ExecutionRunRegistry` 是**进程内**单例——多 worker 部署需要粘性会话。
 
 ## 分步理解：从 SDK 到 Chat 的同一条路
 
 ### 1. 公共 SDK（推荐集成面）
 
 ```python
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 async for event in runtime.stream("default_agent", "总结附件", session_id=sid):
@@ -97,13 +97,13 @@ uv run pytest tests/test_execution_topology_invariants.py tests/test_kernel_chec
 ## 业内对照
 
 - Codex 用单一 `codex-core` 服务多种 UI；Claude Agent SDK 把同一循环以库形式嵌入宿主进程——与「一门面多入口、一内核」同构。
-- LangGraph 用图执行器统一节点；LeAgent 的 Agent 对话路径以代码循环为内核，DAG 留给 `WorkflowExecutor`，两者共用可恢复与追踪理念但执行面不同。
+- LangGraph 用图执行器统一节点；StAgent 的 Agent 对话路径以代码循环为内核，DAG 留给 `WorkflowExecutor`，两者共用可恢复与追踪理念但执行面不同。
 
 ## 总结与延伸阅读
 
-「一套 Kernel，多个入口」是 LeAgent 可维护性的主轴：入口可以增殖，行为契约不能分裂。
+「一套 Kernel，多个入口」是 StAgent 可维护性的主轴：入口可以增殖，行为契约不能分裂。
 
 - [04｜AgentEvent 流式事件协议](04-agent-event-stream.md)
 - [05｜状态所有权](05-state-ownership.md)
 - [执行拓扑](../../technical/execution-topology_zh.md)
-- 源码：[`sdk/kernel/loop.py`](../../../backend/leagent/sdk/kernel/loop.py)、[`runtime/runtime.py`](../../../backend/leagent/runtime/runtime.py)
+- 源码：[`sdk/kernel/loop.py`](../../../backend/StAgent/sdk/kernel/loop.py)、[`runtime/runtime.py`](../../../backend/StAgent/runtime/runtime.py)

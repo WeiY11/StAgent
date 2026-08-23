@@ -1,13 +1,13 @@
 # Agent Systems Survey
 
-> Status: reference. Informs `leagent/runtime/`, `leagent/sdk/`, and the
+> Status: reference. Informs `StAgent/runtime/`, `StAgent/sdk/`, and the
 > agent-stack layering upgrade.
 
 中文版: [`agent-systems-survey_zh.md`](./agent-systems-survey_zh.md)
 
-Before evolving the LeAgent agent architecture we surveyed publicly documented
+Before evolving the StAgent agent architecture we surveyed publicly documented
 agent harnesses to identify the abstractions they share, and to decide where
-LeAgent should **align** with established patterns versus **diverge**
+StAgent should **align** with established patterns versus **diverge**
 deliberately. This document records that survey and the design decisions it
 drove. It is descriptive, not aspirational: every "align" item maps to a
 concrete phase in the layering plan.
@@ -88,11 +88,11 @@ concrete phase in the layering plan.
 
 ---
 
-## 2. Shared abstractions and LeAgent's stance
+## 2. Shared abstractions and StAgent's stance
 
-| Shared abstraction | Seen in | LeAgent counterpart | Stance |
+| Shared abstraction | Seen in | StAgent counterpart | Stance |
 |---|---|---|---|
-| Reusable core library behind many UIs | Codex `codex-core`, Pi `pi-agent-core` | `leagent.sdk` + `AgentRuntime` over `QueryEngine` | Align: make `AgentRuntime` the single facade |
+| Reusable core library behind many UIs | Codex `codex-core`, Pi `pi-agent-core` | `StAgent.sdk` + `AgentRuntime` over `QueryEngine` | Align: make `AgentRuntime` the single facade |
 | SQ/EQ + per-session orchestrator | Codex `Session` | `QueryEngine.submit_message`, wrapped by `sdk/kernel/run_loop` | Done: chat **and** runtime drive through the one loop |
 | Durable session persistence + resume | Codex `RolloutRecorder`, Claude `SessionStore` | `CheckpointStore` / `RunState` + `SQLCheckpointStore` + `AgentRuntime.resume` | Done: durable store wired via `RuntimeContext`; checkpoint-on-pause + resume |
 | Lifecycle hook taxonomy | Claude hooks | `HookManager` / `AgentHook` + single-site dispatch in `run_loop` | Done: tool/subagent/pre_compact hooks fire; `filter_by_names` implemented |
@@ -107,20 +107,20 @@ concrete phase in the layering plan.
 ### Deliberate divergences
 
 - **No in-loop steering queue.** Pi interrupts a running tool batch with
-  steering messages. LeAgent keeps interaction **controller-mediated**: the
+  steering messages. StAgent keeps interaction **controller-mediated**: the
   loop reaches `awaiting_user_input` / abort and the `AgentController` (or SDK
   caller) decides what happens next. This keeps the turn loop single-threaded
   and the persistence model simple, at the cost of mid-tool interruption.
   We compensate by checkpointing on `awaiting_user_input` (Codex-style turn
   pause) so a paused turn can be resumed.
 - **Process-internal subagents, not separate harness processes.** Claude/Codex
-  can spawn isolated processes; LeAgent forks an in-process child engine
+  can spawn isolated processes; StAgent forks an in-process child engine
   (`fork`/`_run_subagent_core`) with a scoped tool registry. Cheaper and
   shares services; sandboxing is delegated to the `code`/`project` layers.
 - **Python entry-points over a `custom_nodes` directory scan.** ComfyUI scans a
-  folder; LeAgent prefers `importlib.metadata` entry-point groups
-  (`leagent.workflow.nodes`, and new `leagent.llm_providers`,
-  `leagent.context_sources`) so third-party packages register without touching
+  folder; StAgent prefers `importlib.metadata` entry-point groups
+  (`StAgent.workflow.nodes`, and new `StAgent.llm_providers`,
+  `StAgent.context_sources`) so third-party packages register without touching
   a magic directory.
 
 ---

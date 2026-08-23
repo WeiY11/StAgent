@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from leagent.workflow.base import WorkflowState
-from leagent.workflow.nodes.prompt_resolve import resolve_node_prompt
+from StAgent.workflow.base import WorkflowState
+from StAgent.workflow.nodes.prompt_resolve import resolve_node_prompt
 
 
 def test_resolve_prompt_from_start_input_bag() -> None:

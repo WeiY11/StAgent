@@ -14,12 +14,12 @@ describe('persistNamespace', () => {
   });
 
   it('falls back to anon/none before an identity is set', () => {
-    expect(namespacedPersistName('leagent-chat')).toBe('leagent-chat:anon:none');
+    expect(namespacedPersistName('StAgent-chat')).toBe('StAgent-chat:anon:none');
   });
 
   it('combines the userId and workspaceId into the suffix', () => {
     setPersistIdentity('user-1', 'ws-42');
-    expect(namespacedPersistName('leagent-chat')).toBe('leagent-chat:user-1:ws-42');
+    expect(namespacedPersistName('StAgent-chat')).toBe('StAgent-chat:user-1:ws-42');
   });
 
   it('clears only registered stores for the current suffix', () => {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# LeAgent — Docker Lifecycle Manager
+# StAgent — Docker Lifecycle Manager
 # =============================================================================
 #
 # Usage:
@@ -8,7 +8,7 @@
 #
 # Commands:
 #   init              First-time setup: generate .env from .env.example
-#   build             Build the LeAgent Docker image
+#   build             Build the StAgent Docker image
 #   up                Start services (production by default)
 #   down              Stop and remove containers
 #   restart           Restart one or all services
@@ -34,9 +34,9 @@
 #   --help, -h        Show this help
 #
 # Environment (.env in this directory):
-#   LEAGENT_SECRET_KEY   *** Required — openssl rand -hex 32 (also used for signed URLs)
-#   LEAGENT_VERSION      Image tag (default: latest)
-#   LEAGENT_HOST_PORT    Host port mapping (default: 8000)
+#   StAgent_SECRET_KEY   *** Required — openssl rand -hex 32 (also used for signed URLs)
+#   StAgent_VERSION      Image tag (default: latest)
+#   StAgent_HOST_PORT    Host port mapping (default: 8000)
 #   DATABASE_URL         Optional PostgreSQL DSN; default is SQLite in /app/data
 #   DEEPSEEK_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY — at least one LLM key recommended
 #
@@ -45,11 +45,11 @@
 #   ./run_docker.sh build
 #   ./run_docker.sh up
 #   ./run_docker.sh up --dev --tools
-#   ./run_docker.sh logs --service leagent
+#   ./run_docker.sh logs --service StAgent
 #   ./run_docker.sh shell
 #   ./run_docker.sh migrate
 #   ./run_docker.sh backup
-#   ./run_docker.sh restore --file ./backups/leagent-2026-04-14.db
+#   ./run_docker.sh restore --file ./backups/StAgent-2026-04-14.db
 #   ./run_docker.sh down
 #   ./run_docker.sh down --volumes
 # =============================================================================
@@ -62,11 +62,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-PROJECT_NAME="leagent"
+PROJECT_NAME="StAgent"
 BACKUP_DIR="$SCRIPT_DIR/backups"
 ENV_FILE="$SCRIPT_DIR/.env"
 ENV_EXAMPLE="$SCRIPT_DIR/.env.example"
-APP_CONTAINER="leagent-backend"
+APP_CONTAINER="StAgent-backend"
 
 # Compose file set (populated by parse_flags)
 COMPOSE_FILES=(-f docker-compose.yml)
@@ -132,7 +132,7 @@ dc() {
 MODE_DEV=false
 OPT_NO_BUILD=false
 OPT_VOLUMES=false
-OPT_VERSION="${LEAGENT_VERSION:-latest}"
+OPT_VERSION="${StAgent_VERSION:-latest}"
 OPT_SERVICE=""
 OPT_BACKUP_FILE=""
 BUILD_TARGET="production"
@@ -193,11 +193,11 @@ assert_env_file() {
     if [[ ! -f "$ENV_FILE" ]]; then
         die ".env not found. Run './run_docker.sh init' first."
     fi
-    if ! grep -q "^LEAGENT_SECRET_KEY=" "$ENV_FILE" || \
-       grep -q "^LEAGENT_SECRET_KEY=$" "$ENV_FILE" || \
-       grep -q "^LEAGENT_SECRET_KEY=CHANGE_ME" "$ENV_FILE" || \
-       grep -q "^LEAGENT_SECRET_KEY=changeme" "$ENV_FILE"; then
-        die "LEAGENT_SECRET_KEY is not set in .env. Run './run_docker.sh init' or edit .env manually."
+    if ! grep -q "^StAgent_SECRET_KEY=" "$ENV_FILE" || \
+       grep -q "^StAgent_SECRET_KEY=$" "$ENV_FILE" || \
+       grep -q "^StAgent_SECRET_KEY=CHANGE_ME" "$ENV_FILE" || \
+       grep -q "^StAgent_SECRET_KEY=changeme" "$ENV_FILE"; then
+        die "StAgent_SECRET_KEY is not set in .env. Run './run_docker.sh init' or edit .env manually."
     fi
 }
 
@@ -227,7 +227,7 @@ assert_sqlite_mode() {
 
 # ── init ─────────────────────────────────────────────────────────────────────
 cmd_init() {
-    header "Initializing LeAgent deployment"
+    header "Initializing StAgent deployment"
 
     # Create .env from example or scratch
     if [[ -f "$ENV_FILE" ]]; then
@@ -238,17 +238,17 @@ cmd_init() {
             log "Copied .env.example → .env"
         else
             cat > "$ENV_FILE" <<'EOF'
-# LeAgent — Docker .env (SQLite by default; optional PostgreSQL)
+# StAgent — Docker .env (SQLite by default; optional PostgreSQL)
 # ==========================================
 # Secret: openssl rand -hex 32
 
-LEAGENT_SECRET_KEY=CHANGE_ME
-LEAGENT_VERSION=latest
-LEAGENT_HOST_PORT=8000
-LEAGENT_WORKERS=1
+StAgent_SECRET_KEY=CHANGE_ME
+StAgent_VERSION=latest
+StAgent_HOST_PORT=8000
+StAgent_WORKERS=1
 
 # Optional PostgreSQL:
-# DATABASE_URL=postgresql+asyncpg://leagent:change-me@postgres.example.com:5432/leagent
+# DATABASE_URL=postgresql+asyncpg://StAgent:change-me@postgres.example.com:5432/StAgent
 
 DEEPSEEK_API_KEY=
 OPENAI_API_KEY=
@@ -257,13 +257,13 @@ EOF
             log "Created default .env"
         fi
 
-        # Auto-generate LEAGENT_SECRET_KEY
+        # Auto-generate StAgent_SECRET_KEY
         if command -v openssl &>/dev/null; then
             SECRET=$(openssl rand -hex 32)
-            sed -i "s/^LEAGENT_SECRET_KEY=.*/LEAGENT_SECRET_KEY=$SECRET/" "$ENV_FILE"
-            ok "Generated LEAGENT_SECRET_KEY"
+            sed -i "s/^StAgent_SECRET_KEY=.*/StAgent_SECRET_KEY=$SECRET/" "$ENV_FILE"
+            ok "Generated StAgent_SECRET_KEY"
         else
-            warn "openssl not found — set LEAGENT_SECRET_KEY manually in .env"
+            warn "openssl not found — set StAgent_SECRET_KEY manually in .env"
         fi
     fi
 
@@ -280,21 +280,21 @@ EOF
 
 # ── build ─────────────────────────────────────────────────────────────────────
 cmd_build() {
-    header "Building LeAgent image  [target: $BUILD_TARGET, tag: $OPT_VERSION]"
+    header "Building StAgent image  [target: $BUILD_TARGET, tag: $OPT_VERSION]"
     load_env
     export BUILD_TARGET
 
     dc build \
-        --build-arg LEAGENT_VERSION="$OPT_VERSION" \
+        --build-arg StAgent_VERSION="$OPT_VERSION" \
         --progress plain \
-        "${OPT_SERVICE:-leagent}"
+        "${OPT_SERVICE:-StAgent}"
 
-    ok "Image built successfully: leagent:$OPT_VERSION"
+    ok "Image built successfully: StAgent:$OPT_VERSION"
 }
 
 # ── up ────────────────────────────────────────────────────────────────────────
 cmd_up() {
-    header "Starting LeAgent services"
+    header "Starting StAgent services"
     assert_env_file
     load_env
 
@@ -309,7 +309,7 @@ cmd_up() {
     cmd_status_quiet
     echo ""
 
-    local host_port="${LEAGENT_HOST_PORT:-8000}"
+    local host_port="${StAgent_HOST_PORT:-8000}"
     echo -e "  ${CYAN}API:${NC}       http://localhost:${host_port}"
     echo -e "  ${CYAN}API docs:${NC}  http://localhost:${host_port}/docs"
     if $MODE_DEV; then
@@ -319,7 +319,7 @@ cmd_up() {
     if is_postgres_configured; then
         echo -e "  ${CYAN}Database:${NC}  PostgreSQL via DATABASE_URL / DB_DATABASE_URL"
     else
-        echo -e "  ${CYAN}SQLite:${NC}    persisted under Docker volume → /app/data/leagent.db"
+        echo -e "  ${CYAN}SQLite:${NC}    persisted under Docker volume → /app/data/StAgent.db"
     fi
     echo ""
     echo -e "  ${YELLOW}Tail logs:${NC}  ./run_docker.sh logs"
@@ -328,7 +328,7 @@ cmd_up() {
 
 # ── down ─────────────────────────────────────────────────────────────────────
 cmd_down() {
-    header "Stopping LeAgent services"
+    header "Stopping StAgent services"
     load_env
 
     if $OPT_VOLUMES; then
@@ -391,25 +391,25 @@ cmd_shell() {
 cmd_migrate() {
     header "Running Alembic database migrations"
     load_env
-    dc exec "$APP_CONTAINER" python -m leagent.scripts.run_migrations
+    dc exec "$APP_CONTAINER" python -m StAgent.scripts.run_migrations
     ok "Migrations complete."
 }
 
 # ── backup ────────────────────────────────────────────────────────────────────
 cmd_backup() {
-    header "Backing up LeAgent (SQLite + data dirs)"
+    header "Backing up StAgent (SQLite + data dirs)"
     load_env
     assert_sqlite_mode "backup"
     mkdir -p "$BACKUP_DIR"
 
     local ts
     ts=$(date +%Y-%m-%d_%H%M%S)
-    local db_file="$BACKUP_DIR/leagent-$ts.db"
-    local vol_archive="$BACKUP_DIR/leagent-data-$ts.tar.gz"
+    local db_file="$BACKUP_DIR/StAgent-$ts.db"
+    local vol_archive="$BACKUP_DIR/StAgent-data-$ts.tar.gz"
 
     log "Copying SQLite database from container..."
-    docker cp "$APP_CONTAINER:/app/data/leagent.db" "$db_file" 2>/dev/null \
-        || warn "Could not copy leagent.db (first run?). Skipping DB file."
+    docker cp "$APP_CONTAINER:/app/data/StAgent.db" "$db_file" 2>/dev/null \
+        || warn "Could not copy StAgent.db (first run?). Skipping DB file."
     [[ -f "$db_file" ]] && ok "Database → $db_file  ($(du -sh "$db_file" | cut -f1))"
 
     log "Archiving /app/data /app/uploads /app/cache from container..."
@@ -417,7 +417,7 @@ cmd_backup() {
         --volumes-from "$APP_CONTAINER" \
         -v "$BACKUP_DIR":/backup \
         alpine \
-        tar czf "/backup/leagent-data-$ts.tar.gz" \
+        tar czf "/backup/StAgent-data-$ts.tar.gz" \
             /app/data /app/uploads /app/cache 2>/dev/null \
         || warn "Volume archive skipped (container may not be running)."
     [[ -f "$vol_archive" ]] && ok "Data archive → $vol_archive  ($(du -sh "$vol_archive" | cut -f1))"
@@ -431,17 +431,17 @@ cmd_restore() {
     load_env
     assert_sqlite_mode "restore"
     [[ -n "$OPT_BACKUP_FILE" ]] || \
-        die "Specify a backup file with --file <path>.  e.g. --file ./backups/leagent-2026-04-14.db"
+        die "Specify a backup file with --file <path>.  e.g. --file ./backups/StAgent-2026-04-14.db"
     [[ -f "$OPT_BACKUP_FILE" ]] || die "Backup file not found: $OPT_BACKUP_FILE"
 
     header "Restoring SQLite database from $OPT_BACKUP_FILE"
-    warn "This overwrites /app/data/leagent.db inside the container."
+    warn "This overwrites /app/data/StAgent.db inside the container."
     read -r -p "  Type 'yes' to confirm: " confirm
     [[ "$confirm" == "yes" ]] || { log "Aborted."; exit 0; }
 
-    dc stop leagent >/dev/null 2>&1 || true
-    docker cp "$OPT_BACKUP_FILE" "$APP_CONTAINER:/app/data/leagent.db"
-    dc start leagent
+    dc stop StAgent >/dev/null 2>&1 || true
+    docker cp "$OPT_BACKUP_FILE" "$APP_CONTAINER:/app/data/StAgent.db"
+    dc start StAgent
 
     ok "Restore complete. Verify with ./run_docker.sh health"
 }
@@ -451,7 +451,7 @@ cmd_health() {
     header "Service Health Check"
     load_env
 
-    local port="${LEAGENT_HOST_PORT:-8000}"
+    local port="${StAgent_HOST_PORT:-8000}"
     local all_ok=true
 
     _hcheck() {
@@ -464,14 +464,14 @@ cmd_health() {
         fi
     }
 
-    _hcheck "LeAgent API" "http://localhost:$port/api/v1/health/ready"
+    _hcheck "StAgent API" "http://localhost:$port/api/v1/health/ready"
 
     if is_postgres_configured; then
         ok "PostgreSQL  →  configured via DATABASE_URL / DB_DATABASE_URL"
-    elif docker exec "$APP_CONTAINER" test -f /app/data/leagent.db 2>/dev/null; then
-        ok "SQLite  →  /app/data/leagent.db (inside $APP_CONTAINER)"
+    elif docker exec "$APP_CONTAINER" test -f /app/data/StAgent.db 2>/dev/null; then
+        ok "SQLite  →  /app/data/StAgent.db (inside $APP_CONTAINER)"
     else
-        warn "SQLite  →  /app/data/leagent.db not found yet (first boot may still be migrating)"
+        warn "SQLite  →  /app/data/StAgent.db not found yet (first boot may still be migrating)"
         all_ok=false
     fi
 
@@ -499,7 +499,7 @@ cmd_prune() {
 # Entrypoint
 # -----------------------------------------------------------------------------
 print_usage() {
-    echo -e "${BOLD}LeAgent Docker Lifecycle Manager${NC}"
+    echo -e "${BOLD}StAgent Docker Lifecycle Manager${NC}"
     echo ""
     echo "Usage: ./run_docker.sh <command> [options]"
     echo ""
@@ -512,7 +512,7 @@ print_usage() {
     printf "  %-12s %s\n" "logs"    "Tail logs  [--service <name>] [<lines>]"
     printf "  %-12s %s\n" "status"  "Show container status and ports"
     printf "  %-12s %s\n" "shell"   "Interactive shell in app container"
-    printf "  %-12s %s\n" "migrate" "Run DB migrations (python -m leagent.scripts.run_migrations)"
+    printf "  %-12s %s\n" "migrate" "Run DB migrations (python -m StAgent.scripts.run_migrations)"
     printf "  %-12s %s\n" "backup"  "Backup SQLite DB + data dirs → ./backups/"
     printf "  %-12s %s\n" "restore" "Restore SQLite  --file <backup.db>"
     printf "  %-12s %s\n" "health"  "Query health endpoints for all services"

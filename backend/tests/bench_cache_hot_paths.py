@@ -18,8 +18,8 @@ import json
 import statistics
 import time
 
-from leagent.config.settings import Settings
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.services.cache.service import CacheService
 
 
 async def _measure(iterations: int) -> dict[str, float | int]:

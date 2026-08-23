@@ -1,10 +1,10 @@
-"""CLI help surface for leagent init."""
+"""CLI help surface for StAgent init."""
 
 from __future__ import annotations
 
 from click.testing import CliRunner
 
-from leagent.cli.main import cli
+from StAgent.cli.main import cli
 
 
 def test_init_help_includes_defaults_flag() -> None:

@@ -160,7 +160,7 @@ export function useFolderProjectLogs(
         const token = getAccessToken();
         if (token) headers.Authorization = `Bearer ${token}`;
         const fp = getMachineFingerprint();
-        if (fp.length >= 8) headers['x-leagent-machine-fingerprint'] = fp;
+        if (fp.length >= 8) headers['x-StAgent-machine-fingerprint'] = fp;
         const resp = await fetch(url, {
           credentials: 'include',
           headers,

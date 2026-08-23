@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from prometheus_client import CollectorRegistry
 
-from leagent.utils.metrics import LeAgentMetrics
+from StAgent.utils.metrics import StAgentMetrics
 
 
 def test_cache_pressure_metrics_use_only_cache_name_label() -> None:
-    metrics = LeAgentMetrics(CollectorRegistry())
+    metrics = StAgentMetrics(CollectorRegistry())
     metrics.record_cache_rejection("chat")
     metrics.record_cache_fill("chat", duration_sec=0.01, coalesced=4)
     payload = metrics.generate_metrics().decode("utf-8")

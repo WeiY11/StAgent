@@ -16,10 +16,10 @@ import asyncio
 
 import pytest
 
-from leagent.runtime import execution_factory
-from leagent.runtime.execution_registry import ExecutionRunRegistry
-from leagent.runtime.execution_run import ExecutionRun, ExecutionScope, PauseToken
-from leagent.runtime.run_store import reset_run_store, set_run_store
+from StAgent.runtime import execution_factory
+from StAgent.runtime.execution_registry import ExecutionRunRegistry
+from StAgent.runtime.execution_run import ExecutionRun, ExecutionScope, PauseToken
+from StAgent.runtime.run_store import reset_run_store, set_run_store
 
 
 @pytest.fixture

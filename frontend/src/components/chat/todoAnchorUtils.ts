@@ -20,12 +20,28 @@ export function messageHasTodoActivity(message: Message): boolean {
   return message.toolCalls?.some((tc) => isTodoWriteToolName(tc.name)) ?? false;
 }
 
-/** Latest assistant message in the thread that owns the inline todo list. */
+/**
+ * Latest assistant message in the thread that owns the inline todo list.
+ *
+ * Memoised on the array reference: the Zustand selector in AgentMessage runs
+ * per store tick for every mounted row (~60×/s while streaming), and all rows
+ * share the same messages array per flush, so only the first call scans.
+ */
+let _lastAnchorInput: Message[] | null = null;
+let _lastAnchorResult: string | null = null;
+
 export function findLatestTodoAnchorMessageId(messages: Message[]): string | null {
+  if (messages === _lastAnchorInput) return _lastAnchorResult;
+  let result: string | null = null;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (!m || m.role !== 'assistant') continue;
-    if (messageHasTodoActivity(m)) return m.id;
+    if (messageHasTodoActivity(m)) {
+      result = m.id;
+      break;
+    }
   }
-  return null;
+  _lastAnchorInput = messages;
+  _lastAnchorResult = result;
+  return result;
 }

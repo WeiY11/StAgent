@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.db.models.message import Message, MessageRead, MessageRole
-from leagent.services.chat.service import ChatService
+from StAgent.db.models.message import Message, MessageRead, MessageRole
+from StAgent.services.chat.service import ChatService
 
 
 def test_message_read_parses_json_text_fields() -> None:

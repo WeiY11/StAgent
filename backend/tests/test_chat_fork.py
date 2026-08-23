@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from leagent.config.settings import get_settings
-from leagent.services.auth.service import LOCAL_USER_ID
+from StAgent.config.settings import get_settings
+from StAgent.services.auth.service import LOCAL_USER_ID
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient

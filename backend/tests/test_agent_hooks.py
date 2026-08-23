@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import (
+from StAgent.agent.base import (
     AgentContext,
     AgentResponse,
     AgentState,
@@ -20,7 +20,7 @@ from leagent.agent.base import (
     ToolCall,
     ToolResult,
 )
-from leagent.agent.hooks import (
+from StAgent.agent.hooks import (
     AgentHook,
     HookManager,
     LoggingHook,

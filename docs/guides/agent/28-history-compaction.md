@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-长对话终将撞上模型上下文上限。LeAgent 用 **microcompact**、渐进压缩与可选 **LLM autocompact** 管理**送进模型的历史工作集**，而不是简单等同于“删掉用户聊天”。先修：[26](26-tiered-session-store.md)、[27](27-message-lifecycle.md)、[31](31-memory-boundaries.md)。代码主线是 `backend/leagent/memory/compact.py` 与 `backend/leagent/context/session_compression.py`。
+长对话终将撞上模型上下文上限。StAgent 用 **microcompact**、渐进压缩与可选 **LLM autocompact** 管理**送进模型的历史工作集**，而不是简单等同于“删掉用户聊天”。先修：[26](26-tiered-session-store.md)、[27](27-message-lifecycle.md)、[31](31-memory-boundaries.md)。代码主线是 `backend/StAgent/memory/compact.py` 与 `backend/StAgent/context/session_compression.py`。
 
 请特别注意命名陷阱：`memory/compaction.py` 里的 `MemoryConsolidator` 负责**长期记忆**的衰减、合并与修剪，与本篇 transcript / LLM 历史压缩不是一回事。混淆二者会导致你改错子系统还以为周报记忆变少了。
 
@@ -39,7 +39,7 @@
 ## 示例：切分安全
 
 ```python
-from leagent.memory.compact import snap_autocompact_split
+from StAgent.memory.compact import snap_autocompact_split
 
 messages = [
     {"role": "user", "content": "..."},
@@ -73,7 +73,7 @@ uv run pytest tests/test_autocompact_split.py -q
 
 ## 业内对照
 
-Anthropic 提示缓存降低重复前缀成本，但不等于自动摘要。LangGraph 常把 summarization 做成图节点。消费级聊天产品则对长线程做用户不可见的压缩。LeAgent 把 micro/auto 放进 query 依赖链，并显式处理 tool 配对不变量，这是工程上容易被忽视却会导致“偶发 400”的细节。
+Anthropic 提示缓存降低重复前缀成本，但不等于自动摘要。LangGraph 常把 summarization 做成图节点。消费级聊天产品则对长线程做用户不可见的压缩。StAgent 把 micro/auto 放进 query 依赖链，并显式处理 tool 配对不变量，这是工程上容易被忽视却会导致“偶发 400”的细节。
 
 ## 与另外两层状态的协作
 

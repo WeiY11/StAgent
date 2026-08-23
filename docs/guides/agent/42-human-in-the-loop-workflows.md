@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文把人工审批、提问与 Agent/DAG 暂停恢复接成可操作闭环。先修 [30 Checkpoint 暂停与恢复](30-checkpoint-pause-resume.md)、[41 Agent 节点](41-agent-nodes-and-dag.md)、[05 状态所有权](05-state-ownership.md)。难度偏高：HITL 在生产里不是「弹个确认框」，没有持久化坐标则刷新页面、换 worker 或重启进程就会丢上下文。LeAgent 用 `CheckpointStore`、`WorkflowStateStore` 与统一 `PauseToken` 把 Agent 路径、工具批准路径、工作流路径收成一张地图。
+本文把人工审批、提问与 Agent/DAG 暂停恢复接成可操作闭环。先修 [30 Checkpoint 暂停与恢复](30-checkpoint-pause-resume.md)、[41 Agent 节点](41-agent-nodes-and-dag.md)、[05 状态所有权](05-state-ownership.md)。难度偏高：HITL 在生产里不是「弹个确认框」，没有持久化坐标则刷新页面、换 worker 或重启进程就会丢上下文。StAgent 用 `CheckpointStore`、`WorkflowStateStore` 与统一 `PauseToken` 把 Agent 路径、工具批准路径、工作流路径收成一张地图。
 
 ## 目标
 
@@ -113,7 +113,7 @@ uv run python scripts/workflow/import_demo_flows.py
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-LangGraph `interrupt` + `Command(resume=...)` 在图层暂停；OpenAI 新版本强调 tool/operation approvals；Google ADK 用 callbacks 拦截敏感步骤——目标一致：**默认不可自动越过某条边界**。LeAgent 把 Agent 与 Workflow 两套暂停坐标收进 `PauseToken`，Agent 节点把 `checkpoint_id` 透出为图输出槽，并坚持执行层 `needs_approval` 而非提示词自觉。代价是应用需理解 scope 与双 API（chat vs workflow），收益是聊天、工作流、cron 可共享同一 kernel checkpoint 语义。
+LangGraph `interrupt` + `Command(resume=...)` 在图层暂停；OpenAI 新版本强调 tool/operation approvals；Google ADK 用 callbacks 拦截敏感步骤——目标一致：**默认不可自动越过某条边界**。StAgent 把 Agent 与 Workflow 两套暂停坐标收进 `PauseToken`，Agent 节点把 `checkpoint_id` 透出为图输出槽，并坚持执行层 `needs_approval` 而非提示词自觉。代价是应用需理解 scope 与双 API（chat vs workflow），收益是聊天、工作流、cron 可共享同一 kernel checkpoint 语义。
 
 ## 总结
 

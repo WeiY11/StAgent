@@ -22,7 +22,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.project.git import (
+from StAgent.project.git import (
     GitCommandError,
     git_diff_for_commit,
     git_init,
@@ -32,7 +32,7 @@ from leagent.project.git import (
     is_git_repo,
     run_git,
 )
-from leagent.project.paths import (
+from StAgent.project.paths import (
     ProjectPathSafetyError,
     assert_folder_owner,
     resolve_owned_project_folder,

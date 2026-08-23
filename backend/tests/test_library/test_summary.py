@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.library.summary import summarize_extracted_text
+from StAgent.library.summary import summarize_extracted_text
 
 
 def test_summarize_empty_returns_none() -> None:

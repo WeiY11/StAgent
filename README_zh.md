@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="LeAgent Logo" width="120" height="120">
+  <img src="docs/assets/logo.svg" alt="StAgent Logo" width="120" height="120">
 </p>
 
-<h1 align="center">LeAgent</h1>
+<h1 align="center">StAgent</h1>
 
 <p align="center">
   <strong>真正完成工作的开源桌面 AI 智能体 —— 在可私有化部署技术栈中集成会自主规划与纠错的 Agent、智能化可视工作流、Generative UI 与百余项离线工具。</strong>
@@ -27,12 +27,12 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/hero.png" alt="LeAgent 产品概览" width="720">
+  <img src="docs/assets/screenshots/hero.png" alt="StAgent 产品概览" width="720">
 </p>
 
 ---
 
-**LeAgent** 是一款开源桌面 AI 智能体——它不止于对话，更能真正完成工作。区别于云端聊天机器人和纯代码 CLI，LeAgent 将多数智能体彼此割裂的三项能力融为一体：在统一「思考-行动」循环中**自主规划、调用工具并自我纠错**的流式 Agent 运行时；由智能体**亲自设计、运行并迭代优化** ReactFlow DAG 的**智能化可视工作流**（且每一个工具都会自动成为带类型的节点）；以及把 KPI 看板、幻灯片、画廊等**实时可交互界面直接流式渲染进聊天**的 Generative UI 能力。它内置 **100+ 离线工具**（文档、网页、数据、代码、数据库、媒体、游戏美术生成），并集成声明式规则引擎、Agent Skills 与 Model Context Protocol——**默认零外部依赖**（SQLite、单进程）即可在本地运行。你可以自带模型密钥，也可以接入本地 Ollama / vLLM 端点**完全离线运行**。
+**StAgent** 是一款开源桌面 AI 智能体——它不止于对话，更能真正完成工作。区别于云端聊天机器人和纯代码 CLI，StAgent 将多数智能体彼此割裂的三项能力融为一体：在统一「思考-行动」循环中**自主规划、调用工具并自我纠错**的流式 Agent 运行时；由智能体**亲自设计、运行并迭代优化** ReactFlow DAG 的**智能化可视工作流**（且每一个工具都会自动成为带类型的节点）；以及把 KPI 看板、幻灯片、画廊等**实时可交互界面直接流式渲染进聊天**的 Generative UI 能力。它内置 **100+ 离线工具**（文档、网页、数据、代码、数据库、媒体、游戏美术生成），并集成声明式规则引擎、Agent Skills 与 Model Context Protocol——**默认零外部依赖**（SQLite、单进程）即可在本地运行。你可以自带模型密钥，也可以接入本地 Ollama / vLLM 端点**完全离线运行**。
 
 它为追求私密、可二次开发、可自部署的用户而生：除非你主动将某个供应商指向远程 API，否则你的文档、会话与凭据都不会离开本机。
 
@@ -52,7 +52,7 @@
 
 ## 你能用它做什么
 
-LeAgent 是一个完整的智能体平台，而非脚手架 —— 下列能力开箱即用、相互打通，默认即可完全离线运行。
+StAgent 是一个完整的智能体平台，而非脚手架 —— 下列能力开箱即用、相互打通，默认即可完全离线运行。
 
 - **办公自动化** —— 指向一个装满发票、合同或报告的文件夹：它会完成 OCR 与分类、把结构化数据抽取进 Excel，并在一次回合内产出排版精良的 Word 或 PPTX 摘要。
 - **研究与简报** —— 跨 DuckDuckGo / SearXNG / Bing 搜索，抓取并下载来源，再汇编成带图表与 KPI 看板、附引用的 PDF 报告。
@@ -64,12 +64,12 @@ LeAgent 是一个完整的智能体平台，而非脚手架 —— 下列能力�
 
 ## 架构
 
-LeAgent 由异步 Python（FastAPI）后端与 React 19 单页应用组成，以模块化单体（modular monolith）形式打包。后端采用严格的、仅向下依赖的分层领域模型 —— **File → Code → Project**，构建于统一的持久化层之上；并且无论请求从何处进入（聊天、SDK、后台任务、子智能体、工作流节点），每一次智能体回合都汇聚到**同一个「思考-行动」内核**。
+StAgent 由异步 Python（FastAPI）后端与 React 19 单页应用组成，以模块化单体（modular monolith）形式打包。后端采用严格的、仅向下依赖的分层领域模型 —— **File → Code → Project**，构建于统一的持久化层之上；并且无论请求从何处进入（聊天、SDK、后台任务、子智能体、工作流节点），每一次智能体回合都汇聚到**同一个「思考-行动」内核**。
 
 ```text
-LeAgent/
+StAgent/
 ├── backend/                 # FastAPI 后端（Python 3.11+，uv 管理）
-│   └── leagent/
+│   └── StAgent/
 │       ├── agent/           # QueryEngine 编排器、规划器、子智能体
 │       ├── sdk/             # 版本化的公共 Agent SDK（运行时、内核、协议）
 │       ├── api/             # FastAPI 路由（v1 + 孵化中的 v2）
@@ -113,7 +113,7 @@ LeAgent/
 观测     EventManager（FLOW_*/TASK_*/AGENT_*）· OpenTelemetry
 ```
 
-- **单一内核。** 聊天与所有后台路径都经由 `leagent.sdk.kernel.run_loop`。当回合需要等待用户输入时会暂停到持久化检查点，之后从中断处精确恢复。
+- **单一内核。** 聊天与所有后台路径都经由 `StAgent.sdk.kernel.run_loop`。当回合需要等待用户输入时会暂停到持久化检查点，之后从中断处精确恢复。
 - **三种工作流形态，同一引擎。** 已保存的 DAG 流程、聊天 Playbook 步骤卡（编译为线性流程）、以及聊天内的图嵌入，都在同一个 `WorkflowExecutor` 上执行：按就绪批次调度、并发执行独立分支，并统一应用重试/退避与超时。
 - **清晰的状态归属。** 聊天记录存于 `TieredSessionStore`，暂停的回合存于 `CheckpointStore`（`agent_checkpoints`），工作流运行存于 `WorkflowStateStore` —— 子系统之间不共享可变状态。
 
@@ -189,7 +189,7 @@ LeAgent/
 
 ```bash
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 ./start.sh                # 后端 :7860 + 前端 :5173
 ```
 
@@ -198,8 +198,8 @@ cd LeAgent
 ### Docker
 
 ```bash
-cd LeAgent/deploy
-cp .env.example .env      # 配置 LEAGENT_SECRET_KEY 与至少一个供应商密钥
+cd StAgent/deploy
+cp .env.example .env      # 配置 StAgent_SECRET_KEY 与至少一个供应商密钥
 docker compose up -d --build
 ```
 
@@ -211,8 +211,8 @@ API 与交互式文档：`http://localhost:8000/docs`。默认镜像为单一 SQ
 # 后端
 cd backend
 uv sync --extra dev
-uv run leagent init
-uv run leagent app
+uv run StAgent init
+uv run StAgent app
 
 # 前端（另开终端）
 cd frontend
@@ -227,16 +227,16 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 
 ### 配置
 
-至少配置一个供应商密钥（通过环境变量，或在 Web UI 的 **设置 → 环境密钥** 中填写，后者会写入 `~/.leagent/.env`）。最常用的配置项：
+至少配置一个供应商密钥（通过环境变量，或在 Web UI 的 **设置 → 环境密钥** 中填写，后者会写入 `~/.StAgent/.env`）。最常用的配置项：
 
 | 变量 | 作用 |
 | --- | --- |
-| `LEAGENT_SECRET_KEY` | 用于签名 URL 与会话加密的应用密钥（`openssl rand -hex 32`） |
+| `StAgent_SECRET_KEY` | 用于签名 URL 与会话加密的应用密钥（`openssl rand -hex 32`） |
 | `DEEPSEEK_API_KEY` | DeepSeek 供应商 —— 自动别名为 `tier1`（推理）/ `tier2`（快速） |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DASHSCOPE_API_KEY` | 其他云端供应商 |
 | `VLLM_ENDPOINT` / `LLM_OLLAMA_ENDPOINT` | 本地 / 自托管的 OpenAI 兼容推理端点 |
 | `DATABASE_URL` | 从 SQLite 切换到 PostgreSQL |
-| `LEAGENT_DEBUG` | 开启调试日志 |
+| `StAgent_DEBUG` | 开启调试日志 |
 
 完整的带注释清单见 [`deploy/.env.example`](deploy/.env.example)。
 
@@ -246,10 +246,10 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 
 | 平台 | 下载 | 说明 |
 | --- | --- | --- |
-| **Windows 10/11（x64）** | [`LeAgent-Setup-*.exe`](../../releases/latest) | NSIS 安装包，自动创建桌面与开始菜单快捷方式 |
-| **macOS（Apple 芯片）** | [`LeAgent-*-arm64.dmg`](../../releases/latest) | 未签名 —— 安装后执行 `xattr -dr com.apple.quarantine /Applications/LeAgent.app` |
-| **macOS（Intel）** | [`LeAgent-*.dmg`](../../releases/latest) | 同上，需处理 Gatekeeper 提示 |
-| **Linux（x64）** | [`LeAgent-*.AppImage`](../../releases/latest) / [`LeAgent-*.deb`](../../releases/latest) | AppImage：`chmod +x` 后运行；`.deb`：`sudo dpkg -i` |
+| **Windows 10/11（x64）** | [`StAgent-Setup-*.exe`](../../releases/latest) | NSIS 安装包，自动创建桌面与开始菜单快捷方式 |
+| **macOS（Apple 芯片）** | [`StAgent-*-arm64.dmg`](../../releases/latest) | 未签名 —— 安装后执行 `xattr -dr com.apple.quarantine /Applications/StAgent.app` |
+| **macOS（Intel）** | [`StAgent-*.dmg`](../../releases/latest) | 同上，需处理 Gatekeeper 提示 |
+| **Linux（x64）** | [`StAgent-*.AppImage`](../../releases/latest) / [`StAgent-*.deb`](../../releases/latest) | AppImage：`chmod +x` 后运行；`.deb`：`sudo dpkg -i` |
 
 全部历史版本：**<https://github.com/WeiY11/StAgent/releases>**
 
@@ -266,9 +266,9 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 ## 运维
 
 - **端口。** 本地开发后端监听 `:7860`、Vite 前端监听 `:5173`（`start.sh`）；Docker 镜像将 API 发布在 `:8000`。
-- **持久化与备份。** 状态均位于 `LEAGENT_HOME` 下：SQLite 数据库（WAL 模式），以及上传工作目录、知识库与编码项目目录树。完整备份 = 数据库 **加上** 该目录。
+- **持久化与备份。** 状态均位于 `StAgent_HOME` 下：SQLite 数据库（WAL 模式），以及上传工作目录、知识库与编码项目目录树。完整备份 = 数据库 **加上** 该目录。
 - **横向扩展。** 默认单进程 / 单 worker 适配 SQLite（单写入者）。如需扩展，请通过 `DATABASE_URL` 切换到 PostgreSQL，并在前端使用粘性会话（in-process 的执行注册表与事件总线按 worker 隔离）。Milvus 为可选项，仅用于向量记忆召回。
-- **可观测性。** 结构化 JSON 日志（structlog）、配置 OTLP 端点后输出 OpenTelemetry Span，以及 Prometheus 工作流/质量直方图。交互式 API 文档位于 `/docs`；设置 `LEAGENT_DEBUG=true` 可开启详细追踪。
+- **可观测性。** 结构化 JSON 日志（structlog）、配置 OTLP 端点后输出 OpenTelemetry Span，以及 Prometheus 工作流/质量直方图。交互式 API 文档位于 `/docs`；设置 `StAgent_DEBUG=true` 可开启详细追踪。
 
 ## 文档
 

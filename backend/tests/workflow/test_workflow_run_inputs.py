@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.bootstrap.tools import bootstrap_tools
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import get_registry
-from leagent.workflow.engine.caching import build_cache_set
-from leagent.workflow.engine.executor import WorkflowExecutor
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.template_service import TemplateService
+from StAgent.bootstrap.tools import bootstrap_tools
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import get_registry
+from StAgent.workflow.engine.caching import build_cache_set
+from StAgent.workflow.engine.executor import WorkflowExecutor
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.template_service import TemplateService
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ async def test_tpl_img01_run_panel_prompt_reaches_image_gen(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Custom ``input_data.prompt`` is resolved into Art.ImageGen's generation call."""
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     raw = svc.get_template("TPL-IMG-01")
@@ -41,7 +41,7 @@ async def test_tpl_img01_run_panel_prompt_reaches_image_gen(
 
     captured: list[str] = []
 
-    from leagent.llm.generation import service as gen_svc
+    from StAgent.llm.generation import service as gen_svc
 
     orig_generate = gen_svc.GenerationService.generate
 

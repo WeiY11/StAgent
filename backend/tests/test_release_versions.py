@@ -33,13 +33,13 @@ crv = _load()
 
 def _make_repo(tmp_path: Path, version: str) -> Path:
     (tmp_path / "backend").mkdir()
-    (tmp_path / "backend" / "leagent").mkdir()
+    (tmp_path / "backend" / "StAgent").mkdir()
     (tmp_path / "frontend").mkdir()
     (tmp_path / "desktop" / "electron").mkdir(parents=True)
     (tmp_path / "backend" / "pyproject.toml").write_text(
-        f'[project]\nname = "leagent"\nversion = "{version}"\n', encoding="utf-8"
+        f'[project]\nname = "StAgent"\nversion = "{version}"\n', encoding="utf-8"
     )
-    (tmp_path / "backend" / "leagent" / "__init__.py").write_text(
+    (tmp_path / "backend" / "StAgent" / "__init__.py").write_text(
         f'__version__ = "{version}"\n', encoding="utf-8"
     )
     (tmp_path / "frontend" / "package.json").write_text(
@@ -78,8 +78,8 @@ def test_mismatched_version_fails(tmp_path: Path, capsys: pytest.CaptureFixture[
 def test_sdk_version_is_not_checked(tmp_path: Path) -> None:
     # An SDK version divergent from the product version must not fail the gate.
     root = _make_repo(tmp_path, "1.2.7")
-    sdk = root / "backend" / "leagent" / "sdk"
+    sdk = root / "backend" / "StAgent" / "sdk"
     sdk.mkdir()
     (sdk / "_version.py").write_text('__version__ = "0.1.0"\n', encoding="utf-8")
     assert crv.main(["--tag", "v1.2.7", "--root", str(root)]) == 0
-    assert "backend/leagent/sdk" not in crv.read_versions(root)
+    assert "backend/StAgent/sdk" not in crv.read_versions(root)

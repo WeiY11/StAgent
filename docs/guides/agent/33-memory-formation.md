@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文讲解 LeAgent 如何把 turn 完成后的观察信号路由到三库，而不是「每轮全记」或「什么都不记」。先修：[32 三存储](32-three-store-memory.md)、[31 记忆边界](31-memory-boundaries.md)、[27 消息生命周期](27-message-lifecycle.md)。Formation 不替代 session transcript，也不负责 pause/resume；关闭 formation 时聊天历史仍在，只是长期认知平面不再自动生长。
+本文讲解 StAgent 如何把 turn 完成后的观察信号路由到三库，而不是「每轮全记」或「什么都不记」。先修：[32 三存储](32-three-store-memory.md)、[31 记忆边界](31-memory-boundaries.md)、[27 消息生命周期](27-message-lifecycle.md)。Formation 不替代 session transcript，也不负责 pause/resume；关闭 formation 时聊天历史仍在，只是长期认知平面不再自动生长。
 
 ## 目标
 
@@ -106,7 +106,7 @@ uv run pytest tests/test_agent_memory.py -k observe -v
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-Google ADK 常用 callback 把状态写入 Memory Bank，写入时机由应用定义。Anthropic 的 memory tool 让**模型主动**记笔记；LeAgent 偏**策略自动形成** + 可选用户反馈，优点是稳定可测、无额外 LLM 成本，代价是必须认真调门控否则「自动」变「自动污染」。AutoGen 的 memory 组件通常由开发者显式 `add`；LeAgent 在 turn 收尾统一 `observe_turn`，与 controller/hook 集成。LangGraph checkpoint 保存执行状态，不等于 semantic fact formation。
+Google ADK 常用 callback 把状态写入 Memory Bank，写入时机由应用定义。Anthropic 的 memory tool 让**模型主动**记笔记；StAgent 偏**策略自动形成** + 可选用户反馈，优点是稳定可测、无额外 LLM 成本，代价是必须认真调门控否则「自动」变「自动污染」。AutoGen 的 memory 组件通常由开发者显式 `add`；StAgent 在 turn 收尾统一 `observe_turn`，与 controller/hook 集成。LangGraph checkpoint 保存执行状态，不等于 semantic fact formation。
 
 ## 总结
 

@@ -25,8 +25,8 @@ class TestInstallSkillFromUrl:
     async def test_manager_installs_from_https_mocked(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import url_install as url_install_mod
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import url_install as url_install_mod
 
         pack = tmp_path / "pack"
         pack.mkdir()
@@ -54,8 +54,8 @@ class TestInstallSkillFromUrl:
         assert mgr.get_skill("url-skill") is not None
 
     async def test_install_rejects_non_https(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills.url_install import SkillURLError
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills.url_install import SkillURLError
 
         mgr = SkillsManager(
             skills_dir=tmp_path,
@@ -74,10 +74,10 @@ def test_post_install_url_api(
     test_user: dict[str, Any],
     test_settings: Any,
 ) -> None:
-    from leagent.api.v1 import skills as skills_api
-    from leagent.services.auth import AuthService
-    from leagent.skills.manager import SkillsManager
-    from leagent.skills import url_install as url_install_mod
+    from StAgent.api.v1 import skills as skills_api
+    from StAgent.services.auth import AuthService
+    from StAgent.skills.manager import SkillsManager
+    from StAgent.skills import url_install as url_install_mod
 
     pack = tmp_path / "pack"
     pack.mkdir()
@@ -122,7 +122,7 @@ def test_post_install_url_api(
 
 @pytest.mark.asyncio
 async def test_install_skill_from_archive_path(tmp_path: Path) -> None:
-    from leagent.skills.url_install import install_skill_from_archive_path
+    from StAgent.skills.url_install import install_skill_from_archive_path
 
     pack = tmp_path / "pack"
     pack.mkdir()

@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.db.models.flow import (
+from StAgent.db.models.flow import (
     Flow,
     FlowCreate,
     FlowRead,

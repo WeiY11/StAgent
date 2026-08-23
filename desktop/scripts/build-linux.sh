@@ -2,7 +2,7 @@
 set -euo pipefail
 
 #──────────────────────────────────────────────────────────────────────
-# LeAgent Desktop — Linux build (x64, AppImage + deb)
+# StAgent Desktop — Linux build (x64, AppImage + deb)
 #
 # Usage:
 #   ./build-linux.sh                        # version from electron/package.json
@@ -46,7 +46,7 @@ DESKTOP_ELECTRON="$REPO/desktop/electron"
 IFS=',' read -ra ARCHES <<< "$ARCH"
 
 echo "============================================"
-echo "  LeAgent Desktop — Linux Build"
+echo "  StAgent Desktop — Linux Build"
 echo "  Version : $VERSION"
 echo "  Arch    : $ARCH"
 echo "  Channel : $CHANNEL"
@@ -121,10 +121,10 @@ if [ "$SKIP_COMPILEALL" = false ]; then
       break
     fi
   done
-  if [ -x "$RUNTIME_PY" ] && [ -d "$PAYLOAD_DIR/leagent" ]; then
+  if [ -x "$RUNTIME_PY" ] && [ -d "$PAYLOAD_DIR/StAgent" ]; then
     echo ""
     echo "==> compileall backend payload"
-    "$RUNTIME_PY" -m compileall -q "$PAYLOAD_DIR/leagent" || echo "  ⚠ compileall failed (non-fatal)"
+    "$RUNTIME_PY" -m compileall -q "$PAYLOAD_DIR/StAgent" || echo "  ⚠ compileall failed (non-fatal)"
   else
     echo "  ⚠ Compatible bundled Python not found or no payload — skipping compileall."
   fi

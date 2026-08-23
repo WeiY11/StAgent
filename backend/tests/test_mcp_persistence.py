@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from leagent.mcp.base import MCPServer, MCPTransport
-from leagent.mcp.manager import MCPClientManager, reset_mcp_manager
+from StAgent.mcp.base import MCPServer, MCPTransport
+from StAgent.mcp.manager import MCPClientManager, reset_mcp_manager
 
 
 @pytest.fixture(autouse=True)

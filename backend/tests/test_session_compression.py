@@ -7,23 +7,23 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.context.compression import (
+from StAgent.context.compression import (
     CompressionConfig,
     ProgressiveCompressor,
     compress_tool_result,
 )
-from leagent.context.session_compression import (
+from StAgent.context.session_compression import (
     merge_compressed_with_session_tail,
     run_session_compression_pipeline,
 )
-from leagent.memory.compact import _approximate_tokens
-from leagent.services.session.state import SessionMessage
+from StAgent.memory.compact import _approximate_tokens
+from StAgent.services.session.state import SessionMessage
 
 
 def test_apply_progressive_transcript_compress_smoke() -> None:
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
-    from leagent.context.session_compression import apply_progressive_transcript_compress
+    from StAgent.context.session_compression import apply_progressive_transcript_compress
 
     settings = Settings()
     huge = "x" * 50_000
@@ -67,7 +67,7 @@ def test_approximate_tokens_skips_vision_for_assistant_multimodal() -> None:
 
 
 def test_compress_turn_accepts_multimodal_list() -> None:
-    from leagent.context.compression import compress_turn
+    from StAgent.context.compression import compress_turn
 
     long_text = "x" * 400
     out = compress_turn(
@@ -173,9 +173,9 @@ def test_compress_tool_result_engineering_respects_budget_in_compressor() -> Non
 @pytest.mark.asyncio
 async def test_compact_pipeline_merge_preserves_message_ids() -> None:
     """Microtruncate must not break merge: ids round-trip via overlay."""
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
-    from leagent.context.session_compression import (
+    from StAgent.context.session_compression import (
         merge_compressed_with_session_tail,
         run_session_compression_pipeline,
         session_messages_to_compact_llm_dicts,
@@ -221,7 +221,7 @@ async def test_compact_pipeline_merge_preserves_message_ids() -> None:
 @pytest.mark.asyncio
 async def test_pipeline_progressive_merge_preserves_tool_call_id() -> None:
     """OpenAI-compatible providers require ``tool_call_id`` on every ``role: tool`` message."""
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
     settings = Settings()
     huge = "x" * 50_000
@@ -246,7 +246,7 @@ async def test_pipeline_progressive_merge_preserves_tool_call_id() -> None:
 
 @pytest.mark.asyncio
 async def test_pipeline_trims_large_tool_result_without_llm() -> None:
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
     settings = Settings()
     huge = "x" * 50_000
@@ -283,8 +283,8 @@ def test_compress_tool_result_preserves_source_echo() -> None:
 
 def test_progressive_rolling_summary_does_not_orphan_tool_rows() -> None:
     """Protected suffix must include the owning assistant when it would start on tool."""
-    from leagent.context.compression import CompressionConfig, ProgressiveCompressor
-    from leagent.context.session_compression import _progressive_output_dicts
+    from StAgent.context.compression import CompressionConfig, ProgressiveCompressor
+    from StAgent.context.session_compression import _progressive_output_dicts
 
     # Build a long transcript so rolling summary fires; place a tool block
     # just before the naive protected window so an unsnapped split orphans it.
@@ -335,7 +335,7 @@ def test_progressive_rolling_summary_does_not_orphan_tool_rows() -> None:
 
 @pytest.mark.asyncio
 async def test_token_usage_to_api_dict_includes_cache_when_set() -> None:
-    from leagent.llm.base import TokenUsage, token_usage_to_api_dict
+    from StAgent.llm.base import TokenUsage, token_usage_to_api_dict
 
     u = TokenUsage(
         prompt_tokens=100,

@@ -12,8 +12,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from leagent.llm.base import ChatMessage, LLMResponse, MessageRole, StreamChunk, TokenUsage
-from leagent.llm.providers.deepseek import (
+from StAgent.llm.base import ChatMessage, LLMResponse, MessageRole, StreamChunk, TokenUsage
+from StAgent.llm.providers.deepseek import (
     DeepSeekProvider,
     _sanitize_user_id,
     set_deepseek_user_id,
@@ -274,7 +274,7 @@ class TestDeepSeekSettingsMerge:
         """When no explicit thinking_type is set, default to enabled."""
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(),
         )
         merged = p._merge_deepseek_settings({})
@@ -283,7 +283,7 @@ class TestDeepSeekSettingsMerge:
     def test_merge_applies_thinking_from_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="enabled", reasoning_effort="max"),
         )
         merged = p._merge_deepseek_settings({"foo": 1})
@@ -294,7 +294,7 @@ class TestDeepSeekSettingsMerge:
     def test_explicit_kwargs_win_over_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="enabled", reasoning_effort="max"),
         )
         merged = p._merge_deepseek_settings(
@@ -306,7 +306,7 @@ class TestDeepSeekSettingsMerge:
     def test_disabled_thinking_in_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="disabled"),
         )
         merged = p._merge_deepseek_settings({})
@@ -315,7 +315,7 @@ class TestDeepSeekSettingsMerge:
     def test_reasoning_effort_override_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(reasoning_effort="high"),
         )
         token = set_reasoning_effort_override("max")
@@ -334,7 +334,7 @@ class TestDeepSeekBuildRequestBody:
     def test_deprecated_params_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="disabled"),
         )
         msgs = [ChatMessage.user("hi")]
@@ -348,7 +348,7 @@ class TestDeepSeekBuildRequestBody:
     def test_thinking_mode_strips_sampling_params(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="enabled"),
         )
         msgs = [ChatMessage.user("hi")]
@@ -364,7 +364,7 @@ class TestDeepSeekBuildRequestBody:
     def test_user_id_injected_from_contextvar(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="disabled"),
         )
         token = set_deepseek_user_id("ws-123:user-456")
@@ -378,7 +378,7 @@ class TestDeepSeekBuildRequestBody:
     def test_user_id_not_set_when_contextvar_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
         p = DeepSeekProvider(api_key="k")
         monkeypatch.setattr(
-            "leagent.config.settings.get_settings",
+            "StAgent.config.settings.get_settings",
             lambda: _mock_settings(thinking_type="disabled"),
         )
         msgs = [ChatMessage.user("hi")]
@@ -416,7 +416,7 @@ class TestSanitizeUserId:
 class TestDeepSeekErrorHandling:
     def test_400_reasoning_content_logs_diagnostic(self, monkeypatch: pytest.MonkeyPatch, caplog) -> None:
         import logging
-        from leagent.exceptions.llm import LLMServiceError
+        from StAgent.exceptions.llm import LLMServiceError
 
         p = DeepSeekProvider(api_key="k")
         with caplog.at_level(logging.ERROR):
@@ -435,12 +435,12 @@ class TestDeepSeekErrorHandling:
 
 class TestRegistryWiring:
     def test_providers_package_exports_deepseek(self) -> None:
-        from leagent.llm.providers import DeepSeekProvider as Exported
+        from StAgent.llm.providers import DeepSeekProvider as Exported
 
         assert Exported is DeepSeekProvider
 
     def test_provider_config_constructs_deepseek(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="deepseek-test",
@@ -474,34 +474,34 @@ class TestFIMCompleteMeta:
 
 class TestNormalizeDeepSeekBaseUrl:
     def test_strips_v1_suffix(self) -> None:
-        from leagent.llm.providers.deepseek_utils import normalize_deepseek_base_url
+        from StAgent.llm.providers.deepseek_utils import normalize_deepseek_base_url
 
         assert normalize_deepseek_base_url("https://api.deepseek.com/v1") == "https://api.deepseek.com"
 
     def test_strips_v1_with_trailing_slash(self) -> None:
-        from leagent.llm.providers.deepseek_utils import normalize_deepseek_base_url
+        from StAgent.llm.providers.deepseek_utils import normalize_deepseek_base_url
 
         assert normalize_deepseek_base_url("https://api.deepseek.com/v1/") == "https://api.deepseek.com"
 
     def test_noop_for_canonical_url(self) -> None:
-        from leagent.llm.providers.deepseek_utils import normalize_deepseek_base_url
+        from StAgent.llm.providers.deepseek_utils import normalize_deepseek_base_url
 
         assert normalize_deepseek_base_url("https://api.deepseek.com") == "https://api.deepseek.com"
 
     def test_preserves_custom_proxy(self) -> None:
-        from leagent.llm.providers.deepseek_utils import normalize_deepseek_base_url
+        from StAgent.llm.providers.deepseek_utils import normalize_deepseek_base_url
 
         assert normalize_deepseek_base_url("https://proxy.example/v1") == "https://proxy.example"
 
     def test_preserves_non_v1_path(self) -> None:
-        from leagent.llm.providers.deepseek_utils import normalize_deepseek_base_url
+        from StAgent.llm.providers.deepseek_utils import normalize_deepseek_base_url
 
         assert normalize_deepseek_base_url("https://api.deepseek.com/v2") == "https://api.deepseek.com/v2"
 
 
 class TestProviderConfigDeepSeekBaseUrl:
     def test_from_dict_normalizes_trailing_v1(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig
+        from StAgent.llm.provider_config import ProviderConfig
 
         pc = ProviderConfig.from_dict(
             {

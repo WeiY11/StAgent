@@ -72,7 +72,7 @@ nodes:
         format: pdf
         title: ${input.report_title}
         subtitle: 自动导出
-        author: LeAgent
+        author: StAgent
         date: '2026'
         cover: true
         content: |

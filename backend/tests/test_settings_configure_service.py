@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from leagent.services.settings_configure import (
+from StAgent.services.settings_configure import (
     SettingsConfigureError,
     apply_env_changes,
     inspect_changes,

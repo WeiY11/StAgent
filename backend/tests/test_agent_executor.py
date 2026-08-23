@@ -9,17 +9,17 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import AgentContext, ToolCall, ToolResult
-from leagent.agent.recovery import ErrorRecovery, ResultProcessor
-from leagent.tools.executor import ToolExecutor
-from leagent.exceptions.tool import (
+from StAgent.agent.base import AgentContext, ToolCall, ToolResult
+from StAgent.agent.recovery import ErrorRecovery, ResultProcessor
+from StAgent.tools.executor import ToolExecutor
+from StAgent.exceptions.tool import (
     ToolExecutionError,
     ToolTimeoutError,
     ToolValidationError,
 )
-from leagent.tools.base import SyncTool, ToolCategory, ToolContext
-from leagent.tools.base import ToolResult as BaseToolResult
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.base import SyncTool, ToolCategory, ToolContext
+from StAgent.tools.base import ToolResult as BaseToolResult
+from StAgent.tools.registry import ToolRegistry
 
 
 # ---------------------------------------------------------------------------

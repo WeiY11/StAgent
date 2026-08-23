@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.workflow.base import (
+from StAgent.workflow.base import (
     ConditionExpression,
     ConditionOperator,
     WorkflowState,
@@ -165,7 +165,7 @@ class TestCanonicalDocument:
         }
 
     def test_load_canonical(self) -> None:
-        from leagent.workflow.io import load
+        from StAgent.workflow.io import load
 
         doc = load(self._doc())
         assert doc.id == "test_wf"
@@ -173,8 +173,8 @@ class TestCanonicalDocument:
         assert doc.start_id == "start"
 
     def test_rejects_list_shaped_nodes(self) -> None:
-        from leagent.workflow.io import load
-        from leagent.workflow.io.loader import WorkflowLoaderError
+        from StAgent.workflow.io import load
+        from StAgent.workflow.io.loader import WorkflowLoaderError
 
         with pytest.raises(WorkflowLoaderError):
             load({"id": "x", "name": "x", "nodes": [{"id": "start", "type": "start"}]})

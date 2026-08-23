@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from leagent.agent.multimodal import (
+from StAgent.agent.multimodal import (
     TEXT_ONLY_IMAGE_ATTACHMENT_HINT,
     prepare_user_message_with_attachments,
 )
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.model_spec import ModelCapabilities, ModelSpec
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_spec import ModelCapabilities, ModelSpec
 
 
 def _text_registry(provider: str, model: str) -> ModelRegistry:

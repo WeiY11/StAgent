@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from leagent.services.execution.output_stream import (
+from StAgent.services.execution.output_stream import (
     ToolOutputBus,
     get_tool_output_bus,
     reset_tool_output_bus,
@@ -92,8 +92,8 @@ async def test_subscribe_receives_live_chunks():
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX shell test")
 @pytest.mark.asyncio
 async def test_engine_streams_output_live():
-    from leagent.services.execution.engine import ExecutionEngine
-    from leagent.services.execution.policies import ExecutionPolicy
+    from StAgent.services.execution.engine import ExecutionEngine
+    from StAgent.services.execution.policies import ExecutionPolicy
 
     engine = ExecutionEngine()
     bus = get_tool_output_bus()
@@ -120,8 +120,8 @@ async def test_engine_streams_output_live():
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX shell test")
 @pytest.mark.asyncio
 async def test_engine_without_meta_does_not_publish():
-    from leagent.services.execution.engine import ExecutionEngine
-    from leagent.services.execution.policies import ExecutionPolicy
+    from StAgent.services.execution.engine import ExecutionEngine
+    from StAgent.services.execution.policies import ExecutionPolicy
 
     engine = ExecutionEngine()
     bus = get_tool_output_bus()
@@ -138,8 +138,8 @@ async def test_engine_without_meta_does_not_publish():
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX shell test")
 @pytest.mark.asyncio
 async def test_engine_streaming_with_stdin():
-    from leagent.services.execution.engine import ExecutionEngine
-    from leagent.services.execution.policies import ExecutionPolicy
+    from StAgent.services.execution.engine import ExecutionEngine
+    from StAgent.services.execution.policies import ExecutionPolicy
 
     engine = ExecutionEngine()
     result = await engine.shell_command(

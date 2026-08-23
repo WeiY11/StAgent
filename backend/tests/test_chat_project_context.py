@@ -47,9 +47,9 @@ def _build_controller(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Construct an AgentController with all collaborators mocked out."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from leagent.agent.base import AgentConfig, AgentMode
-    from leagent.agent.controller import AgentController
-    from leagent.agent import query_engine as qe_mod
+    from StAgent.agent.base import AgentConfig, AgentMode
+    from StAgent.agent.controller import AgentController
+    from StAgent.agent import query_engine as qe_mod
 
     monkeypatch.setattr(qe_mod, "QueryEngine", _FakeEngine)
 
@@ -82,7 +82,7 @@ def _build_controller(monkeypatch: pytest.MonkeyPatch) -> Any:
         *,
         task_id: UUID | None = None,
     ) -> Any:
-        from leagent.agent.base import AgentContext, AgentState
+        from StAgent.agent.base import AgentContext, AgentState
 
         return AgentContext(
             task_id=task_id or uuid4(),
@@ -95,7 +95,7 @@ def _build_controller(monkeypatch: pytest.MonkeyPatch) -> Any:
     controller._create_context = _fake_create_context  # type: ignore[assignment]
 
     async def _fake_load(_sid: Any) -> Any:
-        from leagent.agent.base import ConversationContext
+        from StAgent.agent.base import ConversationContext
 
         return ConversationContext(session_id=_sid)
 
@@ -155,7 +155,7 @@ async def test_run_via_query_engine_without_project_roots(
 @pytest.mark.asyncio
 async def test_resolve_project_folder_path_rejects_unowned() -> None:
     """The chat resolver returns None when the folder isn't owned by the caller."""
-    from leagent.api.v1.chat import _resolve_project_folder_path
+    from StAgent.api.v1.chat import _resolve_project_folder_path
 
     class _MockSession:
         async def __aenter__(self) -> "_MockSession":
@@ -169,7 +169,7 @@ async def test_resolve_project_folder_path_rejects_unowned() -> None:
             return _MockSession()
 
     # Patch out the load helper so it returns a folder owned by another user.
-    import leagent.api.v1.chat as chat_mod
+    import StAgent.api.v1.chat as chat_mod
 
     other_user = uuid4()
 
@@ -188,7 +188,7 @@ async def test_resolve_project_folder_path_rejects_unowned() -> None:
 
     # The function imports the helper inside its body, so monkeypatch the
     # reference on the source module the import resolves to.
-    from leagent.db import sqlite_compat
+    from StAgent.db import sqlite_compat
 
     original = sqlite_compat.load_entity_by_id
     sqlite_compat.load_entity_by_id = _fake_load  # type: ignore[assignment]

@@ -41,7 +41,7 @@
 ## Package layout
 
 ```
-leagent/workflow/
+StAgent/workflow/
 ├── io/                  # Canonical document loader/serializer/validator
 │   ├── loader.py        # load(), canonical shape assertion
 │   ├── serializer.py    # export(), to_json()

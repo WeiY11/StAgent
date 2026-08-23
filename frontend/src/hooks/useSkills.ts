@@ -108,7 +108,7 @@ interface PersistedHubSearchEntry {
 }
 
 function hubSearchStorageKey(identity: HubSearchQueryIdentity): string {
-  return `leagent.skills.hubSearch.v1:${JSON.stringify(identity)}`;
+  return `StAgent.skills.hubSearch.v1:${JSON.stringify(identity)}`;
 }
 
 function readPersistedHubSearch(key: string): PersistedHubSearchEntry | null {

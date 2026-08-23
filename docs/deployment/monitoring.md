@@ -1,3 +1,3 @@
-﻿# Monitoring
+# Monitoring
 
 TODO: Write monitoring guide.

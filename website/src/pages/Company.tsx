@@ -35,7 +35,7 @@ const LINKS: ContactLink[] = [
   },
   {
     labelKey: "website",
-    value: "LeAgent",
+    value: "StAgent",
     href: "/#/",
     icon: "globe",
   },

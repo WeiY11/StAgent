@@ -1,4 +1,4 @@
-"""Unit tests for the in-process BM25 ranker (:mod:`leagent.memory.bm25`).
+"""Unit tests for the in-process BM25 ranker (:mod:`StAgent.memory.bm25`).
 
 Covers the mixed English/CJK tokenizer, the Okapi BM25 scorer, and the
 ``rerank_entries`` helper that the recall pipeline uses to order lexical
@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from leagent.memory.bm25 import BM25Ranker, rerank_entries, tokenize
-from leagent.memory.types import MemoryKind, RecallEntry
+from StAgent.memory.bm25 import BM25Ranker, rerank_entries, tokenize
+from StAgent.memory.types import MemoryKind, RecallEntry
 
 
 def _entry(text: str, score: float = 0.4) -> RecallEntry:

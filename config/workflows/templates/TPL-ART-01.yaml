@@ -8,7 +8,7 @@
 # engine-ready manifest with a GenUI gallery.
 #
 # Runs end-to-end with zero credentials: every generation node is pinned to
-# the deterministic `offline` backend (set LEAGENT_ART_OFFLINE=1 to force it
+# the deterministic `offline` backend (set StAgent_ART_OFFLINE=1 to force it
 # globally). Assets travel by reference (MediaRef) and never as base64.
 id: TPL-ART-01
 name: "Game Art Asset Pipeline"

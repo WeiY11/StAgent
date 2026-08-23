@@ -17,13 +17,13 @@ import threading
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.services.cache.lru import BoundedLRU, ShardedLRU, make_lru
-from leagent.services.cache.observability import (
+from StAgent.config.settings import Settings
+from StAgent.services.cache.lru import BoundedLRU, ShardedLRU, make_lru
+from StAgent.services.cache.observability import (
     CacheStatsRegistry,
     get_cache_stats_registry,
 )
-from leagent.services.cache.service import CacheService
+from StAgent.services.cache.service import CacheService
 
 
 @pytest.fixture(autouse=True)

@@ -39,11 +39,11 @@ async def _import_all(
     user_id: UUID,
     skip_existing: bool,
 ) -> int:
-    from leagent.config import get_settings
-    from leagent.db.models.flow import Flow
-    from leagent.db.service import init_database_service
-    from leagent.workflow.io import load, validate
-    from leagent.workflow.nodes import bootstrap, get_registry
+    from StAgent.config import get_settings
+    from StAgent.db.models.flow import Flow
+    from StAgent.db.service import init_database_service
+    from StAgent.workflow.io import load, validate
+    from StAgent.workflow.nodes import bootstrap, get_registry
 
     if not demo_dir.is_dir():
         logger.error("demo_dir_missing", path=str(demo_dir))
@@ -54,7 +54,7 @@ async def _import_all(
         logger.error("no_demo_yaml", path=str(demo_dir))
         return 2
 
-    from leagent.workflow.layout import layout_document
+    from StAgent.workflow.layout import layout_document
 
     await bootstrap()
     registry = get_registry()
@@ -126,7 +126,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     demo_dir = args.dir or _default_demo_dir()
-    from leagent.services.auth.service import LOCAL_USER_ID
+    from StAgent.services.auth.service import LOCAL_USER_ID
 
     user_id = args.user_id or LOCAL_USER_ID
     skip_existing = not args.no_skip_existing

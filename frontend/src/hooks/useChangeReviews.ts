@@ -1,7 +1,7 @@
 /**
  * Change-review queue hooks (Codex Review Queue parity).
  *
- * Backend endpoints (leagent/api/v1/chat/reviews.py):
+ * Backend endpoints (StAgent/api/v1/chat/reviews.py):
  *  - GET  /chat/sessions/{sessionId}/change-reviews
  *  - GET  /chat/change-reviews/{reviewId}/diff
  *  - POST /chat/change-reviews/{reviewId}/approve

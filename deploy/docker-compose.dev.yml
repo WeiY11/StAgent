@@ -1,40 +1,40 @@
 # =============================================================================
-# LeAgent — development overlay (hot reload, same database selection as base)
+# StAgent — development overlay (hot reload, same database selection as base)
 # Usage from repo root:
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml up -d --build
 # =============================================================================
 
-name: leagent
+name: StAgent
 
 services:
-  leagent:
+  StAgent:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
       target: development
     volumes:
-      - ../backend/leagent:/app/leagent:cached
+      - ../backend/StAgent:/app/StAgent:cached
       - ../backend/tests:/app/tests:cached
       - ../backend/pyproject.toml:/app/pyproject.toml:ro
       - ../backend/alembic.ini:/app/alembic.ini:ro
-      - leagent-data:/app/data
-      - leagent-uploads:/app/uploads
-      - leagent-logs:/app/logs
-      - leagent-cache:/app/cache
+      - StAgent-data:/app/data
+      - StAgent-uploads:/app/uploads
+      - StAgent-logs:/app/logs
+      - StAgent-cache:/app/cache
     environment:
-      LEAGENT_DEBUG: "true"
-      LEAGENT_LOG_LEVEL: DEBUG
-      LEAGENT_ENVIRONMENT: development
-      LEAGENT_WORKERS: "1"
+      StAgent_DEBUG: "true"
+      StAgent_LOG_LEVEL: DEBUG
+      StAgent_ENVIRONMENT: development
+      StAgent_WORKERS: "1"
     ports:
-      - "127.0.0.1:${LEAGENT_HOST_PORT:-8000}:8000"
+      - "127.0.0.1:${StAgent_HOST_PORT:-8000}:8000"
       - "127.0.0.1:5678:5678"
     command: >
-      uvicorn leagent.main:app
+      uvicorn StAgent.main:app
       --host 0.0.0.0
       --port 8000
       --reload
-      --reload-dir /app/leagent
+      --reload-dir /app/StAgent
       --log-level debug
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/ready"]
@@ -45,7 +45,7 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
-    container_name: leagent-mailhog
+    container_name: StAgent-mailhog
     restart: unless-stopped
     profiles:
       - tools

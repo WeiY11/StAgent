@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   Ban,
   CircleStop,
@@ -42,6 +43,10 @@ export default function MissionsPage() {
   const [statusTab, setStatusTab] = useState<StatusTab>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Deep link (`/missions?select=<id>`, e.g. from the chat `/goal` command):
+  // honor it once the mission shows up in the loaded list, then clean the URL.
+  const requestedId = searchParams.get('select');
 
   const { data, isLoading } = useMissions();
   const pauseMission = usePauseMission();
@@ -55,9 +60,19 @@ export default function MissionsPage() {
   );
 
   useEffect(() => {
+    if (requestedId) {
+      if (missions.some((m) => m.id === requestedId)) {
+        setSelectedId(requestedId);
+        setSearchParams({}, { replace: true });
+      } else if (!isLoading) {
+        // Not in this list (filtered tab or deleted) — fall back to the default.
+        setSelectedId((prev) => prev ?? missions[0]?.id ?? null);
+      }
+      return;
+    }
     if (selectedId && missions.some((m) => m.id === selectedId)) return;
     setSelectedId(missions[0]?.id ?? null);
-  }, [missions, selectedId]);
+  }, [missions, requestedId, isLoading, selectedId, setSearchParams]);
 
   return (
     <PageShell

@@ -19,8 +19,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from leagent.file.sandbox import PathSandbox, reset_roots
-from leagent.tools.base import ToolContext, ToolResult
+from StAgent.file.sandbox import PathSandbox, reset_roots
+from StAgent.tools.base import ToolContext, ToolResult
 
 
 # ---------------------------------------------------------------------------
@@ -51,14 +51,14 @@ def _ctx_with_lookup(
 
 @pytest.fixture(autouse=True)
 def _reset_sandbox():
-    """Save/restore LEAGENT_TOOL_FILE_ROOTS so tests don't leak env state."""
-    saved = os.environ.get("LEAGENT_TOOL_FILE_ROOTS")
+    """Save/restore StAgent_TOOL_FILE_ROOTS so tests don't leak env state."""
+    saved = os.environ.get("StAgent_TOOL_FILE_ROOTS")
     reset_roots()
     yield
     if saved is None:
-        os.environ.pop("LEAGENT_TOOL_FILE_ROOTS", None)
+        os.environ.pop("StAgent_TOOL_FILE_ROOTS", None)
     else:
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = saved
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = saved
     reset_roots()
 
 
@@ -91,7 +91,7 @@ class TestPathSandbox:
     def test_project_source_rejected(self):
         with pytest.raises(PermissionError):
             PathSandbox.resolve_safe(
-                "/home/user/project/backend/leagent/main.py",
+                "/home/user/project/backend/StAgent/main.py",
                 context=_ctx(),
             )
 
@@ -99,7 +99,7 @@ class TestPathSandbox:
         test_file = tmp_path / "test.xlsx"
         test_file.write_text("hello")
 
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = PathSandbox.resolve_safe(str(test_file), context=_ctx())
@@ -111,7 +111,7 @@ class TestPathSandbox:
         test_file = subdir / "data.csv"
         test_file.write_text("a,b,c")
 
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = PathSandbox.resolve_safe(str(test_file), context=_ctx())
@@ -135,14 +135,14 @@ class TestPathSandbox:
         file_a.write_text("a")
         file_b.write_text("b")
 
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = f"{root_a},{root_b}"
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = f"{root_a},{root_b}"
         reset_roots()
 
         assert PathSandbox.resolve_safe(str(file_a), context=_ctx()) == file_a.resolve()
         assert PathSandbox.resolve_safe(str(file_b), context=_ctx()) == file_b.resolve()
 
     def test_is_safe_mirror(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         f = tmp_path / "ok.txt"
@@ -152,7 +152,7 @@ class TestPathSandbox:
         assert PathSandbox.is_safe("/etc/shadow", context=_ctx()) is False
 
     def test_allow_create_for_new_file(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         new_file = tmp_path / "output" / "result.docx"
@@ -163,7 +163,7 @@ class TestPathSandbox:
 
     def test_bare_filename_resolved_to_session_dir(self, tmp_path: Path):
         """A bare filename like '工作簿1.csv' resolves inside the session upload dir."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -176,7 +176,7 @@ class TestPathSandbox:
 
     def test_bare_filename_not_found_rejected(self, tmp_path: Path):
         """A bare filename that doesn't exist under any root is rejected."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         with pytest.raises(PermissionError):
@@ -184,7 +184,7 @@ class TestPathSandbox:
 
     def test_attachment_uuid_prefixed_name_alias_resolves(self, tmp_path: Path):
         """Original uploaded filename resolves to UUID-prefixed storage path."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -197,7 +197,7 @@ class TestPathSandbox:
         assert result == stored.resolve()
 
     def test_attachment_alias_case_and_punctuation_drift_resolves(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -211,7 +211,7 @@ class TestPathSandbox:
 
     def test_non_path_attachment_context_entries_ignored(self, tmp_path: Path):
         """Non-path entries (e.g. IDs) in context.attachments are ignored."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -225,7 +225,7 @@ class TestPathSandbox:
         assert result == stored.resolve()
 
     def test_attachment_id_lookup_resolves(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -241,7 +241,7 @@ class TestPathSandbox:
         assert result == stored.resolve()
 
     def test_file_reference_token_with_id_resolves(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -259,7 +259,7 @@ class TestPathSandbox:
 
     def test_knowledge_reference_token_resolves(self, tmp_path: Path):
         """@knowledge:name#uuid resolves via attachment_lookup.by_id (knowledge merge)."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         kid = uuid.uuid4()
@@ -282,9 +282,9 @@ class TestPathSandbox:
         """Bare original name matches ``<uuid>_原名`` when lookup built like AgentController."""
         from unittest.mock import MagicMock
 
-        from leagent.file.attachment_context import build_attachment_lookup
+        from StAgent.file.attachment_context import build_attachment_lookup
 
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         kid = uuid.uuid4()
@@ -305,7 +305,7 @@ class TestPathSandbox:
 
     def test_bare_filename_with_allow_create(self, tmp_path: Path):
         """A bare filename with allow_create resolves even if file doesn't exist."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -320,7 +320,7 @@ class TestPathSandbox:
         self, tmp_path: Path,
     ) -> None:
         """allow_create on read-style tools must not skip ``uuid_<name>`` on disk."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -338,7 +338,7 @@ class TestPathSandbox:
         self, tmp_path: Path,
     ) -> None:
         """Bare document UUID (no extension) maps to ``<uuid>_<name>`` without by_id."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         sid = "891e5d6f-c0a2-442a-bcbf-5d45cc55ed51"
@@ -356,7 +356,7 @@ class TestPathSandbox:
         self, tmp_path: Path,
     ) -> None:
         """Model passes ``uploads/<sid>/<name>`` but disk has ``<sid>/<uuid>_<name>``."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         sid = "76e97645-9cfe-4c15-8c57-38318563909e"
@@ -375,7 +375,7 @@ class TestPathSandbox:
 
     def test_authorized_roots_allow_nested_file(self, tmp_path: Path):
         """Session ``authorized_roots`` widens the sandbox like ``project_roots``."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
         granted = tmp_path / "granted"
         granted.mkdir()
@@ -393,13 +393,13 @@ class TestPathSandbox:
 
 
 async def _run_file_manager(params: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from leagent.tools.util.file_ops import FileOpsTool
+    from StAgent.tools.util.file_ops import FileOpsTool
     tool = FileOpsTool()
     return await tool.run(params, ctx)
 
 
 async def _run_text_processor(params: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    from leagent.tools.doc.text_processor import TextFileProcessorTool
+    from StAgent.tools.doc.text_processor import TextFileProcessorTool
     tool = TextFileProcessorTool()
     return await tool.run(params, ctx)
 
@@ -407,7 +407,7 @@ async def _run_text_processor(params: dict[str, Any], ctx: ToolContext) -> ToolR
 @pytest.mark.asyncio
 class TestFileManagerSandbox:
     async def test_tree_on_virtual_root_resolves_to_session_dir(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -420,7 +420,7 @@ class TestFileManagerSandbox:
         assert result.success
 
     async def test_list_on_slash_resolves_to_session_dir(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -435,7 +435,7 @@ class TestFileManagerSandbox:
         assert "data.csv" in names
 
     async def test_tree_on_allowed_dir(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         (tmp_path / "a.txt").write_text("a")
@@ -445,7 +445,7 @@ class TestFileManagerSandbox:
         assert result.success
 
     async def test_list_outside_denied(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = await _run_file_manager(
@@ -454,7 +454,7 @@ class TestFileManagerSandbox:
         assert not result.success
 
     async def test_info_on_etc_denied(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = await _run_file_manager(
@@ -463,7 +463,7 @@ class TestFileManagerSandbox:
         assert not result.success
 
     async def test_copy_denied_when_dest_outside(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         src = tmp_path / "src.txt"
@@ -477,7 +477,7 @@ class TestFileManagerSandbox:
 
     async def test_mkdir_creates_new_path_under_session(self, tmp_path: Path):
         """mkdir target must resolve even when the leaf directory does not exist yet."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -496,7 +496,7 @@ class TestFileManagerSandbox:
 @pytest.mark.asyncio
 class TestTextProcessorSandbox:
     async def test_read_etc_passwd_denied(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = await _run_text_processor(
@@ -506,17 +506,17 @@ class TestTextProcessorSandbox:
         assert "sandbox" in (result.error or "").lower()
 
     async def test_read_project_source_denied(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = await _run_text_processor(
-            {"operation": "read", "file_path": "/home/yqc/Desktop/leagent/backend/pyproject.toml"},
+            {"operation": "read", "file_path": "/home/yqc/Desktop/StAgent/backend/pyproject.toml"},
             _ctx(),
         )
         assert not result.success
 
     async def test_read_allowed_file(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         f = tmp_path / "notes.txt"
@@ -529,7 +529,7 @@ class TestTextProcessorSandbox:
         assert "hello world" in result.data["text"]
 
     async def test_read_attachment_allowed(self, tmp_path: Path):
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = "/nonexistent"
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = "/nonexistent"
         reset_roots()
 
         f = tmp_path / "att.txt"
@@ -543,7 +543,7 @@ class TestTextProcessorSandbox:
 
     async def test_read_bare_filename_resolves(self, tmp_path: Path):
         """text_processor can read a file by bare name from session dir."""
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -557,7 +557,7 @@ class TestTextProcessorSandbox:
         assert "session content" in result.data["text"]
 
     async def test_write_bare_filename_in_session(self, tmp_path: Path) -> None:
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         session_dir = tmp_path / "s1"
@@ -567,18 +567,18 @@ class TestTextProcessorSandbox:
         result = await _run_text_processor(
             {
                 "operation": "write",
-                "file_path": "LeAgent能力介绍.txt",
+                "file_path": "StAgent能力介绍.txt",
                 "data": payload,
             },
             _ctx(),
         )
         assert result.success
-        out = session_dir / "LeAgent能力介绍.txt"
+        out = session_dir / "StAgent能力介绍.txt"
         assert out.is_file()
         assert out.read_text(encoding="utf-8") == payload
 
     async def test_write_etc_passwd_denied(self, tmp_path: Path) -> None:
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
 
         result = await _run_text_processor(

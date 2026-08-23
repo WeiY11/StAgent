@@ -9,11 +9,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.db import get_database_service
-from leagent.db.models.message import ChatSession
-from leagent.memory.types import Episode, Fact, Procedure
-from leagent.services.auth.deps import get_current_user_id
-from leagent.services.chat.service import get_chat_service
+from StAgent.db import get_database_service
+from StAgent.db.models.message import ChatSession
+from StAgent.memory.types import Episode, Fact, Procedure
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.services.chat.service import get_chat_service
 
 
 def _session_for_user(session_id: UUID, user_id: UUID) -> ChatSession:
@@ -80,9 +80,9 @@ class TestChatAgentMemoryEndpoint:
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         try:
             with (
-                patch("leagent.main.get_service_manager", return_value=sm),
+                patch("StAgent.main.get_service_manager", return_value=sm),
                 patch(
-                    "leagent.api.v1.chat._require_session_project_access",
+                    "StAgent.api.v1.chat._require_session_project_access",
                     new_callable=AsyncMock,
                 ),
             ):
@@ -139,9 +139,9 @@ class TestChatAgentMemoryEndpoint:
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         try:
             with (
-                patch("leagent.main.get_service_manager", return_value=sm),
+                patch("StAgent.main.get_service_manager", return_value=sm),
                 patch(
-                    "leagent.api.v1.chat._require_session_project_access",
+                    "StAgent.api.v1.chat._require_session_project_access",
                     new_callable=AsyncMock,
                 ),
             ):

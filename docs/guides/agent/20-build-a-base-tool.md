@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文接在 [19. 工具 Schema 设计](19-tool-schema-design.md) 之后，面向要真正落地一个工具类、而不只是画出 JSON Schema 的开发者。建议先理解 JSON Schema 基本字段，并打开 `backend/leagent/tools/base.py`。这里的重点不是“如何让模型更愿意点这个工具”，而是：**宿主进程怎样安全、可重试、可观测地执行你写的业务函数**。
+本文接在 [19. 工具 Schema 设计](19-tool-schema-design.md) 之后，面向要真正落地一个工具类、而不只是画出 JSON Schema 的开发者。建议先理解 JSON Schema 基本字段，并打开 `backend/StAgent/tools/base.py`。这里的重点不是“如何让模型更愿意点这个工具”，而是：**宿主进程怎样安全、可重试、可观测地执行你写的业务函数**。
 
 当前抽象方法签名必须是：
 
@@ -35,8 +35,8 @@ validate_params（未知键拒绝 + operation 条件必填 + jsonschema）
 
 ## 真实实现路径
 
-- `backend/leagent/tools/base.py`：`BaseTool`、`ToolContext`、`ToolResult`、`run()`、权限相关类型
-- `backend/leagent/bootstrap/tools.py`：启动 discovery + curated 列表，HTTP/CLI/worker 共用
+- `backend/StAgent/tools/base.py`：`BaseTool`、`ToolContext`、`ToolResult`、`run()`、权限相关类型
+- `backend/StAgent/bootstrap/tools.py`：启动 discovery + curated 列表，HTTP/CLI/worker 共用
 - 可参考的工具：`util/date_calculator.py`、`util/conversation_history.py`、`web/web_search_tool.py`
 - 测试落点：`backend/tests/test_tools/`、`tests/test_registry.py`
 
@@ -48,7 +48,7 @@ validate_params（未知键拒绝 + operation 条件必填 + jsonschema）
 
 ```python
 from typing import Any
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext, NonRetryableToolError
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext, NonRetryableToolError
 
 
 class EchoTitleTool(BaseTool):
@@ -98,7 +98,7 @@ class EchoTitleTool(BaseTool):
 ```bash
 cd backend
 uv run pytest tests/test_registry.py -q
-uv run ruff check leagent/tools/base.py
+uv run ruff check StAgent/tools/base.py
 ```
 
 在单测里对实例直接 `await tool.run({"title": "ok"}, ToolContext())`，断言 `success` 与错误分支，比只测 `execute` 更接近生产路径。
@@ -114,7 +114,7 @@ uv run ruff check leagent/tools/base.py
 
 ## 业内对照
 
-OpenAI function calling 与 Anthropic tool use 最终都落到“名字 + 描述 + JSON Schema + 宿主执行”。LangChain 常从函数注解推导 schema，上手快，但对多模型格式、权限标记与结果预算的控制较弱。Cursor / Codex 一类产品更强调只读/破坏性分类与审批。LeAgent 的 `BaseTool` 显式暴露这些开关，并用 `run()` 把契约变成强制执行流程，而不是约定俗成。
+OpenAI function calling 与 Anthropic tool use 最终都落到“名字 + 描述 + JSON Schema + 宿主执行”。LangChain 常从函数注解推导 schema，上手快，但对多模型格式、权限标记与结果预算的控制较弱。Cursor / Codex 一类产品更强调只读/破坏性分类与审批。StAgent 的 `BaseTool` 显式暴露这些开关，并用 `run()` 把契约变成强制执行流程，而不是约定俗成。
 
 ## 落地检查清单
 

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from leagent.db.models.mission import (
+from StAgent.db.models.mission import (
     Mission,
     MissionStep,
     MissionStepKind,
     MissionVerifyLevel,
 )
-from leagent.mission.types import SegmentResult
-from leagent.mission.verifier import HeuristicVerifier
+from StAgent.mission.types import SegmentResult
+from StAgent.mission.verifier import HeuristicVerifier
 
 
 def make_mission(**kwargs: Any) -> Mission:

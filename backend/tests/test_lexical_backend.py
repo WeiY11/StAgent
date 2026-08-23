@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import ColumnElement
 
-from leagent.memory.lexical_backend import column_text_match, session_dialect
+from StAgent.memory.lexical_backend import column_text_match, session_dialect
 
 
 def test_session_dialect_fallback_on_error() -> None:
@@ -26,7 +26,7 @@ def test_column_match_sqlite_is_ilike() -> None:
 
 
 def test_column_match_postgres_is_tsvector() -> None:
-    from leagent.db.models.agent_memory import AgentEpisode
+    from StAgent.db.models.agent_memory import AgentEpisode
 
     expr = column_text_match(AgentEpisode.summary, "budget report", "postgresql")
     assert isinstance(expr, ColumnElement)

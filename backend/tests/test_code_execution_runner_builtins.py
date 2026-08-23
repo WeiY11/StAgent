@@ -8,7 +8,7 @@ import pytest
 
 
 def test_sandbox_builtins_has_full_builtins(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     d = _sandbox_builtins(workspace_path=tmp_path)
     assert "open" in d
@@ -18,7 +18,7 @@ def test_sandbox_builtins_has_full_builtins(tmp_path: Path) -> None:
 
 
 def test_unrestricted_import_allows_os(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     imp = _sandbox_builtins(workspace_path=tmp_path)["__import__"]
     m = imp("os")
@@ -29,7 +29,7 @@ def test_unrestricted_import_allows_os(tmp_path: Path) -> None:
 def test_unrestricted_import_allows_json(tmp_path: Path) -> None:
     import json as json_stdlib
 
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     imp = _sandbox_builtins(workspace_path=tmp_path)["__import__"]
     m = imp("json")
@@ -37,31 +37,31 @@ def test_unrestricted_import_allows_json(tmp_path: Path) -> None:
 
 
 def test_stdlib_import_blocks_non_stdlib_root(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     imp = _sandbox_builtins(workspace_path=tmp_path, import_tier="stdlib")[
         "__import__"
     ]
 
     with pytest.raises(ImportError, match="not allowed"):
-        imp("leagent")
+        imp("StAgent")
 
 
 def test_extra_import_roots_extend_restricted_tier(tmp_path: Path) -> None:
-    import leagent as leagent_pkg
-    from leagent.code.runner import _sandbox_builtins
+    import StAgent as StAgent_pkg
+    from StAgent.code.runner import _sandbox_builtins
 
     imp = _sandbox_builtins(
         workspace_path=tmp_path,
         import_tier="stdlib",
-        extra_import_roots=("leagent.tools",),
+        extra_import_roots=("StAgent.tools",),
     )["__import__"]
 
-    assert imp("leagent") is leagent_pkg
+    assert imp("StAgent") is StAgent_pkg
 
 
 def test_open_allows_workspace_write(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     builtins_dict = _sandbox_builtins(workspace_path=tmp_path)
     scoped_open = builtins_dict["open"]
@@ -72,7 +72,7 @@ def test_open_allows_workspace_write(tmp_path: Path) -> None:
 
 
 def test_open_allows_outside_write(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
     builtins_dict = _sandbox_builtins(workspace_path=tmp_path)
@@ -86,7 +86,7 @@ def test_open_allows_outside_write(tmp_path: Path) -> None:
 
 
 def test_open_allows_read_outside_workspace(tmp_path: Path) -> None:
-    from leagent.code.runner import _sandbox_builtins
+    from StAgent.code.runner import _sandbox_builtins
 
     outside = tmp_path.parent / f"{tmp_path.name}-input.txt"
     outside.write_text("readable", encoding="utf-8")

@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`leagent.mission.service` (MissionService)."""
+"""Unit tests for :mod:`StAgent.mission.service` (MissionService)."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.db.models.mission import Mission, MissionStatus, MissionStepStatus
-from leagent.mission.runner import AlwaysPassVerifier, StaticPlanner
-from leagent.mission.service import MissionService
-from leagent.mission.types import MissionPlan, MissionStepState, SegmentResult
+from StAgent.db.models.mission import Mission, MissionStatus, MissionStepStatus
+from StAgent.mission.runner import AlwaysPassVerifier, StaticPlanner
+from StAgent.mission.service import MissionService
+from StAgent.mission.types import MissionPlan, MissionStepState, SegmentResult
 
 
 class _FakeDb:
@@ -152,7 +152,7 @@ async def test_pause_sets_paused_status() -> None:
         mission = Mission(user_id=uuid.uuid4(), goal="g")
         mission = await svc.store.create(mission)
         # Pause applies to READY/RUNNING missions only; a fresh PLANNING row stays put.
-        from leagent.db.models.mission import MissionStatus as _MS
+        from StAgent.db.models.mission import MissionStatus as _MS
 
         await svc.store.update_status(mission.id, _MS.RUNNING)
         paused = await svc.pause(mission.id)

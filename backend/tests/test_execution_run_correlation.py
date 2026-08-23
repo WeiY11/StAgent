@@ -6,19 +6,19 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.runtime.execution_factory import (
+from StAgent.runtime.execution_factory import (
     begin_execution,
     end_execution,
     end_execution_unless_blocked,
 )
-from leagent.runtime.execution_registry import get_execution_run_registry
-from leagent.runtime.execution_run import ExecutionScope
+from StAgent.runtime.execution_registry import get_execution_run_registry
+from StAgent.runtime.execution_run import ExecutionScope
 
 
 @pytest.fixture(autouse=True)
 def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     """Use a fresh in-process registry for each test."""
-    import leagent.runtime.execution_registry as reg_mod
+    import StAgent.runtime.execution_registry as reg_mod
 
     monkeypatch.setattr(reg_mod, "_registry", None)
 

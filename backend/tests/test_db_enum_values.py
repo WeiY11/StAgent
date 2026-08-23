@@ -11,16 +11,16 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects import postgresql
 from sqlmodel import SQLModel, Session, create_engine
 
-import leagent.db.models  # noqa: F401
-from leagent.db.models.coding_project import (
+import StAgent.db.models  # noqa: F401
+from StAgent.db.models.coding_project import (
     CodingProject,
     CodingProjectRuntimeKind,
     CodingProjectStatus,
 )
-from leagent.db.models.file import File, FileStatus, FileType, InboxState, LibraryScope
-from leagent.db.models.flow import Flow, FlowStatus, FlowType
-from leagent.db.models.message import Message, MessageRole, MessageStatus
-from leagent.db.models.task import Task, TaskPriority, TaskStatus, TaskType
+from StAgent.db.models.file import File, FileStatus, FileType, InboxState, LibraryScope
+from StAgent.db.models.flow import Flow, FlowStatus, FlowType
+from StAgent.db.models.message import Message, MessageRole, MessageStatus
+from StAgent.db.models.task import Task, TaskPriority, TaskStatus, TaskType
 
 
 @pytest.mark.parametrize(
@@ -96,7 +96,7 @@ def test_file_enum_values_are_stored_as_lowercase_values_in_sqlite() -> None:
 
 
 def test_enum_value_migration_normalizes_legacy_uppercase_sqlite_rows() -> None:
-    migration = import_module("leagent.alembic.versions.0016_enum_values")
+    migration = import_module("StAgent.alembic.versions.0016_enum_values")
     engine = create_engine("sqlite:///:memory:")
     metadata = MetaData()
     files = Table(

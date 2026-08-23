@@ -16,9 +16,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.agent.base import AgentResponse
-from leagent.agent.deps import ModelStreamEvent, QueryDeps
-from leagent.agent.query import (
+from StAgent.agent.base import AgentResponse
+from StAgent.agent.deps import ModelStreamEvent, QueryDeps
+from StAgent.agent.query import (
     ASK_USER_PENDING_TOOL_JSON,
     _TRUNCATION_RECOVERY_HINT,
     AssistantMessage,
@@ -33,19 +33,19 @@ from leagent.agent.query import (
     inject_missing_tool_result_stubs,
     query,
 )
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig, SDKMessage
-from leagent.agent.state import QueryState, AutoCompactTrackingState
-from leagent.agent.tool_use_context import ToolUseContext
-from leagent.agent.transitions import Continue, ContinueReason, Terminal, TerminalReason
-from leagent.context import FileState
-from leagent.context.sources.gated_policy import (
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig, SDKMessage
+from StAgent.agent.state import QueryState, AutoCompactTrackingState
+from StAgent.agent.tool_use_context import ToolUseContext
+from StAgent.agent.transitions import Continue, ContinueReason, Terminal, TerminalReason
+from StAgent.context import FileState
+from StAgent.context.sources.gated_policy import (
     CANVAS_INTENT_MAX_OUTPUT_TOKENS,
     resolve_canvas_intent_max_output_tokens,
 )
-from leagent.knowledge.evidence import Citation, EvidenceBundle, EvidenceStatus
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext, ToolPermissionContext
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import ToolRegistry
+from StAgent.knowledge.evidence import Citation, EvidenceBundle, EvidenceStatus
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext, ToolPermissionContext
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import ToolRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -1215,8 +1215,8 @@ class TestPromptOwnership:
         auto-generated capabilities block appears and (b) a caller persona
         override takes effect.
         """
-        from leagent.prompts import PromptBuilder
-        from leagent.prompts.registry import PromptRegistry
+        from StAgent.prompts import PromptBuilder
+        from StAgent.prompts.registry import PromptRegistry
 
         tpl_dir = tmp_path / "templates"
         tpl_dir.mkdir()
@@ -1243,7 +1243,7 @@ class TestPromptOwnership:
         turn = await engine._context.prepare_turn("", task_id=uuid4())
         prompt = turn.built_prompt.system_text
         assert "Available tools:" in prompt
-        forbidden = ["You are LeAgent", "intelligent assistant", "Excel"]
+        forbidden = ["You are StAgent", "intelligent assistant", "Excel"]
         for needle in forbidden:
             assert needle not in prompt, f"hardcoded persona leaked: {needle!r}"
 

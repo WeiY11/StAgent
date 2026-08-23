@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from leagent.api.v1 import documents as doc_api
+from StAgent.api.v1 import documents as doc_api
 
 
 class _FilesCfg:
@@ -47,11 +47,11 @@ async def test_list_documents_unfiled_filter(monkeypatch: pytest.MonkeyPatch, tm
     """unfiled=true returns only knowledge docs with folder_id IS NULL."""
     from uuid import uuid4
 
-    from leagent.config.settings import Settings
-    from leagent.db.models.file import File, FileStatus, FileType, LibraryScope
-    from leagent.db.models.folder import Folder
-    from leagent.db.service import DatabaseService
-    from leagent.services.auth.service import LOCAL_USER_ID
+    from StAgent.config.settings import Settings
+    from StAgent.db.models.file import File, FileStatus, FileType, LibraryScope
+    from StAgent.db.models.folder import Folder
+    from StAgent.db.service import DatabaseService
+    from StAgent.services.auth.service import LOCAL_USER_ID
 
     db_path = tmp_path / "docs.db"
     monkeypatch.setenv("DB_DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")

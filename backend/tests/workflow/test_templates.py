@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.io import load
-from leagent.workflow.layout import build_ui_block
-from leagent.workflow.nodes import bootstrap
-from leagent.workflow.template_service import get_template_service
+from StAgent.workflow.io import load
+from StAgent.workflow.layout import build_ui_block
+from StAgent.workflow.nodes import bootstrap
+from StAgent.workflow.template_service import get_template_service
 
 
 @pytest.mark.asyncio

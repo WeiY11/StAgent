@@ -1,6 +1,6 @@
 # Cache Architecture
 
-LeAgent runs with **zero external cache dependencies by default**. Every cache
+StAgent runs with **zero external cache dependencies by default**. Every cache
 described here is a **process-local, in-memory** structure that improves latency
 and reduces provider/database load. It is never a source of truth and never an
 access-control boundary. If the process restarts, every cache is empty and the

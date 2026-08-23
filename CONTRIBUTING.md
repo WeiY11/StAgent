@@ -1,6 +1,6 @@
-# Contributing to LeAgent
+# Contributing to StAgent
 
-Thank you for your interest in contributing to LeAgent! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to StAgent! This document provides guidelines and information for contributors.
 
 ## Table of Contents
 
@@ -51,10 +51,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync --extra dev
 
 # Initialize configuration
-uv run leagent init
+uv run StAgent init
 
 # Run development server
-uv run leagent app --reload
+uv run StAgent app --reload
 ```
 
 ### Frontend Setup
@@ -144,10 +144,10 @@ Closes #123
 
 ```bash
 # Format code
-uv run ruff format leagent/
+uv run ruff format StAgent/
 
 # Lint code
-uv run ruff check leagent/
+uv run ruff check StAgent/
 ```
 
 ### TypeScript (Frontend)
@@ -216,7 +216,7 @@ tests/
 
 ```python
 import pytest
-from leagent.tools.doc import PDFReaderTool
+from StAgent.tools.doc import PDFReaderTool
 
 @pytest.fixture
 def pdf_tool():
@@ -241,7 +241,7 @@ uv run pytest tests/test_tools/test_pdf_reader.py -v
 uv run pytest -k "test_pdf" -v
 
 # Run with coverage
-uv run pytest --cov=leagent --cov-report=html
+uv run pytest --cov=StAgent --cov-report=html
 ```
 
 ## Documentation
@@ -274,12 +274,12 @@ To add a new tool:
 
 1. Create tool file in appropriate category:
    ```
-   backend/leagent/tools/<category>/new_tool.py
+   backend/StAgent/tools/<category>/new_tool.py
    ```
 
 2. Implement the `BaseTool` interface:
    ```python
-   from leagent.tools.base import BaseTool, ToolResult, ToolContext
+   from StAgent.tools.base import BaseTool, ToolResult, ToolContext
    
    class NewTool(BaseTool):
        name = "new_tool"
@@ -314,4 +314,4 @@ To add a new tool:
 - Join our community discussions
 - Check existing issues for similar questions
 
-Thank you for contributing to LeAgent!
+Thank you for contributing to StAgent!

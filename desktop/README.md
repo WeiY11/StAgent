@@ -1,6 +1,6 @@
-# LeAgent Desktop
+# StAgent Desktop
 
-Cross-platform Electron shell that bundles the LeAgent FastAPI backend and React frontend into a standalone desktop application for **macOS**, **Windows**, and **Linux**.
+Cross-platform Electron shell that bundles the StAgent FastAPI backend and React frontend into a standalone desktop application for **macOS**, **Windows**, and **Linux**.
 
 ## Architecture
 
@@ -9,13 +9,13 @@ desktop/
 ├── electron/                    Electron app source
 │   ├── src/
 │   │   ├── main.ts              Thin entry — single-instance lock
-│   │   ├── app/                 LeAgentDesktopApp orchestrator
+│   │   ├── app/                 StAgentDesktopApp orchestrator
 │   │   ├── config/              electron-store desktop settings
 │   │   ├── install/             InstallationManager + validator
 │   │   ├── server/              BackendServer (Python subprocess)
 │   │   ├── window/              AppWindow + splash + window state
 │   │   ├── ipc/                 IPC registration modules
-│   │   └── preload.cts          contextBridge → window.leagent
+│   │   └── preload.cts          contextBridge → window.StAgent
 │   ├── splash/                  Boot progress UI
 │   ├── maintenance/             Validation / repair UI
 │   └── build/                   NSIS hooks, entitlements, notarize
@@ -27,16 +27,16 @@ desktop/
 1. Splash appears immediately.
 2. `InstallationManager.ensureInstalled()` — first launch runs `uv venv` + `uv sync --frozen` + `alembic upgrade head`.
 3. `InstallValidator` — blocks startup on critical errors; opens **maintenance** page when validation fails.
-4. `BackendServer` starts `python -m leagent.server` on `127.0.0.1:7860`, polls `/health`, then loads the SPA.
+4. `BackendServer` starts `python -m StAgent.server` on `127.0.0.1:7860`, polls `/health`, then loads the SPA.
 5. Backend crash auto-restart is limited to **3 attempts** before maintenance mode.
 
 On **macOS**, closing all windows does not quit the app (backend keeps running). Dock `activate` calls `reopenMainWindow()` — it recreates the window and reuses the running backend; IPC handlers are registered only once at cold boot.
 
-### Desktop bridge (`window.leagent`)
+### Desktop bridge (`window.StAgent`)
 
 | Namespace | Methods |
 |-----------|---------|
-| `app` | `getVersion`, `getPaths` (includes `leagentHome`), `getMachineFingerprint`, `getDiagnostics`, `copyDiagnostics`, `openLogsDir`, `openApp` |
+| `app` | `getVersion`, `getPaths` (includes `StAgentHome`), `getMachineFingerprint`, `getDiagnostics`, `copyDiagnostics`, `openLogsDir`, `openApp` |
 | `runtime` | `onProgress`, `onStatus` |
 | `install` | `validate`, `repair`, `reinstall`, `retryBoot` |
 | `server` | `restart`, `getStatus`, `onLog`, `onStatus` |
@@ -105,20 +105,20 @@ Push a tag `desktop-v*` (e.g. `desktop-v1.1.4`) to trigger [`.github/workflows/d
 
 | Platform | Path |
 |----------|------|
-| macOS | `~/Library/Application Support/LeAgent/` |
-| Windows | `%APPDATA%/LeAgent/` |
-| Linux | `~/.config/LeAgent/` |
+| macOS | `~/Library/Application Support/StAgent/` |
+| Windows | `%APPDATA%/StAgent/` |
+| Linux | `~/.config/StAgent/` |
 
-Subdirs: `leagent/` (LEAGENT_HOME), `runtime/venv/`, `logs/main.log` + `logs/backend.log`, `desktop-config.json`.
+Subdirs: `StAgent/` (StAgent_HOME), `runtime/venv/`, `logs/main.log` + `logs/backend.log`, `desktop-config.json`.
 
 ## Environment variables (set by Electron)
 
 | Variable | Purpose |
 |----------|---------|
-| `LEAGENT_DESKTOP` | `1` — skip heavyweight warmup |
-| `LEAGENT_DESKTOP_MODE` | `1` — desktop tool discovery mode |
-| `LEAGENT_HOME` | User data directory |
-| `LEAGENT_FRONTEND_DIST` | Bundled SPA path (packaged only) |
+| `StAgent_DESKTOP` | `1` — skip heavyweight warmup |
+| `StAgent_DESKTOP_MODE` | `1` — desktop tool discovery mode |
+| `StAgent_HOME` | User data directory |
+| `StAgent_FRONTEND_DIST` | Bundled SPA path (packaged only) |
 
 ## Testing
 

@@ -281,7 +281,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--cov-package",
-        default="leagent",
+        default="StAgent",
         help="Package passed to pytest-cov when --cov is enabled.",
     )
     parser.add_argument(
@@ -324,8 +324,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     env = dict(os.environ)
     env.setdefault("PYTHONUNBUFFERED", "1")
-    env.setdefault("LEAGENT_SECURITY_ENFORCE_AUTH", "false")
-    env.setdefault("LEAGENT_SECURITY_RATE_LIMIT_ENABLED", "false")
+    env.setdefault("StAgent_SECURITY_ENFORCE_AUTH", "false")
+    env.setdefault("StAgent_SECURITY_RATE_LIMIT_ENABLED", "false")
 
     failed: list[str] = []
     total_started = time.perf_counter()

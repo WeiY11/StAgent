@@ -485,7 +485,7 @@ function EditorInner({ registry }: { registry: ObjectInfo }) {
       setCanvasDragActive(false);
       const position = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
 
-      const nodeType = event.dataTransfer.getData('application/leagent-node');
+      const nodeType = event.dataTransfer.getData('application/StAgent-node');
       if (nodeType) {
         const def = registry.definitions[nodeType];
         if (def) addNode(def, position);
@@ -523,7 +523,7 @@ function EditorInner({ registry }: { registry: ObjectInfo }) {
     event.preventDefault();
     const hasFiles = Array.from(event.dataTransfer.types).includes('Files');
     const hasText = Array.from(event.dataTransfer.types).includes('text/plain');
-    const hasNode = Array.from(event.dataTransfer.types).includes('application/leagent-node');
+    const hasNode = Array.from(event.dataTransfer.types).includes('application/StAgent-node');
     if (hasFiles || hasText) {
       event.dataTransfer.dropEffect = 'copy';
       setCanvasDragActive(true);

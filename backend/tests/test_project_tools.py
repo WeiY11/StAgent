@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from leagent.tools.base import ToolContext, ToolResult
+from StAgent.tools.base import ToolContext, ToolResult
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -64,7 +64,7 @@ def project(tmp_path: Path) -> Path:
 
 @pytest.mark.asyncio
 async def test_project_read_returns_line_numbered_content(project: Path) -> None:
-    from leagent.project.tools.read import ProjectReadTool
+    from StAgent.project.tools.read import ProjectReadTool
 
     tool = ProjectReadTool()
     result = await _run(tool, {"path": "src/app.py"}, _ctx(project))
@@ -79,7 +79,7 @@ async def test_project_read_returns_line_numbered_content(project: Path) -> None
 
 @pytest.mark.asyncio
 async def test_project_read_rejects_escape(project: Path) -> None:
-    from leagent.project.tools.read import ProjectReadTool
+    from StAgent.project.tools.read import ProjectReadTool
 
     outside = project.parent / "outside.txt"
     outside.write_text("nope", encoding="utf-8")
@@ -91,9 +91,9 @@ async def test_project_read_rejects_escape(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_write_then_edit_then_read(project: Path) -> None:
-    from leagent.project.tools.edit import ProjectEditTool
-    from leagent.project.tools.read import ProjectReadTool
-    from leagent.project.tools.write import ProjectWriteTool
+    from StAgent.project.tools.edit import ProjectEditTool
+    from StAgent.project.tools.read import ProjectReadTool
+    from StAgent.project.tools.write import ProjectWriteTool
 
     write = ProjectWriteTool()
     edit = ProjectEditTool()
@@ -131,8 +131,8 @@ async def test_project_write_then_edit_then_read(project: Path) -> None:
 @pytest.mark.asyncio
 async def test_project_edit_requires_uniqueness(project: Path) -> None:
     """Multiple matches without ``replace_all`` must fail loudly."""
-    from leagent.project.tools.edit import ProjectEditTool
-    from leagent.project.tools.write import ProjectWriteTool
+    from StAgent.project.tools.edit import ProjectEditTool
+    from StAgent.project.tools.write import ProjectWriteTool
 
     await _run(
         ProjectWriteTool(),
@@ -162,7 +162,7 @@ async def test_project_edit_requires_uniqueness(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_edit_no_match_includes_patch_hint(project: Path) -> None:
-    from leagent.project.tools.edit import ProjectEditTool
+    from StAgent.project.tools.edit import ProjectEditTool
 
     res = await _run(
         ProjectEditTool(),
@@ -181,7 +181,7 @@ async def test_project_edit_no_match_includes_patch_hint(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_grep_finds_match(project: Path) -> None:
-    from leagent.project.tools.grep import ProjectGrepTool
+    from StAgent.project.tools.grep import ProjectGrepTool
 
     tool = ProjectGrepTool()
     result = await _run(tool, {"pattern": "def greet"}, _ctx(project))
@@ -197,7 +197,7 @@ async def test_project_grep_finds_match(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_glob_lists_python_files(project: Path) -> None:
-    from leagent.project.tools.glob import ProjectGlobTool
+    from StAgent.project.tools.glob import ProjectGlobTool
 
     result = await _run(
         ProjectGlobTool(),
@@ -213,7 +213,7 @@ async def test_project_glob_lists_python_files(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_tree_renders_layout(project: Path) -> None:
-    from leagent.project.tools.tree import ProjectTreeTool
+    from StAgent.project.tools.tree import ProjectTreeTool
 
     result = await _run(ProjectTreeTool(), {"max_depth": 3}, _ctx(project))
     assert result.success, result.error
@@ -225,7 +225,7 @@ async def test_project_tree_renders_layout(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_tree_missing_root_is_not_retried() -> None:
-    from leagent.project.tools.tree import ProjectTreeTool
+    from StAgent.project.tools.tree import ProjectTreeTool
 
     result = await _run(
         ProjectTreeTool(),
@@ -240,7 +240,7 @@ async def test_project_tree_missing_root_is_not_retried() -> None:
 
 @pytest.mark.asyncio
 async def test_project_apply_patch_creates_and_modifies(project: Path) -> None:
-    from leagent.project.tools.patch import ProjectApplyPatchTool
+    from StAgent.project.tools.patch import ProjectApplyPatchTool
 
     diff = (
         "--- /dev/null\n"
@@ -267,7 +267,7 @@ async def test_project_apply_patch_creates_and_modifies(project: Path) -> None:
 @pytest.mark.asyncio
 async def test_project_shell_runs_python(project: Path) -> None:
     """Curated shell can execute ``python -c`` inside the project root."""
-    from leagent.project.tools.shell import ProjectShellTool
+    from StAgent.project.tools.shell import ProjectShellTool
 
     result = await _run(
         ProjectShellTool(),
@@ -291,8 +291,8 @@ async def test_project_shell_blocks_unknown_binary(
     project: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Curated argv rejects unknown binaries when free-shell mode is off."""
-    monkeypatch.setenv("LEAGENT_CODING_AGENT_FREE_SHELL", "0")
-    from leagent.project.tools.shell import ProjectShellTool
+    monkeypatch.setenv("StAgent_CODING_AGENT_FREE_SHELL", "0")
+    from StAgent.project.tools.shell import ProjectShellTool
 
     result = await _run(
         ProjectShellTool(),
@@ -308,7 +308,7 @@ async def test_project_shell_blocks_unknown_binary(
 
 @pytest.mark.asyncio
 async def test_project_outline_single_file(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -327,7 +327,7 @@ async def test_project_outline_single_file(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_syntax_error(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "broken.py").write_text("def x(\n", encoding="utf-8")
     result = await _run(
@@ -342,7 +342,7 @@ async def test_project_outline_syntax_error(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_root_glob(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -359,7 +359,7 @@ async def test_project_outline_root_glob(project: Path) -> None:
 async def test_project_outline_max_files_truncated_only_when_more_matches(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     exact_result = await _run(
         ProjectOutlineTool(),
@@ -386,7 +386,7 @@ async def test_project_outline_max_files_truncated_only_when_more_matches(
 
 @pytest.mark.asyncio
 async def test_project_outline_accepts_windows_style_glob(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -402,7 +402,7 @@ async def test_project_outline_accepts_windows_style_glob(project: Path) -> None
 
 @pytest.mark.asyncio
 async def test_project_outline_accepts_windows_style_recursive_glob(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "nested").mkdir()
     (project / "src" / "nested" / "widget.ts").write_text(
@@ -424,7 +424,7 @@ async def test_project_outline_accepts_windows_style_recursive_glob(project: Pat
 
 @pytest.mark.asyncio
 async def test_project_outline_default_includes_ts_js(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "widget.ts").write_text(
         "export interface Props { name: string }\n"
@@ -482,7 +482,7 @@ async def test_project_outline_default_includes_ts_js(project: Path) -> None:
 async def test_project_outline_skips_common_generated_dirs_by_default(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     generated_files = [
         project / "node_modules" / "pkg" / "index.ts",
@@ -522,7 +522,7 @@ async def test_project_outline_skips_common_generated_dirs_by_default(
 async def test_project_outline_parses_explicit_file_inside_generated_dir(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     generated = project / "coverage" / "report.ts"
     generated.parent.mkdir()
@@ -545,7 +545,7 @@ async def test_project_outline_parses_explicit_file_inside_generated_dir(
 
 @pytest.mark.asyncio
 async def test_project_outline_indexes_anonymous_default_exports(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "anonymous-default.jsx").write_text(
         "export default () => null;\n",
@@ -591,7 +591,7 @@ async def test_project_outline_indexes_anonymous_default_exports(project: Path) 
 
 @pytest.mark.asyncio
 async def test_project_outline_default_includes_modern_module_suffixes(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "entry.mjs").write_text(
         "export function start() { return true; }\n",
@@ -630,7 +630,7 @@ async def test_project_outline_default_includes_modern_module_suffixes(project: 
 
 @pytest.mark.asyncio
 async def test_project_outline_languages_filter(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "widget.ts").write_text(
         "export const buildWidget = () => ({ ok: true });\n",
@@ -655,7 +655,7 @@ async def test_project_outline_languages_filter(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_can_be_disabled(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -671,7 +671,7 @@ async def test_project_outline_symbol_index_can_be_disabled(project: Path) -> No
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_can_be_disabled(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -687,7 +687,7 @@ async def test_project_outline_import_index_can_be_disabled(project: Path) -> No
 
 @pytest.mark.asyncio
 async def test_project_outline_export_index_can_be_disabled(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     result = await _run(
         ProjectOutlineTool(),
@@ -706,8 +706,8 @@ async def test_project_outline_skips_dependency_resolution_when_indexes_disabled
     project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.project.tools import outline as outline_module
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools import outline as outline_module
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     def fail_if_called(*_args: Any, **_kwargs: Any) -> None:
         raise AssertionError("dependency resolution config should not be loaded")
@@ -737,7 +737,7 @@ async def test_project_outline_skips_dependency_resolution_when_indexes_disabled
 
 @pytest.mark.asyncio
 async def test_project_outline_can_emit_compact_file_index(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "broken.py").write_text(
         "def broken(:\n    pass\n",
@@ -826,7 +826,7 @@ async def test_project_outline_can_emit_compact_file_index(project: Path) -> Non
 
 @pytest.mark.asyncio
 async def test_project_outline_can_emit_compact_directory_index(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "models").mkdir()
     (project / "src" / "models" / "user.ts").write_text(
@@ -920,7 +920,7 @@ async def test_project_outline_can_emit_compact_directory_index(project: Path) -
 
 @pytest.mark.asyncio
 async def test_project_outline_directory_index_can_group_by_depth(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "models").mkdir()
     (project / "src" / "models" / "user.ts").write_text(
@@ -1009,7 +1009,7 @@ async def test_project_outline_directory_index_can_group_by_depth(project: Path)
 
 @pytest.mark.asyncio
 async def test_project_outline_directory_index_caps_top_previews(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "many").mkdir()
     for index in range(10):
@@ -1046,7 +1046,7 @@ async def test_project_outline_directory_index_caps_top_previews(project: Path) 
 
 @pytest.mark.asyncio
 async def test_project_outline_can_omit_files_and_filter_symbol_index(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "widget.ts").write_text(
         "export interface WidgetProps { name: string }\n"
@@ -1077,7 +1077,7 @@ async def test_project_outline_can_omit_files_and_filter_symbol_index(project: P
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_wrapped_ts_functions(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "components.tsx").write_text(
         "import React, { memo } from 'react';\n"
@@ -1129,7 +1129,7 @@ async def test_project_outline_symbol_index_includes_wrapped_ts_functions(projec
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_exported_ts_values(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "config.ts").write_text(
         "export const appConfig = defineConfig({ mode: 'spa' });\n"
@@ -1191,7 +1191,7 @@ async def test_project_outline_symbol_index_includes_exported_ts_values(project:
 
 @pytest.mark.asyncio
 async def test_project_outline_marks_python_all_symbols_as_exported(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "public_api.py").write_text(
         "__all__ = ['PublicWorker', 'public_build']\n"
@@ -1225,7 +1225,7 @@ async def test_project_outline_marks_python_all_symbols_as_exported(project: Pat
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_python_all_values(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "public_values.py").write_text(
         "VERSION = '1.0'\n"
@@ -1277,7 +1277,7 @@ async def test_project_outline_symbol_index_includes_python_all_values(project: 
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_python_decorators(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "settings.py").write_text(
         "from functools import cached_property\n"
@@ -1326,7 +1326,7 @@ async def test_project_outline_symbol_index_includes_python_decorators(project: 
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_class_bases(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "models.py").write_text(
         "class UserModel(BaseModel, mixins.Timestamped):\n"
@@ -1373,7 +1373,7 @@ async def test_project_outline_symbol_index_includes_class_bases(project: Path) 
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_query_matches_metadata(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "models.py").write_text(
         "class UserModel(BaseModel):\n"
@@ -1420,7 +1420,7 @@ async def test_project_outline_symbol_query_matches_metadata(project: Path) -> N
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_typescript_accessors(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "settings.ts").write_text(
         "class Settings {\n"
@@ -1476,7 +1476,7 @@ async def test_project_outline_symbol_index_includes_typescript_accessors(projec
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_includes_typescript_decorators(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "dashboard.ts").write_text(
         "@Component({\n"
@@ -1508,7 +1508,7 @@ async def test_project_outline_symbol_index_includes_typescript_decorators(proje
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_omits_local_function_symbols(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "local.js").write_text(
         "export function outer() {\n"
@@ -1543,7 +1543,7 @@ async def test_project_outline_symbol_index_omits_local_function_symbols(project
 
 @pytest.mark.asyncio
 async def test_project_outline_can_omit_files_and_filter_import_index(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "widget.ts").write_text(
         "import React, { useMemo as memo } from 'react';\n"
@@ -1595,8 +1595,8 @@ async def test_project_outline_import_query_avoids_resolving_raw_misses(
     project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.project.tools import outline as outline_module
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools import outline as outline_module
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "import_search.ts").write_text(
         "\n".join(
@@ -1630,7 +1630,7 @@ async def test_project_outline_import_query_avoids_resolving_raw_misses(
 
 @pytest.mark.asyncio
 async def test_project_outline_indexes_import_export_end_lines(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "spans.ts").write_text(
         "import {\n"
@@ -1667,7 +1667,7 @@ async def test_project_outline_indexes_import_export_end_lines(project: Path) ->
 
 @pytest.mark.asyncio
 async def test_project_outline_resolves_project_dependency_paths(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "pkg").mkdir()
     (project / "src" / "views").mkdir()
@@ -1788,7 +1788,7 @@ async def test_project_outline_resolves_project_dependency_paths(project: Path) 
 async def test_project_outline_resolves_python_src_layout_absolute_imports(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "mypkg").mkdir()
     (project / "src" / "mypkg" / "__init__.py").write_text("", encoding="utf-8")
@@ -1857,7 +1857,7 @@ async def test_project_outline_resolves_python_src_layout_absolute_imports(
 async def test_project_outline_resolves_python_pyproject_package_dir(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "lib" / "acme").mkdir(parents=True)
     (project / "pyproject.toml").write_text(
@@ -1898,7 +1898,7 @@ async def test_project_outline_resolves_python_pyproject_package_dir(
 async def test_project_outline_resolves_python_setup_cfg_package_dir(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "lib" / "acme").mkdir(parents=True)
     (project / "setup.cfg").write_text(
@@ -1932,7 +1932,7 @@ async def test_project_outline_resolves_python_setup_cfg_package_dir(
 async def test_project_outline_resolves_python_setup_cfg_find_where(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "python_src" / "acme").mkdir(parents=True)
     (project / "setup.cfg").write_text(
@@ -1963,7 +1963,7 @@ async def test_project_outline_resolves_python_setup_cfg_find_where(
 
 @pytest.mark.asyncio
 async def test_project_outline_resolves_tsconfig_paths_and_base_url(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "models").mkdir()
     (project / "src" / "components").mkdir()
@@ -2019,7 +2019,7 @@ async def test_project_outline_resolves_tsconfig_paths_and_base_url(project: Pat
 async def test_project_outline_resolves_local_tsconfig_extends_paths(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "shared").mkdir()
     (project / "tsconfig.base.json").write_text(
@@ -2071,7 +2071,7 @@ async def test_project_outline_resolves_local_tsconfig_extends_paths(
 async def test_project_outline_resolves_extends_paths_relative_to_parent_config_dir(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "config").mkdir()
     (project / "src" / "shared").mkdir()
@@ -2115,7 +2115,7 @@ async def test_project_outline_resolves_extends_paths_relative_to_parent_config_
 
 @pytest.mark.asyncio
 async def test_project_outline_resolves_jsconfig_base_url(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "utils").mkdir()
     (project / "jsconfig.json").write_text(
@@ -2151,7 +2151,7 @@ async def test_project_outline_resolves_jsconfig_base_url(project: Path) -> None
 async def test_project_outline_resolves_package_json_imports(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "shared").mkdir()
     (project / "package.json").write_text(
@@ -2204,7 +2204,7 @@ async def test_project_outline_resolves_package_json_imports(
 async def test_project_outline_resolves_package_json_self_reference_exports(
     project: Path,
 ) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "features").mkdir()
     (project / "package.json").write_text(
@@ -2263,7 +2263,7 @@ async def test_project_outline_resolves_package_json_self_reference_exports(
 
 @pytest.mark.asyncio
 async def test_project_outline_resolves_single_file_dependencies_from_filesystem(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "views").mkdir()
     (project / "src" / "helper.ts").write_text(
@@ -2315,7 +2315,7 @@ async def test_project_outline_resolves_single_file_dependencies_from_filesystem
 
 @pytest.mark.asyncio
 async def test_project_outline_can_omit_files_and_filter_export_index(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "barrel.ts").write_text(
         "export { buildWidget as WidgetFactory } from './widget';\n"
@@ -2385,8 +2385,8 @@ async def test_project_outline_export_query_avoids_resolving_raw_misses(
     project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.project.tools import outline as outline_module
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools import outline as outline_module
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "export_search.ts").write_text(
         "\n".join(
@@ -2420,7 +2420,7 @@ async def test_project_outline_export_query_avoids_resolving_raw_misses(
 
 @pytest.mark.asyncio
 async def test_project_outline_export_index_includes_declare_and_abstract(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "client.d.ts").write_text(
         "export declare function createClient(options: Options): Client;\n"
@@ -2464,7 +2464,7 @@ async def test_project_outline_export_index_includes_declare_and_abstract(projec
 
 @pytest.mark.asyncio
 async def test_project_outline_export_index_includes_namespace_and_module(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "sdk.d.ts").write_text(
         "export namespace SDK {\n"
@@ -2501,7 +2501,7 @@ async def test_project_outline_export_index_includes_namespace_and_module(projec
 
 @pytest.mark.asyncio
 async def test_project_outline_indexes_typescript_import_equals(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "legacy.d.ts").write_text(
         "import Express = require('express');\n"
@@ -2534,7 +2534,7 @@ async def test_project_outline_indexes_typescript_import_equals(project: Path) -
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_includes_commonjs_requires(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "server.js").write_text(
         "const express = require('express')\n"
@@ -2570,7 +2570,7 @@ async def test_project_outline_import_index_includes_commonjs_requires(project: 
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_includes_dynamic_imports(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "lazy.tsx").write_text(
         "const LazyPanel = lazy(() => import('./views/LazyPanel'))\n"
@@ -2598,7 +2598,7 @@ async def test_project_outline_import_index_includes_dynamic_imports(project: Pa
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_includes_reexport_dependencies(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "barrel.ts").write_text(
         "export { buildWidget as WidgetFactory } from './widget';\n"
@@ -2627,7 +2627,7 @@ async def test_project_outline_import_index_includes_reexport_dependencies(proje
 
 @pytest.mark.asyncio
 async def test_project_outline_indexes_typescript_namespace_reexports(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "index.ts").write_text(
         "export type * from './types';\n"
@@ -2658,7 +2658,7 @@ async def test_project_outline_indexes_typescript_namespace_reexports(project: P
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_includes_nested_python_imports(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "deps.py").write_text(
         "from typing import TYPE_CHECKING\n"
@@ -2692,7 +2692,7 @@ async def test_project_outline_import_index_includes_nested_python_imports(proje
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_expands_relative_from_imports(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "relative.py").write_text(
         "from . import util\n"
@@ -2717,7 +2717,7 @@ async def test_project_outline_import_index_expands_relative_from_imports(projec
 
 @pytest.mark.asyncio
 async def test_project_outline_symbol_index_is_bounded(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "many.py").write_text(
         "\n".join(f"def f{i}():\n    return {i}\n" for i in range(5)),
@@ -2760,7 +2760,7 @@ async def test_project_outline_symbol_index_is_bounded(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_import_index_is_bounded(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "imports.py").write_text(
         "import os\n"
@@ -2806,7 +2806,7 @@ async def test_project_outline_import_index_is_bounded(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_export_index_is_bounded(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     (project / "src" / "exports.ts").write_text(
         "\n".join(f"export const value{i} = {i};" for i in range(5)),
@@ -2849,7 +2849,7 @@ async def test_project_outline_export_index_is_bounded(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_skips_oversized_file(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     large = project / "src" / "large.py"
     large.write_text("VALUE = '" + ("x" * 2048) + "'\n", encoding="utf-8")
@@ -2886,7 +2886,7 @@ async def test_project_outline_skips_oversized_file(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_outline_reuses_cache_for_unchanged_file(project: Path) -> None:
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     tool = ProjectOutlineTool()
     first = await _run(tool, {"path": "src/app.py"}, _ctx(project))
@@ -2904,8 +2904,8 @@ async def test_project_outline_reuses_dependency_config_cache(
     project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.project.tools import outline as outline_module
-    from leagent.project.tools.outline import ProjectOutlineTool
+    from StAgent.project.tools import outline as outline_module
+    from StAgent.project.tools.outline import ProjectOutlineTool
 
     outline_module._OUTLINE_CACHE.clear()
     outline_module._PYTHON_SOURCE_ROOT_CACHE.clear()
@@ -2979,8 +2979,8 @@ async def test_project_outline_reuses_dependency_config_cache(
 
 @pytest.mark.asyncio
 async def test_project_write_content_blob_id(project: Path) -> None:
-    from leagent.project.tools.write import ProjectWriteTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.project.tools.write import ProjectWriteTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ctx = _ctx(project)
     blob_tool = ToolArgumentBlobTool()
@@ -3008,8 +3008,8 @@ async def test_project_write_content_blob_id(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_edit_old_string_blob_id(project: Path) -> None:
-    from leagent.project.tools.edit import ProjectEditTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.project.tools.edit import ProjectEditTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ctx = _ctx(project)
     blob_tool = ToolArgumentBlobTool()
@@ -3038,8 +3038,8 @@ async def test_project_edit_old_string_blob_id(project: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_project_apply_patch_diff_blob_id(project: Path) -> None:
-    from leagent.project.tools.patch import ProjectApplyPatchTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.project.tools.patch import ProjectApplyPatchTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     diff = (
         "--- a/src/app.py\n"
@@ -3065,8 +3065,8 @@ async def test_project_apply_patch_diff_blob_id(project: Path) -> None:
 async def test_tool_argument_blob_append_chunk_base64_html(project: Path) -> None:
     import base64
 
-    from leagent.project.tools.write import ProjectWriteTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.project.tools.write import ProjectWriteTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ctx = _ctx(project)
     blob_tool = ToolArgumentBlobTool()
@@ -3093,8 +3093,8 @@ async def test_tool_argument_blob_append_chunk_base64_html(project: Path) -> Non
 async def test_tool_argument_blob_chunk_base64_wins_over_chunk(project: Path) -> None:
     import base64
 
-    from leagent.project.tools.write import ProjectWriteTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.project.tools.write import ProjectWriteTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ctx = _ctx(project)
     blob_tool = ToolArgumentBlobTool()
@@ -3124,7 +3124,7 @@ async def test_tool_argument_blob_chunk_base64_wins_over_chunk(project: Path) ->
 
 @pytest.mark.asyncio
 async def test_tool_argument_blob_append_invalid_base64(project: Path) -> None:
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ctx = _ctx(project)
     blob_tool = ToolArgumentBlobTool()
@@ -3146,7 +3146,7 @@ async def test_tool_argument_blob_append_invalid_base64(project: Path) -> None:
 
 def test_validate_project_path_accepts_existing_dir(project: Path) -> None:
     """A real directory resolves cleanly when no allow-list is set."""
-    from leagent.project.paths import validate_project_path
+    from StAgent.project.paths import validate_project_path
 
     resolved = validate_project_path(str(project))
     assert resolved == project.resolve()
@@ -3154,7 +3154,7 @@ def test_validate_project_path_accepts_existing_dir(project: Path) -> None:
 
 def test_validate_project_path_rejects_missing(tmp_path: Path) -> None:
     """A path that doesn't exist must not pass."""
-    from leagent.project.paths import (
+    from StAgent.project.paths import (
         ProjectPathSafetyError,
         validate_project_path,
     )
@@ -3165,7 +3165,7 @@ def test_validate_project_path_rejects_missing(tmp_path: Path) -> None:
 
 
 def test_validate_project_path_rejects_relative(tmp_path: Path) -> None:
-    from leagent.project.paths import (
+    from StAgent.project.paths import (
         ProjectPathSafetyError,
         validate_project_path,
     )
@@ -3180,8 +3180,8 @@ def test_validate_project_path_honours_allowed_roots(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A path outside ``FILES_PROJECTS_ALLOWED_ROOTS`` is rejected."""
-    from leagent.project import paths as safety_mod
-    from leagent.project.paths import (
+    from StAgent.project import paths as safety_mod
+    from StAgent.project.paths import (
         ProjectPathSafetyError,
         validate_project_path,
     )
@@ -3213,14 +3213,14 @@ async def test_tool_argument_blob_blob_disk_path_and_discard(
     project: Path,
 ) -> None:
     """Regression: _blob_disk_path must resolve upload_dir; discard always checks disk."""
-    from leagent.tools.util.tool_argument_blob import (
+    from StAgent.tools.util.tool_argument_blob import (
         ToolArgumentBlobTool,
         _blob_disk_path,
     )
 
     fake_files = SimpleNamespace(upload_dir=str(tmp_path))
     fake_settings = SimpleNamespace(files=fake_files)
-    monkeypatch.setattr("leagent.config.settings.get_settings", lambda: fake_settings)
+    monkeypatch.setattr("StAgent.config.settings.get_settings", lambda: fake_settings)
 
     sid = "s-blob-disk"
     bid = "a" * 32
@@ -3249,7 +3249,7 @@ async def test_tool_argument_blob_blob_disk_path_and_discard(
 
 def _ctx_with_journal(project: Path) -> ToolContext:
     """Build a tool context with an OperationJournal attached."""
-    from leagent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
+    from StAgent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
 
     return ToolContext(
         user_id="u1",
@@ -3264,8 +3264,8 @@ def _ctx_with_journal(project: Path) -> ToolContext:
 @pytest.mark.asyncio
 async def test_project_write_result_validates_as_file_write_op(project: Path) -> None:
     """project_write return dict must be a valid FileWriteOp."""
-    from leagent.code.operations import FileWriteOp
-    from leagent.project.tools.write import ProjectWriteTool
+    from StAgent.code.operations import FileWriteOp
+    from StAgent.project.tools.write import ProjectWriteTool
 
     ctx = _ctx_with_journal(project)
     res = await _run(ProjectWriteTool(), {
@@ -3282,8 +3282,8 @@ async def test_project_write_result_validates_as_file_write_op(project: Path) ->
 @pytest.mark.asyncio
 async def test_project_edit_result_validates_as_file_edit_op(project: Path) -> None:
     """project_edit return dict must be a valid FileEditOp."""
-    from leagent.code.operations import FileEditOp
-    from leagent.project.tools.edit import ProjectEditTool
+    from StAgent.code.operations import FileEditOp
+    from StAgent.project.tools.edit import ProjectEditTool
 
     ctx = _ctx_with_journal(project)
     res = await _run(ProjectEditTool(), {
@@ -3300,8 +3300,8 @@ async def test_project_edit_result_validates_as_file_edit_op(project: Path) -> N
 @pytest.mark.asyncio
 async def test_project_write_records_journal_entry(project: Path) -> None:
     """project_write must append a JournalEntry to the operation journal."""
-    from leagent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
-    from leagent.project.tools.write import ProjectWriteTool
+    from StAgent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
+    from StAgent.project.tools.write import ProjectWriteTool
 
     ctx = _ctx_with_journal(project)
     journal: OperationJournal = ctx.extra[JOURNAL_CONTEXT_KEY]
@@ -3321,8 +3321,8 @@ async def test_project_write_records_journal_entry(project: Path) -> None:
 @pytest.mark.asyncio
 async def test_project_edit_records_journal_entry(project: Path) -> None:
     """project_edit must append a JournalEntry to the operation journal."""
-    from leagent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
-    from leagent.project.tools.edit import ProjectEditTool
+    from StAgent.code.operations import JOURNAL_CONTEXT_KEY, OperationJournal
+    from StAgent.project.tools.edit import ProjectEditTool
 
     ctx = _ctx_with_journal(project)
     journal: OperationJournal = ctx.extra[JOURNAL_CONTEXT_KEY]

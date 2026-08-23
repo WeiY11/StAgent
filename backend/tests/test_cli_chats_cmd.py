@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     import pytest
 
-from leagent.cli import chats_cmd
+from StAgent.cli import chats_cmd
 
 
 def test_get_local_chat_rejects_non_object_json(
@@ -20,6 +20,6 @@ def test_get_local_chat_rejects_non_object_json(
     chats_dir = tmp_path / "chats"
     chats_dir.mkdir()
     (chats_dir / "chat-1.json").write_text(json.dumps(["not", "a", "chat"]), encoding="utf-8")
-    monkeypatch.setattr(chats_cmd, "LEAGENT_HOME", tmp_path)
+    monkeypatch.setattr(chats_cmd, "StAgent_HOME", tmp_path)
 
     assert chats_cmd._get_local_chat("chat-1") is None

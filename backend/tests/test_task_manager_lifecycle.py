@@ -1,12 +1,12 @@
 """Smoke coverage for :class:`TaskManager` + the bundled handlers.
 
 We spin up an in-memory SQLite DB, monkeypatch
-``leagent.db.get_database_service`` so the background
+``StAgent.db.get_database_service`` so the background
 task coroutine can open its own session, and then drive a fake handler
 end-to-end (pending -> running -> completed) and a never-returning one
 to verify kill flips the task to ``KILLED``.
 
-The real :mod:`leagent.tasks.handlers` sub-modules are also
+The real :mod:`StAgent.tasks.handlers` sub-modules are also
 imported to make sure their modules load without side-effects (the
 package needs to be importable for the bootstrap hook).
 """
@@ -27,14 +27,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-import leagent.db.models  # noqa: F401 - populate metadata
-from leagent.db.models.task import (
+import StAgent.db.models  # noqa: F401 - populate metadata
+from StAgent.db.models.task import (
     Task,
     TaskContext,
     TaskStatus,
     TaskType,
 )
-from leagent.services.task_manager import TaskManager
+from StAgent.services.task_manager import TaskManager
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ class _InMemoryDB:
         # Build only the subset of tables/indexes we need. Using the full
         # ``SQLModel.metadata.create_all`` trips over duplicate-index
         # definitions in unrelated models (e.g. ``todos``) on SQLite.
-        from leagent.db.models.task import Task
+        from StAgent.db.models.task import Task
 
         async with self._engine.begin() as conn:
             await conn.run_sync(
@@ -109,7 +109,7 @@ async def fake_db(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[_InMemoryDB]
 
     # TaskManager imports the singleton lazily inside ``_run_task``; patch
     # the symbol where it is looked up.
-    from leagent import db as db_pkg
+    from StAgent import db as db_pkg
 
     monkeypatch.setattr(db_pkg, "get_database_service", lambda: db, raising=True)
     yield db
@@ -206,7 +206,7 @@ async def _fetch_status(db: _InMemoryDB, task_id) -> TaskStatus:
 @pytest.mark.asyncio
 async def test_handlers_package_imports_cleanly() -> None:
     """The production handler modules must import without side effects."""
-    from leagent.tasks import handlers as pkg
+    from StAgent.tasks import handlers as pkg
 
     assert hasattr(pkg, "AgentTaskHandler")
     assert hasattr(pkg, "ShellTaskHandler")

@@ -76,7 +76,7 @@ export const useSnippetsStore = create<SnippetsStore>()(
       },
     }),
     {
-      name: 'leagent-snippets',
+      name: 'StAgent-snippets',
       partialize: (state) => ({
         snippets: state.snippets,
         seeded: state.seeded,

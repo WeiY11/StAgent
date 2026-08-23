@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.services.settings_plan import reset_settings_plan_registry
-from leagent.tools.base import ToolContext
-from leagent.tools.integration.configure_settings import ConfigureSettingsTool
+from StAgent.services.settings_plan import reset_settings_plan_registry
+from StAgent.tools.base import ToolContext
+from StAgent.tools.integration.configure_settings import ConfigureSettingsTool
 
 
 @pytest.fixture(autouse=True)
@@ -42,9 +42,9 @@ def _ctx() -> ToolContext:
 
 @pytest.mark.asyncio
 async def test_inspect_then_apply_env(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path))
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path))
     # Ensure apply writes under tmp home
-    from leagent.services import settings_configure as sc
+    from StAgent.services import settings_configure as sc
 
     monkeypatch.setattr(sc, "env_path", lambda: tmp_path / ".env")
 
@@ -81,8 +81,8 @@ async def test_apply_without_plan_id() -> None:
 
 @pytest.mark.asyncio
 async def test_apply_rejects_tampered_changes(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path))
-    from leagent.services import settings_configure as sc
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path))
+    from StAgent.services import settings_configure as sc
 
     monkeypatch.setattr(sc, "env_path", lambda: tmp_path / ".env")
 

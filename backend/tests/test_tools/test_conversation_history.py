@@ -8,9 +8,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.services.session.state import SessionMessage, SessionState
-from leagent.tools.base import ToolContext
-from leagent.tools.util.conversation_history import ConversationHistoryTool
+from StAgent.services.session.state import SessionMessage, SessionState
+from StAgent.tools.base import ToolContext
+from StAgent.tools.util.conversation_history import ConversationHistoryTool
 
 
 def _ctx(user_id=None, session_id=None) -> ToolContext:
@@ -108,7 +108,7 @@ async def test_extract_pulls_user_assistant_across_sessions(
         chat = _FakeChat()
         session_manager = _FakeSessionManager()
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -162,7 +162,7 @@ async def test_get_defaults_to_current_session(monkeypatch: pytest.MonkeyPatch) 
         chat = _FakeChat()
         session_manager = _FakeSessionManager()
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -208,7 +208,7 @@ async def test_list_filters_by_window(monkeypatch: pytest.MonkeyPatch) -> None:
         chat = _FakeChat()
         session_manager = None
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -248,7 +248,7 @@ async def test_query_filters_content(monkeypatch: pytest.MonkeyPatch) -> None:
         chat = _FakeChat()
         session_manager = _FakeSessionManager()
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -266,8 +266,8 @@ async def test_requires_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
         chat = object()
         session_manager = object()
 
-    import leagent.main as main_mod
-    import leagent.tools.util.conversation_history as mod
+    import StAgent.main as main_mod
+    import StAgent.tools.util.conversation_history as mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
     monkeypatch.setattr(mod, "resolve_effective_user_id", lambda *a, **k: None)

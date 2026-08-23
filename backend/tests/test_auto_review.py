@@ -7,12 +7,12 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.tools.approval import (
+from StAgent.tools.approval import (
     PendingApproval,
     get_approval_store,
     reset_approval_store,
 )
-from leagent.tools.auto_review import (
+from StAgent.tools.auto_review import (
     auto_review_decision,
     default_reviewer,
     normalize_reviewer,
@@ -66,12 +66,12 @@ def test_parse_auto_review_response(raw, expected):
 
 
 def test_default_reviewer_is_user(monkeypatch):
-    monkeypatch.delenv("LEAGENT_APPROVALS_REVIEWER", raising=False)
+    monkeypatch.delenv("StAgent_APPROVALS_REVIEWER", raising=False)
     assert default_reviewer() == "user"
 
 
 def test_reviewer_env_override(monkeypatch):
-    monkeypatch.setenv("LEAGENT_APPROVALS_REVIEWER", "auto_review")
+    monkeypatch.setenv("StAgent_APPROVALS_REVIEWER", "auto_review")
     assert default_reviewer() == "auto_review"
 
 
@@ -139,7 +139,7 @@ async def test_auto_review_no_llm_escalates():
 
 @pytest.mark.asyncio
 async def test_auto_review_resolved_grants_once(monkeypatch):
-    from leagent.agent import query as query_mod
+    from StAgent.agent import query as query_mod
 
     sid = str(uuid4())
     store = get_approval_store()
@@ -149,7 +149,7 @@ async def test_auto_review_resolved_grants_once(monkeypatch):
         return "allow", "fine"
 
     monkeypatch.setattr(
-        "leagent.tools.auto_review.auto_review_decision", _fake_decision,
+        "StAgent.tools.auto_review.auto_review_decision", _fake_decision,
     )
 
     ctx = SimpleNamespace(session_id=sid, user_id=None, executor=None)
@@ -160,7 +160,7 @@ async def test_auto_review_resolved_grants_once(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_auto_review_resolved_escalates_to_user(monkeypatch):
-    from leagent.agent import query as query_mod
+    from StAgent.agent import query as query_mod
 
     sid = str(uuid4())
     store = get_approval_store()
@@ -170,7 +170,7 @@ async def test_auto_review_resolved_escalates_to_user(monkeypatch):
         return "escalate", "not sure"
 
     monkeypatch.setattr(
-        "leagent.tools.auto_review.auto_review_decision", _fake_decision,
+        "StAgent.tools.auto_review.auto_review_decision", _fake_decision,
     )
 
     ctx = SimpleNamespace(session_id=sid, user_id=None, executor=None)
@@ -181,7 +181,7 @@ async def test_auto_review_resolved_escalates_to_user(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_auto_review_skipped_when_reviewer_is_user():
-    from leagent.agent import query as query_mod
+    from StAgent.agent import query as query_mod
 
     sid = str(uuid4())
     ctx = SimpleNamespace(session_id=sid, user_id=None, executor=None)

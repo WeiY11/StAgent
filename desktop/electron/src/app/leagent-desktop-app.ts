@@ -22,7 +22,7 @@ import type { BrowserWindow } from 'electron';
 import { setRetryBootHandler } from './boot-actions.js';
 import { preloadPath as resolvePreloadPathFromDist } from '../paths/app-paths.js';
 
-export class LeAgentDesktopApp {
+export class StAgentDesktopApp {
   private readonly preloadPath: string;
   private readonly installManager = new InstallationManager();
   private mainWindow: BrowserWindow | null = null;
@@ -36,7 +36,7 @@ export class LeAgentDesktopApp {
 
   async start(): Promise<void> {
     ensureDirs();
-    log.info('LeAgentDesktopApp — starting boot sequence');
+    log.info('StAgentDesktopApp — starting boot sequence');
 
     loadPage('splash', this.preloadPath);
     this.mainWindow = createMainWindow(this.preloadPath);

@@ -1,4 +1,4 @@
-# LeAgent 教程
+# StAgent 教程
 
 从安装到构建第一个自动化工作流的全面指南。
 
@@ -19,9 +19,9 @@
 
 ## 简介
 
-LeAgent 是一个本地优先的智能办公自动化平台，将大语言模型（LLM）的强大能力与全面的企业工作流自动化工具集相结合。本教程将引导您完成：
+StAgent 是一个本地优先的智能办公自动化平台，将大语言模型（LLM）的强大能力与全面的企业工作流自动化工具集相结合。本教程将引导您完成：
 
-- 搭建 LeAgent 环境
+- 搭建 StAgent 环境
 - 使用聊天界面进行自然语言查询
 - 使用 ReactFlow 构建可视化工作流
 - 集成企业消息平台
@@ -42,7 +42,7 @@ LeAgent 是一个本地优先的智能办公自动化平台，将大语言模型
 
 ### 支持的 LLM 提供商
 
-LeAgent 开箱即用地支持多个 LLM 提供商：
+StAgent 开箱即用地支持多个 LLM 提供商：
 
 - **OpenAI** — GPT-4、GPT-4o 等
 - **Anthropic** — Claude 3.5、Claude 4 等
@@ -72,13 +72,13 @@ LeAgent 开箱即用地支持多个 LLM 提供商：
 ```bash
 # 克隆仓库
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 
 # 检查前置依赖并安装缺失项
 ./start.sh fix-deps
 
-# 首次设置：初始化 ~/.leagent 配置
-cd backend && uv run leagent init && cd ..
+# 首次设置：初始化 ~/.StAgent 配置
+cd backend && uv run StAgent init && cd ..
 
 # 启动后端和前端
 ./start.sh
@@ -96,7 +96,7 @@ cd backend && uv run leagent init && cd ..
 ./start.sh --prod         # 生产模式（构建前端，多 Worker 后端）
 ./start.sh check          # 运行环境就绪检查
 ./start.sh status         # 查看运行中的服务
-./start.sh stop           # 停止所有 LeAgent 进程
+./start.sh stop           # 停止所有 StAgent 进程
 ./start.sh log            # 实时查看所有服务日志
 ```
 
@@ -105,10 +105,10 @@ cd backend && uv run leagent init && cd ..
 ```bash
 # 克隆仓库
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 
 # 设置必需的密钥
-export LEAGENT_SECRET_KEY=$(openssl rand -hex 32)
+export StAgent_SECRET_KEY=$(openssl rand -hex 32)
 
 # 启动容器（SQLite，无外部依赖）
 docker compose -f deploy/docker-compose.yml up -d --build
@@ -117,7 +117,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 docker compose -f deploy/docker-compose.yml ps
 
 # 查看日志
-docker compose -f deploy/docker-compose.yml logs -f leagent
+docker compose -f deploy/docker-compose.yml logs -f StAgent
 ```
 
 访问后端 API：`http://localhost:8000`
@@ -132,14 +132,14 @@ cd backend
 # 使用 uv 同步 Python 环境（包含 dev + browser 扩展）
 uv sync --extra dev --extra browser
 
-# 初始化 ~/.leagent 配置目录
-uv run leagent init
+# 初始化 ~/.StAgent 配置目录
+uv run StAgent init
 
 # 运行数据库迁移
 uv run alembic upgrade head
 
 # 启动后端（开发模式，自动重载）
-uv run leagent run --reload --port 7860
+uv run StAgent run --reload --port 7860
 ```
 
 #### 前端设置
@@ -162,10 +162,10 @@ npm run dev
 cd backend
 
 # 列出已配置的提供商
-uv run leagent models list
+uv run StAgent models list
 
 # 检查系统健康状态
-uv run leagent doctor
+uv run StAgent doctor
 ```
 
 提供商 API 密钥可通过环境变量设置：
@@ -176,7 +176,7 @@ export OPENAI_API_KEY="sk-your-key"
 export ANTHROPIC_API_KEY="sk-your-key"
 ```
 
-也可以添加到 `leagent init` 创建的 `~/.leagent/.env` 文件中。
+也可以添加到 `StAgent init` 创建的 `~/.StAgent/.env` 文件中。
 
 ---
 
@@ -190,18 +190,18 @@ export ANTHROPIC_API_KEY="sk-your-key"
 cd backend
 
 # 交互式 REPL
-uv run leagent
+uv run StAgent
 
 # 单次消息
-uv run leagent -m "有哪些可用的工具？"
+uv run StAgent -m "有哪些可用的工具？"
 
 # 详细输出（显示工具调用）
-uv run leagent -v
+uv run StAgent -v
 ```
 
 ### 第一次对话（Web）
 
-1. 使用 `./start.sh` 启动 LeAgent
+1. 使用 `./start.sh` 启动 StAgent
 2. 在浏览器中打开 `http://localhost:5173`
 3. 点击侧边栏的"新建对话"
 4. 尝试以下示例查询：
@@ -383,7 +383,7 @@ nodes:
 
 ## 使用工具
 
-LeAgent 提供 80+ 内置工具，覆盖 15 个类别。
+StAgent 提供 80+ 内置工具，覆盖 15 个类别。
 
 ### 工具类别
 
@@ -504,7 +504,7 @@ LeAgent 提供 80+ 内置工具，覆盖 15 个类别。
 ### 规则集示例
 
 ```yaml
-# ~/.leagent/rules/expense_validation.yaml
+# ~/.StAgent/rules/expense_validation.yaml
 id: expense_validation
 name: 报销验证规则
 description: 用于验证报销报告和报销申请的规则
@@ -582,7 +582,7 @@ rules:
     message: "缺少必填字段：{{missing}}"
 
 metadata:
-  author: LeAgent System
+  author: StAgent System
   department: finance
 ```
 
@@ -607,26 +607,26 @@ metadata:
 
 ```bash
 cd backend
-uv run leagent rules list          # 列出所有规则集
-uv run leagent rules show <id>     # 查看规则详情
-uv run leagent rules validate <id> # 验证规则语法
+uv run StAgent rules list          # 列出所有规则集
+uv run StAgent rules show <id>     # 查看规则详情
+uv run StAgent rules validate <id> # 验证规则语法
 ```
 
 ---
 
 ## 渠道集成
 
-将 LeAgent 连接到企业消息平台。渠道配置位于 `~/.leagent/config.yaml`。
+将 StAgent 连接到企业消息平台。渠道配置位于 `~/.StAgent/config.yaml`。
 
 ### 钉钉
 
 1. 在群聊中创建一个钉钉机器人
 2. 获取 Webhook URL 和签名密钥
-3. 在 LeAgent 中配置：
+3. 在 StAgent 中配置：
 
 ```bash
 cd backend
-uv run leagent channels add dingtalk \
+uv run StAgent channels add dingtalk \
   --webhook-url "https://oapi.dingtalk.com/robot/send?access_token=xxx" \
   --secret "SEC..."
 ```
@@ -634,7 +634,7 @@ uv run leagent channels add dingtalk \
 ### 飞书
 
 1. 在飞书工作空间中创建一个机器人
-2. 通过渠道 CLI 或直接在 `~/.leagent/config.yaml` 中配置
+2. 通过渠道 CLI 或直接在 `~/.StAgent/config.yaml` 中配置
 
 ### 企业微信
 
@@ -647,21 +647,21 @@ uv run leagent channels add dingtalk \
 
 ```bash
 cd backend
-uv run leagent channels login weixin   # 用微信扫码并在手机上确认
+uv run StAgent channels login weixin   # 用微信扫码并在手机上确认
 ```
 
 或在前端 **消息通道** 页使用微信扫码面板。手机确认后凭据立即保存并 **热启动长轮询**，无需重启前后端。
 
 想系统了解「如何把微信接到任意自建 Agent」（iLink 协议、`context_token`、AES CDN、适配器/桥接分层），见开源技术分享：[`docs/guides/weixin-agent-from-scratch.md`](guides/weixin-agent-from-scratch.md)。
 
-凭据保存在 `$LEAGENT_HOME/weixin/accounts/` 与 `config.yaml`（`channels.weixin`）。入站私信经通道桥接到 `default_agent`。
+凭据保存在 `$StAgent_HOME/weixin/accounts/` 与 `config.yaml`（`channels.weixin`）。入站私信经通道桥接到 `default_agent`。
 
 **限制：** 扫码登录绑定的是 iLink bot 身份——私信可靠；普通微信群通常不会向 bot 推送事件。
 
 ### 渠道配置（YAML）
 
 ```yaml
-# ~/.leagent/config.yaml
+# ~/.StAgent/config.yaml
 channels:
   web:
     enabled: true
@@ -685,14 +685,14 @@ channels:
 ### 渠道消息流
 
 ```
-用户 → 渠道 → LeAgent 后端 → QueryEngine → 工具 → 响应 → 渠道 → 用户
+用户 → 渠道 → StAgent 后端 → QueryEngine → 工具 → 响应 → 渠道 → 用户
 ```
 
 ---
 
 ## API 使用
 
-LeAgent 在 `/api/v1/`（以及较新的 `/api/v2/`）下暴露 REST API。默认认证模式为单用户直通（无需登录）。
+StAgent 在 `/api/v1/`（以及较新的 `/api/v2/`）下暴露 REST API。默认认证模式为单用户直通（无需登录）。
 
 ### 健康检查
 
@@ -792,7 +792,7 @@ curl http://localhost:7860/api/v1/tools/{tool_name}
 ```python
 import httpx
 
-class LeAgentClient:
+class StAgentClient:
     def __init__(self, base_url: str = "http://localhost:7860"):
         self.base_url = base_url
     
@@ -821,7 +821,7 @@ class LeAgentClient:
             return response.json()
 
 # 使用示例
-client = LeAgentClient()
+client = StAgentClient()
 session = await client.create_session("分析会话")
 result = await client.send_message(session["id"], "总结附件文档")
 ```
@@ -835,10 +835,10 @@ result = await client.send_message(session["id"], "总结附件文档")
 通过继承 `BaseTool` 创建自定义工具：
 
 ```python
-# backend/leagent/tools/custom/my_tool.py
+# backend/StAgent/tools/custom/my_tool.py
 from typing import Any
 
-from leagent.tools.base import (
+from StAgent.tools.base import (
     BaseTool,
     ToolCategory,
     ToolContext,
@@ -914,7 +914,7 @@ class MyCustomTool(BaseTool):
 
 ### Agent 记忆
 
-LeAgent 内置认知三存储记忆系统：
+StAgent 内置认知三存储记忆系统：
 
 | 存储类型 | 用途 | 持久性 |
 |----------|------|--------|
@@ -937,13 +937,13 @@ LeAgent 内置认知三存储记忆系统：
 cd backend
 
 # 列出已安装的技能
-uv run leagent skills list
+uv run StAgent skills list
 
 # 安装技能
-uv run leagent skills install <skill-name>
+uv run StAgent skills install <skill-name>
 ```
 
-技能从 `~/.leagent/skills/` 目录发现，可以包含：
+技能从 `~/.StAgent/skills/` 目录发现，可以包含：
 - 自定义工具定义
 - 资源文件
 - Python 脚本
@@ -951,10 +951,10 @@ uv run leagent skills install <skill-name>
 
 ### MCP 集成
 
-通过配置 `~/.leagent/config.yaml` 连接 Model Context Protocol 服务器：
+通过配置 `~/.StAgent/config.yaml` 连接 Model Context Protocol 服务器：
 
 ```yaml
-# ~/.leagent/config.yaml
+# ~/.StAgent/config.yaml
 mcp_servers:
   - name: filesystem
     url: "http://localhost:3000/mcp"
@@ -973,7 +973,7 @@ MCP 工具与内置工具并列显示，Agent 可自动使用。
 
 ### 提示词系统
 
-LeAgent 采用分层提示词架构：
+StAgent 采用分层提示词架构：
 
 - **PromptBuilder** — 从注册的模板组装系统提示词
 - **提示词注册表** — 存储和检索命名的提示词模板
@@ -985,8 +985,8 @@ LeAgent 采用分层提示词架构：
 
 ```bash
 cd backend
-uv run leagent cron list              # 列出定时任务
-uv run leagent cron add <schedule>    # 添加新任务
+uv run StAgent cron list              # 列出定时任务
+uv run StAgent cron add <schedule>    # 添加新任务
 ```
 
 定时任务可以触发工作流、发送通知，或按计划运行 Agent 查询。
@@ -999,17 +999,17 @@ uv run leagent cron add <schedule>    # 添加新任务
 | `FRONTEND_PORT` | 前端开发服务器端口 | 5173 |
 | `HOST` | 后端绑定地址 | 0.0.0.0 |
 | `DATABASE_URL` | PostgreSQL 连接字符串 | SQLite（零配置） |
-| `LEAGENT_SECRET_KEY` | JWT / 签名密钥 | — |
+| `StAgent_SECRET_KEY` | JWT / 签名密钥 | — |
 | `DEEPSEEK_API_KEY` | DeepSeek 提供商 | — |
 | `OPENAI_API_KEY` | OpenAI 提供商 | — |
 | `ANTHROPIC_API_KEY` | Anthropic 提供商 | — |
-| `LEAGENT_DEBUG` | 启用调试模式 | false |
-| `LEAGENT_LOG_DIR` | 日志文件目录 | ./logs |
+| `StAgent_DEBUG` | 启用调试模式 | false |
+| `StAgent_LOG_DIR` | 日志文件目录 | ./logs |
 | `UV_SYNC_EXTRAS` | uv 安装的扩展 | dev browser |
 
 ### 数据库
 
-LeAgent 默认使用 **SQLite**（零配置，存储在 `~/.leagent/` 中）。生产环境请将 `DATABASE_URL` 设置为 PostgreSQL 连接字符串。
+StAgent 默认使用 **SQLite**（零配置，存储在 `~/.StAgent/` 中）。生产环境请将 `DATABASE_URL` 设置为 PostgreSQL 连接字符串。
 
 迁移由 Alembic 管理：
 
@@ -1017,13 +1017,13 @@ LeAgent 默认使用 **SQLite**（零配置，存储在 `~/.leagent/` 中）。�
 cd backend
 
 # 应用迁移
-uv run leagent upgrade
+uv run StAgent upgrade
 
 # 创建新迁移
-uv run leagent migrate "Add new table"
+uv run StAgent migrate "Add new table"
 
 # 回滚
-uv run leagent downgrade -r -1
+uv run StAgent downgrade -r -1
 ```
 
 ---
@@ -1037,16 +1037,16 @@ uv run leagent downgrade -r -1
 cd backend
 
 # 检查提供商和工具健康状态
-uv run leagent doctor
+uv run StAgent doctor
 
 # 检查模型配置
-uv run leagent models list
+uv run StAgent models list
 ```
 
 **问题：工具执行失败**
 ```bash
 # 列出可用工具（CLI）
-uv run leagent doctor  # 诊断信息中显示工具数量
+uv run StAgent doctor  # 诊断信息中显示工具数量
 
 # 查看后端日志
 ./start.sh log monolith
@@ -1076,43 +1076,43 @@ node -v
 **问题：数据库迁移错误**
 ```bash
 cd backend
-uv run leagent upgrade          # 应用待处理的迁移
-uv run leagent downgrade -r -1  # 回滚一步
+uv run StAgent upgrade          # 应用待处理的迁移
+uv run StAgent downgrade -r -1  # 回滚一步
 ```
 
 ### CLI 参考
 
 ```bash
-leagent                    # 交互式 Agent REPL
-leagent -m "message"       # 单次 Agent 对话
-leagent chat               # 交互式 Agent（显式调用）
-leagent init               # 首次 ~/.leagent 设置
-leagent run                # 启动 HTTP API（Uvicorn）
-leagent app start          # 带更多参数启动（SSL、Worker、重载）
-leagent serve              # 使用 Gunicorn 启动（生产环境）
-leagent doctor             # 健康/依赖检查
-leagent version            # 显示版本信息
-leagent models list        # 列出 LLM 提供商
-leagent rules list         # 列出规则集
-leagent skills list        # 列出已安装的技能
-leagent workflows list     # 列出工作流（需要运行中的服务）
-leagent tasks list         # 列出后台任务
-leagent cron list          # 列出定时任务
-leagent channels list      # 列出已配置的渠道
-leagent templates list     # 列出工作流模板
-leagent webhooks list      # 列出 Webhook
-leagent config show        # 显示运行时配置
-leagent shell              # 加载配置的 Python REPL
-leagent upgrade            # 应用数据库迁移
-leagent downgrade          # 回滚数据库迁移
-leagent clean              # 清理临时文件
-leagent prune              # 清除旧数据
+StAgent                    # 交互式 Agent REPL
+StAgent -m "message"       # 单次 Agent 对话
+StAgent chat               # 交互式 Agent（显式调用）
+StAgent init               # 首次 ~/.StAgent 设置
+StAgent run                # 启动 HTTP API（Uvicorn）
+StAgent app start          # 带更多参数启动（SSL、Worker、重载）
+StAgent serve              # 使用 Gunicorn 启动（生产环境）
+StAgent doctor             # 健康/依赖检查
+StAgent version            # 显示版本信息
+StAgent models list        # 列出 LLM 提供商
+StAgent rules list         # 列出规则集
+StAgent skills list        # 列出已安装的技能
+StAgent workflows list     # 列出工作流（需要运行中的服务）
+StAgent tasks list         # 列出后台任务
+StAgent cron list          # 列出定时任务
+StAgent channels list      # 列出已配置的渠道
+StAgent templates list     # 列出工作流模板
+StAgent webhooks list      # 列出 Webhook
+StAgent config show        # 显示运行时配置
+StAgent shell              # 加载配置的 Python REPL
+StAgent upgrade            # 应用数据库迁移
+StAgent downgrade          # 回滚数据库迁移
+StAgent clean              # 清理临时文件
+StAgent prune              # 清除旧数据
 ```
 
 ### 获取帮助
 
 - **GitHub Issues**：报告 Bug 和功能请求
-- **`leagent doctor`**：本地运行诊断
+- **`StAgent doctor`**：本地运行诊断
 - **日志**：`./start.sh log` 或查看 `logs/` 目录
 - **架构文档**：查看 `docs/technical/` 获取详细的子系统文档
 

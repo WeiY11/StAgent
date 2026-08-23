@@ -1,10 +1,10 @@
 # Agent 系统调研
 
-> 状态：参考文档。为 `leagent/runtime/`、`leagent/sdk/` 以及 Agent 栈分层升级提供参考。
+> 状态：参考文档。为 `StAgent/runtime/`、`StAgent/sdk/` 以及 Agent 栈分层升级提供参考。
 
 英文版：[agent-systems-survey.md](./agent-systems-survey.md)
 
-在演进 LeAgent Agent 架构之前，我们调研了公开文档化的 Agent 运行时（harness），以识别它们共享的抽象，并决定 LeAgent 应在何处与既有模式**对齐**、在何处**有意偏离**。本文档记录该调研及其驱动的设计决策。它是描述性的，而非愿景性的：每一项「对齐」都对应分层计划中的具体阶段。
+在演进 StAgent Agent 架构之前，我们调研了公开文档化的 Agent 运行时（harness），以识别它们共享的抽象，并决定 StAgent 应在何处与既有模式**对齐**、在何处**有意偏离**。本文档记录该调研及其驱动的设计决策。它是描述性的，而非愿景性的：每一项「对齐」都对应分层计划中的具体阶段。
 
 ---
 
@@ -46,11 +46,11 @@
 
 ---
 
-## 2. 共享抽象与 LeAgent 立场
+## 2. 共享抽象与 StAgent 立场
 
-| 共享抽象 | 见于 | LeAgent 对应物 | 立场 |
+| 共享抽象 | 见于 | StAgent 对应物 | 立场 |
 |---|---|---|---|
-| 多 UI 复用的核心库 | Codex `codex-core`、Pi `pi-agent-core` | `leagent.sdk` + 基于 `QueryEngine` 的 `AgentRuntime` | 对齐：使 `AgentRuntime` 成为单一门面 |
+| 多 UI 复用的核心库 | Codex `codex-core`、Pi `pi-agent-core` | `StAgent.sdk` + 基于 `QueryEngine` 的 `AgentRuntime` | 对齐：使 `AgentRuntime` 成为单一门面 |
 | SQ/EQ + 每会话编排器 | Codex `Session` | `QueryEngine.submit_message`，由 `sdk/kernel/run_loop` 包装 | 已完成：聊天**与** runtime 均走同一循环 |
 | 持久化会话 + 恢复 | Codex `RolloutRecorder`、Claude `SessionStore` | `CheckpointStore` / `RunState` + `SQLCheckpointStore` + `AgentRuntime.resume` | 已完成：经 `RuntimeContext` 接入持久化存储；暂停时 checkpoint + resume |
 | 生命周期 Hook 分类 | Claude hooks | `HookManager` / `AgentHook` + `run_loop` 中单点分发 | 已完成：tool/subagent/pre_compact hooks 触发；`filter_by_names` 已实现 |
@@ -64,9 +64,9 @@
 
 ### 有意偏离
 
-- **循环内无 steering 队列。** Pi 用 steering 消息中断正在运行的工具批次。LeAgent 保持**由 controller 中介**的交互：循环到达 `awaiting_user_input` / abort，由 `AgentController`（或 SDK 调用方）决定下一步。这使轮次循环保持单线程、持久化模型简单，代价是无法在工具执行中途打断。我们通过在 `awaiting_user_input` 时 checkpoint（Codex 式轮次暂停）补偿，使暂停的轮次可恢复。
-- **进程内子 Agent，而非独立 harness 进程。** Claude/Codex 可 spawn 隔离进程；LeAgent 在进程内 fork 子引擎（`fork`/`_run_subagent_core`），使用 scoped tool registry。更轻量且共享服务；沙箱化委托给 `code`/`project` 层。
-- **Python entry-points 而非 `custom_nodes` 目录扫描。** ComfyUI 扫描文件夹；LeAgent 偏好 `importlib.metadata` entry-point 组（`leagent.workflow.nodes`，以及新的 `leagent.llm_providers`、`leagent.context_sources`），使第三方包注册时无需触碰「魔法目录」。
+- **循环内无 steering 队列。** Pi 用 steering 消息中断正在运行的工具批次。StAgent 保持**由 controller 中介**的交互：循环到达 `awaiting_user_input` / abort，由 `AgentController`（或 SDK 调用方）决定下一步。这使轮次循环保持单线程、持久化模型简单，代价是无法在工具执行中途打断。我们通过在 `awaiting_user_input` 时 checkpoint（Codex 式轮次暂停）补偿，使暂停的轮次可恢复。
+- **进程内子 Agent，而非独立 harness 进程。** Claude/Codex 可 spawn 隔离进程；StAgent 在进程内 fork 子引擎（`fork`/`_run_subagent_core`），使用 scoped tool registry。更轻量且共享服务；沙箱化委托给 `code`/`project` 层。
+- **Python entry-points 而非 `custom_nodes` 目录扫描。** ComfyUI 扫描文件夹；StAgent 偏好 `importlib.metadata` entry-point 组（`StAgent.workflow.nodes`，以及新的 `StAgent.llm_providers`、`StAgent.context_sources`），使第三方包注册时无需触碰「魔法目录」。
 
 ---
 

@@ -98,7 +98,7 @@ export interface Tool {
 /* ── Constants ── */
 
 export const TOKEN_ENV_ROWS: { key: string; labelKey: string }[] = [
-  { key: 'LEAGENT_GITHUB_TOKEN', labelKey: 'settings.tokensGithubWa' },
+  { key: 'StAgent_GITHUB_TOKEN', labelKey: 'settings.tokensGithubWa' },
   { key: 'GITHUB_TOKEN', labelKey: 'settings.tokensGithub' },
   { key: 'OPENAI_API_KEY', labelKey: 'settings.tokensOpenai' },
   { key: 'ANTHROPIC_API_KEY', labelKey: 'settings.tokensAnthropic' },
@@ -182,22 +182,22 @@ export const BRAND_FONT_META: Record<
 > = {
   modern: {
     labelKey: 'settings.brandFontModern',
-    sample: 'LeAgent',
+    sample: 'StAgent',
     className: 'font-sans tracking-[-0.035em]',
   },
   rounded: {
     labelKey: 'settings.brandFontRounded',
-    sample: 'LeAgent',
+    sample: 'StAgent',
     className: 'font-sans tracking-[-0.025em]',
   },
   handwritten: {
     labelKey: 'settings.brandFontHandwritten',
-    sample: 'LeAgent',
+    sample: 'StAgent',
     className: 'tracking-[-0.015em] [font-family:"Comic_Sans_MS","Bradley_Hand","Segoe_Print",cursive]',
   },
   mono: {
     labelKey: 'settings.brandFontMono',
-    sample: 'LeAgent',
+    sample: 'StAgent',
     className: 'font-mono tracking-[-0.04em]',
   },
 };

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.chat_workflow.workflow_embed import (
+from StAgent.chat_workflow.workflow_embed import (
     WorkflowEmbedValidationError,
     build_extensions_payload,
     validate_workflow_embed,
@@ -16,7 +16,7 @@ async def test_validate_workflow_embed_accepts_canonical(
     registered_builtins,
     sample_canonical_document,
 ) -> None:
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     doc, digest = validate_workflow_embed(sample_canonical_document, node_registry=get_registry())
     assert doc.start_id == "start"
@@ -28,7 +28,7 @@ async def test_validate_workflow_embed_accepts_camel_node_types(
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """LLM-authored list graphs may use startNode/toolCallNode instead of StartNode."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "camel-nodes",
@@ -53,7 +53,7 @@ async def test_validate_workflow_embed_accepts_tool_class_alias(
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """LLM graphs may use class_type ``tool`` and omit explicit end nodes."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "genui-guide",
@@ -85,7 +85,7 @@ async def test_validate_workflow_embed_accepts_comfy_style_class_aliases(
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """LLM graphs may use Comfy-style class_type input/default/output."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "genui-comfy-aliases",
@@ -133,7 +133,7 @@ async def test_validate_workflow_embed_aliases_tool_id_to_tool(
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """LLM graphs that use ``tool_id`` should fold into the ``tool`` input."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "tool-id-alias",
@@ -160,7 +160,7 @@ async def test_validate_workflow_embed_aliases_tool_name_in_list_shape(
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """Flat list authoring with top-level ``tool_name`` folds into ``tool``."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "tool-name-alias",
@@ -179,7 +179,7 @@ async def test_validate_workflow_embed_aliases_tool_name_in_list_shape(
 
 @pytest.mark.asyncio
 async def test_validate_rejects_list_nodes(registered_builtins) -> None:  # noqa: ARG001
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     bad = {
         "id": "x",
@@ -205,7 +205,7 @@ def test_build_extensions_payload_roundtrip_keys() -> None:
 
 
 def test_sanitize_embed_inputs_whitelists_declared_and_user_input() -> None:
-    from leagent.chat_workflow.runner import _sanitize_embed_inputs
+    from StAgent.chat_workflow.runner import _sanitize_embed_inputs
 
     flow_data = {"inputs": [{"name": "prompt"}, {"name": "steps"}]}
     out = _sanitize_embed_inputs(
@@ -217,7 +217,7 @@ def test_sanitize_embed_inputs_whitelists_declared_and_user_input() -> None:
 
 
 def test_sanitize_embed_inputs_handles_empty_and_missing() -> None:
-    from leagent.chat_workflow.runner import _sanitize_embed_inputs
+    from StAgent.chat_workflow.runner import _sanitize_embed_inputs
 
     assert _sanitize_embed_inputs(None, None, {}) == {}
     assert _sanitize_embed_inputs({}, None, {}) == {}
@@ -233,7 +233,7 @@ async def test_start_embed_merges_structured_inputs_into_engine_state(
     """Structured run inputs are whitelisted and merged into engine inputs."""
     from uuid import uuid4
 
-    from leagent.chat_workflow.runner import start_chat_workflow_embed_via_engine
+    from StAgent.chat_workflow.runner import start_chat_workflow_embed_via_engine
 
     captured: dict[str, object] = {}
 
@@ -269,7 +269,7 @@ async def test_validate_workflow_embed_accepts_editor_script_nodes_with_default_
     registered_builtins,  # noqa: ARG001
 ) -> None:
     """React Flow graphs with ``type: default`` + ``config.node_type: script``."""
-    from leagent.workflow.nodes import get_registry
+    from StAgent.workflow.nodes import get_registry
 
     flow = {
         "id": "TPL-11",

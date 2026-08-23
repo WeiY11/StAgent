@@ -9,8 +9,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.markdown import parse_markdown_blocks
-from leagent.docgen.model import DeckSpec, DocumentSpec
+from StAgent.docgen.markdown import parse_markdown_blocks
+from StAgent.docgen.model import DeckSpec, DocumentSpec
 
 CJK_SAMPLE = "季度业绩持续增长，中文渲染正常。"
 
@@ -51,7 +51,7 @@ def _doc_spec(**overrides) -> DocumentSpec:
 def test_render_pdf_anti_tofu(tmp_path: Path) -> None:
     """Chinese glyphs must survive a render → extract round trip."""
     fitz = pytest.importorskip("fitz")
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     out = tmp_path / "report.pdf"
     result = render_pdf(_doc_spec(toc=True, cover=True), out)
@@ -75,12 +75,12 @@ def test_render_pdf_anti_tofu(tmp_path: Path) -> None:
 def test_render_pdf_reports_font_warning_when_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from leagent.docgen import fonts as fonts_mod
-    from leagent.docgen.fonts import FontManager
-    from leagent.docgen.renderers import pdf as pdf_mod
+    from StAgent.docgen import fonts as fonts_mod
+    from StAgent.docgen.fonts import FontManager
+    from StAgent.docgen.renderers import pdf as pdf_mod
 
-    monkeypatch.delenv("LEAGENT_CJK_FONT", raising=False)
-    monkeypatch.setenv("LEAGENT_FONT_AUTO_DOWNLOAD", "0")
+    monkeypatch.delenv("StAgent_CJK_FONT", raising=False)
+    monkeypatch.setenv("StAgent_FONT_AUTO_DOWNLOAD", "0")
     monkeypatch.setattr(fonts_mod, "discover_cjk_font_file", lambda *, is_bold: None)
     empty_mgr = FontManager(fonts_dir=tmp_path / "no-fonts")
     monkeypatch.setattr(pdf_mod, "get_font_manager", lambda: empty_mgr)
@@ -104,7 +104,7 @@ def test_render_pdf_reports_font_warning_when_unavailable(
 
 def test_render_docx_sets_east_asia_fonts(tmp_path: Path) -> None:
     docx = pytest.importorskip("docx")
-    from leagent.docgen.renderers.docx import render_docx
+    from StAgent.docgen.renderers.docx import render_docx
 
     out = tmp_path / "report.docx"
     result = render_docx(_doc_spec(toc=True), out)
@@ -133,7 +133,7 @@ def test_render_docx_sets_east_asia_fonts(tmp_path: Path) -> None:
 
 def test_render_pptx_deck(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -199,7 +199,7 @@ def test_render_pptx_deck(tmp_path: Path) -> None:
 
 
 def test_render_html_escapes_and_contains_content(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_html
+    from StAgent.docgen.renderers.html import render_html
 
     spec = DocumentSpec.model_validate(
         {
@@ -222,7 +222,7 @@ def test_render_html_escapes_and_contains_content(tmp_path: Path) -> None:
 
 
 def test_render_markdown_output(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_markdown
+    from StAgent.docgen.renderers.html import render_markdown
 
     out = tmp_path / "report.md"
     result = render_markdown(_doc_spec(), out)

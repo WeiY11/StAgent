@@ -169,7 +169,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
       }),
     }),
     {
-      name: 'leagent-playground',
+      name: 'StAgent-playground',
       partialize: (state) => ({
         executionHistory: state.executionHistory,
       }),

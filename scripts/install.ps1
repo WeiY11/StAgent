@@ -1,15 +1,15 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  LeAgent installer for Windows — clone repo (or use local tree), ensure uv + Node, run ./start.sh via Git Bash.
+  StAgent installer for Windows — clone repo (or use local tree), ensure uv + Node, run ./start.sh via Git Bash.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
   powershell -ExecutionPolicy Bypass -c "iwr -useb https://vixues.com.cn/install.ps1 | iex"
 
 .NOTES
-  Environment variables still apply: LEAGENT_GIT_URL, LEAGENT_CLONE_DIR, LEAGENT_REF, LEAGENT_SKIP_START,
-  LEAGENT_DRY_RUN, LEAGENT_RUN_CHECK, UV_SYNC_EXTRAS, UV_INDEX_URL, UV_VENV_CLEAR, LEAGENT_INSTALL_RETRIES
+  Environment variables still apply: StAgent_GIT_URL, StAgent_CLONE_DIR, StAgent_REF, StAgent_SKIP_START,
+  StAgent_DRY_RUN, StAgent_RUN_CHECK, UV_SYNC_EXTRAS, UV_INDEX_URL, UV_VENV_CLEAR, StAgent_INSTALL_RETRIES
 #>
 
 param(
@@ -28,17 +28,17 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Write-LeAgentInfo([string]$msg) { Write-Host "[leagent] $msg" -ForegroundColor Green }
-function Write-LeAgentWarn([string]$msg) { Write-Host "[leagent] $msg" -ForegroundColor Yellow }
+function Write-StAgentInfo([string]$msg) { Write-Host "[StAgent] $msg" -ForegroundColor Green }
+function Write-StAgentWarn([string]$msg) { Write-Host "[StAgent] $msg" -ForegroundColor Yellow }
 
-$GitUrl = if ($GitUrl) { $GitUrl } elseif ($env:LEAGENT_GIT_URL) { $env:LEAGENT_GIT_URL } else { 'https://github.com/WeiY11/StAgent.git' }
-$CloneDir = if ($Dir) { $Dir } elseif ($env:LEAGENT_CLONE_DIR) { $env:LEAGENT_CLONE_DIR } else { Join-Path $HOME 'leagent-desktop' }
-$Ref = if ($Ref) { $Ref } elseif ($Version) { $Version } elseif ($env:LEAGENT_REF) { $env:LEAGENT_REF } else { 'main' }
-$SkipStart = $SkipStart -or ($env:LEAGENT_SKIP_START -eq '1')
-$SkipInit = $SkipInit -or ($env:LEAGENT_SKIP_INIT -eq '1')
-$DryRun = $DryRun -or ($env:LEAGENT_DRY_RUN -eq '1')
-$RunCheck = if ($NoCheck) { $false } elseif ($null -eq $env:LEAGENT_RUN_CHECK -or $env:LEAGENT_RUN_CHECK -eq '1') { $true } else { $false }
-$MaxRetries = if ($env:LEAGENT_INSTALL_RETRIES) { [int]$env:LEAGENT_INSTALL_RETRIES } else { 3 }
+$GitUrl = if ($GitUrl) { $GitUrl } elseif ($env:StAgent_GIT_URL) { $env:StAgent_GIT_URL } else { 'https://github.com/WeiY11/StAgent.git' }
+$CloneDir = if ($Dir) { $Dir } elseif ($env:StAgent_CLONE_DIR) { $env:StAgent_CLONE_DIR } else { Join-Path $HOME 'StAgent-desktop' }
+$Ref = if ($Ref) { $Ref } elseif ($Version) { $Version } elseif ($env:StAgent_REF) { $env:StAgent_REF } else { 'main' }
+$SkipStart = $SkipStart -or ($env:StAgent_SKIP_START -eq '1')
+$SkipInit = $SkipInit -or ($env:StAgent_SKIP_INIT -eq '1')
+$DryRun = $DryRun -or ($env:StAgent_DRY_RUN -eq '1')
+$RunCheck = if ($NoCheck) { $false } elseif ($null -eq $env:StAgent_RUN_CHECK -or $env:StAgent_RUN_CHECK -eq '1') { $true } else { $false }
+$MaxRetries = if ($env:StAgent_INSTALL_RETRIES) { [int]$env:StAgent_INSTALL_RETRIES } else { 3 }
 
 if ($Extras) { $env:UV_SYNC_EXTRAS = $Extras }
 elseif ($null -ne $env:UV_SYNC_EXTRAS) { }
@@ -51,11 +51,11 @@ if ($null -eq $env:UV_VENV_CLEAR -or $env:UV_VENV_CLEAR -eq '') {
 function Choose-PypiMirror {
     try {
         $null = Invoke-WebRequest -Uri 'https://pypi.org/pypi/pip/json' -TimeoutSec 3 -UseBasicParsing -Method Get
-        Write-LeAgentInfo 'Using official PyPI index (connectivity OK)'
+        Write-StAgentInfo 'Using official PyPI index (connectivity OK)'
         return 'https://pypi.org/simple/'
     }
     catch {
-        Write-LeAgentInfo 'Using Aliyun PyPI mirror (official index unreachable)'
+        Write-StAgentInfo 'Using Aliyun PyPI mirror (official index unreachable)'
         return 'https://mirrors.aliyun.com/pypi/simple/'
     }
 }
@@ -64,12 +64,12 @@ if (-not $env:UV_INDEX_URL) {
     $env:UV_INDEX_URL = Choose-PypiMirror
 }
 else {
-    Write-LeAgentInfo "UV_INDEX_URL already set: $($env:UV_INDEX_URL)"
+    Write-StAgentInfo "UV_INDEX_URL already set: $($env:UV_INDEX_URL)"
 }
 
 function Show-InstallHelp {
     @'
-LeAgent installer — clones the repo (or uses a local tree), ensures uv + Node.js,
+StAgent installer — clones the repo (or uses a local tree), ensures uv + Node.js,
 then runs ./start.sh via Git Bash.
 
 Usage:
@@ -77,19 +77,19 @@ Usage:
 
 Parameters:
   -GitUrl <url>        Git clone URL
-  -Dir <path>         Install directory (default: ~/leagent-desktop)
+  -Dir <path>         Install directory (default: ~/StAgent-desktop)
   -Ref <ref>          Branch or tag (default: main)
   -Version <ref>      Same as -Ref
   -FromSource <path>  Use existing checkout (skips git clone)
   -Extras <names>     uv sync extras (default: dev browser)
   -SkipStart          Do not run start.sh
-  -SkipInit           Skip sync-python + leagent init --defaults
+  -SkipInit           Skip sync-python + StAgent init --defaults
   -DryRun             Print planned steps only
   -NoCheck            Skip start.sh check
   -Help               Show this help
 
-Environment: LEAGENT_GIT_URL, LEAGENT_CLONE_DIR, LEAGENT_REF, LEAGENT_SKIP_START,
-  LEAGENT_DRY_RUN, LEAGENT_RUN_CHECK, LEAGENT_SKIP_INIT, LEAGENT_INSTALL_RETRIES,
+Environment: StAgent_GIT_URL, StAgent_CLONE_DIR, StAgent_REF, StAgent_SKIP_START,
+  StAgent_DRY_RUN, StAgent_RUN_CHECK, StAgent_SKIP_INIT, StAgent_INSTALL_RETRIES,
   UV_SYNC_EXTRAS, UV_INDEX_URL, UV_VENV_CLEAR
 
 Examples:
@@ -148,12 +148,12 @@ function Ensure-Node {
     if (-not (Test-NodeSupportsVite)) {
         throw "Node.js 20.19+ or 22.12+ required for Vite 7 (found $(node -v))"
     }
-    Write-LeAgentInfo "Node $(node -p 'process.versions.node') OK"
+    Write-StAgentInfo "Node $(node -p 'process.versions.node') OK"
 }
 
 function Ensure-Uv {
     if (Get-Command uv -ErrorAction SilentlyContinue) {
-        Write-LeAgentInfo "uv found: $(Get-Command uv | Select-Object -ExpandProperty Source)"
+        Write-StAgentInfo "uv found: $(Get-Command uv | Select-Object -ExpandProperty Source)"
         return
     }
     $localUv = Join-Path $HOME '.local\bin\uv.exe'
@@ -162,15 +162,15 @@ function Ensure-Uv {
         if (Test-Path -LiteralPath $p) {
             $dir = Split-Path $p -Parent
             $env:PATH = "$dir;$env:PATH"
-            Write-LeAgentInfo "uv found: $p"
+            Write-StAgentInfo "uv found: $p"
             return
         }
     }
     if ($DryRun) {
-        Write-LeAgentInfo '[dry-run] would install uv via https://astral.sh/uv/install.ps1'
+        Write-StAgentInfo '[dry-run] would install uv via https://astral.sh/uv/install.ps1'
         return
     }
-    Write-LeAgentInfo 'Installing uv...'
+    Write-StAgentInfo 'Installing uv...'
     Invoke-Expression (Invoke-RestMethod -Uri 'https://astral.sh/uv/install.ps1')
     $localBin = Join-Path $HOME '.local\bin'
     $cargoBin = Join-Path $HOME '.cargo\bin'
@@ -179,7 +179,7 @@ function Ensure-Uv {
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         throw "uv installed but not on PATH; add $localBin or restart the terminal"
     }
-    Write-LeAgentInfo 'uv installed successfully'
+    Write-StAgentInfo 'uv installed successfully'
 }
 
 function Invoke-WithRetry {
@@ -197,7 +197,7 @@ function Invoke-WithRetry {
         }
         catch {
             if ($attempt -eq $Retries) { throw }
-            Write-LeAgentWarn "Attempt $attempt/$Retries for $Label failed, retrying in ${delay}s..."
+            Write-StAgentWarn "Attempt $attempt/$Retries for $Label failed, retrying in ${delay}s..."
             Start-Sleep -Seconds $delay
             $delay *= 2
             $attempt++
@@ -208,11 +208,11 @@ function Invoke-WithRetry {
 function Invoke-GitCloneOrUpdate {
     param([string]$Url, [string]$TargetDir, [string]$Branch)
     if ($DryRun) {
-        Write-LeAgentInfo "[dry-run] git clone/update $Url -> $TargetDir @ $Branch"
+        Write-StAgentInfo "[dry-run] git clone/update $Url -> $TargetDir @ $Branch"
         return
     }
     if (Test-Path (Join-Path $TargetDir '.git')) {
-        Write-LeAgentInfo "Updating existing repo at $TargetDir ..."
+        Write-StAgentInfo "Updating existing repo at $TargetDir ..."
         Invoke-WithRetry -Label 'git fetch' -ScriptBlock {
             git -C $TargetDir fetch --depth 1 origin $Branch 2>$null
             if ($LASTEXITCODE -ne 0) { git -C $TargetDir fetch origin }
@@ -226,7 +226,7 @@ function Invoke-GitCloneOrUpdate {
         throw "Path exists and is not a git repo: $TargetDir"
     }
     else {
-        Write-LeAgentInfo "Cloning $Url -> $TargetDir (ref: $Branch) ..."
+        Write-StAgentInfo "Cloning $Url -> $TargetDir (ref: $Branch) ..."
         $shallowCloned = $false
         try {
             Invoke-WithRetry -Label 'git clone' -ScriptBlock {
@@ -239,7 +239,7 @@ function Invoke-GitCloneOrUpdate {
             $shallowCloned = $true
         }
         catch {
-            Write-LeAgentWarn 'Shallow branch clone failed; full clone ...'
+            Write-StAgentWarn 'Shallow branch clone failed; full clone ...'
         }
         if (-not $shallowCloned) {
             if (Test-Path -LiteralPath $TargetDir) {
@@ -274,21 +274,21 @@ Ensure-Node
 Ensure-Uv
 
 Write-Host ''
-Write-LeAgentInfo "Target directory: $CloneDir"
-Write-LeAgentInfo "repository: $GitUrl"
-Write-LeAgentInfo "ref:        $Ref"
-Write-LeAgentInfo "PyPI index: $($env:UV_INDEX_URL)"
+Write-StAgentInfo "Target directory: $CloneDir"
+Write-StAgentInfo "repository: $GitUrl"
+Write-StAgentInfo "ref:        $Ref"
+Write-StAgentInfo "PyPI index: $($env:UV_INDEX_URL)"
 Write-Host ''
 
 if ($PSBoundParameters.ContainsKey('FromSource')) {
-    Write-LeAgentInfo 'Using local source tree (-FromSource); skipping git clone.'
+    Write-StAgentInfo 'Using local source tree (-FromSource); skipping git clone.'
 }
 else {
     Invoke-GitCloneOrUpdate -Url $GitUrl -TargetDir $CloneDir -Branch $Ref
 }
 
 if ($DryRun) {
-    Write-LeAgentInfo '[dry-run] done.'
+    Write-StAgentInfo '[dry-run] done.'
     exit 0
 }
 
@@ -310,27 +310,27 @@ $exportVenvClear = $env:UV_VENV_CLEAR
 $bashPrefix = "export UV_SYNC_EXTRAS='$exportExtras' UV_INDEX_URL='$exportIndex' UV_VENV_CLEAR='$exportVenvClear'; "
 
 if (-not $SkipInit) {
-    Write-LeAgentInfo 'Running ./start.sh sync-python and leagent init --defaults ...'
-    & $bash @('-lc', "${bashPrefix}cd '$unixDir' && { chmod +x start.sh 2>/dev/null || true; ./start.sh sync-python && uv run --directory backend leagent init --defaults; }")
-    if ($LASTEXITCODE -ne 0) { throw './start.sh sync-python / leagent init failed' }
+    Write-StAgentInfo 'Running ./start.sh sync-python and StAgent init --defaults ...'
+    & $bash @('-lc', "${bashPrefix}cd '$unixDir' && { chmod +x start.sh 2>/dev/null || true; ./start.sh sync-python && uv run --directory backend StAgent init --defaults; }")
+    if ($LASTEXITCODE -ne 0) { throw './start.sh sync-python / StAgent init failed' }
 }
 
 if ($RunCheck -and -not $SkipStart) {
-    Write-LeAgentInfo 'Running ./start.sh check ...'
+    Write-StAgentInfo 'Running ./start.sh check ...'
     & $bash @('-lc', "${bashPrefix}cd '$unixDir' && { chmod +x start.sh 2>/dev/null || true; ./start.sh check; }")
     if ($LASTEXITCODE -ne 0) { throw './start.sh check failed' }
 }
 
 if ($SkipStart) {
-    Write-LeAgentInfo 'Skip start requested — not launching services.'
+    Write-StAgentInfo 'Skip start requested — not launching services.'
     Write-Host ''
-    Write-Host 'LeAgent install finished.' -ForegroundColor Green
+    Write-Host 'StAgent install finished.' -ForegroundColor Green
     Write-Host "  Directory: $CloneDir"
     Write-Host ''
-    Write-LeAgentInfo "Next: cd '$CloneDir'; bash start.sh"
+    Write-StAgentInfo "Next: cd '$CloneDir'; bash start.sh"
     exit 0
 }
 
-Write-LeAgentInfo 'Starting LeAgent (./start.sh all) ...'
+Write-StAgentInfo 'Starting StAgent (./start.sh all) ...'
 & $bash @('-lc', "${bashPrefix}cd '$unixDir' && exec ./start.sh all")
 exit $LASTEXITCODE

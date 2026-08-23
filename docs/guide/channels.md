@@ -1,3 +1,3 @@
-﻿# Channels
+# Channels
 
 TODO: Write channels guide.

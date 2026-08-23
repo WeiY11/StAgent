@@ -9,10 +9,10 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.deps import QueryDeps
-from leagent.agent.query import ToolResultMessage
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-from leagent.services.session.artifacts import (
+from StAgent.agent.deps import QueryDeps
+from StAgent.agent.query import ToolResultMessage
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.services.session.artifacts import (
     ArtifactRegistrar,
     collect_image_preview_urls_from_messages,
     extract_produced_path_candidates,
@@ -22,7 +22,7 @@ from leagent.services.session.artifacts import (
     strip_base64_from_text,
     strip_inline_base64_payloads,
 )
-from leagent.tools.base import ToolContext
+from StAgent.tools.base import ToolContext
 
 
 class _FakeSessionManager:
@@ -189,7 +189,7 @@ async def test_ingest_previewable_produced_files_registers_outside_uploads(
     ctx = ToolContext(user_id=str(user_id), session_id=str(session_id))
 
     monkeypatch.setattr(
-        "leagent.main.get_service_manager",
+        "StAgent.main.get_service_manager",
         lambda: SimpleNamespace(session_manager=manager),
     )
 
@@ -215,7 +215,7 @@ async def test_ingest_skips_entries_with_existing_file_id(
     manager = _FakeSessionManager()
     ctx = ToolContext(user_id=str(uuid4()), session_id=str(uuid4()))
     monkeypatch.setattr(
-        "leagent.main.get_service_manager",
+        "StAgent.main.get_service_manager",
         lambda: SimpleNamespace(session_manager=manager),
     )
 

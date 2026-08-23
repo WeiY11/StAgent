@@ -1,6 +1,6 @@
-# LeAgent Tutorial
+# StAgent Tutorial
 
-A comprehensive guide to getting started with LeAgent, from installation to building your first automated workflow.
+A comprehensive guide to getting started with StAgent, from installation to building your first automated workflow.
 
 ## Table of Contents
 
@@ -19,9 +19,9 @@ A comprehensive guide to getting started with LeAgent, from installation to buil
 
 ## Introduction
 
-LeAgent is a local-first intelligent office automation platform that combines the power of Large Language Models (LLMs) with a comprehensive toolset for enterprise workflow automation. This tutorial will guide you through:
+StAgent is a local-first intelligent office automation platform that combines the power of Large Language Models (LLMs) with a comprehensive toolset for enterprise workflow automation. This tutorial will guide you through:
 
-- Setting up LeAgent
+- Setting up StAgent
 - Using the chat interface for natural language queries
 - Building visual workflows with ReactFlow
 - Integrating with enterprise messaging platforms
@@ -42,7 +42,7 @@ LeAgent is a local-first intelligent office automation platform that combines th
 
 ### Supported LLM Providers
 
-LeAgent supports multiple LLM providers out of the box:
+StAgent supports multiple LLM providers out of the box:
 
 - **OpenAI** — GPT-4, GPT-4o, etc.
 - **Anthropic** — Claude 3.5, Claude 4, etc.
@@ -72,13 +72,13 @@ The `start.sh` script handles dependency checking, Python environment setup, dat
 ```bash
 # Clone the repository
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 
 # Check prerequisites and install missing deps
 ./start.sh fix-deps
 
-# First-time setup: seed ~/.leagent config
-cd backend && uv run leagent init && cd ..
+# First-time setup: seed ~/.StAgent config
+cd backend && uv run StAgent init && cd ..
 
 # Start both backend and frontend
 ./start.sh
@@ -96,7 +96,7 @@ Other useful commands:
 ./start.sh --prod         # Production mode (builds frontend, multi-worker backend)
 ./start.sh check          # Run environment readiness check
 ./start.sh status         # Show running services
-./start.sh stop           # Stop all LeAgent processes
+./start.sh stop           # Stop all StAgent processes
 ./start.sh log            # Tail all service logs
 ```
 
@@ -105,10 +105,10 @@ Other useful commands:
 ```bash
 # Clone the repository
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 
 # Set required secret key
-export LEAGENT_SECRET_KEY=$(openssl rand -hex 32)
+export StAgent_SECRET_KEY=$(openssl rand -hex 32)
 
 # Start the container (SQLite, no external deps)
 docker compose -f deploy/docker-compose.yml up -d --build
@@ -117,7 +117,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 docker compose -f deploy/docker-compose.yml ps
 
 # View logs
-docker compose -f deploy/docker-compose.yml logs -f leagent
+docker compose -f deploy/docker-compose.yml logs -f StAgent
 ```
 
 Access the backend API at: `http://localhost:8000`
@@ -132,14 +132,14 @@ cd backend
 # Sync Python environment with uv (includes dev + browser extras)
 uv sync --extra dev --extra browser
 
-# Initialize ~/.leagent config directory
-uv run leagent init
+# Initialize ~/.StAgent config directory
+uv run StAgent init
 
 # Run database migrations
 uv run alembic upgrade head
 
 # Start the backend (dev mode with auto-reload)
-uv run leagent run --reload --port 7860
+uv run StAgent run --reload --port 7860
 ```
 
 #### Frontend Setup
@@ -162,10 +162,10 @@ After installation, configure your LLM provider:
 cd backend
 
 # List configured providers
-uv run leagent models list
+uv run StAgent models list
 
 # Check system health
-uv run leagent doctor
+uv run StAgent doctor
 ```
 
 Provider API keys can be set via environment variables:
@@ -176,7 +176,7 @@ export OPENAI_API_KEY="sk-your-key"
 export ANTHROPIC_API_KEY="sk-your-key"
 ```
 
-Or add them to the `~/.leagent/.env` file created by `leagent init`.
+Or add them to the `~/.StAgent/.env` file created by `StAgent init`.
 
 ---
 
@@ -184,24 +184,24 @@ Or add them to the `~/.leagent/.env` file created by `leagent init`.
 
 ### Your First Chat (CLI)
 
-The fastest way to start using LeAgent is the built-in CLI agent:
+The fastest way to start using StAgent is the built-in CLI agent:
 
 ```bash
 cd backend
 
 # Interactive REPL
-uv run leagent
+uv run StAgent
 
 # One-shot message
-uv run leagent -m "What tools are available?"
+uv run StAgent -m "What tools are available?"
 
 # Verbose output (shows tool calls)
-uv run leagent -v
+uv run StAgent -v
 ```
 
 ### Your First Chat (Web)
 
-1. Start LeAgent with `./start.sh`
+1. Start StAgent with `./start.sh`
 2. Open `http://localhost:5173` in your browser
 3. Click "New Chat" in the sidebar
 4. Try example queries:
@@ -383,7 +383,7 @@ nodes:
 
 ## Using Tools
 
-LeAgent provides 80+ built-in tools across 15 categories.
+StAgent provides 80+ built-in tools across 15 categories.
 
 ### Tool Categories
 
@@ -504,7 +504,7 @@ The rule engine enables declarative business logic without code, defined in YAML
 ### Example Rule Set
 
 ```yaml
-# ~/.leagent/rules/expense_validation.yaml
+# ~/.StAgent/rules/expense_validation.yaml
 id: expense_validation
 name: Expense Validation Rules
 description: Rules for validating expense reports and reimbursement requests
@@ -582,7 +582,7 @@ rules:
     message: "Missing required fields: {{missing}}"
 
 metadata:
-  author: LeAgent System
+  author: StAgent System
   department: finance
 ```
 
@@ -607,26 +607,26 @@ metadata:
 
 ```bash
 cd backend
-uv run leagent rules list          # List all rule sets
-uv run leagent rules show <id>     # Show rule details
-uv run leagent rules validate <id> # Validate rule syntax
+uv run StAgent rules list          # List all rule sets
+uv run StAgent rules show <id>     # Show rule details
+uv run StAgent rules validate <id> # Validate rule syntax
 ```
 
 ---
 
 ## Channel Integration
 
-Connect LeAgent to enterprise messaging platforms. Channel configuration lives in `~/.leagent/config.yaml`.
+Connect StAgent to enterprise messaging platforms. Channel configuration lives in `~/.StAgent/config.yaml`.
 
 ### DingTalk (钉钉)
 
 1. Create a DingTalk robot in your group
 2. Get the webhook URL and secret
-3. Configure in LeAgent:
+3. Configure in StAgent:
 
 ```bash
 cd backend
-uv run leagent channels add dingtalk \
+uv run StAgent channels add dingtalk \
   --webhook-url "https://oapi.dingtalk.com/robot/send?access_token=xxx" \
   --secret "SEC..."
 ```
@@ -634,7 +634,7 @@ uv run leagent channels add dingtalk \
 ### Feishu (飞书)
 
 1. Create a Feishu bot in your workspace
-2. Configure via the channels CLI or directly in `~/.leagent/config.yaml`
+2. Configure via the channels CLI or directly in `~/.StAgent/config.yaml`
 
 ### WeChat Work (企业微信)
 
@@ -647,21 +647,21 @@ Connect a personal WeChat account via Tencent's iLink Bot API (long-polling; no 
 
 ```bash
 cd backend
-uv run leagent channels login weixin   # scan QR with WeChat, confirm on phone
+uv run StAgent channels login weixin   # scan QR with WeChat, confirm on phone
 ```
 
 Or open **Channels** in the UI → **Weixin** panel → **Scan to connect**. Confirming on your phone saves credentials and **starts long-polling immediately** (no process restart).
 
-For a protocol-oriented walkthrough (iLink, `context_token`, CDN crypto, adapter/bridge pattern — useful beyond LeAgent), see [`docs/guides/weixin-agent-from-scratch.md`](guides/weixin-agent-from-scratch.md)（中文技术分享）.
+For a protocol-oriented walkthrough (iLink, `context_token`, CDN crypto, adapter/bridge pattern — useful beyond StAgent), see [`docs/guides/weixin-agent-from-scratch.md`](guides/weixin-agent-from-scratch.md)（中文技术分享）.
 
-Credentials land in `$LEAGENT_HOME/weixin/accounts/` and `config.yaml` (`channels.weixin`). Inbound DMs run `default_agent` via the channel bridge.
+Credentials land in `$StAgent_HOME/weixin/accounts/` and `config.yaml` (`channels.weixin`). Inbound DMs run `default_agent` via the channel bridge.
 
 **Limits:** QR-login binds an iLink bot identity — DMs work reliably; ordinary WeChat groups usually do not deliver events to the bot.
 
 ### Channel Configuration (YAML)
 
 ```yaml
-# ~/.leagent/config.yaml
+# ~/.StAgent/config.yaml
 channels:
   web:
     enabled: true
@@ -685,14 +685,14 @@ channels:
 ### Channel Message Flow
 
 ```
-User → Channel → LeAgent Backend → QueryEngine → Tools → Response → Channel → User
+User → Channel → StAgent Backend → QueryEngine → Tools → Response → Channel → User
 ```
 
 ---
 
 ## API Usage
 
-LeAgent exposes a REST API under `/api/v1/` (and `/api/v2/` for newer endpoints). The default auth mode is single-user passthrough (no login required).
+StAgent exposes a REST API under `/api/v1/` (and `/api/v2/` for newer endpoints). The default auth mode is single-user passthrough (no login required).
 
 ### Health Check
 
@@ -792,7 +792,7 @@ curl http://localhost:7860/api/v1/tools/{tool_name}
 ```python
 import httpx
 
-class LeAgentClient:
+class StAgentClient:
     def __init__(self, base_url: str = "http://localhost:7860"):
         self.base_url = base_url
     
@@ -821,7 +821,7 @@ class LeAgentClient:
             return response.json()
 
 # Usage
-client = LeAgentClient()
+client = StAgentClient()
 session = await client.create_session("Analysis Session")
 result = await client.send_message(session["id"], "Summarize the attached document")
 ```
@@ -835,10 +835,10 @@ result = await client.send_message(session["id"], "Summarize the attached docume
 Create a custom tool by extending `BaseTool`:
 
 ```python
-# backend/leagent/tools/custom/my_tool.py
+# backend/StAgent/tools/custom/my_tool.py
 from typing import Any
 
-from leagent.tools.base import (
+from StAgent.tools.base import (
     BaseTool,
     ToolCategory,
     ToolContext,
@@ -914,7 +914,7 @@ class MyCustomTool(BaseTool):
 
 ### Agent Memory
 
-LeAgent includes a cognitive three-store memory system:
+StAgent includes a cognitive three-store memory system:
 
 | Store | Purpose | Persistence |
 |-------|---------|-------------|
@@ -937,13 +937,13 @@ Skills are installable packages that extend the agent's capabilities:
 cd backend
 
 # List installed skills
-uv run leagent skills list
+uv run StAgent skills list
 
 # Install a skill
-uv run leagent skills install <skill-name>
+uv run StAgent skills install <skill-name>
 ```
 
-Skills are discovered from `~/.leagent/skills/` and can include:
+Skills are discovered from `~/.StAgent/skills/` and can include:
 - Custom tool definitions
 - Resource files
 - Python scripts
@@ -951,10 +951,10 @@ Skills are discovered from `~/.leagent/skills/` and can include:
 
 ### MCP Integration
 
-Connect to Model Context Protocol servers by configuring `~/.leagent/config.yaml`:
+Connect to Model Context Protocol servers by configuring `~/.StAgent/config.yaml`:
 
 ```yaml
-# ~/.leagent/config.yaml
+# ~/.StAgent/config.yaml
 mcp_servers:
   - name: filesystem
     url: "http://localhost:3000/mcp"
@@ -973,7 +973,7 @@ MCP tools appear alongside built-in tools and are automatically available to the
 
 ### Prompt System
 
-LeAgent uses a layered prompt architecture:
+StAgent uses a layered prompt architecture:
 
 - **PromptBuilder** — assembles system prompts from registered templates
 - **Prompt Registry** — stores and retrieves named prompt templates
@@ -985,8 +985,8 @@ Automate recurring tasks with the cron system:
 
 ```bash
 cd backend
-uv run leagent cron list              # List scheduled jobs
-uv run leagent cron add <schedule>    # Add a new job
+uv run StAgent cron list              # List scheduled jobs
+uv run StAgent cron add <schedule>    # Add a new job
 ```
 
 Cron jobs can trigger workflows, send notifications, or run agent queries on a schedule.
@@ -999,17 +999,17 @@ Cron jobs can trigger workflows, send notifications, or run agent queries on a s
 | `FRONTEND_PORT` | Frontend dev server port | 5173 |
 | `HOST` | Backend bind address | 0.0.0.0 |
 | `DATABASE_URL` | PostgreSQL connection string | SQLite (zero-config) |
-| `LEAGENT_SECRET_KEY` | JWT / signing secret | — |
+| `StAgent_SECRET_KEY` | JWT / signing secret | — |
 | `DEEPSEEK_API_KEY` | DeepSeek provider | — |
 | `OPENAI_API_KEY` | OpenAI provider | — |
 | `ANTHROPIC_API_KEY` | Anthropic provider | — |
-| `LEAGENT_DEBUG` | Enable debug mode | false |
-| `LEAGENT_LOG_DIR` | Log file directory | ./logs |
+| `StAgent_DEBUG` | Enable debug mode | false |
+| `StAgent_LOG_DIR` | Log file directory | ./logs |
 | `UV_SYNC_EXTRAS` | uv extras to install | dev browser |
 
 ### Database
 
-LeAgent defaults to **SQLite** (zero-config, stored in `~/.leagent/`). For production, set `DATABASE_URL` to a PostgreSQL connection string.
+StAgent defaults to **SQLite** (zero-config, stored in `~/.StAgent/`). For production, set `DATABASE_URL` to a PostgreSQL connection string.
 
 Migrations are managed with Alembic:
 
@@ -1017,13 +1017,13 @@ Migrations are managed with Alembic:
 cd backend
 
 # Apply migrations
-uv run leagent upgrade
+uv run StAgent upgrade
 
 # Create a new migration
-uv run leagent migrate "Add new table"
+uv run StAgent migrate "Add new table"
 
 # Rollback
-uv run leagent downgrade -r -1
+uv run StAgent downgrade -r -1
 ```
 
 ---
@@ -1037,16 +1037,16 @@ uv run leagent downgrade -r -1
 cd backend
 
 # Check provider and tool health
-uv run leagent doctor
+uv run StAgent doctor
 
 # Check model configuration
-uv run leagent models list
+uv run StAgent models list
 ```
 
 **Issue: Tool execution failed**
 ```bash
 # List available tools (CLI)
-uv run leagent doctor  # Shows tool count in diagnostics
+uv run StAgent doctor  # Shows tool count in diagnostics
 
 # Check backend logs
 ./start.sh log monolith
@@ -1076,43 +1076,43 @@ node -v
 **Issue: Database migration errors**
 ```bash
 cd backend
-uv run leagent upgrade          # Apply pending migrations
-uv run leagent downgrade -r -1  # Roll back one step
+uv run StAgent upgrade          # Apply pending migrations
+uv run StAgent downgrade -r -1  # Roll back one step
 ```
 
 ### CLI Reference
 
 ```bash
-leagent                    # Interactive agent REPL
-leagent -m "message"       # One-shot agent turn
-leagent chat               # Interactive agent (explicit)
-leagent init               # First-time ~/.leagent setup
-leagent run                # Start HTTP API (Uvicorn)
-leagent app start          # Start with more flags (SSL, workers, reload)
-leagent serve              # Start with Gunicorn (production)
-leagent doctor             # Health / dependency check
-leagent version            # Show version info
-leagent models list        # List LLM providers
-leagent rules list         # List rule sets
-leagent skills list        # List installed skills
-leagent workflows list     # List workflows (requires running server)
-leagent tasks list         # List background tasks
-leagent cron list          # List cron jobs
-leagent channels list      # List configured channels
-leagent templates list     # List workflow templates
-leagent webhooks list      # List webhooks
-leagent config show        # Show runtime config
-leagent shell              # Python REPL with config loaded
-leagent upgrade            # Apply database migrations
-leagent downgrade          # Revert database migrations
-leagent clean              # Clean temporary files
-leagent prune              # Prune old data
+StAgent                    # Interactive agent REPL
+StAgent -m "message"       # One-shot agent turn
+StAgent chat               # Interactive agent (explicit)
+StAgent init               # First-time ~/.StAgent setup
+StAgent run                # Start HTTP API (Uvicorn)
+StAgent app start          # Start with more flags (SSL, workers, reload)
+StAgent serve              # Start with Gunicorn (production)
+StAgent doctor             # Health / dependency check
+StAgent version            # Show version info
+StAgent models list        # List LLM providers
+StAgent rules list         # List rule sets
+StAgent skills list        # List installed skills
+StAgent workflows list     # List workflows (requires running server)
+StAgent tasks list         # List background tasks
+StAgent cron list          # List cron jobs
+StAgent channels list      # List configured channels
+StAgent templates list     # List workflow templates
+StAgent webhooks list      # List webhooks
+StAgent config show        # Show runtime config
+StAgent shell              # Python REPL with config loaded
+StAgent upgrade            # Apply database migrations
+StAgent downgrade          # Revert database migrations
+StAgent clean              # Clean temporary files
+StAgent prune              # Prune old data
 ```
 
 ### Getting Help
 
 - **GitHub Issues**: Report bugs and feature requests
-- **`leagent doctor`**: Run diagnostics locally
+- **`StAgent doctor`**: Run diagnostics locally
 - **Logs**: `./start.sh log` or check `logs/` directory
 - **Architecture docs**: See `docs/technical/` for deep subsystem documentation
 

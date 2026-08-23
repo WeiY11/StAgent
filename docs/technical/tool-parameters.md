@@ -1,6 +1,6 @@
 # Tool Parameter Naming Conventions
 
-LeAgent tool inputs follow a **strict canonical contract**: the JSON Schema
+StAgent tool inputs follow a **strict canonical contract**: the JSON Schema
 declared on each tool's `parameters` property is the only authoritative
 definition exposed to LLMs. There is no silent alias coercion.
 
@@ -21,7 +21,7 @@ definition exposed to LLMs. There is no silent alias coercion.
 ## Contract enforcement
 
 Validation runs in `BaseTool.validate_params()` via
-[`backend/leagent/tools/contract.py`](../../backend/leagent/tools/contract.py):
+[`backend/StAgent/tools/contract.py`](../../backend/StAgent/tools/contract.py):
 
 1. **Unknown keys** — rejected with an actionable error (e.g. `path` when the
    schema expects `file_path`).

@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.prompts.art_playbook import (
+from StAgent.prompts.art_playbook import (
     ART_TOOL_SEQUENCE,
     build_art_node_catalog,
     looks_like_art_request,
     plan_art_tasks,
     render_art_playbook,
 )
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry
 
 
 # -- request gating ---------------------------------------------------------
@@ -110,8 +110,8 @@ def test_plan_minimal_brief_does_not_crash():
 
 @pytest.mark.asyncio
 async def test_art_playbook_source_registered_and_renders_for_art_query():
-    from leagent.context.sources import get_all_sources
-    from leagent.context.sources.base import ResolveContext
+    from StAgent.context.sources import get_all_sources
+    from StAgent.context.sources.base import ResolveContext
 
     sources = get_all_sources()
     assert "art_playbook" in sources

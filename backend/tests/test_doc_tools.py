@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from leagent.tools.base import ToolContext, ToolResult
+from StAgent.tools.base import ToolContext, ToolResult
 
 
 def _have(*modules: str) -> bool:
@@ -48,15 +48,15 @@ async def run(tool_name: str, params: dict[str, Any]) -> ToolResult:
 
     # map tool_name to module path
     _module_map = {
-        "pdf_reader": "leagent.tools.doc.pdf_reader.PDFReaderTool",
-        "word_reader": "leagent.tools.doc.word_reader.WordReaderTool",
-        "excel_reader": "leagent.tools.doc.excel_reader.ExcelReaderTool",
-        "csv_processor": "leagent.tools.doc.csv_processor.CSVProcessorTool",
-        "html_processor": "leagent.tools.doc.html_processor.HTMLProcessorTool",
-        "markdown_processor": "leagent.tools.doc.markdown_processor.MarkdownProcessorTool",
-        "text_processor": "leagent.tools.doc.text_processor.TextFileProcessorTool",
-        "config_file": "leagent.tools.doc.config_file_tool.ConfigFileTool",
-        "archive_manager": "leagent.tools.doc.archive_manager.ArchiveManagerTool",
+        "pdf_reader": "StAgent.tools.doc.pdf_reader.PDFReaderTool",
+        "word_reader": "StAgent.tools.doc.word_reader.WordReaderTool",
+        "excel_reader": "StAgent.tools.doc.excel_reader.ExcelReaderTool",
+        "csv_processor": "StAgent.tools.doc.csv_processor.CSVProcessorTool",
+        "html_processor": "StAgent.tools.doc.html_processor.HTMLProcessorTool",
+        "markdown_processor": "StAgent.tools.doc.markdown_processor.MarkdownProcessorTool",
+        "text_processor": "StAgent.tools.doc.text_processor.TextFileProcessorTool",
+        "config_file": "StAgent.tools.doc.config_file_tool.ConfigFileTool",
+        "archive_manager": "StAgent.tools.doc.archive_manager.ArchiveManagerTool",
     }
     cls_path = _module_map[tool_name]
     module_path, cls_name = cls_path.rsplit(".", 1)
@@ -310,12 +310,12 @@ class TestCSVProcessorTool:
         tmp_path: Path,
     ) -> None:
         """Bare filename resolves when path is merged like chat ``file_ids`` / knowledge."""
-        from leagent.file.sandbox import reset_roots
-        from leagent.tools.doc.csv_processor import CSVProcessorTool
-        from leagent.file.attachment_context import build_attachment_lookup
+        from StAgent.file.sandbox import reset_roots
+        from StAgent.tools.doc.csv_processor import CSVProcessorTool
+        from StAgent.file.attachment_context import build_attachment_lookup
 
-        prev_roots = os.environ.get("LEAGENT_TOOL_FILE_ROOTS")
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
+        prev_roots = os.environ.get("StAgent_TOOL_FILE_ROOTS")
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
         reset_roots()
         try:
             kid = uuid.uuid4()
@@ -343,9 +343,9 @@ class TestCSVProcessorTool:
             assert isinstance(result.data, dict)
         finally:
             if prev_roots is None:
-                os.environ.pop("LEAGENT_TOOL_FILE_ROOTS", None)
+                os.environ.pop("StAgent_TOOL_FILE_ROOTS", None)
             else:
-                os.environ["LEAGENT_TOOL_FILE_ROOTS"] = prev_roots
+                os.environ["StAgent_TOOL_FILE_ROOTS"] = prev_roots
             reset_roots()
 
 
@@ -562,8 +562,8 @@ class TestConfigFileTool:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.file.sandbox import reset_roots
-        from leagent.tools.doc.config_file_tool import ConfigFileTool
+        from StAgent.file.sandbox import reset_roots
+        from StAgent.tools.doc.config_file_tool import ConfigFileTool
 
         allowed_root = tmp_path / "allowed"
         upload_root = tmp_path / "uploads"
@@ -577,8 +577,8 @@ class TestConfigFileTool:
         # ``~`` pointing at the fake home cross-platform.
         monkeypatch.setenv("USERPROFILE", str(home))
         monkeypatch.delenv("OPENCLAW_HOME", raising=False)
-        monkeypatch.setenv("LEAGENT_TOOL_FILE_ROOTS", str(allowed_root))
-        monkeypatch.setenv("LEAGENT_FILES_UPLOAD_DIR", str(upload_root))
+        monkeypatch.setenv("StAgent_TOOL_FILE_ROOTS", str(allowed_root))
+        monkeypatch.setenv("StAgent_FILES_UPLOAD_DIR", str(upload_root))
         reset_roots()
         try:
             result = await ConfigFileTool().run(
@@ -683,7 +683,7 @@ class TestArchiveManagerTool:
 @pytest.mark.asyncio
 class TestDocClassifierTool:
     async def test_classify_pdf(self, sample_pdf: Path) -> None:
-        from leagent.tools.doc.doc_classifier import DocClassifierTool
+        from StAgent.tools.doc.doc_classifier import DocClassifierTool
 
         tool = DocClassifierTool()
         result = await tool.run(
@@ -694,7 +694,7 @@ class TestDocClassifierTool:
         assert isinstance(result, ToolResult)
 
     async def test_classify_csv(self, sample_csv: Path) -> None:
-        from leagent.tools.doc.doc_classifier import DocClassifierTool
+        from StAgent.tools.doc.doc_classifier import DocClassifierTool
 
         tool = DocClassifierTool()
         result = await tool.run(
@@ -712,7 +712,7 @@ class TestDocClassifierTool:
 @pytest.mark.asyncio
 class TestImageOCRTool:
     async def test_missing_image_returns_error(self) -> None:
-        from leagent.tools.doc.image_ocr import ImageOCRTool
+        from StAgent.tools.doc.image_ocr import ImageOCRTool
 
         tool = ImageOCRTool()
         result = await tool.run(
@@ -722,7 +722,7 @@ class TestImageOCRTool:
         assert not result.success
 
     async def test_instantiation(self) -> None:
-        from leagent.tools.doc.image_ocr import ImageOCRTool
+        from StAgent.tools.doc.image_ocr import ImageOCRTool
 
         tool = ImageOCRTool()
         assert tool.name

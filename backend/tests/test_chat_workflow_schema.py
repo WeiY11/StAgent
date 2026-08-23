@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.chat_workflow.arguments import (
+from StAgent.chat_workflow.arguments import (
     coerce_workflow_step_arguments,
     normalize_workflow_step_arguments,
     validate_workflow_step_paths,
 )
-from leagent.chat_workflow.schema import (
+from StAgent.chat_workflow.schema import (
     ValidationError,
     chat_workflow_digest,
     parse_chat_workflow_spec,
     resolve_argument_templates,
 )
-from leagent.tools.doc.pdf_reader import PDFReaderTool
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.doc.pdf_reader import PDFReaderTool
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext
+from StAgent.tools.registry import ToolRegistry
 
 
 class _ReadOnlyEchoTool(BaseTool):
@@ -173,7 +173,7 @@ def test_validate_workflow_step_paths_when_still_empty(registry: ToolRegistry) -
 
 
 def test_normalize_csv_source_path_to_file_path(registry: ToolRegistry) -> None:
-    from leagent.tools.doc.csv_processor import CSVProcessorTool
+    from StAgent.tools.doc.csv_processor import CSVProcessorTool
 
     registry.register(CSVProcessorTool())
     out = normalize_workflow_step_arguments(
@@ -187,7 +187,7 @@ def test_normalize_csv_source_path_to_file_path(registry: ToolRegistry) -> None:
 
 
 def test_normalize_data_clean_operation_to_operations(registry: ToolRegistry) -> None:
-    from leagent.tools.data.data_clean import DataCleanTool
+    from StAgent.tools.data.data_clean import DataCleanTool
 
     registry.register(DataCleanTool())
     out = normalize_workflow_step_arguments(
@@ -201,7 +201,7 @@ def test_normalize_data_clean_operation_to_operations(registry: ToolRegistry) ->
 
 
 def test_normalize_data_clean_when_operations_null(registry: ToolRegistry) -> None:
-    from leagent.tools.data.data_clean import DataCleanTool
+    from StAgent.tools.data.data_clean import DataCleanTool
 
     registry.register(DataCleanTool())
     out = normalize_workflow_step_arguments(

@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from leagent.skills.base import SkillHubEntry
-from leagent.skills.github_monorepo_catalog import GitHubMonorepoCatalog, reset_github_monorepo_catalog
-from leagent.skills.manager import SkillsManager
+from StAgent.skills.base import SkillHubEntry
+from StAgent.skills.github_monorepo_catalog import GitHubMonorepoCatalog, reset_github_monorepo_catalog
+from StAgent.skills.manager import SkillsManager
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +30,7 @@ async def test_search_hub_merges_registry_and_github() -> None:
         SkillHubEntry(name="beta", description="b", category="github-catalog"),
     ]
 
-    mgr = SkillsManager(skills_dir=Path("/tmp/leagent-skills-merge-test"))
+    mgr = SkillsManager(skills_dir=Path("/tmp/StAgent-skills-merge-test"))
     mock_reg = MagicMock()
     mock_reg.search = AsyncMock(return_value=reg_entries)
     mock_reg.get = AsyncMock(return_value=None)
@@ -42,7 +42,7 @@ async def test_search_hub_merges_registry_and_github() -> None:
     mock_gh.search_all_matching = AsyncMock(return_value=gh_entries)
 
     with patch(
-        "leagent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
+        "StAgent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
         return_value=mock_gh,
     ):
         out = await mgr.search_hub(query="", page=1, limit=20)
@@ -62,7 +62,7 @@ async def test_search_hub_registry_wins_duplicate_name() -> None:
         SkillHubEntry(name="dup", description="from-github", category="github-catalog"),
     ]
 
-    mgr = SkillsManager(skills_dir=Path("/tmp/leagent-skills-dedupe-test"))
+    mgr = SkillsManager(skills_dir=Path("/tmp/StAgent-skills-dedupe-test"))
     mock_reg = MagicMock()
     mock_reg.search = AsyncMock(return_value=reg_entries)
     mock_reg.get = AsyncMock(return_value=None)
@@ -73,7 +73,7 @@ async def test_search_hub_registry_wins_duplicate_name() -> None:
     mock_gh.search_all_matching = AsyncMock(return_value=gh_entries)
 
     with patch(
-        "leagent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
+        "StAgent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
         return_value=mock_gh,
     ):
         out = await mgr.search_hub(query="", page=1, limit=20)
@@ -147,7 +147,7 @@ async def test_github_catalog_install_from_tarball(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_install_from_hub_prefers_registry_when_present(tmp_path: Path) -> None:
-    from leagent.skills.base import Skill
+    from StAgent.skills.base import Skill
 
     mock_skill = MagicMock(spec=Skill)
     mock_skill.name = "pack"
@@ -168,7 +168,7 @@ async def test_install_from_hub_prefers_registry_when_present(tmp_path: Path) ->
     mock_gh.install = AsyncMock(return_value=None)
 
     with patch(
-        "leagent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
+        "StAgent.skills.github_monorepo_catalog.get_github_monorepo_catalog",
         return_value=mock_gh,
     ):
         out = await mgr.install_from_hub("pack")

@@ -1,11 +1,11 @@
 """Tests for the two-tier code execution stack.
 
-Tier 1 — ``leagent.tools._sandbox.inproc.execute_script``:
+Tier 1 — ``StAgent.tools._sandbox.inproc.execute_script``:
   lightweight in-process RestrictedPython evaluator used by the
   ``ScriptNode``. Must capture stdout, respect the timeout, and refuse
   imports outside the allow-list.
 
-Tier 2 — ``leagent.services.code_execution.SubprocessSandbox``:
+Tier 2 — ``StAgent.services.code_execution.SubprocessSandbox``:
   out-of-process sandbox used by ``CodeExecutionTool`` and the Code
   Execution Agent. Must forward stdout, surface non-zero exits, and
   apply wall-clock timeouts.
@@ -30,7 +30,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_script_sandbox_captures_print_and_result() -> None:
-    from leagent.tools._sandbox.inproc import execute_script
+    from StAgent.tools._sandbox.inproc import execute_script
 
     source = (
         "print('hello', name)\n"
@@ -49,7 +49,7 @@ async def test_script_sandbox_captures_print_and_result() -> None:
 @pytest.mark.asyncio
 async def test_script_sandbox_allows_stdlib_imports() -> None:
     """In-process sandbox uses unrestricted ``exec``; imports are not blocked."""
-    from leagent.tools._sandbox.inproc import execute_script
+    from StAgent.tools._sandbox.inproc import execute_script
 
     outcome = await execute_script(
         "import socket\nresult = len(socket.gethostname()) > 0\n",
@@ -61,7 +61,7 @@ async def test_script_sandbox_allows_stdlib_imports() -> None:
 
 @pytest.mark.asyncio
 async def test_script_sandbox_times_out_cleanly() -> None:
-    from leagent.tools._sandbox.inproc import (
+    from StAgent.tools._sandbox.inproc import (
         ScriptTimeoutError,
         execute_script,
     )
@@ -82,7 +82,7 @@ async def test_script_sandbox_times_out_cleanly() -> None:
 def test_create_subprocess_kwargs_windows_uses_process_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.code.sandbox import (
+    from StAgent.code.sandbox import (
         _create_subprocess_kwargs,
     )
 
@@ -98,7 +98,7 @@ def test_create_subprocess_kwargs_windows_uses_process_group(
 def test_create_subprocess_kwargs_posix_uses_new_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.code.sandbox import (
+    from StAgent.code.sandbox import (
         _create_subprocess_kwargs,
     )
 
@@ -110,8 +110,8 @@ def test_create_subprocess_kwargs_posix_uses_new_session(
 
 @pytest.mark.asyncio
 async def test_subprocess_sandbox_runs_and_reports_files() -> None:
-    from leagent.code.sandbox import SubprocessSandbox
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.sandbox import SubprocessSandbox
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         mgr = WorkspaceManager(root)
@@ -142,8 +142,8 @@ async def test_subprocess_sandbox_runs_and_reports_files() -> None:
 
 @pytest.mark.asyncio
 async def test_subprocess_sandbox_reports_image_artifacts_without_inline_base64() -> None:
-    from leagent.code.sandbox import SubprocessSandbox
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.sandbox import SubprocessSandbox
+    from StAgent.code.workspace import WorkspaceManager
 
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
@@ -179,8 +179,8 @@ async def test_subprocess_sandbox_passes_configured_policy_to_engine(
 ) -> None:
     from types import SimpleNamespace
 
-    from leagent.code import sandbox as mod
-    from leagent.code.workspace import Workspace
+    from StAgent.code import sandbox as mod
+    from StAgent.code.workspace import Workspace
 
     captured: dict[str, object] = {}
 
@@ -236,8 +236,8 @@ async def test_subprocess_sandbox_passes_configured_policy_to_engine(
 
 @pytest.mark.asyncio
 async def test_subprocess_sandbox_stdlib_import_tier_blocks_first_party() -> None:
-    from leagent.code.sandbox import SubprocessSandbox
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.sandbox import SubprocessSandbox
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         mgr = WorkspaceManager(root)
@@ -245,7 +245,7 @@ async def test_subprocess_sandbox_stdlib_import_tier_blocks_first_party() -> Non
         sandbox = SubprocessSandbox(python_exe=sys.executable, import_tier="stdlib")
 
         res = await sandbox.execute(
-            "import leagent\nresult = {'unexpected': True}\n",
+            "import StAgent\nresult = {'unexpected': True}\n",
             workspace=ws,
             timeout_sec=10.0,
         )
@@ -268,8 +268,8 @@ async def test_subprocess_sandbox_reports_extra_scan_roots() -> None:
     per-session uploads directory so PDFs/CSVs the agent writes there are
     auto-attached to the chat workspace.
     """
-    from leagent.code.sandbox import SubprocessSandbox
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.sandbox import SubprocessSandbox
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         ws_root = os.path.join(root, "ws")
@@ -307,9 +307,9 @@ async def test_code_execution_tool_passes_session_uploads_root(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``CodeExecutionTool`` should expose ``<upload_root>/<session_id>/`` as a scan root."""
-    from leagent.config import settings as settings_module
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import (
+    from StAgent.config import settings as settings_module
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import (
         CodeExecutionConfig,
         CodeExecutionTool,
     )
@@ -354,9 +354,9 @@ async def test_code_execution_tool_passes_session_uploads_root(
 
 @pytest.mark.asyncio
 async def test_code_execution_tool_allows_long_runtime_profile(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
-    from leagent.code.sandbox import SandboxResult
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.code.sandbox import SandboxResult
 
     class _FakeSandbox:
         timeout_seen: float | None = None
@@ -391,8 +391,8 @@ async def test_code_execution_tool_allows_long_runtime_profile(tmp_path) -> None
 
 @pytest.mark.asyncio
 async def test_subprocess_sandbox_enforces_timeout() -> None:
-    from leagent.code.sandbox import SandboxTimeoutError, SubprocessSandbox
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.sandbox import SandboxTimeoutError, SubprocessSandbox
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         mgr = WorkspaceManager(root)
@@ -415,7 +415,7 @@ async def test_subprocess_sandbox_enforces_timeout() -> None:
 
 
 def test_workspace_manager_is_per_session() -> None:
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         mgr = WorkspaceManager(root)
@@ -428,8 +428,8 @@ def test_workspace_manager_is_per_session() -> None:
 
 
 def test_workspace_manager_compact_keys_for_local_user() -> None:
-    from leagent.services.auth.service import LOCAL_USER_ID
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.services.auth.service import LOCAL_USER_ID
+    from StAgent.code.workspace import WorkspaceManager
 
     session_id = "35f3971b-d115-4db5-8b6a-eca9c717325e"
     with tempfile.TemporaryDirectory() as root:
@@ -441,7 +441,7 @@ def test_workspace_manager_compact_keys_for_local_user() -> None:
 def test_workspace_manager_gc_reaps_unknown_disk_dirs() -> None:
     from pathlib import Path
 
-    from leagent.code.workspace import WorkspaceManager
+    from StAgent.code.workspace import WorkspaceManager
 
     with tempfile.TemporaryDirectory() as root:
         stale = Path(root) / "stale-session"
@@ -460,8 +460,8 @@ def test_workspace_manager_gc_reaps_unknown_disk_dirs() -> None:
 
 @pytest.mark.asyncio
 async def test_code_execution_tool_presubmit_syntax_fails(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
 
     tool = CodeExecutionTool(
         config=CodeExecutionConfig(workspace_root=str(tmp_path / "ws")),
@@ -476,9 +476,9 @@ async def test_code_execution_tool_presubmit_syntax_fails(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_code_execution_tool_skip_syntax_presubmit(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
-    from leagent.code.sandbox import SandboxResult
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.code.sandbox import SandboxResult
 
     class _FakeSandbox:
         async def execute(self, source, **kwargs):  # noqa: ANN001
@@ -498,9 +498,9 @@ async def test_code_execution_tool_skip_syntax_presubmit(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_code_execution_tool_accepts_source_blob_id(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobTool
 
     ws = tmp_path / "ws"
     ws.mkdir(parents=True, exist_ok=True)
@@ -543,8 +543,8 @@ async def test_code_execution_tool_accepts_source_blob_id(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_source_echo_present_on_syntax_error(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
 
     tool = CodeExecutionTool(
         config=CodeExecutionConfig(workspace_root=str(tmp_path / "ws")),
@@ -561,8 +561,8 @@ async def test_source_echo_present_on_syntax_error(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_source_echo_present_on_runtime_error(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
 
     tool = CodeExecutionTool(
         config=CodeExecutionConfig(workspace_root=str(tmp_path / "ws")),
@@ -577,8 +577,8 @@ async def test_source_echo_present_on_runtime_error(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_source_echo_absent_on_success(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
 
     tool = CodeExecutionTool(
         config=CodeExecutionConfig(workspace_root=str(tmp_path / "ws")),
@@ -595,8 +595,8 @@ async def test_source_echo_absent_on_success(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_source_echo_truncated_for_large_source(tmp_path) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import (
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import (
         CodeExecutionConfig,
         CodeExecutionTool,
         _SOURCE_ECHO_LIMIT,

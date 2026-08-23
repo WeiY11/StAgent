@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文承接 [31 记忆边界](31-memory-boundaries.md)，进入 LeAgent 认知三存储的具体形态。适合已经能区分 transcript 与长期记忆的读者。先修建议：理解 `AgentMemory` 是 runtime 唯一入口，底层 `EpisodicStore`、`SemanticStore`、`ProceduralStore` 与 `RetrievalPipeline` 不应被 controller 或 tool 直接调用。
+本文承接 [31 记忆边界](31-memory-boundaries.md)，进入 StAgent 认知三存储的具体形态。适合已经能区分 transcript 与长期记忆的读者。先修建议：理解 `AgentMemory` 是 runtime 唯一入口，底层 `EpisodicStore`、`SemanticStore`、`ProceduralStore` 与 `RetrievalPipeline` 不应被 controller 或 tool 直接调用。
 
 ## 目标
 
@@ -15,7 +15,7 @@
 
 ## 心智模型
 
-认知科学里的「经历 / 事实 / 做法」三分法，在 LeAgent 里被落实为三个 durable store，经窄 façade 统一读写：
+认知科学里的「经历 / 事实 / 做法」三分法，在 StAgent 里被落实为三个 durable store，经窄 façade 统一读写：
 
 ```text
 TurnObservation / 显式 API 调用
@@ -67,7 +67,7 @@ RetrievalPipeline.recall → RecallBundle → context attachment
 ## 示例与验证
 
 ```python
-from leagent.memory.types import Episode, Fact, Procedure
+from StAgent.memory.types import Episode, Fact, Procedure
 
 await memory.record_episode(
     Episode(session_id=sid, user_id=uid, summary="排查 Gunicorn worker 打满", importance=0.6)
@@ -104,9 +104,9 @@ bundle = await memory.recall("用户偏好与 CSV 清洗", user_id=uid, session_
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-Google ADK 的 Memory Bank 也区分 session state 与长期 memory service，但具体 store 形态取决于所选 backend。Anthropic Messages API 无内置用户记忆，跨轮靠应用侧消息历史或外部检索；不要把 prompt caching 当长期 Fact 存储。AutoGen 提供可插拔 Memory protocol，开发者仍需决定何时 write/query。Mem0 等外部服务托管 embedding 与 recall；LeAgent 把三库与 pipeline 留在进程内，与 `FileState`、workspace 范围紧耦合，好处是可测、可降级、边界清晰。
+Google ADK 的 Memory Bank 也区分 session state 与长期 memory service，但具体 store 形态取决于所选 backend。Anthropic Messages API 无内置用户记忆，跨轮靠应用侧消息历史或外部检索；不要把 prompt caching 当长期 Fact 存储。AutoGen 提供可插拔 Memory protocol，开发者仍需决定何时 write/query。Mem0 等外部服务托管 embedding 与 recall；StAgent 把三库与 pipeline 留在进程内，与 `FileState`、workspace 范围紧耦合，好处是可测、可降级、边界清晰。
 
-LeAgent 的鲜明选择是：**窄 façade + 三库分责 + SQL 真源 + 可选 Milvus**。代价是应用必须理解写入与可见之间的 formation、排序、预算与降级，不能假设「调了 record 下一轮必见」。
+StAgent 的鲜明选择是：**窄 façade + 三库分责 + SQL 真源 + 可选 Milvus**。代价是应用必须理解写入与可见之间的 formation、排序、预算与降级，不能假设「调了 record 下一轮必见」。
 
 ## 总结
 

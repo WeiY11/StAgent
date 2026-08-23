@@ -31,16 +31,16 @@ class TestSDKImports:
     """Ensure the public surface is importable and complete."""
 
     def test_version(self):
-        from leagent.sdk import __version__
+        from StAgent.sdk import __version__
         assert __version__ == "0.1.0"
 
     def test_all_exports_importable(self):
-        import leagent.sdk
-        for name in leagent.sdk.__all__:
-            assert hasattr(leagent.sdk, name), f"Missing export: {name}"
+        import StAgent.sdk
+        for name in StAgent.sdk.__all__:
+            assert hasattr(StAgent.sdk, name), f"Missing export: {name}"
 
     def test_event_types(self):
-        from leagent.sdk import AgentEvent, AgentEventType, AgentResult
+        from StAgent.sdk import AgentEvent, AgentEventType, AgentResult
         e = AgentEvent(type=AgentEventType.STREAM_DELTA, data={"content": "hi"})
         assert not e.is_terminal
         e2 = AgentEvent(type=AgentEventType.RESULT, data={"reason": "completed"})
@@ -49,8 +49,8 @@ class TestSDKImports:
         assert r.success
 
     def test_runtime_reexport_identity(self):
-        from leagent.sdk.events import AgentEvent as SDK
-        from leagent.runtime.events import AgentEvent as RT
+        from StAgent.sdk.events import AgentEvent as SDK
+        from StAgent.runtime.events import AgentEvent as RT
         assert SDK is RT
 
 
@@ -58,7 +58,7 @@ class TestProtocols:
     """Test protocol dataclasses."""
 
     def test_run_context(self):
-        from leagent.sdk import RunContext
+        from StAgent.sdk import RunContext
         rc = RunContext(abort_event=asyncio.Event())
         assert not rc.aborted
         rc.abort_event.set()
@@ -67,7 +67,7 @@ class TestProtocols:
             rc.raise_if_aborted()
 
     def test_tool_context_from_run_context(self):
-        from leagent.sdk import RunContext, ToolContext
+        from StAgent.sdk import RunContext, ToolContext
         rc = RunContext(
             abort_event=asyncio.Event(),
             session_id=uuid.uuid4(),
@@ -79,7 +79,7 @@ class TestProtocols:
         assert not tc.aborted
 
     def test_assembly_request_result(self):
-        from leagent.sdk import AssemblyRequest, AssemblyResult
+        from StAgent.sdk import AssemblyRequest, AssemblyResult
         req = AssemblyRequest(query="hello", agent_id="test")
         assert req.cwd == "."
         result = AssemblyResult(system_prompt="You are helpful", token_estimate=42)
@@ -91,7 +91,7 @@ class TestCheckpointStore:
 
     @pytest.mark.asyncio
     async def test_save_load_delete(self):
-        from leagent.sdk import InMemoryCheckpointStore, create_checkpoint
+        from StAgent.sdk import InMemoryCheckpointStore, create_checkpoint
         store = InMemoryCheckpointStore()
         cp = create_checkpoint(
             session_id="s1",
@@ -114,7 +114,7 @@ class TestRunState:
     """Test RunState serialisation."""
 
     def test_round_trip(self):
-        from leagent.sdk import RunState
+        from StAgent.sdk import RunState
         rs = RunState(
             session_id="test",
             agent_name="coding_agent",
@@ -129,7 +129,7 @@ class TestRunState:
         assert rs2.is_terminal
 
     def test_running_not_terminal(self):
-        from leagent.sdk import RunState
+        from StAgent.sdk import RunState
         rs = RunState(reason="running")
         assert not rs.is_terminal
 
@@ -138,7 +138,7 @@ class TestToolCallStreamAssembler:
     """Test the stream assembler extracted from deps.py."""
 
     def test_basic_assembly(self):
-        from leagent.llm.streaming import ToolCallStreamAssembler
+        from StAgent.llm.streaming import ToolCallStreamAssembler
         asm = ToolCallStreamAssembler()
         asm.feed_deltas([{
             "index": 0,
@@ -155,7 +155,7 @@ class TestToolCallStreamAssembler:
         assert results[0]["arguments"] == {"query": "hello"}
 
     def test_multi_slot(self):
-        from leagent.llm.streaming import ToolCallStreamAssembler
+        from StAgent.llm.streaming import ToolCallStreamAssembler
         asm = ToolCallStreamAssembler()
         asm.feed_deltas([
             {"index": 0, "id": "c1", "function": {"name": "a", "arguments": "{}"}},
@@ -171,7 +171,7 @@ class TestProviderPlugin:
     """Test the provider plugin registry."""
 
     def test_builtin_types_registered(self):
-        from leagent.llm.provider_plugin import list_provider_types
+        from StAgent.llm.provider_plugin import list_provider_types
         types = list_provider_types()
         assert "openai" in types
         assert "anthropic" in types
@@ -179,7 +179,7 @@ class TestProviderPlugin:
         assert "custom" in types
 
     def test_custom_registration(self):
-        from leagent.llm.provider_plugin import (
+        from StAgent.llm.provider_plugin import (
             register_provider_type,
             get_provider_factory,
             reset_provider_registry,
@@ -196,7 +196,7 @@ class TestTransport:
     """Test HttpTransport."""
 
     def test_singleton(self):
-        from leagent.llm.transport import get_default_transport, reset_default_transport
+        from StAgent.llm.transport import get_default_transport, reset_default_transport
         t1 = get_default_transport()
         t2 = get_default_transport()
         assert t1 is t2
@@ -205,7 +205,7 @@ class TestTransport:
         assert t3 is not t1
 
     def test_request_headers(self):
-        from leagent.llm.transport import HttpTransport
+        from StAgent.llm.transport import HttpTransport
         t = HttpTransport()
         headers = t.request_headers({"Authorization": "Bearer test"})
         assert "X-Request-Id" in headers
@@ -213,7 +213,7 @@ class TestTransport:
 
     def test_request_span_propagates_body_exceptions(self):
         """Body errors must not become 'generator didn't stop after throw()'."""
-        from leagent.llm.transport import HttpTransport, TransportConfig
+        from StAgent.llm.transport import HttpTransport, TransportConfig
 
         t = HttpTransport(TransportConfig(otel_enabled=True))
         with pytest.raises(ConnectionError, match="boom"):
@@ -221,7 +221,7 @@ class TestTransport:
                 raise ConnectionError("boom")
 
     def test_request_span_noop_when_otel_disabled(self):
-        from leagent.llm.transport import HttpTransport, TransportConfig
+        from StAgent.llm.transport import HttpTransport, TransportConfig
 
         t = HttpTransport(TransportConfig(otel_enabled=False))
         with t.request_span("balance") as span:
@@ -233,8 +233,8 @@ class TestMemoryIdempotency:
 
     @pytest.mark.asyncio
     async def test_duplicate_observe_suppressed(self):
-        from leagent.memory.fake import FakeAgentMemory
-        from leagent.memory.formation import TurnObservation
+        from StAgent.memory.fake import FakeAgentMemory
+        from StAgent.memory.formation import TurnObservation
         mem = FakeAgentMemory()
         obs = TurnObservation(
             session_id=uuid.uuid4(),
@@ -254,8 +254,8 @@ class TestMemoryLifecycle:
 
     @pytest.mark.asyncio
     async def test_forget_episode(self):
-        from leagent.memory.fake import FakeAgentMemory
-        from leagent.memory.types import Episode
+        from StAgent.memory.fake import FakeAgentMemory
+        from StAgent.memory.types import Episode
         mem = FakeAgentMemory()
         uid = uuid.uuid4()
         ep = Episode(session_id=uuid.uuid4(), user_id=uid, summary="test")
@@ -271,7 +271,7 @@ class TestContextPlugin:
     """Test the context source plugin registry."""
 
     def test_plugin_registration(self):
-        from leagent.context.plugin import (
+        from StAgent.context.plugin import (
             register_source,
             get_plugin_sources,
             reset_plugin_registry,
@@ -291,7 +291,7 @@ class TestYAMLAgentLoading:
     """Test load_agents_from_yaml."""
 
     def test_load_from_file(self, tmp_path):
-        from leagent.runtime.registry import (
+        from StAgent.runtime.registry import (
             AgentRegistry,
             load_agents_from_yaml,
         )
@@ -323,7 +323,7 @@ class TestMaterializeConfig:
     """Test that _materialize_config wires policy fields."""
 
     def test_recall_limit_wired(self):
-        from leagent.runtime.definition import AgentDefinition, MemoryPolicy
+        from StAgent.runtime.definition import AgentDefinition, MemoryPolicy
         defn = AgentDefinition(
             name="test",
             memory=MemoryPolicy(enabled=True, recall_limit=3, formation=False),
@@ -331,7 +331,7 @@ class TestMaterializeConfig:
         assert defn.memory.recall_limit == 3
 
     def test_tool_policy_deny(self):
-        from leagent.runtime.definition import AgentDefinition, ToolPolicy
+        from StAgent.runtime.definition import AgentDefinition, ToolPolicy
         defn = AgentDefinition(
             name="test",
             tools=ToolPolicy(deny=["dangerous_*"]),
@@ -339,7 +339,7 @@ class TestMaterializeConfig:
         assert "dangerous_*" in defn.tools.deny
 
     def test_builder_flow(self):
-        from leagent.sdk import AgentBuilder
+        from StAgent.sdk import AgentBuilder
         defn = (
             AgentBuilder("my_agent")
             .describe("Test agent")
@@ -366,7 +366,7 @@ class TestAgentRegistry:
     """Test registry operations."""
 
     def test_builtin_agents_registered(self):
-        from leagent.sdk import get_agent_registry
+        from StAgent.sdk import get_agent_registry
         registry = get_agent_registry()
         assert registry.has("default_agent")
         assert registry.has("coding_agent")
@@ -374,7 +374,7 @@ class TestAgentRegistry:
         assert registry.has("subagent")
 
     def test_register_and_resolve(self):
-        from leagent.sdk import AgentBuilder, AgentRegistry
+        from StAgent.sdk import AgentBuilder, AgentRegistry
         registry = AgentRegistry()
         defn = AgentBuilder("custom_agent").describe("Test").build()
         registry.register(defn)
@@ -383,7 +383,7 @@ class TestAgentRegistry:
         assert resolved.description == "Test"
 
     def test_duplicate_registration_raises(self):
-        from leagent.sdk import AgentBuilder, AgentRegistry
+        from StAgent.sdk import AgentBuilder, AgentRegistry
         registry = AgentRegistry()
         defn = AgentBuilder("dup").build()
         registry.register(defn)
@@ -395,7 +395,7 @@ class TestPlannerBugFix:
     """Verify the .summary -> .text fix in planner."""
 
     def test_recall_entry_text_access(self):
-        from leagent.memory.types import MemoryKind, RecallEntry
+        from StAgent.memory.types import MemoryKind, RecallEntry
         entry = RecallEntry(
             kind=MemoryKind.EPISODIC,
             text="This is a test summary",

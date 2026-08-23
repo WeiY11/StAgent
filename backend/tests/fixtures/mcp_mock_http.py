@@ -1,4 +1,4 @@
-"""In-process HTTP mock exposing ``POST /rpc`` for :class:`leagent.mcp.client.MCPClient`."""
+"""In-process HTTP mock exposing ``POST /rpc`` for :class:`StAgent.mcp.client.MCPClient`."""
 
 from __future__ import annotations
 

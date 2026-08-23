@@ -93,7 +93,7 @@ for (const slug of technicalSlugs) {
 // ── robots.txt ───────────────────────────────────────────────────────────────
 write(
   "robots.txt",
-  `# LeAgent product site
+  `# StAgent product site
 # ${ORIGIN}
 
 User-agent: *
@@ -149,7 +149,7 @@ write(
 # Standard: https://agents-txt.com
 # JSON: ${ORIGIN}/agents.json
 
-Identity: LeAgent
+Identity: StAgent
 
 # Open-source desktop AI agent that gets work done.
 # Plans, calls tools, and self-corrects in one agent loop; agentic visual
@@ -176,7 +176,7 @@ const agentsJson = {
   version: "1.0",
   generated: LASTMOD,
   identity: {
-    name: "LeAgent",
+    name: "StAgent",
     tagline: "The open-source desktop AI agent that gets work done.",
     url: ORIGIN,
     repository: REPO,
@@ -214,7 +214,7 @@ const agentsJson = {
     install: `${ORIGIN}/install.sh`,
   },
   skills: [
-    { url: `${REPO}/blob/main/AGENTS.md`, name: "LeAgent contributor guide" },
+    { url: `${REPO}/blob/main/AGENTS.md`, name: "StAgent contributor guide" },
   ],
 };
 
@@ -235,13 +235,13 @@ const techLinks = technicalSlugs
 
 write(
   "llms.txt",
-  `# LeAgent
+  `# StAgent
 
 > Open-source desktop AI agent that gets work done — plans, calls tools, and
 > self-corrects; agentic visual workflows; Generative UI; 100+ built-in tools;
 > multi-model routing. Self-hostable. Apache-2.0.
 
-LeAgent is a complete agent platform (not a chat wrapper): QueryEngine session
+StAgent is a complete agent platform (not a chat wrapper): QueryEngine session
 orchestration, 100+ offline tools, ReactFlow workflow engine, Generative UI,
 Research Paper Mode, and multi-provider LLM support (DeepSeek, Qwen, OpenAI,
 Anthropic, Ollama, vLLM).

@@ -1,6 +1,6 @@
 # Workflow engine — overview
 
-The `leagent` backend ships a single, canonical workflow engine under the
+The `StAgent` backend ships a single, canonical workflow engine under the
 `/api/v1/workflow/*` namespace. There is no longer a legacy `/api/v1/flows`
 namespace; all CRUD, execution, and admin endpoints are served by the
 workflow engine router.

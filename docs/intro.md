@@ -1,14 +1,14 @@
-# LeAgent：真正完成工作的开源桌面 AI 智能体
+# StAgent：真正完成工作的开源桌面 AI 智能体
 
 <p align="center">
   <strong>将自主规划与纠错、智能化可视工作流、Generative UI 和 100+ 工具整合进一套可本地运行、可私有化部署的智能体平台。</strong>
 </p>
 
-## LeAgent 是什么
+## StAgent 是什么
 
-LeAgent 是一款开源桌面 AI 智能体。它不止回答问题，还能围绕目标自主规划、调用工具、检查结果并修正执行过程，真正完成文档处理、资料研究、数据分析、代码开发和内容生成等任务。
+StAgent 是一款开源桌面 AI 智能体。它不止回答问题，还能围绕目标自主规划、调用工具、检查结果并修正执行过程，真正完成文档处理、资料研究、数据分析、代码开发和内容生成等任务。
 
-与只提供对话界面的云端助手或专注代码操作的 CLI 不同，LeAgent 将三类能力统一在一个产品中：
+与只提供对话界面的云端助手或专注代码操作的 CLI 不同，StAgent 将三类能力统一在一个产品中：
 
 1. **可自我纠错的 Agent 运行时**  
    在统一的「思考—行动」循环中完成规划、工具调用、结果检查和恢复。聊天、后台任务、子智能体与工作流节点共享同一执行内核。
@@ -19,17 +19,17 @@ LeAgent 是一款开源桌面 AI 智能体。它不止回答问题，还能围�
 3. **直接进入对话的 Generative UI**  
    KPI 看板、幻灯片、画廊和步骤卡等交互界面可以实时流式渲染在聊天中，并可导出为 PDF 或 PPTX。
 
-LeAgent 默认使用 SQLite 和单进程架构，本地启动不依赖外部数据库或消息队列。你可以接入 DeepSeek、通义千问、OpenAI、Anthropic、Azure OpenAI 等云端模型，也可以连接本地 Ollama 或 vLLM，在模型与工具均支持的前提下构建完全离线的工作环境。
+StAgent 默认使用 SQLite 和单进程架构，本地启动不依赖外部数据库或消息队列。你可以接入 DeepSeek、通义千问、OpenAI、Anthropic、Azure OpenAI 等云端模型，也可以连接本地 Ollama 或 vLLM，在模型与工具均支持的前提下构建完全离线的工作环境。
 
-## 为什么选择 LeAgent
+## 为什么选择 StAgent
 
 ### 数据由你掌控
 
-文档、会话、凭据和任务状态默认保存在本机。只有当你主动配置远程模型或外部服务时，相关请求才会发送到对应供应商。对于需要更高数据控制能力的个人、团队和组织，LeAgent 可以部署在自己的设备或基础设施中。
+文档、会话、凭据和任务状态默认保存在本机。只有当你主动配置远程模型或外部服务时，相关请求才会发送到对应供应商。对于需要更高数据控制能力的个人、团队和组织，StAgent 可以部署在自己的设备或基础设施中。
 
 ### 从对话到执行，而不止生成文字
 
-LeAgent 内置 100+ 工具，覆盖文档、网页、数据、代码、数据库、图表、媒体、工作流和系统集成。智能体可以读取输入、执行操作、生成文件，并把结果作为可预览、可下载的产物返回。
+StAgent 内置 100+ 工具，覆盖文档、网页、数据、代码、数据库、图表、媒体、工作流和系统集成。智能体可以读取输入、执行操作、生成文件，并把结果作为可预览、可下载的产物返回。
 
 ### 自动化能力可以复用
 
@@ -37,7 +37,7 @@ LeAgent 内置 100+ 工具，覆盖文档、网页、数据、代码、数据库
 
 ### 从本地体验平滑走向团队部署
 
-默认配置适合个人电脑快速体验；需要扩展时，可以切换到 PostgreSQL，并按需接入 Milvus 提供向量记忆。LeAgent 同时提供 Web 应用、Electron 桌面客户端、HTTP API、CLI 和版本化 Agent SDK。
+默认配置适合个人电脑快速体验；需要扩展时，可以切换到 PostgreSQL，并按需接入 Milvus 提供向量记忆。StAgent 同时提供 Web 应用、Electron 桌面客户端、HTTP API、CLI 和版本化 Agent SDK。
 
 ## 主要能力
 
@@ -59,7 +59,7 @@ LeAgent 内置 100+ 工具，覆盖文档、网页、数据、代码、数据库
 
 ### 研究论文模式
 
-打开 PDF 后，LeAgent 可以围绕论文内容完成：
+打开 PDF 后，StAgent 可以围绕论文内容完成：
 
 - 文档结构与大纲提取；
 - 章节摘要和全文摘要；
@@ -96,7 +96,7 @@ PDF 文本提取可在本地完成。
 
 ### 游戏美术资产流水线
 
-LeAgent 提供可组合的图像、视频、3D 网格、VFX 和音频生成能力。工作流可通过质量门控检查结果，并在有界循环中根据反馈重新生成，最终导出面向 Unity、Unreal 或 Godot 的资产包。
+StAgent 提供可组合的图像、视频、3D 网格、VFX 和音频生成能力。工作流可通过质量门控检查结果，并在有界循环中根据反馈重新生成，最终导出面向 Unity、Unreal 或 Godot 的资产包。
 
 生成服务支持重试、故障转移和确定性的离线兜底后端。离线后端主要用于无凭据演示与流程验证；实际生成质量取决于所配置的模型或媒体服务。
 
@@ -156,7 +156,7 @@ Electron 桌面客户端内置 Python 运行时和后端，安装后无需另外
 
 ## 技术架构
 
-LeAgent 由异步 Python 后端和 React 19 前端组成，以模块化单体形式交付。后端遵循 **File → Code → Project** 的单向分层领域模型，并以统一持久化层保存会话、检查点和工作流状态。
+StAgent 由异步 Python 后端和 React 19 前端组成，以模块化单体形式交付。后端遵循 **File → Code → Project** 的单向分层领域模型，并以统一持久化层保存会话、检查点和工作流状态。
 
 所有智能体入口最终汇聚到同一个执行内核：
 
@@ -180,7 +180,7 @@ LeAgent 由异步 Python 后端和 React 19 前端组成，以模块化单体形
 
 ## 支持的模型与部署方式
 
-LeAgent 支持以下模型接入方式：
+StAgent 支持以下模型接入方式：
 
 - **DeepSeek**：当前验证最充分，适合作为首次使用的默认选择；配置密钥后可自动映射为 `tier1` 推理层和 `tier2` 快速层；
 - **通义千问（DashScope）**：支持思考与搜索相关能力；
@@ -199,7 +199,7 @@ LeAgent 支持以下模型接入方式：
 
 ```bash
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 ./start.sh
 ```
 
@@ -211,7 +211,7 @@ cd LeAgent
 
 ```bash
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent/deploy
+cd StAgent/deploy
 cp .env.example .env
 docker compose up -d --build
 ```
@@ -226,8 +226,8 @@ docker compose up -d --build
 # 后端
 cd backend
 uv sync --extra dev
-uv run leagent init
-uv run leagent app
+uv run StAgent init
+uv run StAgent app
 
 # 前端（另开终端）
 cd frontend
@@ -248,7 +248,7 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 - `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DASHSCOPE_API_KEY`：其他云端模型密钥；
 - `VLLM_ENDPOINT`、`LLM_OLLAMA_ENDPOINT`：本地或自托管模型端点；
 - `DATABASE_URL`：将持久化层从 SQLite 切换为 PostgreSQL（需先执行 `uv sync --extra postgres` 安装驱动；`DB_DATABASE_URL` 为兼容别名）；
-- `LEAGENT_HOME`：数据库、上传文件、知识库和编码项目等本地状态的根目录；
+- `StAgent_HOME`：数据库、上传文件、知识库和编码项目等本地状态的根目录；
 - `LEAGENT_DEBUG`：启用详细调试日志。
 
 完整配置项及注释位于 `deploy/.env.example`。
@@ -272,7 +272,7 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 
 ## 开源与扩展
 
-LeAgent 采用 Apache License 2.0 发布，适合学习、研究、二次开发和自托管部署。项目提供清晰的扩展边界：
+StAgent 采用 Apache License 2.0 发布，适合学习、研究、二次开发和自托管部署。项目提供清晰的扩展边界：
 
 - 新工具只需实现统一工具接口，系统会自动生成对应工作流节点；
 - 新模型供应商可以接入 LLM Provider 与媒体生成服务；
@@ -283,4 +283,4 @@ LeAgent 采用 Apache License 2.0 发布，适合学习、研究、二次开发�
 
 ---
 
-LeAgent 的目标不是把更多功能堆进聊天框，而是让模型、工具、工作流和交互界面围绕同一个任务协同工作，让 AI 从“给出建议”走向“交付结果”。
+StAgent 的目标不是把更多功能堆进聊天框，而是让模型、工具、工作流和交互界面围绕同一个任务协同工作，让 AI 从“给出建议”走向“交付结果”。

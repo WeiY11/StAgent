@@ -1,10 +1,10 @@
-# LeAgent Local Semantic Search Implementation Plan
+# StAgent Local Semantic Search Implementation Plan
 
 > **For agentic workers:** Execute task-by-task with tests and review gates. Preserve all unrelated dirty-worktree changes.
 
 **Goal:** Add opt-in single-process local SentenceTransformers + sqlite-vec retrieval while keeping BM25/FTS5 authoritative and never downloading a model implicitly.
 
-**Architecture:** Managed local models live under `LEAGENT_HOME/knowledge/models/`; a lazy embedding provider feeds an independently rebuildable `LEAGENT_HOME/knowledge/vectors.sqlite3` projection. A backend protocol keeps the existing Milvus path intact. Model changes create a candidate index and switch atomically after a durable vector rebuild task.
+**Architecture:** Managed local models live under `StAgent_HOME/knowledge/models/`; a lazy embedding provider feeds an independently rebuildable `StAgent_HOME/knowledge/vectors.sqlite3` projection. A backend protocol keeps the existing Milvus path intact. Model changes create a candidate index and switch atomically after a durable vector rebuild task.
 
 **Tech Stack:** Python 3.11, Pydantic v2, SQLModel/SQLite, `sqlite-vec>=0.1.9,<0.2`, optional `sentence-transformers`, FastAPI, React/TypeScript, existing TaskManager.
 

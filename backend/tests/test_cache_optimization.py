@@ -16,15 +16,15 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.services.cache.observability import (
+from StAgent.config.settings import Settings
+from StAgent.services.cache.observability import (
     CacheStatsRegistry,
     get_cache_stats_registry,
     record_cache_event,
     record_cache_set,
 )
-from leagent.services.cache.service import CacheService
-from leagent.tools.util.cache_manager import LocalCache
+from StAgent.services.cache.service import CacheService
+from StAgent.tools.util.cache_manager import LocalCache
 
 
 @pytest.fixture(autouse=True)

@@ -6,9 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.workflow.base import WorkflowState, WorkflowStatus
-from leagent.workflow.engine.caching import BasicCache, CacheEntry
-from leagent.workflow.state_store import (
+from StAgent.workflow.base import WorkflowState, WorkflowStatus
+from StAgent.workflow.engine.caching import BasicCache, CacheEntry
+from StAgent.workflow.state_store import (
     InMemoryWorkflowStateStore,
     WorkflowRunSnapshot,
 )
@@ -53,7 +53,7 @@ def test_basic_cache_snapshot_restore() -> None:
 
 @pytest.mark.asyncio
 async def test_executor_resume_rehydrates_from_store() -> None:
-    from leagent.workflow.engine.executor import WorkflowExecutor
+    from StAgent.workflow.engine.executor import WorkflowExecutor
 
     store = InMemoryWorkflowStateStore()
     state = WorkflowState(

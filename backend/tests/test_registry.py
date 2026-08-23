@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from leagent.tools.base import BaseTool, SyncTool, ToolCategory, ToolContext, ToolResult
-from leagent.tools.registry import (
+from StAgent.tools.base import BaseTool, SyncTool, ToolCategory, ToolContext, ToolResult
+from StAgent.tools.registry import (
     ToolNotFoundError,
     ToolRegistrationError,
     ToolRegistry,
@@ -243,8 +243,8 @@ class TestSelection:
             return ToolResult.ok({})
 
     def test_genui_selection_keeps_component_catalog_companion(self) -> None:
-        from leagent.tools.canvas.genui_guide import GetGenuiGuideTool
-        from leagent.tools.canvas.ui_components import EmitUiTreeTool, ListUiComponentsTool
+        from StAgent.tools.canvas.genui_guide import GetGenuiGuideTool
+        from StAgent.tools.canvas.ui_components import EmitUiTreeTool, ListUiComponentsTool
 
         reg = ToolRegistry()
         reg.register(EmitUiTreeTool())
@@ -263,8 +263,8 @@ class TestSelection:
         assert "list_ui_components" in names
 
     def test_chinese_genui_hint_forces_component_catalog_tools(self) -> None:
-        from leagent.tools.canvas.genui_guide import GetGenuiGuideTool
-        from leagent.tools.canvas.ui_components import EmitUiTreeTool, ListUiComponentsTool
+        from StAgent.tools.canvas.genui_guide import GetGenuiGuideTool
+        from StAgent.tools.canvas.ui_components import EmitUiTreeTool, ListUiComponentsTool
 
         reg = ToolRegistry()
         for idx in range(30):
@@ -288,8 +288,8 @@ class TestSelection:
         assert "list_ui_components" in names
 
     def test_canvas_publish_selection_keeps_html_guide_companion(self) -> None:
-        from leagent.tools.canvas.canvas_publish import CanvasPublishTool
-        from leagent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
+        from StAgent.tools.canvas.canvas_publish import CanvasPublishTool
+        from StAgent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
 
         reg = ToolRegistry()
         reg.register(CanvasPublishTool())
@@ -306,8 +306,8 @@ class TestSelection:
         assert "get_html_canvas_guide" in names
 
     def test_webpage_hint_forces_publish_and_html_guide(self) -> None:
-        from leagent.tools.canvas.canvas_publish import CanvasPublishTool
-        from leagent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
+        from StAgent.tools.canvas.canvas_publish import CanvasPublishTool
+        from StAgent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
 
         reg = ToolRegistry()
         for idx in range(30):
@@ -327,7 +327,7 @@ class TestSelection:
 
     def test_emit_pet_bubble_always_survives_max_tools_prune(self) -> None:
         """Mascot bubble tool is core — must stay callable under pruning."""
-        from leagent.tools.util.pet_bubble import EmitPetBubbleTool
+        from StAgent.tools.util.pet_bubble import EmitPetBubbleTool
 
         reg = ToolRegistry()
         for idx in range(40):

@@ -8,7 +8,7 @@
 
 ## 学习目标
 
-1. 能画出 LeAgent 的 Think–Act–Observe 状态迁移。
+1. 能画出 StAgent 的 Think–Act–Observe 状态迁移。
 2. 能解释 `QueryEngine`、`query()` 与 SDK `run_loop()` 的边界。
 3. 理解工具结果为何必须作为消息回填，而不能只展示给用户。
 4. 能识别完成、等待用户、预算终止和错误等出口。
@@ -23,7 +23,7 @@ Think → Act → Observe → Think → ...
 
 这里的 “Think” 更准确地说是**让模型基于当前上下文产出下一步决策**。系统不需要、也不应依赖暴露完整思维链。模型可能输出普通文本，也可能输出结构化工具调用。运行时只处理可执行、可审计的结果。
 
-LeAgent 的循环可抽象成：
+StAgent 的循环可抽象成：
 
 ```text
 messages₀
@@ -40,15 +40,15 @@ messages₀
        └──────────────────────► 下一轮模型调用
 ```
 
-循环必须有边界。否则模型可能重复调用失败工具，造成成本、延迟或副作用失控。LeAgent 使用 `max_turns`、`max_tool_calls_per_turn`、token 预算、终止原因和 abort 信号共同约束运行。
+循环必须有边界。否则模型可能重复调用失败工具，造成成本、延迟或副作用失控。StAgent 使用 `max_turns`、`max_tool_calls_per_turn`、token 预算、终止原因和 abort 信号共同约束运行。
 
-## LeAgent 的真实调用链
+## StAgent 的真实调用链
 
 源码中有两层容易混淆的“loop”：
 
 ### 1. 行为循环：`agent/query.py`
 
-`backend/leagent/agent/query.py` 的 `query(params)` 是实际 Think–Act–Observe 生成器。关键步骤是：
+`backend/StAgent/agent/query.py` 的 `query(params)` 是实际 Think–Act–Observe 生成器。关键步骤是：
 
 1. 整理消息，必要时自动压缩，并修补不完整的工具消息对；
 2. `params.deps.call_model(...)` 流式调用模型；
@@ -63,7 +63,7 @@ messages₀
 
 ### 2. SDK 内核包装：`sdk/kernel/loop.py`
 
-`backend/leagent/sdk/kernel/loop.py` 的 `run_loop()` 不重写上述复杂逻辑，而是驱动 `engine.submit_message()`：
+`backend/StAgent/sdk/kernel/loop.py` 的 `run_loop()` 不重写上述复杂逻辑，而是驱动 `engine.submit_message()`：
 
 ```text
 query() 的领域对象
@@ -144,7 +144,7 @@ async def think_act_observe(state, params):
 ## 使用公共 SDK 观察循环
 
 ```python
-from leagent.sdk import AgentEventType, AgentRuntime
+from StAgent.sdk import AgentEventType, AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -192,16 +192,16 @@ cd backend && uv run pytest tests/test_kernel_checkpoint.py::test_run_loop_prese
 
 - ReAct 将 reasoning 与 acting 交替作为方法论；工程实现通常只暴露动作和观察，不要求泄露完整推理文本。
 - OpenAI Agents SDK 的 runner loop、Anthropic 工具使用循环，都可映射到“模型决策—应用执行—结果回填”；具体事件和会话 API 不等价。
-- LangGraph 将循环表达为图上的节点和边，适合显式分支与持久状态；LeAgent 的普通 Agent 路径以代码循环为核心，复杂确定性流程另由 workflow DAG 承担。
+- LangGraph 将循环表达为图上的节点和边，适合显式分支与持久状态；StAgent 的普通 Agent 路径以代码循环为核心，复杂确定性流程另由 workflow DAG 承担。
 
 ## 总结与延伸阅读
 
-可靠 Agent 循环的关键不是“多想几次”，而是让每次决策都基于真实观察，并被预算、权限、终止语义和持久化约束。LeAgent 保留 `query()` 的成熟循环，再由 `run_loop()` 统一 SDK 事件和恢复能力。
+可靠 Agent 循环的关键不是“多想几次”，而是让每次决策都基于真实观察，并被预算、权限、终止语义和持久化约束。StAgent 保留 `query()` 的成熟循环，再由 `run_loop()` 统一 SDK 事件和恢复能力。
 
 继续阅读：
 
 - [03｜一个内核，多种入口](03-one-kernel-many-ingresses.md)
 - [04｜Agent 事件流](04-agent-event-stream.md)
-- 源码：[`backend/leagent/agent/query.py`](../../../backend/leagent/agent/query.py)
-- 源码：[`backend/leagent/sdk/kernel/loop.py`](../../../backend/leagent/sdk/kernel/loop.py)
+- 源码：[`backend/StAgent/agent/query.py`](../../../backend/StAgent/agent/query.py)
+- 源码：[`backend/StAgent/sdk/kernel/loop.py`](../../../backend/StAgent/sdk/kernel/loop.py)
 - 测试：[`backend/tests/test_kernel_checkpoint.py`](../../../backend/tests/test_kernel_checkpoint.py)

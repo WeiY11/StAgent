@@ -787,10 +787,10 @@ function LocalDiffusion() {
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label={t('admin.imageGen.local.modelsDir')}>
-              <Input value={f.models_dir} placeholder="~/.leagent/models/diffusion" onChange={(e) => setForm({ ...f, models_dir: e.target.value })} />
+              <Input value={f.models_dir} placeholder="~/.StAgent/models/diffusion" onChange={(e) => setForm({ ...f, models_dir: e.target.value })} />
             </Field>
             <Field label={t('admin.imageGen.local.loraDir')}>
-              <Input value={f.lora_dir} placeholder="~/.leagent/models/lora" onChange={(e) => setForm({ ...f, lora_dir: e.target.value })} />
+              <Input value={f.lora_dir} placeholder="~/.StAgent/models/lora" onChange={(e) => setForm({ ...f, lora_dir: e.target.value })} />
             </Field>
             <Field label={t('admin.imageGen.local.defaultModel')}>
               <Input value={f.default_model} placeholder="stabilityai/stable-diffusion-xl-base-1.0" onChange={(e) => setForm({ ...f, default_model: e.target.value })} />

@@ -23,7 +23,7 @@ const SKIP_URLS = new Set([
 
 /** Unavailable until the repo is public or install scripts are deployed to the site root. */
 const WARN_ONLY = [
-  /^https:\/\/github\.com\/vixues\/LeAgent(\/|$)/,
+  /^https:\/\/github\.com\/vixues\/StAgent(\/|$)/,
   /^https:\/\/vixues\.com\.cn\/install\.(sh|ps1|bat)$/,
 ];
 
@@ -75,7 +75,7 @@ async function probe(url) {
         method,
         redirect: "follow",
         signal: ctrl.signal,
-        headers: { "User-Agent": "LeAgent-website-link-check/1.0" },
+        headers: { "User-Agent": "StAgent-website-link-check/1.0" },
       });
       if (res.ok || (res.status >= 300 && res.status < 400)) {
         return { ok: true, status: res.status, method };

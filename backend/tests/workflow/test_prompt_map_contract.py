@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.workflow.prompt_map import build_prompt_map
+from StAgent.workflow.prompt_map import build_prompt_map
 
 
 @pytest.mark.asyncio

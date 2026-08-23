@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from leagent.tools.base import ToolContext
+from StAgent.tools.base import ToolContext
 
 
 def _have(module: str) -> bool:
@@ -35,7 +35,7 @@ def small_pdf(tmp_path: Path) -> Path:
 @pytest.mark.asyncio
 async def test_pdf_reader_accepts_common_alias_params(small_pdf: Path) -> None:
     """LLMs often emit page_start/page_end + extract_text; accept them."""
-    from leagent.tools.doc.pdf_reader import PDFReaderTool
+    from StAgent.tools.doc.pdf_reader import PDFReaderTool
 
     ctx = ToolContext(user_id="u1", session_id="s1")
     result = await PDFReaderTool().run(

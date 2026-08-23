@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.context.artifact_error_tracker import ArtifactErrorTracker
-from leagent.workflow.base import WorkflowState, WorkflowStatus
-from leagent.workflow.engine import WorkflowExecutor, build_cache_set
-from leagent.workflow.io import HiddenHolder, MediaRef
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes.art.quality_critic import QualityCriticNode, _parse_score_json
-from leagent.workflow.template_service import TemplateService
+from StAgent.context.artifact_error_tracker import ArtifactErrorTracker
+from StAgent.workflow.base import WorkflowState, WorkflowStatus
+from StAgent.workflow.engine import WorkflowExecutor, build_cache_set
+from StAgent.workflow.io import HiddenHolder, MediaRef
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes.art.quality_critic import QualityCriticNode, _parse_score_json
+from StAgent.workflow.template_service import TemplateService
 
 
 # ---------------------------------------------------------------------------
@@ -116,11 +116,11 @@ def test_parse_score_json_handles_fences_and_bare_numbers():
 
 @pytest.mark.asyncio
 async def test_refine_feedback_flows_into_regenerated_prompt(monkeypatch):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     await bootstrap_nodes()
     svc = TemplateService()
     svc.load()
-    from leagent.workflow.io import load
+    from StAgent.workflow.io import load
 
     doc = load(svc.get_template("TPL-ART-01"))
     executor = WorkflowExecutor(cache_set=build_cache_set("none"))
@@ -180,7 +180,7 @@ def test_tracker_below_bar_via_score_threshold():
 
 
 def test_workflow_run_below_bar_coercion_helpers():
-    from leagent.tools.workflow.workflow_crud import _coerce_bool, _coerce_float
+    from StAgent.tools.workflow.workflow_crud import _coerce_bool, _coerce_float
 
     assert _coerce_bool(True) is True
     assert _coerce_bool("false") is False

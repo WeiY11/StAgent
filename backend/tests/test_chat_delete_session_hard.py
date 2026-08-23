@@ -10,12 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, select
 
-import leagent.db.models  # noqa: F401
-from leagent.db.models.agent_memory import AgentEpisode
-from leagent.db.models.canvas import CanvasContentType, CanvasDocument
-from leagent.db.models.file import File, FileStatus, FileType
-from leagent.db.models.message import ChatSession, Message, MessageRole, MessageStatus
-from leagent.services.chat.service import ChatService
+import StAgent.db.models  # noqa: F401
+from StAgent.db.models.agent_memory import AgentEpisode
+from StAgent.db.models.canvas import CanvasContentType, CanvasDocument
+from StAgent.db.models.file import File, FileStatus, FileType
+from StAgent.db.models.message import ChatSession, Message, MessageRole, MessageStatus
+from StAgent.services.chat.service import ChatService
 
 
 @pytest.mark.asyncio

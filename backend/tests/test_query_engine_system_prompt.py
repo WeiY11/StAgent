@@ -13,13 +13,13 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent import query as query_module
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-from leagent.agent.transitions import Terminal, TerminalReason
-from leagent.services.session.state import SessionAttachment
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import ToolRegistry
+from StAgent.agent import query as query_module
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.agent.transitions import Terminal, TerminalReason
+from StAgent.services.session.state import SessionAttachment
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import ToolRegistry
 
 
 class _TinyTool(BaseTool):
@@ -76,7 +76,7 @@ async def test_default_agent_includes_tools(
     prompt = await _capture_system_prompt(engine, monkeypatch)
 
     assert "noop" in prompt
-    assert "LeAgent" in prompt
+    assert "StAgent" in prompt
 
 
 @pytest.mark.asyncio
@@ -87,7 +87,7 @@ async def test_persona_override_replaces_template_body(
     prompt = await _capture_system_prompt(engine, monkeypatch)
     assert "Persona text here" in prompt
     assert "Available tools" in prompt
-    assert "LeAgent, an intelligent office assistant" not in prompt
+    assert "StAgent, an intelligent office assistant" not in prompt
 
 
 @pytest.mark.asyncio

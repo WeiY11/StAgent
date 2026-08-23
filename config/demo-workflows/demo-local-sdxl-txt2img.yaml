@@ -2,7 +2,7 @@
 # Art.ImageGen calls the unified GenerationService, which picks the best
 # available backend (OpenAI / DashScope) and transparently falls back to a
 # deterministic offline backend when no credentials are configured — so this
-# demo runs end-to-end with zero setup. Set LEAGENT_ART_OFFLINE=1 to force
+# demo runs end-to-end with zero setup. Set StAgent_ART_OFFLINE=1 to force
 # the deterministic offline backend.
 id: demo_local_sdxl_txt2img
 name: "Demo: Concept image (Art.ImageGen)"

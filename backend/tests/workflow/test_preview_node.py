@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.services.gen_ui.schema import validate_ui_tree
-from leagent.workflow.io import HiddenHolder, MediaRef
-from leagent.workflow.io.types import WILDCARD_TYPE
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry
-from leagent.workflow.nodes.builtin.preview import PreviewNode
+from StAgent.services.gen_ui.schema import validate_ui_tree
+from StAgent.workflow.io import HiddenHolder, MediaRef
+from StAgent.workflow.io.types import WILDCARD_TYPE
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry
+from StAgent.workflow.nodes.builtin.preview import PreviewNode
 
 
 @pytest.fixture(scope="module")

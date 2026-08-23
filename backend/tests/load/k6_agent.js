@@ -27,8 +27,8 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.LEAGENT_BASE_URL || 'http://localhost:7860';
-const TOKEN = __ENV.LEAGENT_TOKEN || '';
+const BASE_URL = __ENV.StAgent_BASE_URL || 'http://localhost:7860';
+const TOKEN = __ENV.StAgent_TOKEN || '';
 
 export default function () {
   // Empty session_id lets the API create an owned session for the caller.

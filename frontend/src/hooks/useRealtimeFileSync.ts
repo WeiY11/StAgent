@@ -14,7 +14,7 @@ interface RealtimeFileEventDetail {
   type: RealtimeFileEvent;
 }
 
-const LOCAL_EVENT_NAME = 'leagent:file-event';
+const LOCAL_EVENT_NAME = 'StAgent:file-event';
 const SSE_URL =
   import.meta.env.VITE_FILE_EVENTS_SSE_URL || '/api/v1/files/events/stream';
 
@@ -64,7 +64,7 @@ export function useRealtimeFileSync(enabled = true) {
       abort = new AbortController();
       const fp = encodeURIComponent(getMachineFingerprint());
       const sep = SSE_URL.includes('?') ? '&' : '?';
-      const url = `${SSE_URL}${sep}leagent_machine_fp=${fp}`;
+      const url = `${SSE_URL}${sep}StAgent_machine_fp=${fp}`;
       const token = getAccessToken();
       void (async () => {
         try {

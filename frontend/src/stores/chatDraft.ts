@@ -20,7 +20,7 @@ function newClientId(): string {
   return `ref-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-const SELECTED_MODEL_STORAGE_KEY = 'leagent.selectedModel';
+const SELECTED_MODEL_STORAGE_KEY = 'StAgent.selectedModel';
 
 function readStoredComposerModelId(): string {
   try {

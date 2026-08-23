@@ -99,7 +99,7 @@ function appendFingerprint(headers: Record<string, string>) {
   try {
     const fp = getMachineFingerprint();
     if (fp.length >= 8) {
-      headers['x-leagent-machine-fingerprint'] = fp;
+      headers['x-StAgent-machine-fingerprint'] = fp;
     }
   } catch {
     /* ignore */
@@ -382,13 +382,13 @@ export function setAuthTokens(accessToken: string, refreshToken?: string) {
   _accessToken = accessToken;
   if (refreshToken) {
     try {
-      localStorage.setItem('leagent_refresh_token', refreshToken);
+      localStorage.setItem('StAgent_refresh_token', refreshToken);
     } catch {
       /* ignore */
     }
   }
   try {
-    if (accessToken) localStorage.setItem('leagent_access_token', accessToken);
+    if (accessToken) localStorage.setItem('StAgent_access_token', accessToken);
   } catch {
     /* ignore */
   }
@@ -397,8 +397,8 @@ export function setAuthTokens(accessToken: string, refreshToken?: string) {
 export function clearAuthTokens() {
   _accessToken = null;
   try {
-    localStorage.removeItem('leagent_access_token');
-    localStorage.removeItem('leagent_refresh_token');
+    localStorage.removeItem('StAgent_access_token');
+    localStorage.removeItem('StAgent_refresh_token');
   } catch {
     /* ignore */
   }
@@ -407,7 +407,7 @@ export function clearAuthTokens() {
 export function getAccessToken(): string | null {
   if (_accessToken) return _accessToken;
   try {
-    _accessToken = localStorage.getItem('leagent_access_token');
+    _accessToken = localStorage.getItem('StAgent_access_token');
   } catch {
     _accessToken = null;
   }

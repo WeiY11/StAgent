@@ -14,11 +14,11 @@ from uuid import UUID
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
-from leagent.memory.recall import RecallOptions, RetrievalPipeline
-from leagent.services.cache.observability import get_cache_stats_registry
-from leagent.services.cache.service import CacheService
+from StAgent.config.settings import Settings
+from StAgent.memory.embeddings import LLMServiceEmbeddingProvider, NullEmbeddingProvider
+from StAgent.memory.recall import RecallOptions, RetrievalPipeline
+from StAgent.services.cache.observability import get_cache_stats_registry
+from StAgent.services.cache.service import CacheService
 
 
 class FakeLLM:

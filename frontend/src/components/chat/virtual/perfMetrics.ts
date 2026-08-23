@@ -3,7 +3,7 @@
  *
  * Dev-only counters for the conversation virtualizer and streaming hot paths.
  * Kept allocation-free in production: every record call short-circuits unless
- * `import.meta.env.DEV` is set. Exposed on `window.__leagentChatMetrics` so a
+ * `import.meta.env.DEV` is set. Exposed on `window.__StAgentChatMetrics` so a
  * profiling session can read render amplification, height-correction churn, and
  * mounted-row counts without wiring a UI.
  */
@@ -57,6 +57,6 @@ export function getChatRenderMetrics(): Readonly<ChatRenderMetrics> {
 }
 
 if (DEV && typeof window !== 'undefined') {
-  (window as unknown as { __leagentChatMetrics?: () => Readonly<ChatRenderMetrics> }).__leagentChatMetrics =
+  (window as unknown as { __StAgentChatMetrics?: () => Readonly<ChatRenderMetrics> }).__StAgentChatMetrics =
     getChatRenderMetrics;
 }

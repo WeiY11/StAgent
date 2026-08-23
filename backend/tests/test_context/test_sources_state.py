@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.context.sources.base import ResolveContext
-from leagent.context.sources.recent_reads import RecentReadsSource
-from leagent.context.types import RenderTarget
+from StAgent.context.sources.base import ResolveContext
+from StAgent.context.sources.recent_reads import RecentReadsSource
+from StAgent.context.types import RenderTarget
 
 
 class _MockFileState:

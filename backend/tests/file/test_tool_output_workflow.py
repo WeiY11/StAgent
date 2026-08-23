@@ -6,9 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.file.service import FileService
-from leagent.file.storage.local import LocalStorageBackend
-from leagent.file.tool_output import register_tool_artifact
+from StAgent.file.service import FileService
+from StAgent.file.storage.local import LocalStorageBackend
+from StAgent.file.tool_output import register_tool_artifact
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_register_tool_artifact_without_session_returns_signed_urls(
         file_service = fs
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _FakeSM(),
     )
 

@@ -12,12 +12,12 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.api.v1 import canvas as canvas_api
-from leagent.api.v1.canvas import (
+from StAgent.api.v1 import canvas as canvas_api
+from StAgent.api.v1.canvas import (
     _ascii_filename_fallback,
     _content_disposition,
 )
-from leagent.db.models.canvas import CanvasContentType, CanvasDocument
+from StAgent.db.models.canvas import CanvasContentType, CanvasDocument
 
 SCREENSHOT_PATH = "/api/v1/canvas/preview/screenshot"
 VALID_TOKEN = "dummy-token-value-32chars!!"
@@ -246,8 +246,8 @@ class TestCanvasPreviewScreenshotPlaywrightIntegration:
     """Optional end-to-end render against real Chromium (skipped when unavailable)."""
 
     pytestmark = pytest.mark.skipif(
-        os.getenv("LEAGENT_RUN_PLAYWRIGHT_E2E") != "1",
-        reason="Set LEAGENT_RUN_PLAYWRIGHT_E2E=1 to run real Chromium screenshot tests.",
+        os.getenv("StAgent_RUN_PLAYWRIGHT_E2E") != "1",
+        reason="Set StAgent_RUN_PLAYWRIGHT_E2E=1 to run real Chromium screenshot tests.",
     )
 
     @pytest.fixture

@@ -28,7 +28,7 @@ export const BRAND_FONT_PRESETS: BrandFontPreset[] = [
 
 const MAX_DISPLAY_NAME = 32;
 
-export const DEFAULT_BRAND_DISPLAY_NAME = 'LeAgent';
+export const DEFAULT_BRAND_DISPLAY_NAME = 'StAgent';
 
 export function clampDisplayName(raw: string): string {
   return raw.trim().slice(0, MAX_DISPLAY_NAME);
@@ -68,6 +68,6 @@ export const useBrandingStore = create<BrandingState>()(
       setBrandFontPreset: (preset) => set({ brandFontPreset: preset }),
       resetBranding: () => set({ ...defaults }),
     }),
-    { name: 'leagent-branding' }
+    { name: 'StAgent-branding' }
   )
 );

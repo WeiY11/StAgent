@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import copy
 
-from leagent.agent.query import SteerMessage, ToolResultMessage
+from StAgent.agent.query import SteerMessage, ToolResultMessage
 
 
 def test_steer_to_openai_is_append_shape():

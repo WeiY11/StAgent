@@ -6,15 +6,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-from leagent.agent.subagent import (
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.agent.subagent import (
     _run_subagent_core,
     fork_scoped_engine,
     make_child_executor,
 )
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import ToolRegistry
 
 
 class _DummyTool(BaseTool):
@@ -94,8 +94,8 @@ def test_fork_scoped_engine_syncs_context_variant() -> None:
 
 
 def test_coding_agent_tool_timeout_and_retries() -> None:
-    from leagent.agent.coding_agent import CODING_AGENT_DEFAULT_PROFILE, CodingAgentTool
-    from leagent.agent.runtime_profile import resolve_runtime_budget
+    from StAgent.agent.coding_agent import CODING_AGENT_DEFAULT_PROFILE, CodingAgentTool
+    from StAgent.agent.runtime_profile import resolve_runtime_budget
 
     budget = resolve_runtime_budget(CODING_AGENT_DEFAULT_PROFILE)
     assert CodingAgentTool.timeout_sec == budget.task_timeout_sec
@@ -103,7 +103,7 @@ def test_coding_agent_tool_timeout_and_retries() -> None:
 
 
 def test_import_tier_defaults_unrestricted() -> None:
-    from leagent.config.settings import get_settings
+    from StAgent.config.settings import get_settings
 
     assert get_settings().code_execution_import_tier == "unrestricted"
 
@@ -133,7 +133,7 @@ async def test_run_subagent_core_with_coding_variant(
         return {"text": "ok", "success": True, "steps_count": 0}
 
     monkeypatch.setattr(
-        "leagent.agent.subagent._run_engine",
+        "StAgent.agent.subagent._run_engine",
         fake_run_engine,
     )
 
@@ -179,7 +179,7 @@ async def test_run_subagent_core_with_script_variant(
         }
 
     monkeypatch.setattr(
-        "leagent.agent.subagent._run_engine",
+        "StAgent.agent.subagent._run_engine",
         fake_run_engine,
     )
 

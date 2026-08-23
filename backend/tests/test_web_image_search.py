@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.tools.base import ToolContext
-from leagent.tools.web.image_search.google_cse import search_google_cse
-from leagent.tools.web.image_search_tool import WebImageSearchTool
+from StAgent.tools.base import ToolContext
+from StAgent.tools.web.image_search.google_cse import search_google_cse
+from StAgent.tools.web.image_search_tool import WebImageSearchTool
 
 
 @pytest.mark.asyncio
@@ -37,7 +37,7 @@ async def test_search_google_cse_parses_items(monkeypatch: pytest.MonkeyPatch) -
     mock_client.request = AsyncMock(return_value=mock_resp)
 
     monkeypatch.setattr(
-        "leagent.tools.web.image_search.google_cse.httpx.AsyncClient",
+        "StAgent.tools.web.image_search.google_cse.httpx.AsyncClient",
         lambda **kwargs: mock_client,
     )
 
@@ -55,13 +55,13 @@ async def test_search_google_cse_parses_items(monkeypatch: pytest.MonkeyPatch) -
 
 @pytest.mark.asyncio
 async def test_web_image_search_tool_requires_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
     s = Settings()
     s.image_search.api_key = ""
     s.image_search.cx = ""
 
-    monkeypatch.setattr("leagent.config.settings.get_settings", lambda: s)
+    monkeypatch.setattr("StAgent.config.settings.get_settings", lambda: s)
 
     tool = WebImageSearchTool()
     ctx = ToolContext(
@@ -77,13 +77,13 @@ async def test_web_image_search_tool_requires_config(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.asyncio
 async def test_web_image_search_tool_meme_query(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.config.settings import Settings
+    from StAgent.config.settings import Settings
 
     s = Settings()
     s.image_search.api_key = "secret"
     s.image_search.cx = "cx123"
 
-    monkeypatch.setattr("leagent.config.settings.get_settings", lambda: s)
+    monkeypatch.setattr("StAgent.config.settings.get_settings", lambda: s)
 
     captured: dict[str, str] = {}
 
@@ -91,12 +91,12 @@ async def test_web_image_search_tool_meme_query(monkeypatch: pytest.MonkeyPatch)
         captured["query"] = query
         assert api_key == "secret"
         assert cx == "cx123"
-        from leagent.tools.web.image_search.protocol import ImageHit
+        from StAgent.tools.web.image_search.protocol import ImageHit
 
         return [ImageHit(url="https://x.example/i.webp", title="t")]
 
     monkeypatch.setattr(
-        "leagent.tools.web.image_search_tool.search_google_cse",
+        "StAgent.tools.web.image_search_tool.search_google_cse",
         fake_search,
     )
 

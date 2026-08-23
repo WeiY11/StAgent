@@ -11,9 +11,9 @@ import json
 
 import pytest
 
-from leagent.llm.base import ChatMessage, MessageRole, StreamChunk, TokenUsage, ToolCall, ToolDefinition
-from leagent.llm.providers.ollama import OllamaProvider
-from leagent.exceptions.llm import (
+from StAgent.llm.base import ChatMessage, MessageRole, StreamChunk, TokenUsage, ToolCall, ToolDefinition
+from StAgent.llm.providers.ollama import OllamaProvider
+from StAgent.exceptions.llm import (
     LLMRateLimitError,
     LLMServiceError,
     ModelNotFoundError,
@@ -447,11 +447,11 @@ class TestOllamaErrorHandling:
 
 class TestOllamaRegistryWiring:
     def test_providers_package_exports_ollama(self) -> None:
-        from leagent.llm.providers import OllamaProvider as Exported
+        from StAgent.llm.providers import OllamaProvider as Exported
         assert Exported is OllamaProvider
 
     def test_provider_config_constructs_ollama(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="ollama-test",

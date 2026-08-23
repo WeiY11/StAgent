@@ -136,10 +136,12 @@ export function FilesTab() {
     if (!sessionProjectId) return null;
     return s.projects.find((p) => p.id === sessionProjectId)?.folderId ?? null;
   });
-  const messagesBySession = useChatStore((s) => s.messages);
-  const sessionMessages = useMemo(
-    () => (currentSessionId ? (messagesBySession[currentSessionId] ?? EMPTY_SESSION_MESSAGES) : EMPTY_SESSION_MESSAGES),
-    [currentSessionId, messagesBySession],
+  // Session-scoped: subscribing to the whole messages map would re-render
+  // this tab on every rAF flush of any streaming session.
+  const sessionMessages = useChatStore((s) =>
+    s.currentSessionId
+      ? s.messages[s.currentSessionId] ?? EMPTY_SESSION_MESSAGES
+      : EMPTY_SESSION_MESSAGES,
   );
   const artifacts = useArtifactStore((s) => s.artifacts);
   const [query, setQuery] = useState('');

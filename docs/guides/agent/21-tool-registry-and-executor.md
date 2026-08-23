@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文说明工具如何进入可用池、如何变成模型可见的 schema，以及调用如何落到 `ToolExecutor`。先修：[19](19-tool-schema-design.md)、[20](20-build-a-base-tool.md)。核心代码位于 `backend/leagent/tools/registry.py`、`executor.py`，装配入口是 `backend/leagent/bootstrap/tools.py`。读本篇时请带着一个问题：**“模型看见的工具列表”与“进程里真正能执行的实例”是不是同一策略控制的？”** 答案是否定时，就会出现 UI 能点、模型看不见，或模型看得见却在执行时被拒的体验裂缝。
+本文说明工具如何进入可用池、如何变成模型可见的 schema，以及调用如何落到 `ToolExecutor`。先修：[19](19-tool-schema-design.md)、[20](20-build-a-base-tool.md)。核心代码位于 `backend/StAgent/tools/registry.py`、`executor.py`，装配入口是 `backend/StAgent/bootstrap/tools.py`。读本篇时请带着一个问题：**“模型看见的工具列表”与“进程里真正能执行的实例”是不是同一策略控制的？”** 答案是否定时，就会出现 UI 能点、模型看不见，或模型看得见却在执行时被拒的体验裂缝。
 
 ## 学习目标
 
@@ -12,7 +12,7 @@
 
 ```text
 bootstrap_tools()
-  ├─ discover_all()     # 扫描 leagent.tools.* 中可无参构造的工具
+  ├─ discover_all()     # 扫描 StAgent.tools.* 中可无参构造的工具
   ├─ curated paths      # 显式 import：plan/task/file/code/MCP 桥等
   └─ register_workflow_tool_nodes()  # 工具 → DAG 节点
 
@@ -39,8 +39,8 @@ Registry 不执行副作用，只保证“名字合法、实例可检索、schem
 ## 示例：本地确认注册与过滤
 
 ```python
-from leagent.bootstrap.tools import register_default_tools
-from leagent.tools.registry import ToolRegistry
+from StAgent.bootstrap.tools import register_default_tools
+from StAgent.tools.registry import ToolRegistry
 
 reg = ToolRegistry()
 register_default_tools(reg, run_discovery=True)
@@ -71,7 +71,7 @@ uv run pytest tests/test_registry.py tests/test_executor.py -q
 
 ## 业内对照
 
-LangGraph / LlamaIndex 常把工具列表绑在 graph 节点或 agent 构造参数上；OpenAI Assistants 把 tools 存在远端配置。LeAgent 选择本地 `ToolRegistry` 与进程启动装配，便于桌面零配置、离线调试，以及“每个工具自动成为工作流节点”。代价是每个进程启动都要完整 bootstrap，且多 worker 下没有中心化工具目录服务。
+LangGraph / LlamaIndex 常把工具列表绑在 graph 节点或 agent 构造参数上；OpenAI Assistants 把 tools 存在远端配置。StAgent 选择本地 `ToolRegistry` 与进程启动装配，便于桌面零配置、离线调试，以及“每个工具自动成为工作流节点”。代价是每个进程启动都要完整 bootstrap，且多 worker 下没有中心化工具目录服务。
 
 ## 装配与排障顺序
 

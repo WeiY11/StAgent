@@ -1,4 +1,4 @@
-"""Working-shape tests for :mod:`leagent.mission.types` (no LLM, no DB)."""
+"""Working-shape tests for :mod:`StAgent.mission.types` (no LLM, no DB)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from leagent.mission.types import (
+from StAgent.mission.types import (
     CONTINUABLE_SEGMENT_REASONS,
     MissionBudget,
     MissionPlan,

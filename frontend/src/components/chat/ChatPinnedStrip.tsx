@@ -23,14 +23,15 @@ export function ChatPinnedStrip({ className }: { className?: string }) {
   const { t } = useTranslation();
   const currentSessionId = useChatStore((s) => s.currentSessionId);
   const sessions = useChatStore((s) => s.sessions);
-  const messagesMap = useChatStore((s) => s.messages);
+  // Session-scoped so streaming flushes in other sessions (and the whole-map
+  // reference churn during any stream) don't re-render this bar.
+  const messages = useChatStore((s) =>
+    currentSessionId ? s.messages[currentSessionId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES,
+  );
   const togglePinMessage = useChatStore((s) => s.togglePinMessage);
 
   const session = currentSessionId ? sessions.find((s) => s.id === currentSessionId) : undefined;
   const pins = session?.pinnedMessageIds ?? [];
-  const messages = currentSessionId
-    ? messagesMap[currentSessionId] ?? EMPTY_MESSAGES
-    : EMPTY_MESSAGES;
 
   const previewFor = useCallback(
     (messageId: string) => {

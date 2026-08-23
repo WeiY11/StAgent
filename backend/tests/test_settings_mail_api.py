@@ -7,18 +7,18 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.config.settings import get_settings
+from StAgent.config.settings import get_settings
 
 
 def test_get_mail_status(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_PORT", "587")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_EMAIL", "from@example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_NAME", "Tests")
-    monkeypatch.setenv("LEAGENT_SMTP_USE_TLS", "true")
-    monkeypatch.setenv("LEAGENT_SMTP_USE_SSL", "false")
-    monkeypatch.delenv("LEAGENT_SMTP_USERNAME", raising=False)
-    monkeypatch.delenv("LEAGENT_SMTP_PASSWORD", raising=False)
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("StAgent_SMTP_PORT", "587")
+    monkeypatch.setenv("StAgent_SMTP_FROM_EMAIL", "from@example.com")
+    monkeypatch.setenv("StAgent_SMTP_FROM_NAME", "Tests")
+    monkeypatch.setenv("StAgent_SMTP_USE_TLS", "true")
+    monkeypatch.setenv("StAgent_SMTP_USE_SSL", "false")
+    monkeypatch.delenv("StAgent_SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("StAgent_SMTP_PASSWORD", raising=False)
     get_settings.cache_clear()
 
     r = client.get("/api/v1/settings/mail")
@@ -37,15 +37,15 @@ def test_get_mail_status(client: TestClient, monkeypatch: pytest.MonkeyPatch) ->
 def test_post_mail_test_connection_mocked(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_PORT", "587")
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("StAgent_SMTP_PORT", "587")
     get_settings.cache_clear()
 
     async def _noop(merged: dict[str, Any]) -> None:
         return None
 
     monkeypatch.setattr(
-        "leagent.api.v1.settings_mail.check_smtp_connection",
+        "StAgent.api.v1.settings_mail.check_smtp_connection",
         _noop,
     )
 
@@ -56,15 +56,15 @@ def test_post_mail_test_connection_mocked(
 
 
 def test_post_mail_test_send_mocked(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_EMAIL", "from@example.com")
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("StAgent_SMTP_FROM_EMAIL", "from@example.com")
     get_settings.cache_clear()
 
     async def _noop_send(merged: dict[str, Any], to_addr: str) -> None:
         assert to_addr == "to@example.com"
 
     monkeypatch.setattr(
-        "leagent.api.v1.settings_mail.send_smtp_test_message",
+        "StAgent.api.v1.settings_mail.send_smtp_test_message",
         _noop_send,
     )
 
@@ -73,7 +73,7 @@ def test_post_mail_test_send_mocked(client: TestClient, monkeypatch: pytest.Monk
 
 
 def test_post_mail_test_requires_host(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LEAGENT_SMTP_HOST", raising=False)
+    monkeypatch.delenv("StAgent_SMTP_HOST", raising=False)
     get_settings.cache_clear()
 
     r = client.post("/api/v1/settings/mail/test", json={})
@@ -83,8 +83,8 @@ def test_post_mail_test_requires_host(client: TestClient, monkeypatch: pytest.Mo
 def test_post_mail_test_requires_from_when_sending(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.example.com")
-    monkeypatch.delenv("LEAGENT_SMTP_FROM_EMAIL", raising=False)
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.example.com")
+    monkeypatch.delenv("StAgent_SMTP_FROM_EMAIL", raising=False)
     get_settings.cache_clear()
 
     r = client.post("/api/v1/settings/mail/test", json={"to": "to@example.com"})

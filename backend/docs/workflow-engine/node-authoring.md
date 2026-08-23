@@ -1,14 +1,14 @@
 # Node authoring
 
-Custom nodes live either in `leagent/workflow/nodes/builtin/` (shipped
+Custom nodes live either in `StAgent/workflow/nodes/builtin/` (shipped
 with the backend) or in a user-specified directory configured via
-`LEAGENT_WORKFLOW__CUSTOM_NODES_DIR` (hot-reloaded at runtime).
+`StAgent_WORKFLOW__CUSTOM_NODES_DIR` (hot-reloaded at runtime).
 
 ## Minimal node
 
 ```python
-from leagent.workflow.io import IO, NodeOutput, Schema
-from leagent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.io import IO, NodeOutput, Schema
+from StAgent.workflow.nodes.base import WorkflowNode
 
 
 class UppercaseNode(WorkflowNode):
@@ -36,7 +36,7 @@ Override `fingerprint_inputs` to make cache keys content-aware, or return
 `NOT_CACHEABLE` to force re-execution:
 
 ```python
-from leagent.workflow.io.contract import NOT_CACHEABLE
+from StAgent.workflow.io.contract import NOT_CACHEABLE
 
 class RandomNode(WorkflowNode):
     def fingerprint_inputs(self, **_):
@@ -60,7 +60,7 @@ Use `NodeReplaceRegistry` to steer stored workflows off deprecated nodes at
 load time without rewriting every row:
 
 ```python
-from leagent.workflow.nodes.replacement import NodeReplacement, get_replace_registry
+from StAgent.workflow.nodes.replacement import NodeReplacement, get_replace_registry
 
 get_replace_registry().register(
     NodeReplacement(old_class="LegacyFoo", new_class="Foo", reason="renamed"),

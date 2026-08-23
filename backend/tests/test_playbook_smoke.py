@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.bootstrap.tools import bootstrap_tools
-from leagent.chat_workflow.compile import compile_chat_workflow_to_document
-from leagent.chat_workflow.schema import parse_chat_workflow_spec
-from leagent.chat_workflow.templates import build_chat_workflow_template_catalog
-from leagent.tools.registry import get_registry
+from StAgent.bootstrap.tools import bootstrap_tools
+from StAgent.chat_workflow.compile import compile_chat_workflow_to_document
+from StAgent.chat_workflow.schema import parse_chat_workflow_spec
+from StAgent.chat_workflow.templates import build_chat_workflow_template_catalog
+from StAgent.tools.registry import get_registry
 
 EXPECTED_PLAYBOOK_IDS = frozenset({
     "document_editing",

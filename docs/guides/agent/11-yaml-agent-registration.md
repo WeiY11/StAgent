@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-当领域 Agent 变多，或希望运维与产品在不改 Python 的情况下调整温度、工具白名单或轮次预算时，应把 `AgentDefinition` 落到 YAML。先修：[09｜AgentBuilder](09-agent-builder.md)、[10｜领域 Agent](10-domain-agent-definition.md)。核心实现集中在 [`runtime/registry.py`](../../../backend/leagent/runtime/registry.py)：`AgentRegistry`、`register_builtin_agents`、`get_agent_registry` 与 `load_agents_from_yaml`。
+当领域 Agent 变多，或希望运维与产品在不改 Python 的情况下调整温度、工具白名单或轮次预算时，应把 `AgentDefinition` 落到 YAML。先修：[09｜AgentBuilder](09-agent-builder.md)、[10｜领域 Agent](10-domain-agent-definition.md)。核心实现集中在 [`runtime/registry.py`](../../../backend/StAgent/runtime/registry.py)：`AgentRegistry`、`register_builtin_agents`、`get_agent_registry` 与 `load_agents_from_yaml`。
 
 YAML 不是另一套「运行时语言」，它只是同一份声明契约的文件作者；最终仍由 `AgentRuntime` 物化进统一内核。
 
@@ -80,7 +80,7 @@ invoice_agent:
 ### 第 2 步：加载并检查
 
 ```python
-from leagent.sdk import AgentRegistry, load_agents_from_yaml, register_builtin_agents
+from StAgent.sdk import AgentRegistry, load_agents_from_yaml, register_builtin_agents
 
 reg = AgentRegistry()
 register_builtin_agents(reg)
@@ -93,7 +93,7 @@ print(reg.get("support_agent").tools.allow)
 ### 第 3 步：接入 Runtime
 
 ```python
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager, registry=reg)
 result = await runtime.run("support_agent", "查一下退货政策并给出三点摘要。")
@@ -119,7 +119,7 @@ cd backend && uv run pytest tests/test_sdk_surface.py -k "yaml or load_agents or
 
 ## 业内对照
 
-Kubernetes 用 YAML 声明 workload 期望状态；此处用 YAML 声明 agent 契约，真正的循环仍由内核执行。LangGraph / Crew 生态也有 yaml/json agent 配置；LeAgent 的特点是与 `AgentBuilder`/`AgentDefinition` 字段一一对应，不另造第二套 schema。MCP 服务配置偏 JSON 连接信息，而 Agent 定义更偏产品策略，用 YAML 更利于评审与 diff。
+Kubernetes 用 YAML 声明 workload 期望状态；此处用 YAML 声明 agent 契约，真正的循环仍由内核执行。LangGraph / Crew 生态也有 yaml/json agent 配置；StAgent 的特点是与 `AgentBuilder`/`AgentDefinition` 字段一一对应，不另造第二套 schema。MCP 服务配置偏 JSON 连接信息，而 Agent 定义更偏产品策略，用 YAML 更利于评审与 diff。
 
 ## 总结与延伸
 

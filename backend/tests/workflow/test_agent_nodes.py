@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.runtime import AgentBuilder, AgentDefinition, AgentRegistry
-from leagent.workflow.base import WorkflowState
-from leagent.workflow.io import HiddenHolder
-from leagent.workflow.nodes.agent_node_factory import (
+from StAgent.runtime import AgentBuilder, AgentDefinition, AgentRegistry
+from StAgent.workflow.base import WorkflowState
+from StAgent.workflow.io import HiddenHolder
+from StAgent.workflow.nodes.agent_node_factory import (
     build_agent_node_class,
     clear_factory_cache,
     register_agent_nodes,
 )
-from leagent.workflow.nodes.registry import NodeRegistry
+from StAgent.workflow.nodes.registry import NodeRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -58,7 +58,7 @@ class _FakeRuntime:
     async def stream(self, agent, prompt, **kwargs):
         """Yield a minimal standalone event stream."""
         self.stream_calls.append({"agent": agent, "prompt": prompt, **kwargs})
-        from leagent.sdk.events import AgentEvent
+        from StAgent.sdk.events import AgentEvent
 
         yield AgentEvent(type="tool_use", data={"name": "code_execution"})
         yield AgentEvent(type="assistant", data={"content": "standalone done"})
@@ -72,7 +72,7 @@ class _FakeRuntime:
         self.resume_calls.append(
             {"agent": agent, "checkpoint_id": checkpoint_id, "prompt": prompt, **kwargs}
         )
-        from leagent.sdk.events import AgentEvent
+        from StAgent.sdk.events import AgentEvent
 
         yield AgentEvent(type="assistant", data={"content": "resumed done"})
         yield AgentEvent(

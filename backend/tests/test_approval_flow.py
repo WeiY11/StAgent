@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.tools import approval as approval_mod
-from leagent.tools.approval import (
+from StAgent.tools import approval as approval_mod
+from StAgent.tools.approval import (
     ApprovalStore,
     PendingApproval,
     approval_reply_content,
@@ -17,7 +17,7 @@ from leagent.tools.approval import (
     parse_approval_decision,
     reset_approval_store,
 )
-from leagent.tools.base import (
+from StAgent.tools.base import (
     BaseTool,
     ToolCategory,
     ToolContext,
@@ -190,7 +190,7 @@ def test_pending_lifecycle():
 
 
 def test_transform_approval_reply_allow_session():
-    from leagent.api.v1.chat.approvals import transform_approval_reply
+    from StAgent.api.v1.chat.approvals import transform_approval_reply
 
     sid = uuid4()
     store = get_approval_store()
@@ -213,7 +213,7 @@ def test_transform_approval_reply_allow_session():
 
 
 def test_transform_non_approval_reply_passthrough():
-    from leagent.api.v1.chat.approvals import transform_approval_reply
+    from StAgent.api.v1.chat.approvals import transform_approval_reply
 
     sid = uuid4()
     content, pending, decision = transform_approval_reply(
@@ -232,11 +232,11 @@ def test_transform_non_approval_reply_passthrough():
 async def test_approval_pause_terminal_emitted():
     import asyncio
 
-    from leagent.agent.query import _approval_pause_terminal
-    from leagent.agent.tool_use_context import ToolUseContext
-    from leagent.context.file_state import FileState
-    from leagent.tools.executor import ToolExecutor
-    from leagent.tools.registry import ToolRegistry
+    from StAgent.agent.query import _approval_pause_terminal
+    from StAgent.agent.tool_use_context import ToolUseContext
+    from StAgent.context.file_state import FileState
+    from StAgent.tools.executor import ToolExecutor
+    from StAgent.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     registry.register(_DestructiveTool())
@@ -268,11 +268,11 @@ async def test_approval_pause_terminal_emitted():
 async def test_no_pause_for_allowed_tool():
     import asyncio
 
-    from leagent.agent.query import _approval_pause_terminal
-    from leagent.agent.tool_use_context import ToolUseContext
-    from leagent.context.file_state import FileState
-    from leagent.tools.executor import ToolExecutor
-    from leagent.tools.registry import ToolRegistry
+    from StAgent.agent.query import _approval_pause_terminal
+    from StAgent.agent.tool_use_context import ToolUseContext
+    from StAgent.context.file_state import FileState
+    from StAgent.tools.executor import ToolExecutor
+    from StAgent.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     registry.register(_ReadTool())

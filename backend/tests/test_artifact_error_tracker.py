@@ -1,6 +1,6 @@
 """Tests for artifact error tracker code recovery directives."""
 
-from leagent.context.artifact_error_tracker import ArtifactError, ArtifactErrorTracker
+from StAgent.context.artifact_error_tracker import ArtifactError, ArtifactErrorTracker
 
 
 def test_code_syntax_directive_prefers_workspace_edit() -> None:

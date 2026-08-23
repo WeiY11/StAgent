@@ -9,16 +9,16 @@ loudly.
 
 from __future__ import annotations
 
-from leagent.workflow.io import IO, NodeOutput, Schema
-from leagent.workflow.io.types import (
+from StAgent.workflow.io import IO, NodeOutput, Schema
+from StAgent.workflow.io.types import (
     DEFAULT_SOCKET_COLOR,
     SOCKET_COLORS,
     all_socket_colors,
     socket_color,
     widget_kind,
 )
-from leagent.workflow.nodes.base import WorkflowNode
-from leagent.workflow.nodes.registry import NodeRegistry
+from StAgent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.nodes.registry import NodeRegistry
 
 
 class _TypedNode(WorkflowNode):

@@ -1,8 +1,8 @@
 # Agent Autonomy Loop — Reflective Recovery · Lesson Memory · Parallel Crew
 
 > **Status:** proposal (design review) — no code landed yet.
-> **Packages:** `leagent.agent.recovery` (extended) · `leagent.memory` (extended) ·
-> `leagent.tools` (new `crew_fork`) · `leagent/agent/reflection.py` (new)
+> **Packages:** `StAgent.agent.recovery` (extended) · `StAgent.memory` (extended) ·
+> `StAgent.tools` (new `crew_fork`) · `StAgent/agent/reflection.py` (new)
 
 中文版: [`agent-autonomy-loop_zh.md`](./agent-autonomy-loop_zh.md)
 
@@ -40,7 +40,7 @@ Today's recovery is purely mechanical and only covers two failure classes:
 
 | Handled | Evidence | Not handled |
 |---|---|---|
-| Timeout → one rerun with doubled timeout | `backend/leagent/agent/recovery.py` `_handle_timeout` | parameter mistakes, missing context, env/permission blocks |
+| Timeout → one rerun with doubled timeout | `backend/StAgent/agent/recovery.py` `_handle_timeout` | parameter mistakes, missing context, env/permission blocks |
 | Rate limit → exponential backoff + jitter | `recovery.py` `_handle_rate_limit` | any *semantic* failure |
 | Custom string-matched handlers | `recovery.py` `register_handler` | anything without a handler |
 
@@ -48,12 +48,12 @@ Today's recovery is purely mechanical and only covers two failure classes:
 (`recovery.py`), which then improvises a fix on the next turn — unbounded,
 inconsistent, and expensive (a full context re-processing). Meanwhile the
 workflow engine already has the right idea (`IterativeRefineNode`, bounded
-refine with `refine_feedback`, `backend/leagent/workflow/nodes/builtin/iterative_refine.py`)
+refine with `refine_feedback`, `backend/StAgent/workflow/nodes/builtin/iterative_refine.py`)
 but the agent loop cannot reuse it.
 
 ### 2.2 Design
 
-**A failure reflector** (`leagent/agent/reflection.py`) classifies a failed
+**A failure reflector** (`StAgent/agent/reflection.py`) classifies a failed
 tool call and proposes one bounded corrective action. It runs **only on the
 error path**, so successful tool calls pay zero extra cost.
 
@@ -100,7 +100,7 @@ class ReflectionResult:
 
 **Integration point**
 
-The single slot is `_dispatch_tools` in `backend/leagent/agent/query.py`
+The single slot is `_dispatch_tools` in `backend/StAgent/agent/query.py`
 (`base = await recovery.as_middleware()(tool_call, ctx)` at the middleware
 chain): insert the reflector *after* the existing `ErrorRecovery` middleware
 and before the raw-error fallback. No other call sites change; sub-agents and
@@ -139,12 +139,12 @@ Mission segments inherit it because they share the same dispatcher.
 
 Procedural memory only ever records **success**:
 
-- `backend/leagent/memory/formation.py` — procedural formation requires
+- `backend/StAgent/memory/formation.py` — procedural formation requires
   `tool_success_count > 0 and tool_failure_count == 0` (≈ lines 134–139);
   a failed turn triggers only `TOOL_FAILURE` (weight 0.05), which never
   crosses the `PROCEDURAL 0.35` threshold.
 - Background agent tasks disable memory outright
-  (`backend/leagent/tasks/handlers/agent_handler.py` — `MemoryPolicy(enabled=False)`).
+  (`backend/StAgent/tasks/handlers/agent_handler.py` — `MemoryPolicy(enabled=False)`).
 
 Result: the agent can recall "how I solved X" but never "how I failed at X and
 what unblocked me" — the most expensive lesson to re-learn is the one thrown
@@ -181,7 +181,7 @@ similarity against existing procedures (reuse the recall pipeline's vector +
 lexical + BM25 path); a near-duplicate bumps `confidence` instead of creating
 a row.
 
-**Recall injection** — `RecallSource` (`backend/leagent/context/sources/recall.py`)
+**Recall injection** — `RecallSource` (`backend/StAgent/context/sources/recall.py`)
 already injects recall as `<attachment kind="recall">` under a 2 s budget.
 Lessons are injected as `<attachment kind="lesson">` with a priority boost
 when query similarity exceeds a threshold; bounded (≤3 lessons per turn,
@@ -217,7 +217,7 @@ only, behind the same switch).
 
 Sub-agent delegation is serial and unbounded:
 
-- `AgentTool.is_concurrency_safe = False` (`backend/leagent/agent/subagent.py`)
+- `AgentTool.is_concurrency_safe = False` (`backend/StAgent/agent/subagent.py`)
   — a turn can never dispatch sub-agents concurrently with other tools.
 - No recursion depth limit anywhere — `AgentTool` is not even in its own
   denied list (`DEFAULT_AGENT_TOOL_DENIED_TOOLS` excludes only heavy tools like
@@ -337,9 +337,9 @@ invalidating the others.
 - [`mission-mode.md`](mission-mode.md) — the planning/verification/continuation layer this program completes
 - [`execution-topology.md`](execution-topology.md) — kernel contract and run correlation
 - [`agent-trace.md`](agent-trace.md) — `TraceStore` / span model used for reflection records
-- `backend/leagent/agent/recovery.py` — `ErrorRecovery` middleware (extension point)
-- `backend/leagent/agent/query.py` — `_dispatch_tools` (insertion point)
-- `backend/leagent/memory/formation.py` — `FormationPolicy` (new trigger)
-- `backend/leagent/context/sources/recall.py` — `RecallSource` (lesson injection)
-- `backend/leagent/agent/subagent.py` — `AgentTool` / child executor (fan-out base)
-- `backend/leagent/workflow/nodes/builtin/iterative_refine.py` — bounded-refine precedent
+- `backend/StAgent/agent/recovery.py` — `ErrorRecovery` middleware (extension point)
+- `backend/StAgent/agent/query.py` — `_dispatch_tools` (insertion point)
+- `backend/StAgent/memory/formation.py` — `FormationPolicy` (new trigger)
+- `backend/StAgent/context/sources/recall.py` — `RecallSource` (lesson injection)
+- `backend/StAgent/agent/subagent.py` — `AgentTool` / child executor (fan-out base)
+- `backend/StAgent/workflow/nodes/builtin/iterative_refine.py` — bounded-refine precedent

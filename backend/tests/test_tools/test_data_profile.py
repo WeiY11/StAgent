@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from leagent.tools.base import ToolContext
-from leagent.tools.data.data_profile import DataProfileTool
+from StAgent.tools.base import ToolContext
+from StAgent.tools.data.data_profile import DataProfileTool
 
 
 def make_ctx() -> ToolContext:

@@ -1,4 +1,4 @@
-# LeAgent load-test harness
+# StAgent load-test harness
 
 Both harnesses drive the **real** HTTP surface. They target the multipart chat
 SSE stream (`POST /api/v1/chat/stream`) and treat a 2xx response that never
@@ -8,7 +8,7 @@ emits `data: [DONE]` as a failure — the same terminal-event truth enforced by
 
 | Tool   | Scope                                                              | Entrypoint       |
 | ------ | ----------------------------------------------------------------- | ---------------- |
-| Locust | HTTP: `/api/v1/chat/stream`, `/api/v1/workflow/flows/{id}/run` (when `LEAGENT_FLOW_ID` is set), `/api/v1/files/upload`, `/health` | `locustfile.py`  |
+| Locust | HTTP: `/api/v1/chat/stream`, `/api/v1/workflow/flows/{id}/run` (when `StAgent_FLOW_ID` is set), `/api/v1/files/upload`, `/health` | `locustfile.py`  |
 | k6     | HTTP: `/api/v1/chat/stream` sustained arrival rate                | `k6_agent.js`    |
 
 ## Running locally
@@ -16,13 +16,13 @@ emits `data: [DONE]` as a failure — the same terminal-event truth enforced by
 ```bash
 # HTTP profile (web-like mix)
 pip install locust
-LEAGENT_TOKEN=<token> \
+StAgent_TOKEN=<token> \
 locust -f tests/load/locustfile.py --host=http://localhost:7860 \
   --users=200 --spawn-rate=20 --run-time=2m --headless \
   --csv=reports/locust
 
 # k6 streaming profile
-LEAGENT_BASE_URL=http://localhost:7860 LEAGENT_TOKEN=<token> \
+StAgent_BASE_URL=http://localhost:7860 StAgent_TOKEN=<token> \
 k6 run tests/load/k6_agent.js --summary-export=reports/k6_agent.json
 ```
 

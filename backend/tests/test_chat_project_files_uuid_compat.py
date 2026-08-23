@@ -10,13 +10,13 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
-from leagent.services.chat.project_files import (
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
+from StAgent.services.chat.project_files import (
     link_file_ids_to_folder,
     resolve_session_project_file_space,
 )
-from leagent.services.chat.projects import ChatProjectService
+from StAgent.services.chat.projects import ChatProjectService
 
 
 @pytest_asyncio.fixture()
@@ -143,7 +143,7 @@ async def test_project_file_space_backfills_and_links_dashed_sqlite_rows(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.services.chat import project_files as project_files_mod
+    from StAgent.services.chat import project_files as project_files_mod
 
     monkeypatch.setattr(project_files_mod, "WORKING_DIR", tmp_path / "working")
     user_id = uuid4()
@@ -226,7 +226,7 @@ async def test_chat_project_service_create_update_delete_preserves_dashed_user_f
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.services.chat import project_files as project_files_mod
+    from StAgent.services.chat import project_files as project_files_mod
 
     monkeypatch.setattr(project_files_mod, "WORKING_DIR", tmp_path / "working")
     user_id = uuid4()

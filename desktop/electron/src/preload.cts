@@ -1,6 +1,6 @@
 // Compiled to dist/preload.cjs (CommonJS). Sandboxed preload scripts cannot
 // be ESM, and this package is "type": "module" — the .cts extension keeps the
-// emit CJS so `window.leagent` is actually exposed to the renderer.
+// emit CJS so `window.StAgent` is actually exposed to the renderer.
 import { contextBridge, ipcRenderer } from 'electron';
 
 type Callback<T = unknown> = (data: T) => void;
@@ -10,7 +10,7 @@ type TitleBarStyle = 'mac' | 'overlay' | 'custom';
 const titleBarStyle: TitleBarStyle =
   process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'overlay' : 'custom';
 
-const leagentBridge = {
+const StAgentBridge = {
   platform: process.platform,
 
   window: {
@@ -50,7 +50,7 @@ const leagentBridge = {
         userData: string;
         logs: string;
         home: string;
-        leagentHome: string;
+        StAgentHome: string;
       }>,
     getMachineFingerprint: () => ipcRenderer.invoke('app:getMachineFingerprint') as Promise<string>,
     openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
@@ -122,4 +122,4 @@ const leagentBridge = {
   },
 };
 
-contextBridge.exposeInMainWorld('leagent', leagentBridge);
+contextBridge.exposeInMainWorld('StAgent', StAgentBridge);

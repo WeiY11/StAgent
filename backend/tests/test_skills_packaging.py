@@ -1,4 +1,4 @@
-"""Tests for leagent.skills.packaging."""
+"""Tests for StAgent.skills.packaging."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ from tests.test_skills import _write_skill
 
 @pytest.mark.asyncio
 async def test_build_skill_zip_roundtrip(tmp_path: Path) -> None:
-    from leagent.skills.base import SkillSource
-    from leagent.skills.loader import SkillLoader
-    from leagent.skills.packaging import build_skill_zip_async
-    from leagent.skills.registry import _extract_archive
+    from StAgent.skills.base import SkillSource
+    from StAgent.skills.loader import SkillLoader
+    from StAgent.skills.packaging import build_skill_zip_async
+    from StAgent.skills.registry import _extract_archive
 
     _write_skill(tmp_path, "round-skill")
     (tmp_path / "round-skill" / "note.txt").write_text("x", encoding="utf-8")
@@ -34,7 +34,7 @@ async def test_build_skill_zip_roundtrip(tmp_path: Path) -> None:
 
 
 def test_build_skill_zip_rejects_invalid(tmp_path: Path) -> None:
-    from leagent.skills.packaging import SkillPackageError, build_skill_zip
+    from StAgent.skills.packaging import SkillPackageError, build_skill_zip
 
     bad = tmp_path / "bad"
     bad.mkdir()

@@ -5,8 +5,8 @@ import traceback
 
 
 async def main() -> None:
-    from leagent.tools.data.stock_quote import StockQuoteTool
-    from leagent.tools.data.stock_chart import StockChartTool
+    from StAgent.tools.data.stock_quote import StockQuoteTool
+    from StAgent.tools.data.stock_chart import StockChartTool
 
     class Ctx:  # minimal ToolContext stand-in
         user_id = "test"

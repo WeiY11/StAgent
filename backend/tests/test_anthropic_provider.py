@@ -12,9 +12,9 @@ import json
 
 import pytest
 
-from leagent.llm.base import ChatMessage, MessageRole, StreamChunk, TokenUsage, ToolCall, ToolDefinition
-from leagent.llm.providers.anthropic import AnthropicProvider
-from leagent.exceptions.llm import (
+from StAgent.llm.base import ChatMessage, MessageRole, StreamChunk, TokenUsage, ToolCall, ToolDefinition
+from StAgent.llm.providers.anthropic import AnthropicProvider
+from StAgent.exceptions.llm import (
     LLMRateLimitError,
     LLMServiceError,
     LLMTimeoutError,
@@ -386,11 +386,11 @@ class TestAnthropicErrorHandling:
 
 class TestAnthropicRegistryWiring:
     def test_providers_package_exports_anthropic(self) -> None:
-        from leagent.llm.providers import AnthropicProvider as Exported
+        from StAgent.llm.providers import AnthropicProvider as Exported
         assert Exported is AnthropicProvider
 
     def test_provider_config_constructs_anthropic(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="anthropic-test",

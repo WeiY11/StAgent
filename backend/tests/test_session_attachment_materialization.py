@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.services.session.state import SessionAttachment
+from StAgent.services.session.state import SessionAttachment
 
 
 class _InMemoryS3Client:
@@ -89,7 +89,7 @@ def _s3_attachment(session_id: UUID, attachment_id: UUID) -> SessionAttachment:
 @pytest.mark.asyncio
 async def test_materializes_authorized_s3_attachment_for_lease_then_removes_it() -> None:
     """A current-session S3 attachment is local only while its lease is active."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     session_id = uuid4()
     user_id = uuid4()
@@ -120,9 +120,9 @@ async def test_materializes_authorized_s3_attachment_for_lease_then_removes_it()
 @pytest.mark.asyncio
 async def test_materializer_downloads_session_object_through_real_file_service() -> None:
     """The lease reconstructs the configured S3 FileRef rather than a local URI path."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
-    from leagent.file.service import FileService
-    from leagent.file.storage.s3 import S3StorageBackend
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.service import FileService
+    from StAgent.file.storage.s3 import S3StorageBackend
 
     session_id = uuid4()
     user_id = uuid4()
@@ -166,7 +166,7 @@ async def test_materializer_downloads_session_object_through_real_file_service()
 @pytest.mark.asyncio
 async def test_materializer_preserves_separately_leased_s3_extra_path_without_downloading() -> None:
     """An unlisted URI remains available to its owning lease but is not downloaded here."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     file_service = _RemoteFileService()
     manager = _SessionManager([], file_service)
@@ -187,7 +187,7 @@ async def test_materializer_preserves_separately_leased_s3_extra_path_without_do
 @pytest.mark.asyncio
 async def test_materializer_fails_closed_when_authorized_s3_download_fails() -> None:
     """An unreadable authorised object must not leave behind a fake local grant."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     class _FailingFileService:
         def ref_from_persisted_record(self, **_kwargs: object) -> object:
@@ -213,7 +213,7 @@ async def test_materializer_fails_closed_when_authorized_s3_download_fails() -> 
 @pytest.mark.asyncio
 async def test_materializer_never_uses_a_local_backend_as_s3_fallback() -> None:
     """A default local backend must not receive an unresolved S3 URI."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     class _LocalOnlyFileService:
         def __init__(self) -> None:
@@ -248,7 +248,7 @@ async def test_materializer_never_uses_a_local_backend_as_s3_fallback() -> None:
 @pytest.mark.asyncio
 async def test_materializer_rejects_a_row_without_the_current_session_identity() -> None:
     """A malformed storage row cannot gain object-store read authority."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     session_id = uuid4()
     attachment = SimpleNamespace(
@@ -280,7 +280,7 @@ async def test_materializer_keeps_local_session_attachment_as_its_resolved_path(
     tmp_path: Path,
 ) -> None:
     """The object-store lease must not change normal local attachment behavior."""
-    from leagent.file.attachment_context import materialize_session_attachment_paths
+    from StAgent.file.attachment_context import materialize_session_attachment_paths
 
     session_id = uuid4()
     local_file = tmp_path / "local.txt"
@@ -322,10 +322,10 @@ async def test_controller_keeps_s3_image_staged_through_multimodal_turn_then_cle
     the raw URI, reloaded original attachment rows after staging, or released
     the staged file before the engine consumes its image input.
     """
-    from leagent.agent.base import AgentConfig, ConversationContext
-    from leagent.agent.controller import AgentController
-    from leagent.agent.query_engine import SDKMessage
-    from leagent.file.attachment_context import normalise_attachment_alias
+    from StAgent.agent.base import AgentConfig, ConversationContext
+    from StAgent.agent.controller import AgentController
+    from StAgent.agent.query_engine import SDKMessage
+    from StAgent.file.attachment_context import normalise_attachment_alias
 
     session_id = uuid4()
     user_id = uuid4()

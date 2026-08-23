@@ -9,8 +9,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.exceptions.llm import LLMRateLimitError, LLMServiceError, ModelNotFoundError
-from leagent.llm.base import (
+from StAgent.exceptions.llm import LLMRateLimitError, LLMServiceError, ModelNotFoundError
+from StAgent.llm.base import (
     ChatMessage,
     LLMResponse,
     StreamChunk,
@@ -18,11 +18,11 @@ from leagent.llm.base import (
     ToolDefinition,
     TokenUsage,
 )
-from leagent.llm.registry import ProviderInfo, ProviderRegistry
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.model_spec import ModelSpec
-from leagent.llm.service import LLMService
-from leagent.llm.task_resolver import TaskResolver
+from StAgent.llm.registry import ProviderInfo, ProviderRegistry
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_spec import ModelSpec
+from StAgent.llm.service import LLMService
+from StAgent.llm.task_resolver import TaskResolver
 
 
 # ===========================================================================
@@ -220,9 +220,9 @@ class TestLLMServiceRetries:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.llm.service import _with_transient_retries
+        from StAgent.llm.service import _with_transient_retries
 
-        monkeypatch.setattr("leagent.llm.service.asyncio.sleep", AsyncMock())
+        monkeypatch.setattr("StAgent.llm.service.asyncio.sleep", AsyncMock())
         calls = {"n": 0}
 
         async def operation() -> LLMResponse:

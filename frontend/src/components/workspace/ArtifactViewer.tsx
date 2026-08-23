@@ -34,8 +34,11 @@ const artifactHeaderIconBtn =
 
 export function ArtifactViewer() {
   const { t } = useTranslation();
-  const { artifacts, openArtifactId, pinnedIds, pinArtifact, unpinArtifact } =
-    useArtifactStore();
+  const artifacts = useArtifactStore((s) => s.artifacts);
+  const openArtifactId = useArtifactStore((s) => s.openArtifactId);
+  const pinnedIds = useArtifactStore((s) => s.pinnedIds);
+  const pinArtifact = useArtifactStore((s) => s.pinArtifact);
+  const unpinArtifact = useArtifactStore((s) => s.unpinArtifact);
 
   const activeTabId = useArtifactStore((s) => s.activeTabId);
   const effectiveId = activeTabId ?? openArtifactId;

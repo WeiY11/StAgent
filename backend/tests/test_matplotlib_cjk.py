@@ -10,16 +10,16 @@ import pytest
 
 
 def test_resolve_cjk_regular_path_env_priority(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from leagent.utils import cjk_font_discovery as mod
+    from StAgent.utils import cjk_font_discovery as mod
 
     p = tmp_path / "custom.otf"
     p.write_bytes(b"x")
-    monkeypatch.delenv("LEAGENT_CJK_FONT", raising=False)
+    monkeypatch.delenv("StAgent_CJK_FONT", raising=False)
     assert mod.resolve_cjk_regular_path(explicit=str(p)) == str(p)
 
 
 def test_discover_cjk_font_file_caches_result(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from leagent.utils import cjk_font_discovery as mod
+    from StAgent.utils import cjk_font_discovery as mod
 
     mod.clear_cjk_font_discovery_cache()
     font_dir = tmp_path / "fonts" / "noto"
@@ -40,7 +40,7 @@ def test_build_cjk_generation_turn_extra_for_document_tool(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from leagent.utils import cjk_font_discovery as mod
+    from StAgent.utils import cjk_font_discovery as mod
 
     class Tools:
         def __init__(self, names: set[str]) -> None:
@@ -68,8 +68,8 @@ async def test_subprocess_sandbox_passes_resolved_cjk_font_env(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    from leagent.code import sandbox as mod
-    from leagent.code.workspace import Workspace
+    from StAgent.code import sandbox as mod
+    from StAgent.code.workspace import Workspace
 
     font_path = tmp_path / "NotoSansSC-Regular.otf"
     font_path.write_bytes(b"x")
@@ -99,13 +99,13 @@ async def test_subprocess_sandbox_passes_resolved_cjk_font_env(
     assert result.ok is True
     policy = captured["policy"]
     env = policy.sanitized_env()  # type: ignore[attr-defined]
-    assert env["LEAGENT_CJK_FONT"] == str(font_path)
+    assert env["StAgent_CJK_FONT"] == str(font_path)
 
 
 def test_configure_matplotlib_cjk_no_font_returns_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.code import matplotlib_cjk as mpl_cjk
+    from StAgent.code import matplotlib_cjk as mpl_cjk
 
     mpl_cjk.reset_matplotlib_cjk_configured_for_tests()
     # Patch where used: matplotlib_cjk binds resolve_cjk_regular_path at import time.
@@ -114,7 +114,7 @@ def test_configure_matplotlib_cjk_no_font_returns_false(
 
 
 def test_configure_matplotlib_cjk_sets_rcparams(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from leagent.code import matplotlib_cjk as mpl_cjk
+    from StAgent.code import matplotlib_cjk as mpl_cjk
 
     mpl_cjk.reset_matplotlib_cjk_configured_for_tests()
     font_path = tmp_path / "fake.otf"
@@ -154,8 +154,8 @@ def test_configure_matplotlib_cjk_aliases_common_family_names() -> None:
     """SimHei / YaHei overrides must resolve to the registered CJK file."""
     from pathlib import Path
 
-    from leagent.code import matplotlib_cjk as mpl_cjk
-    from leagent.utils.cjk_font_discovery import resolve_cjk_regular_path
+    from StAgent.code import matplotlib_cjk as mpl_cjk
+    from StAgent.utils.cjk_font_discovery import resolve_cjk_regular_path
 
     font = resolve_cjk_regular_path()
     if not font or not Path(font).is_file():

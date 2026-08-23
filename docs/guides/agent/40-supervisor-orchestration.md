@@ -2,14 +2,14 @@
 
 ## 定位与先修
 
-本文讨论多 Agent 协作时常见的 Manager/Supervisor 模式，并澄清 LeAgent 中的实现事实：**Supervisor 是编排模式与角色命名，不是独立运行时类**。先修 [37](37-when-to-use-subagents.md)–[39](39-scoped-tools-and-handoffs.md)。务必区分：仓库里的 `DevServerSupervisor`（`project.runtime`）管的是 coding project 的 `npm run dev` 等子进程生命周期，与本文「多 Agent 路由、委派、验收」毫无关系——写架构图时不要画在同一条泳道。
+本文讨论多 Agent 协作时常见的 Manager/Supervisor 模式，并澄清 StAgent 中的实现事实：**Supervisor 是编排模式与角色命名，不是独立运行时类**。先修 [37](37-when-to-use-subagents.md)–[39](39-scoped-tools-and-handoffs.md)。务必区分：仓库里的 `DevServerSupervisor`（`project.runtime`）管的是 coding project 的 `npm run dev` 等子进程生命周期，与本文「多 Agent 路由、委派、验收」毫无关系——写架构图时不要画在同一条泳道。
 
 ## 目标
 
 完成后你应能回答：
 
 1. Manager（委派并回收结果）与 Supervisor（持续路由/监控工人）在职责上差在哪里；
-2. 如何在 LeAgent 用父 Agent、`runtime.delegate`、条件节点与 `Agent.*` DAG 节点拼出两种模式；
+2. 如何在 StAgent 用父 Agent、`runtime.delegate`、条件节点与 `Agent.*` DAG 节点拼出两种模式；
 3. 为何不应在文档或设计里假设存在 `class Supervisor` 或中央调度邮箱；
 4. 何时改用纯 DAG、何时改用单 Agent + 直接工具；
 5. 并行工人与 FileState merge 语义会带来哪些协调成本。
@@ -80,7 +80,7 @@ Agent.research → Condition(success) → Agent.writer
 
 ## 常见误区
 
-- **「LeAgent 内置 Supervisor 运行时。」** 不，是模式；实现是 delegate + Agent 节点 + 图条件。
+- **「StAgent 内置 Supervisor 运行时。」** 不，是模式；实现是 delegate + Agent 节点 + 图条件。
 - **「起名 Supervisor 的 AgentDefinition 有特殊调度。」** 无，除非 prompt/工具/图边定义了路由。
 - **「Workers 共享团队聊天记录。」** 默认 fresh transcript，不共享。
 - **「DevServerSupervisor 能编排多 Agent。」** 不能；它管 dev 进程。
@@ -89,7 +89,7 @@ Agent.research → Condition(success) → Agent.writer
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-LangGraph 的 supervisor 示例通常是显式 state + 路由节点，与「DAG 作 coordinator」最接近。AutoGen 的 `SelectorGroupChat`/`RoundRobinGroupChat` 把说话权算法做进框架，工人共享团队消息总线。OpenAI Agents SDK 用 handoff 转移会话控制权，偏对话连续。Google ADK 提供 multi-agent 组合原语，但仍要选 Manager vs Supervisor 语义。LeAgent 刻意保持薄：提供 **delegate + Agent 节点 + 同一 kernel**，把 Supervisor 算法留给应用与图，避免再维护一套并行编排内核与第二份 transcript SSOT。
+LangGraph 的 supervisor 示例通常是显式 state + 路由节点，与「DAG 作 coordinator」最接近。AutoGen 的 `SelectorGroupChat`/`RoundRobinGroupChat` 把说话权算法做进框架，工人共享团队消息总线。OpenAI Agents SDK 用 handoff 转移会话控制权，偏对话连续。Google ADK 提供 multi-agent 组合原语，但仍要选 Manager vs Supervisor 语义。StAgent 刻意保持薄：提供 **delegate + Agent 节点 + 同一 kernel**，把 Supervisor 算法留给应用与图，避免再维护一套并行编排内核与第二份 transcript SSOT。
 
 ## 总结
 

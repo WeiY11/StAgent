@@ -24,29 +24,29 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.config.settings import Settings, get_settings
-from leagent.db.models import (
+from StAgent.config.settings import Settings, get_settings
+from StAgent.db.models import (
     CodingProject,
     CodingProjectStatus,
     Folder,
 )
-from leagent.project.manager import CodingProjectManager, CodingProjectNotFoundError
-from leagent.project.ports import (
+from StAgent.project.manager import CodingProjectManager, CodingProjectNotFoundError
+from StAgent.project.ports import (
     PortAllocationError,
     PortAllocator,
 )
-from leagent.project.preview_tokens import (
+from StAgent.project.preview_tokens import (
     PREVIEW_AUDIENCE,
     decode_preview_token,
     mint_preview_token,
     preview_query_path,
 )
-from leagent.project.templates import (
+from StAgent.project.templates import (
     TemplateNotFoundError,
     list_templates,
     load_template,
 )
-from leagent.services.auth.tokens import TokenError, mint_token
+from StAgent.services.auth.tokens import TokenError, mint_token
 
 # ---------------------------------------------------------------------------
 # Fake DatabaseService
@@ -253,7 +253,7 @@ def test_decode_preview_token_rejects_wrong_audience(tmp_settings: Settings) -> 
         "exp": 9_999_999_999,
         "aud": "wrong-audience",
     }
-    bogus = mint_token(payload, "leagent-local-secret")
+    bogus = mint_token(payload, "StAgent-local-secret")
     with pytest.raises(TokenError):
         decode_preview_token(tmp_settings, bogus)
 

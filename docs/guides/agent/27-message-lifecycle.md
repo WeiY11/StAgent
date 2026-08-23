@@ -75,7 +75,7 @@ uv run pytest tests/test_chat_checkpoint_resume.py -q
 
 ## 业内对照
 
-OpenAI Threads、LangGraph thread state、Claude 本地会话文件都在解决“瞬态流 → 持久序列”。很多框架把 thread、checkpoint、memory 笼统叫 memory，运维时难以回答“删除聊天是否删除偏好”。LeAgent 刻意分 owner：`TieredSessionStore`、`CheckpointStore`、`AgentMemory`（以及工作流 state）各管一段，代价是集成方要学会选对人。
+OpenAI Threads、LangGraph thread state、Claude 本地会话文件都在解决“瞬态流 → 持久序列”。很多框架把 thread、checkpoint、memory 笼统叫 memory，运维时难以回答“删除聊天是否删除偏好”。StAgent 刻意分 owner：`TieredSessionStore`、`CheckpointStore`、`AgentMemory`（以及工作流 state）各管一段，代价是集成方要学会选对人。
 
 ## 排障叙事模板
 

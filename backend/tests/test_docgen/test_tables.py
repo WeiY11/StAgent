@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from leagent.docgen.model import TableBlock
-from leagent.docgen.tables import process_table, resolve_table_style
-from leagent.docgen.themes import get_theme
+from StAgent.docgen.model import TableBlock
+from StAgent.docgen.tables import process_table, resolve_table_style
+from StAgent.docgen.themes import get_theme
 
 
 def _block(**kwargs) -> TableBlock:
@@ -216,7 +216,7 @@ _FINANCIAL_TABLE = {
 
 
 def _doc_spec():
-    from leagent.docgen.model import DocumentSpec
+    from StAgent.docgen.model import DocumentSpec
 
     return DocumentSpec.model_validate(
         {"title": "表格测试", "blocks": [_FINANCIAL_TABLE]}
@@ -224,7 +224,7 @@ def _doc_spec():
 
 
 def test_html_render_applies_table_semantics(tmp_path) -> None:
-    from leagent.docgen.renderers.html import render_html
+    from StAgent.docgen.renderers.html import render_html
 
     out = tmp_path / "t.html"
     assert render_html(_doc_spec(), out)["success"]
@@ -237,7 +237,7 @@ def test_html_render_applies_table_semantics(tmp_path) -> None:
 
 
 def test_markdown_render_emits_alignment_markers(tmp_path) -> None:
-    from leagent.docgen.renderers.html import render_markdown
+    from StAgent.docgen.renderers.html import render_markdown
 
     out = tmp_path / "t.md"
     assert render_markdown(_doc_spec(), out)["success"]
@@ -252,7 +252,7 @@ def test_docx_render_applies_table_semantics(tmp_path) -> None:
     docx = pytest.importorskip("docx")
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-    from leagent.docgen.renderers.docx import render_docx
+    from StAgent.docgen.renderers.docx import render_docx
 
     out = tmp_path / "t.docx"
     assert render_docx(_doc_spec(), out)["success"]
@@ -273,8 +273,8 @@ def test_pptx_render_table_slide(tmp_path) -> None:
     pptx = pytest.importorskip("pptx")
     from pptx.enum.text import PP_ALIGN
 
-    from leagent.docgen.model import DeckSpec
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.model import DeckSpec
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     deck = DeckSpec.model_validate(
         {
@@ -296,7 +296,7 @@ def test_pdf_render_with_financial_table(tmp_path) -> None:
     import pytest
 
     pytest.importorskip("reportlab")
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     out = tmp_path / "t.pdf"
     result = render_pdf(_doc_spec(), out)

@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.services.canvas.html_bundle import (
+from StAgent.services.canvas.html_bundle import (
     merge_html_files_to_document,
     resolve_html_bundle_entry,
 )
-from leagent.services.canvas.service import sanitize_html
+from StAgent.services.canvas.service import sanitize_html
 
 
 def test_merge_html_files_inlines_css_and_js() -> None:
@@ -113,7 +113,7 @@ def test_merge_html_files_rejects_path_traversal() -> None:
 async def test_publish_revision_accepts_html_files(monkeypatch: pytest.MonkeyPatch) -> None:
     from uuid import uuid4
 
-    from leagent.services.canvas.service import CanvasService
+    from StAgent.services.canvas.service import CanvasService
 
     session_id = uuid4()
     user_id = uuid4()
@@ -150,11 +150,11 @@ async def test_publish_revision_accepts_html_files(monkeypatch: pytest.MonkeyPat
 
     svc = CanvasService(settings, db, chat=chat)
     monkeypatch.setattr(
-        "leagent.services.canvas.service.mint_preview_token",
+        "StAgent.services.canvas.service.mint_preview_token",
         lambda *_a, **_k: "tok",
     )
     monkeypatch.setattr(
-        "leagent.services.canvas.service.preview_query_path",
+        "StAgent.services.canvas.service.preview_query_path",
         lambda _t: "/api/v1/canvas/preview?token=t",
     )
 
@@ -179,7 +179,7 @@ async def test_publish_revision_auto_resolves_sole_html_entry(
 ) -> None:
     from uuid import uuid4
 
-    from leagent.services.canvas.service import CanvasService
+    from StAgent.services.canvas.service import CanvasService
 
     session_id = uuid4()
     user_id = uuid4()
@@ -216,11 +216,11 @@ async def test_publish_revision_auto_resolves_sole_html_entry(
 
     svc = CanvasService(settings, db, chat=chat)
     monkeypatch.setattr(
-        "leagent.services.canvas.service.mint_preview_token",
+        "StAgent.services.canvas.service.mint_preview_token",
         lambda *_a, **_k: "tok",
     )
     monkeypatch.setattr(
-        "leagent.services.canvas.service.preview_query_path",
+        "StAgent.services.canvas.service.preview_query_path",
         lambda _t: "/api/v1/canvas/preview?token=t",
     )
 
@@ -247,9 +247,9 @@ async def test_tool_argument_blob_persist_disk_roundtrip(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from leagent.tools.base import ToolContext
-    from leagent.tools.util import tool_argument_blob as m
-    from leagent.tools.util.tool_argument_blob import ToolArgumentBlobStore, ToolArgumentBlobTool
+    from StAgent.tools.base import ToolContext
+    from StAgent.tools.util import tool_argument_blob as m
+    from StAgent.tools.util.tool_argument_blob import ToolArgumentBlobStore, ToolArgumentBlobTool
 
     sid = "sess-persist-test"
 

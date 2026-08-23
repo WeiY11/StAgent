@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def mock_run() -> MagicMock:
-    with patch("leagent.services.python_env.manager.subprocess.run") as m:
+    with patch("StAgent.services.python_env.manager.subprocess.run") as m:
         yield m
 
 

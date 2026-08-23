@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.config.settings import get_settings
-from leagent.services.smtp_defaults import merge_smtp_defaults
+from StAgent.config.settings import get_settings
+from StAgent.services.smtp_defaults import merge_smtp_defaults
 
 
 def test_merge_smtp_defaults_fills_from_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_PORT", "465")
-    monkeypatch.setenv("LEAGENT_SMTP_USERNAME", "u")
-    monkeypatch.setenv("LEAGENT_SMTP_PASSWORD", "p")
-    monkeypatch.setenv("LEAGENT_SMTP_USE_TLS", "false")
-    monkeypatch.setenv("LEAGENT_SMTP_USE_SSL", "true")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_EMAIL", "from@example.com")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_NAME", "FN")
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("StAgent_SMTP_PORT", "465")
+    monkeypatch.setenv("StAgent_SMTP_USERNAME", "u")
+    monkeypatch.setenv("StAgent_SMTP_PASSWORD", "p")
+    monkeypatch.setenv("StAgent_SMTP_USE_TLS", "false")
+    monkeypatch.setenv("StAgent_SMTP_USE_SSL", "true")
+    monkeypatch.setenv("StAgent_SMTP_FROM_EMAIL", "from@example.com")
+    monkeypatch.setenv("StAgent_SMTP_FROM_NAME", "FN")
     get_settings.cache_clear()
 
     out = merge_smtp_defaults({"to": ["a@b.com"], "subject": "Hi"})
@@ -31,8 +31,8 @@ def test_merge_smtp_defaults_fills_from_settings(monkeypatch: pytest.MonkeyPatch
 
 
 def test_merge_preserves_explicit_tool_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_SMTP_HOST", "smtp.env.com")
-    monkeypatch.setenv("LEAGENT_SMTP_FROM_EMAIL", "env@example.com")
+    monkeypatch.setenv("StAgent_SMTP_HOST", "smtp.env.com")
+    monkeypatch.setenv("StAgent_SMTP_FROM_EMAIL", "env@example.com")
     get_settings.cache_clear()
 
     out = merge_smtp_defaults(

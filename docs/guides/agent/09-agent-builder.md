@@ -4,7 +4,7 @@
 
 本文属于「从零搭建 Agent」中，把最小可跑脚本推进到可评审、可注册契约的一步。建议先完成 [07｜最小 Python Agent](07-minimal-python-agent.md) 与 [01｜Agent 与 Chatbot](01-agent-vs-chatbot.md)，并清楚对外执行入口是 `AgentRuntime` 而非散落的 `QueryEngineConfig`。你需要会阅读基础 Python 类型注解与链式调用。
 
-实现落点分别是：[`runtime/builder.py`](../../../backend/leagent/runtime/builder.py)、[`runtime/definition.py`](../../../backend/leagent/runtime/definition.py)、[`runtime/runtime.py`](../../../backend/leagent/runtime/runtime.py)。公共导出可从 `leagent.sdk` 导入 `AgentBuilder`。
+实现落点分别是：[`runtime/builder.py`](../../../backend/StAgent/runtime/builder.py)、[`runtime/definition.py`](../../../backend/StAgent/runtime/definition.py)、[`runtime/runtime.py`](../../../backend/StAgent/runtime/runtime.py)。公共导出可从 `StAgent.sdk` 导入 `AgentBuilder`。
 
 ## 学习目标
 
@@ -17,7 +17,7 @@
 
 ## 心智模型：声明 What，运行时再物化 How
 
-很多教程把 Agent 写成「带着 LLM 客户端的大类」。在 LeAgent 里职责被切开：
+很多教程把 Agent 写成「带着 LLM 客户端的大类」。在 StAgent 里职责被切开：
 
 ```text
 AgentBuilder（可变草稿）
@@ -52,7 +52,7 @@ AgentBuilder（可变草稿）
 ### 第 1 步：声明客服域 Agent
 
 ```python
-from leagent.sdk import AgentBuilder, get_agent_registry
+from StAgent.sdk import AgentBuilder, get_agent_registry
 
 support = (
     AgentBuilder("support_agent")
@@ -84,7 +84,7 @@ strict = (
 ### 第 3 步：交给 Runtime 执行
 
 ```python
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 result = await runtime.run(support, "用户询问退货时限，先查知识库再摘要。")
@@ -111,7 +111,7 @@ cd backend && uv run pytest tests/test_sdk_surface.py tests/test_runtime_sdk.py 
 
 ## 业内对照
 
-OpenAI Agents SDK 的 `Agent(...)` 构造器、Google ADK 的 agent 配置对象、Anthropic 示例里的 instruction+tools 打包，本质都是「先声明能力边界」。LeAgent 额外把 `context_recipe` 与 `prompt_variant` 拆开，并把同一 `AgentDefinition` 提升到工作流节点，使声明式契约横跨聊天、SDK 与 DAG。
+OpenAI Agents SDK 的 `Agent(...)` 构造器、Google ADK 的 agent 配置对象、Anthropic 示例里的 instruction+tools 打包，本质都是「先声明能力边界」。StAgent 额外把 `context_recipe` 与 `prompt_variant` 拆开，并把同一 `AgentDefinition` 提升到工作流节点，使声明式契约横跨聊天、SDK 与 DAG。
 
 ## 总结与延伸
 

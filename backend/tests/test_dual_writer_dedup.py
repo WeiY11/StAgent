@@ -15,17 +15,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401 — register metadata
-from leagent.config.settings import get_settings
-from leagent.db.models.message import (
+import StAgent.db.models  # noqa: F401 — register metadata
+from StAgent.config.settings import get_settings
+from StAgent.db.models.message import (
     ChatSession,
     Message,
     MessageRole,
 )
-from leagent.services.session.manager import SessionManager
-from leagent.services.session.state import SessionMessage, SessionState
-from leagent.services.session.store import TieredSessionStore
-from leagent.services.chat.repair import deduplicate_user_messages
+from StAgent.services.session.manager import SessionManager
+from StAgent.services.session.state import SessionMessage, SessionState
+from StAgent.services.session.store import TieredSessionStore
+from StAgent.services.chat.repair import deduplicate_user_messages
 
 
 # ---------------------------------------------------------------------------

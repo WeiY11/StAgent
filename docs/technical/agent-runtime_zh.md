@@ -1,10 +1,10 @@
-# LeAgent Agent 运行时 SDK
+# StAgent Agent 运行时 SDK
 
-> 状态：生产可用。包：`backend/leagent/runtime/`。
+> 状态：生产可用。包：`backend/StAgent/runtime/`。
 
 英文版：[agent-runtime.md](./agent-runtime.md)
 
-Agent 运行时是 LeAgent 中构建与执行 Agent 的统一、由 SDK 治理的运行框架。它用单一的声明式契约加一套执行门面，取代了此前在每个调用点（聊天 API、后台任务、Cron、CLI、工作流节点、子 Agent）手工构造 `QueryEngine` / `QueryEngineConfig` 的模式。
+Agent 运行时是 StAgent 中构建与执行 Agent 的统一、由 SDK 治理的运行框架。它用单一的声明式契约加一套执行门面，取代了此前在每个调用点（聊天 API、后台任务、Cron、CLI、工作流节点、子 Agent）手工构造 `QueryEngine` / `QueryEngineConfig` 的模式。
 
 设计目标：**一次定义领域 Agent，随处运行** —— 以声明式真源（`AgentDefinition`）与代码优先的流式构建器（`AgentBuilder`）为双轨，二者均通过同一 `AgentRuntime` 解析并执行。
 
@@ -31,7 +31,7 @@ AgentDefinition  +  RuntimeContext  +  per-call args
 ### AgentDefinition
 
 ```python
-from leagent.runtime import AgentDefinition, ToolPolicy, ModelPolicy, MemoryPolicy
+from StAgent.runtime import AgentDefinition, ToolPolicy, ModelPolicy, MemoryPolicy
 
 AgentDefinition(
     name="support_agent",
@@ -54,7 +54,7 @@ AgentDefinition(
 ### AgentBuilder（代码优先）
 
 ```python
-from leagent.runtime import AgentBuilder
+from StAgent.runtime import AgentBuilder
 
 support = (
     AgentBuilder("support_agent")
@@ -93,7 +93,7 @@ runtime.registry.register(support)            # or get_agent_registry().register
 ## 2. 执行
 
 ```python
-from leagent.runtime import AgentRuntime
+from StAgent.runtime import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -132,7 +132,7 @@ event.is_terminal                  # type == "result"
 
 ### 单一 think-act 路径（`sdk.kernel.run_loop`）
 
-每条执行路径 —— **包括聊天 SSE 路由** —— 都经由同一内核循环 `leagent.sdk.kernel.loop.run_loop` 驱动。`AgentRuntime.stream` 与 `AgentController._run_via_query_engine` 均委托给它，而不是直接迭代 `QueryEngine.submit_message`。该循环：
+每条执行路径 —— **包括聊天 SSE 路由** —— 都经由同一内核循环 `StAgent.sdk.kernel.loop.run_loop` 驱动。`AgentRuntime.stream` 与 `AgentController._run_via_query_engine` 均委托给它，而不是直接迭代 `QueryEngine.submit_message`。该循环：
 
 - 将每条 `SDKMessage` 翻译为线缆形态一致的 `AgentEvent`（`{type, data}`），SSE/WebSocket 序列化器保持不变；
 - 将 `engine.mutable_messages` 快照写入 `RunState.messages`，使检查点携带真实 transcript；
@@ -154,7 +154,7 @@ flowchart LR
 
 ## 3. 子 Agent 委派
 
-`AgentRuntime.delegate(parent, agent, prompt, **overrides)` 是子 Agent 调用的统一入口。它解析子 `AgentDefinition` 的工具/模型/预算策略，再在 `parent`（`AgentController` 或 `QueryEngine`）之上驱动已验证的分叉核心（`leagent.agent.subagent._run_subagent_core`）。分叉机制 —— 子作用域 executor、abort 桥接、嵌套预览管线、文件状态合并 —— 均复用既有实现，因此委派是声明式的，无需重写久经考验的核心。
+`AgentRuntime.delegate(parent, agent, prompt, **overrides)` 是子 Agent 调用的统一入口。它解析子 `AgentDefinition` 的工具/模型/预算策略，再在 `parent`（`AgentController` 或 `QueryEngine`）之上驱动已验证的分叉核心（`StAgent.agent.subagent._run_subagent_core`）。分叉机制 —— 子作用域 executor、abort 桥接、嵌套预览管线、文件状态合并 —— 均复用既有实现，因此委派是声明式的，无需重写久经考验的核心。
 
 `CodingAgentTool`、`ScriptAgentTool` 与通用 `AgentTool` 均通过 `get_delegation_runtime().delegate()` 路由。`fork_subagent` 仍作为底层原语保留。
 
@@ -202,7 +202,7 @@ Agent 通过 `agent_node_factory.py` 成为一等工作流节点，镜像 `tool_
 
 ## 6. 可观测性
 
-`AgentRuntime` 通过 `leagent.telemetry.otel` 发出 OpenTelemetry span：
+`AgentRuntime` 通过 `StAgent.telemetry.otel` 发出 OpenTelemetry span：
 
 - `agent.runtime.stream` —— 属性：`agent.name`、`agent.variant`、`agent.runtime_profile`、`agent.session_id`。
 - `agent.runtime.delegate` —— 属性：`agent.name`、`agent.variant`、`agent.max_turns`、`agent.parent`。
@@ -219,7 +219,7 @@ Agent 通过 `agent_node_factory.py` 成为一等工作流节点，镜像 `tool_
 | 工作流 `Agent.<name>` 工厂（schema、注册、委派） | `backend/tests/workflow/test_agent_nodes.py` |
 | 内核 `run_loop` 线缆形态 / messages / hooks；`SQLCheckpointStore` 往返；恢复 | `backend/tests/test_kernel_checkpoint.py` |
 | 聊天 SSE 线缆契约回归（内核改道） | `backend/tests/test_chat_sse_wire_contract.py` |
-| 插件发现（`leagent.llm_providers` / `leagent.context_sources`） | `backend/tests/test_plugin_discovery.py` |
+| 插件发现（`StAgent.llm_providers` / `StAgent.context_sources`） | `backend/tests/test_plugin_discovery.py` |
 
 ```bash
 cd backend
@@ -232,7 +232,7 @@ uv run pytest tests/test_runtime_sdk.py tests/workflow/test_agent_nodes.py \
 ## 8. 扩展：新增领域 Agent
 
 ```python
-from leagent.runtime import AgentBuilder, get_agent_registry
+from StAgent.runtime import AgentBuilder, get_agent_registry
 
 triage = (
     AgentBuilder("triage_agent")

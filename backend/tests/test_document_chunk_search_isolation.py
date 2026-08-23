@@ -8,14 +8,14 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.api.v1.documents import search_documents
-from leagent.api.v1.files import search_files
-from leagent.config.settings import Settings
-from leagent.db.models.file import File, FileStatus, FileType, LibraryScope
-from leagent.db.models.identity_stub import UserStub
-from leagent.db.repositories.document_chunks import ChunkHit
-from leagent.db.service import DatabaseService
-from leagent.library.chunking import chunk_text
+from StAgent.api.v1.documents import search_documents
+from StAgent.api.v1.files import search_files
+from StAgent.config.settings import Settings
+from StAgent.db.models.file import File, FileStatus, FileType, LibraryScope
+from StAgent.db.models.identity_stub import UserStub
+from StAgent.db.repositories.document_chunks import ChunkHit
+from StAgent.db.service import DatabaseService
+from StAgent.library.chunking import chunk_text
 
 
 @pytest.fixture()
@@ -120,14 +120,30 @@ class _FakeChunkRepository:
         return self._hits
 
 
+class _FakeFileRepository:
+    def __init__(self, files: dict[UUID, File]) -> None:
+        self._files = files
+
+    async def get_many_for_user(
+        self, file_ids: list[UUID], user_id: UUID
+    ) -> list[File]:
+        return [
+            f
+            for fid in file_ids
+            if (f := self._files.get(fid)) is not None
+            and str(f.user_id) == str(user_id)
+        ]
+
+
 class _FakeRepositories:
-    def __init__(self, hits: list[ChunkHit]) -> None:
+    def __init__(self, files: dict[UUID, File], hits: list[ChunkHit]) -> None:
+        self.files = _FakeFileRepository(files)
         self.document_chunks = _FakeChunkRepository(hits)
 
 
 class _FakeDatabaseService:
     def __init__(self, files: dict[UUID, File], hits: list[ChunkHit]) -> None:
-        self.repositories = _FakeRepositories(hits)
+        self.repositories = _FakeRepositories(files, hits)
         self._files = files
 
     def session(self) -> _FakeSession:

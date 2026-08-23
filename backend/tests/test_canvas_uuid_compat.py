@@ -11,11 +11,11 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.api.v1.canvas import list_revisions
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
-from leagent.services.canvas.service import CanvasService, mint_preview_token
-from leagent.services.chat.service import ChatService
+from StAgent.api.v1.canvas import list_revisions
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
+from StAgent.services.canvas.service import CanvasService, mint_preview_token
+from StAgent.services.chat.service import ChatService
 
 
 @pytest_asyncio.fixture()
@@ -211,7 +211,7 @@ async def test_canvas_revisions_api_matches_dashed_sqlite_uuid_rows(
             title=title,
         )
     monkeypatch.setattr(
-        "leagent.main.get_service_manager",
+        "StAgent.main.get_service_manager",
         lambda: types.SimpleNamespace(db=canvas_uuid_db),
     )
 

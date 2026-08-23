@@ -1,4 +1,4 @@
-"""CLI force password reset (``leagent reset-password``)."""
+"""CLI force password reset (``StAgent reset-password``)."""
 
 from __future__ import annotations
 
@@ -8,18 +8,18 @@ from uuid import uuid4
 import pytest
 from click.testing import CliRunner
 
-from leagent.cli.auth_cmd import force_reset_password
-from leagent.cli.main import cli
-from leagent.services.auth.store import reset_security_store_for_tests
-from leagent.services.auth.users import UserRecord
+from StAgent.cli.auth_cmd import force_reset_password
+from StAgent.cli.main import cli
+from StAgent.services.auth.store import reset_security_store_for_tests
+from StAgent.services.auth.users import UserRecord
 
 
 @pytest.fixture()
 def auth_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    home = tmp_path / "leagent-home"
+    home = tmp_path / "StAgent-home"
     home.mkdir()
-    monkeypatch.setenv("LEAGENT_HOME", str(home))
-    monkeypatch.setenv("LEAGENT_SECRET_KEY", "unit-test-secret-key-32bytes-min")
+    monkeypatch.setenv("StAgent_HOME", str(home))
+    monkeypatch.setenv("StAgent_SECRET_KEY", "unit-test-secret-key-32bytes-min")
     store = reset_security_store_for_tests(home / "security.json")
     return store
 
@@ -65,7 +65,7 @@ def test_force_reset_named_user(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[object, str]] = []
 
     monkeypatch.setattr(
-        "leagent.services.auth.users.list_users",
+        "StAgent.services.auth.users.list_users",
         lambda: [
             UserRecord(
                 user_id=uid,
@@ -81,7 +81,7 @@ def test_force_reset_named_user(monkeypatch: pytest.MonkeyPatch) -> None:
     def _set_password(user_id, password: str) -> None:
         calls.append((user_id, password))
 
-    monkeypatch.setattr("leagent.services.auth.users.set_user_password", _set_password)
+    monkeypatch.setattr("StAgent.services.auth.users.set_user_password", _set_password)
 
     summary = force_reset_password(username="alice", password="brand-new")
     assert "alice" in summary.lower()
@@ -97,7 +97,7 @@ def test_force_reset_named_user(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_force_reset_unknown_user(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("leagent.services.auth.users.list_users", lambda: [])
+    monkeypatch.setattr("StAgent.services.auth.users.list_users", lambda: [])
     runner = CliRunner()
     result = runner.invoke(
         cli,

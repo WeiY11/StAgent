@@ -9,10 +9,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.services.auth.deps import get_current_user_id
-from leagent.services.chat.service import get_chat_service
-from leagent.db.models.message import ChatSession
-from leagent.db.service import get_database_service
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.services.chat.service import get_chat_service
+from StAgent.db.models.message import ChatSession
+from StAgent.db.service import get_database_service
 
 
 class _FakeSessionLock:
@@ -93,7 +93,7 @@ class TestPromptPreviewEndpoint:
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         app.dependency_overrides[get_database_service] = lambda: MagicMock()
         try:
-            with patch("leagent.main.get_service_manager", return_value=sm):
+            with patch("StAgent.main.get_service_manager", return_value=sm):
                 resp = await async_client.get(
                     f"/api/v1/chat/sessions/{sid}/prompt-preview",
                     params={"query": "hello"},
@@ -141,8 +141,8 @@ class TestPromptPreviewEndpoint:
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         app.dependency_overrides[get_database_service] = lambda: MagicMock()
         try:
-            with patch("leagent.main.get_service_manager", return_value=sm):
-                with patch("leagent.context.ContextManager", return_value=ctx_instance):
+            with patch("StAgent.main.get_service_manager", return_value=sm):
+                with patch("StAgent.context.ContextManager", return_value=ctx_instance):
                     resp = await async_client.get(
                         f"/api/v1/chat/sessions/{sid}/prompt-preview",
                         params={"query": "hello world"},

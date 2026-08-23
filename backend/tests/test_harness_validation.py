@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.harness.models import ValidationResult
-from leagent.harness.validation import ValidationClosure
+from StAgent.harness.models import ValidationResult
+from StAgent.harness.validation import ValidationClosure
 
 
 @pytest.mark.asyncio

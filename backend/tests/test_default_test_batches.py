@@ -62,9 +62,9 @@ def test_pytest_command_uses_current_interpreter() -> None:
 
 
 def test_coverage_pytest_args_append_without_batch_fail_under() -> None:
-    args = runner.coverage_pytest_args(["-q", "--durations=40"], package="leagent")
+    args = runner.coverage_pytest_args(["-q", "--durations=40"], package="StAgent")
 
-    assert args[:3] == ["--cov=leagent", "--cov-append", "--cov-report="]
+    assert args[:3] == ["--cov=StAgent", "--cov-append", "--cov-report="]
     assert args[-2:] == ["-q", "--durations=40"]
     assert not any(arg.startswith("--cov-fail-under") for arg in args)
 
@@ -77,7 +77,7 @@ def test_coverage_report_command_formats_integer_threshold() -> None:
 
 def test_wrapper_cov_rejects_pytest_cov_passthrough() -> None:
     try:
-        runner._validate_no_pytest_coverage_args(["-q", "--cov=leagent"])
+        runner._validate_no_pytest_coverage_args(["-q", "--cov=StAgent"])
     except SystemExit as exc:
         assert "wrapper --cov" in str(exc)
     else:

@@ -1,14 +1,14 @@
 # =============================================================================
-# LeAgent Edge PoC — supporting services for a fully-offline edge agent
+# StAgent Edge PoC — supporting services for a fully-offline edge agent
 # -----------------------------------------------------------------------------
-# Brings up the two services LeAgent needs to run autonomously with NO cloud
+# Brings up the two services StAgent needs to run autonomously with NO cloud
 # dependency:
 #   * postgres  — durable metadata / memory store (enables multi-worker scale-out)
 #   * ollama    — local CPU inference for the LLM (small model, fully offline)
 #
-# The LeAgent backend itself runs natively (uv run) for a fast PoC iteration
+# The StAgent backend itself runs natively (uv run) for a fast PoC iteration
 # loop; point it at these with:
-#   LEAGENT_DATABASE__DATABASE_URL=postgresql+asyncpg://leagent:leagent@localhost:5432/leagent
+#   StAgent_DATABASE__DATABASE_URL=postgresql+asyncpg://StAgent:StAgent@localhost:5432/StAgent
 #   LLM_OLLAMA_ENDPOINT=http://localhost:11434
 #   LLM_OLLAMA_MODEL=qwen2.5:3b
 #
@@ -17,30 +17,30 @@
 # build defaults vector search off, so the agent is offline-complete without it.
 # =============================================================================
 
-name: leagent-edge-poc
+name: StAgent-edge-poc
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: leagent-edge-postgres
+    container_name: StAgent-edge-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: leagent
-      POSTGRES_PASSWORD: leagent
-      POSTGRES_DB: leagent
+      POSTGRES_USER: StAgent
+      POSTGRES_PASSWORD: StAgent
+      POSTGRES_DB: StAgent
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - edge-pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U leagent -d leagent"]
+      test: ["CMD-SHELL", "pg_isready -U StAgent -d StAgent"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   ollama:
     image: ollama/ollama:latest
-    container_name: leagent-edge-ollama
+    container_name: StAgent-edge-ollama
     restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"

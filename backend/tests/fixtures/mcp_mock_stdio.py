@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Minimal stdio MCP server for integration tests.
 
-Run: ``python -m tests.fixtures.mcp_mock_stdio`` (from ``leagent/backend``).
+Run: ``python -m tests.fixtures.mcp_mock_stdio`` (from ``StAgent/backend``).
 
-Speaks newline-delimited JSON-RPC compatible with :class:`leagent.mcp.client.MCPClient`.
+Speaks newline-delimited JSON-RPC compatible with :class:`StAgent.mcp.client.MCPClient`.
 """
 
 from __future__ import annotations

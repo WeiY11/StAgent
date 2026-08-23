@@ -7,13 +7,13 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.library.chunking import Chunk
+from StAgent.library.chunking import Chunk
 
 
 @pytest.mark.asyncio
 async def test_sqlite_vec_index_persists_versioned_acl_filtered_vectors(tmp_path) -> None:
     """Only vectors belonging to the caller's allowed files are searchable."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     first_file = uuid4()
     second_file = uuid4()
@@ -43,7 +43,7 @@ async def test_sqlite_vec_index_persists_versioned_acl_filtered_vectors(tmp_path
 @pytest.mark.asyncio
 async def test_sqlite_vec_index_keeps_candidate_versions_isolated_and_discardable(tmp_path) -> None:
     """Candidate versions neither leak into the active table nor survive discard."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     file_id = uuid4()
     active_chunk = uuid4()
@@ -67,7 +67,7 @@ async def test_sqlite_vec_index_keeps_candidate_versions_isolated_and_discardabl
 @pytest.mark.asyncio
 async def test_sqlite_vec_index_dual_writes_chunks_and_persists_candidate_state(tmp_path) -> None:
     """A candidate receives explicit-version writes without changing the active table."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     class _Embeddings:
         async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -98,7 +98,7 @@ async def test_sqlite_vec_index_dual_writes_chunks_and_persists_candidate_state(
 @pytest.mark.asyncio
 async def test_sqlite_vec_search_batches_more_than_sqlite_parameter_limit_without_read_ddl(tmp_path) -> None:
     """ACL metadata batching works and a read path never attempts table creation."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     file_id = uuid4()
     chunk_id = uuid4()
@@ -112,7 +112,7 @@ async def test_sqlite_vec_search_batches_more_than_sqlite_parameter_limit_withou
 @pytest.mark.asyncio
 async def test_sqlite_vec_restart_keeps_only_persisted_active_state(tmp_path) -> None:
     """A default constructor must not revive a retired constructor version."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     index = SqliteVecKnowledgeIndex(tmp_path, dimension=2, index_version="rag-v1")
     assert await index.begin_version("candidate") is True
@@ -126,7 +126,7 @@ async def test_sqlite_vec_restart_keeps_only_persisted_active_state(tmp_path) ->
 @pytest.mark.asyncio
 async def test_sqlite_vec_canonicalizes_versions_and_requires_persisted_candidate(tmp_path) -> None:
     """Whitespace aliases cannot mutate or discard the active projection."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     index = SqliteVecKnowledgeIndex(tmp_path, dimension=2, index_version="rag-v1")
     assert await index.begin_version(" rag-v1 ") is False
@@ -141,8 +141,8 @@ async def test_sqlite_vec_canonicalizes_versions_and_requires_persisted_candidat
 @pytest.mark.asyncio
 async def test_milvus_index_keeps_candidate_collection_separate_from_active(monkeypatch) -> None:
     """Candidate rebuild writes do not land in the active Milvus collection."""
-    import leagent.memory.vector
-    from leagent.knowledge.vector_index import KnowledgeVectorIndex, _collection_name_for_version
+    import StAgent.memory.vector
+    from StAgent.knowledge.vector_index import KnowledgeVectorIndex, _collection_name_for_version
 
     created: dict[str, object] = {}
     dropped: list[str] = []
@@ -163,7 +163,7 @@ async def test_milvus_index_keeps_candidate_collection_separate_from_active(monk
         async def delete_scope(self, _scope: str) -> int:
             return 0
 
-    monkeypatch.setattr(leagent.memory.vector, "MilvusCollection", _Collection)
+    monkeypatch.setattr(StAgent.memory.vector, "MilvusCollection", _Collection)
     embeddings = type("Embeddings", (), {"dimension": 2, "embed": lambda _self, _texts: _vectors()})()
 
     async def _vectors() -> list[list[float]]:
@@ -184,7 +184,7 @@ async def test_milvus_index_keeps_candidate_collection_separate_from_active(monk
 @pytest.mark.asyncio
 async def test_sqlite_vec_index_delete_supports_long_file_metadata_and_corruption_degrades(tmp_path) -> None:
     """Deletion is file-scoped and an unreadable sidecar falls back to no hits."""
-    from leagent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
+    from StAgent.knowledge.sqlite_vec_index import SqliteVecKnowledgeIndex
 
     file_id = uuid4()
     chunk_id = uuid4()

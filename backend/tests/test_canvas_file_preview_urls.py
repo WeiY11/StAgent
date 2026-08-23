@@ -6,13 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.config.settings import get_settings
-from leagent.services.auth.signed_url import (
+from StAgent.config.settings import get_settings
+from StAgent.services.auth.signed_url import (
     sign_managed_file_urls_in_html,
     verify_signed_token,
 )
-from leagent.services.canvas.service import build_preview_html, playwright_document_base
-from leagent.db.models.canvas import CanvasContentType, CanvasDocument
+from StAgent.services.canvas.service import build_preview_html, playwright_document_base
+from StAgent.db.models.canvas import CanvasContentType, CanvasDocument
 
 
 @pytest.fixture()

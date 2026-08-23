@@ -10,8 +10,8 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.model import DeckSpec
-from leagent.docgen.slides import (
+from StAgent.docgen.model import DeckSpec
+from StAgent.docgen.slides import (
     EMU_PER_IN,
     BulletPara,
     DeckTypography,
@@ -22,7 +22,7 @@ from leagent.docgen.slides import (
     is_dark_color,
     segment_body,
 )
-from leagent.docgen.themes import get_theme
+from StAgent.docgen.themes import get_theme
 
 _A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
@@ -213,7 +213,7 @@ def _all_text(prs) -> str:
 def test_render_pptx_consulting_anatomy(tmp_path: Path) -> None:
     """kicker / takeaway / columns / numbered bullets survive the render."""
     pptx = pytest.importorskip("pptx")
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -271,7 +271,7 @@ def test_render_pptx_code_surface_and_inline_highlight(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -309,7 +309,7 @@ def test_render_pptx_code_surface_and_inline_highlight(tmp_path: Path) -> None:
 def test_render_pptx_backgrounds(tmp_path: Path) -> None:
     """Solid / gradient / image backgrounds apply, and palettes adapt."""
     pptx = pytest.importorskip("pptx")
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -372,7 +372,7 @@ def test_render_pptx_image_text_split(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -420,7 +420,7 @@ def test_render_pptx_image_text_split(tmp_path: Path) -> None:
 def test_render_pptx_autofit_never_overflows_region(tmp_path: Path) -> None:
     """Dense body text shrinks instead of spilling past the footer."""
     pptx = pytest.importorskip("pptx")
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     dense_body = "\n".join(
         f"- 第{i}条要点:这是一条比较长的说明文字,覆盖自动缩放逻辑的验证场景" for i in range(1, 15)
@@ -461,7 +461,7 @@ def test_render_pptx_background_image_with_overlay_only(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {
@@ -469,7 +469,7 @@ def test_render_pptx_background_image_with_overlay_only(tmp_path: Path) -> None:
             "slides": [
                 {
                     "layout": "title",
-                    "title": "LeAgent",
+                    "title": "StAgent",
                     "subtitle": "AI 助手",
                     "image": {"base64_data": _PX, "position": "background"},
                     "background": {"overlay": 0.35},
@@ -500,7 +500,7 @@ def test_render_pptx_two_column_with_side_image(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     spec = DeckSpec.model_validate(
         {

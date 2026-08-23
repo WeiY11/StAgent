@@ -1,5 +1,5 @@
 """End-to-end harness verification."""
-from leagent.harness import (
+from StAgent.harness import (
     TaskEpisode, EpisodeStatus, EpisodeOutcome, FindingSeverity,
     FindingsTracker, OutcomeEvaluator, SessionScorer, RepairPlanner,
     ValidationClosure, AcceptanceCriteria, HarnessHook, DurableReport,
@@ -52,7 +52,7 @@ path = report_gen.persist(ep)
 print(f"[6] Report saved: {path.name}")
 
 # 8. Validation closure
-from leagent.harness.validation import check_no_destructive_ops
+from StAgent.harness.validation import check_no_destructive_ops
 
 async def test_val():
     closure = ValidationClosure()

@@ -7,9 +7,9 @@ import {
 } from '@/lib/utils/persistNamespace';
 import type { ChatProject } from '@/types/chat';
 
-const CHAT_PROJECTS_STORE_BASE = 'leagent-chat-projects';
+const CHAT_PROJECTS_STORE_BASE = 'StAgent-chat-projects';
 registerNamespacedStore(CHAT_PROJECTS_STORE_BASE);
-const TOKEN_STORAGE_KEY = 'leagent-chat-project-unlocks';
+const TOKEN_STORAGE_KEY = 'StAgent-chat-project-unlocks';
 
 interface ChatProjectResponse {
   id: string;

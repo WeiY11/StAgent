@@ -1,7 +1,7 @@
-# LeAgent Agent SDK — Technical Reference
+# StAgent Agent SDK — Technical Reference
 
 > **Version:** 0.1.0  
-> **Package:** `leagent.sdk`
+> **Package:** `StAgent.sdk`
 
 中文版: [`agent_sdk_zh.md`](./agent_sdk_zh.md)
 
@@ -14,7 +14,7 @@ of hand-assembling `QueryEngine` + `ContextManager` + `AgentMemory` +
 `ServiceManager` with a unified, protocol-driven API.
 
 ```python
-from leagent.sdk import AgentRuntime, AgentBuilder
+from StAgent.sdk import AgentRuntime, AgentBuilder
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 result = await runtime.run("default_agent", "Summarise this PDF")
@@ -34,14 +34,14 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 
 | Symbol | Kind | Maps to |
 |--------|------|---------|
-| `LLMClient` | Protocol | `leagent.llm.service.LLMService` |
-| `Provider` | Protocol | `leagent.llm.base.LLMProvider` |
-| `ContextAssembler` | Protocol | `leagent.context.manager.ContextManager` |
-| `MemoryStore` | Protocol | `leagent.memory.agent_memory.AgentMemory` |
-| `RecallProvider` | Protocol | `leagent.memory.agent_memory.RecallHandle` |
-| `EpisodicStoreProtocol` | Protocol | `leagent.memory.episodic.EpisodicStore` |
-| `SemanticStoreProtocol` | Protocol | `leagent.memory.semantic.SemanticStore` |
-| `ProceduralStoreProtocol` | Protocol | `leagent.memory.procedural.ProceduralStore` |
+| `LLMClient` | Protocol | `StAgent.llm.service.LLMService` |
+| `Provider` | Protocol | `StAgent.llm.base.LLMProvider` |
+| `ContextAssembler` | Protocol | `StAgent.context.manager.ContextManager` |
+| `MemoryStore` | Protocol | `StAgent.memory.agent_memory.AgentMemory` |
+| `RecallProvider` | Protocol | `StAgent.memory.agent_memory.RecallHandle` |
+| `EpisodicStoreProtocol` | Protocol | `StAgent.memory.episodic.EpisodicStore` |
+| `SemanticStoreProtocol` | Protocol | `StAgent.memory.semantic.SemanticStore` |
+| `ProceduralStoreProtocol` | Protocol | `StAgent.memory.procedural.ProceduralStore` |
 | `CheckpointStore` | Protocol | Durable run persistence (`InMemoryCheckpointStore` / `SQLCheckpointStore`) |
 | `RunContext` | dataclass | Replaces `ToolUseContext` + `AgentContext` duck-typing |
 | `ToolContext` | dataclass | Narrow subset of `RunContext` exposed to tool impls |
@@ -89,7 +89,7 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  leagent.sdk  (public surface, semver-versioned)│
+│  StAgent.sdk  (public surface, semver-versioned)│
 ├─────────────────────────────────────────────────┤
 │  Kernel   (run loop, RunState, checkpoint)      │
 ├────────┬────────┬────────┬──────────────────────┤
@@ -99,13 +99,13 @@ result = await runtime.run("default_agent", "Summarise this PDF")
 ```
 
 Each pillar is accessed through a **Protocol** defined in
-`leagent.sdk.protocols`. Concrete implementations live in their own
+`StAgent.sdk.protocols`. Concrete implementations live in their own
 packages and are wired via `RuntimeContext`.
 
 ## Versioning
 
 The SDK follows **semantic versioning**. The version is stored in
-`leagent/sdk/_version.py` and exported as `leagent.sdk.__version__`.
+`StAgent/sdk/_version.py` and exported as `StAgent.sdk.__version__`.
 
 - **MAJOR** — breaking changes to the public surface.
 - **MINOR** — additive changes (new protocols, new event types).
@@ -113,31 +113,31 @@ The SDK follows **semantic versioning**. The version is stored in
 
 ## Migration Guide
 
-### From `leagent.runtime`
+### From `StAgent.runtime`
 
-The `leagent.runtime` package continues to work as a re-export layer.
-New code should import from `leagent.sdk` directly:
+The `StAgent.runtime` package continues to work as a re-export layer.
+New code should import from `StAgent.sdk` directly:
 
 ```python
 # Before
-from leagent.runtime import AgentRuntime, AgentEvent
+from StAgent.runtime import AgentRuntime, AgentEvent
 
 # After
-from leagent.sdk import AgentRuntime, AgentEvent
+from StAgent.sdk import AgentRuntime, AgentEvent
 ```
 
 ### From hand-assembled engines
 
 ```python
 # Before (manual wiring)
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
 config = QueryEngineConfig(llm=llm, tools=tools, executor=executor, ...)
 engine = QueryEngine(config)
 async for msg in engine.submit_message(prompt):
     ...
 
 # After (SDK)
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 runtime = AgentRuntime.from_service_manager(sm)
 result = await runtime.run("default_agent", prompt)
 ```

@@ -8,12 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.api.schemas.chat import ChatCompletionMessage, ChatCompletionRequest
-from leagent.db.models.message import MessageRole
+from StAgent.api.schemas.chat import ChatCompletionMessage, ChatCompletionRequest
+from StAgent.db.models.message import MessageRole
 
 
 def test_build_agent_controller_accepts_completion_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.api.v1.chat_deps import build_agent_controller
+    from StAgent.api.v1.chat_deps import build_agent_controller
 
     fake_ctx = SimpleNamespace(
         llm=object(),
@@ -27,7 +27,7 @@ def test_build_agent_controller_accepts_completion_config(monkeypatch: pytest.Mo
     )
     fake_sm = SimpleNamespace(llm_service=object(), runtime_context=fake_ctx)
     monkeypatch.setattr(
-        "leagent.services.runtime.get_service_manager",
+        "StAgent.services.runtime.get_service_manager",
         lambda: fake_sm,
     )
 
@@ -49,7 +49,7 @@ def test_build_agent_controller_accepts_completion_config(monkeypatch: pytest.Mo
 async def test_openai_sse_forwards_completion_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.api.v1.chat import openai_compat
+    from StAgent.api.v1.chat import openai_compat
 
     captured: dict[str, object] = {}
 
@@ -91,7 +91,7 @@ async def test_openai_sse_releases_knowledge_lease_when_client_closes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Closing the SSE iterator must exit its S3 knowledge materialization lease."""
-    from leagent.api.v1.chat import openai_compat
+    from StAgent.api.v1.chat import openai_compat
 
     lease_state = {"entered": False, "exited": False}
     seen_attachments: list[str] | None = None
@@ -123,7 +123,7 @@ async def test_openai_sse_releases_knowledge_lease_when_client_closes(
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
-        "leagent.services.chat.pet_personality.apply_pet_personality_to_agent",
+        "StAgent.services.chat.pet_personality.apply_pet_personality_to_agent",
         AsyncMock(),
     )
 

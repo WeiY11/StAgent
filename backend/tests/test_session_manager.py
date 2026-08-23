@@ -28,17 +28,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401 - ensure metadata is loaded
-from leagent.config.settings import get_settings
-from leagent.services.cache.service import CacheService
-from leagent.services.session.manager import SessionManager
-from leagent.services.session.state import (
+import StAgent.db.models  # noqa: F401 - ensure metadata is loaded
+from StAgent.config.settings import get_settings
+from StAgent.services.cache.service import CacheService
+from StAgent.services.session.manager import SessionManager
+from StAgent.services.session.state import (
     ATTACHMENT_KIND_DOCUMENT,
     SessionAttachment,
     SessionMessage,
     SessionState,
 )
-from leagent.services.session.store import TieredSessionStore
+from StAgent.services.session.store import TieredSessionStore
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -363,7 +363,7 @@ class TestControllerConversationRoundTrip:
 
     async def test_save_load_plain_messages(self, manager: SessionManager) -> None:
         """User + assistant messages survive a save/load round-trip."""
-        from leagent.agent.base import ConversationContext
+        from StAgent.agent.base import ConversationContext
 
         sid = uuid4()
         await manager.get_or_create(sid)
@@ -407,7 +407,7 @@ class TestControllerConversationRoundTrip:
 
     async def test_save_load_with_tool_calls(self, manager: SessionManager) -> None:
         """Assistant tool_calls and tool results survive the round-trip."""
-        from leagent.agent.base import ConversationContext
+        from StAgent.agent.base import ConversationContext
 
         sid = uuid4()
         await manager.get_or_create(sid)

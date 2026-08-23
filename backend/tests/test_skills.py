@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from leagent.skills.base import (
+from StAgent.skills.base import (
     Skill,
     SkillManifest,
     SkillSource,
@@ -103,14 +103,14 @@ class TestSkillModels:
             name="sample",
             description="desc",
             license="MIT",
-            compatibility="LeAgent >=1.0",
+            compatibility="StAgent >=1.0",
             allowed_tools=["Bash(git:*)", "Read"],
             metadata={"version": "2.0.0", "tags": ["x"]},
         )
         data = manifest.to_dict()
         assert data["name"] == "sample"
         assert data["license"] == "MIT"
-        assert data["compatibility"] == "LeAgent >=1.0"
+        assert data["compatibility"] == "StAgent >=1.0"
         assert data["allowed_tools"] == ["Bash(git:*)", "Read"]
         assert data["version"] == "2.0.0"
         assert data["tags"] == ["x"]
@@ -124,7 +124,7 @@ class TestSkillModels:
         assert manifest.tags == ["a", "b", "c"]
 
     def test_skill_resource_and_script_lookup(self) -> None:
-        from leagent.skills.base import (
+        from StAgent.skills.base import (
             SkillResource,
             SkillResourceKind,
             SkillScript,
@@ -150,7 +150,7 @@ class TestSkillModels:
         assert skill.get_script("scripts/missing.py") is None
 
     def test_hub_entry_from_dict_and_to_dict(self) -> None:
-        from leagent.skills.base import SkillHubEntry
+        from StAgent.skills.base import SkillHubEntry
 
         entry = SkillHubEntry.from_dict(
             {
@@ -179,7 +179,7 @@ class TestSkillModels:
 @pytest.mark.asyncio
 class TestSkillLoader:
     async def test_loads_valid_skill(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(tmp_path, "my-skill")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -188,7 +188,7 @@ class TestSkillLoader:
         assert skills["my-skill"].manifest.description.startswith("Describe")
 
     async def test_rejects_dir_mismatch(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "inner-name")
         (tmp_path / "inner-name").rename(tmp_path / "outer-name")
@@ -198,7 +198,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "outer-name")
 
     async def test_rejects_reserved_name(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "claude")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -206,7 +206,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "claude")
 
     async def test_rejects_bad_name_format(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "Bad_Name")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -214,7 +214,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "Bad_Name")
 
     async def test_rejects_description_too_long(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "big-desc", description="x" * 1100)
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -222,7 +222,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "big-desc")
 
     async def test_rejects_xml_in_description(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "xml-desc", description="Do <evil>stuff</evil>.")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -230,7 +230,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "xml-desc")
 
     async def test_discovers_resources_and_scripts(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         skill_dir = _write_skill(tmp_path, "rich-skill")
         (skill_dir / "references").mkdir()
@@ -253,7 +253,7 @@ class TestSkillLoader:
 
     async def test_discovers_root_level_reference_files(self, tmp_path: Path) -> None:
         """Community skills often ship docs next to SKILL.md (not under references/)."""
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         skill_dir = _write_skill(tmp_path, "pptx")
         (skill_dir / "pptxgenjs.md").write_text("# PptxGenJS notes", encoding="utf-8")
@@ -267,7 +267,7 @@ class TestSkillLoader:
         assert skill.get_resource("pptxgenjs.md") is not None
 
     async def test_filters_disallowed_extensions(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         skill_dir = _write_skill(tmp_path, "strict-ext")
         (skill_dir / "references").mkdir()
@@ -283,7 +283,7 @@ class TestSkillLoader:
         assert skill.manifest.scripts == []
 
     async def test_lazy_body_read(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(tmp_path, "lazy-skill")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -301,7 +301,7 @@ class TestSkillLoader:
         import os
         import time
 
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         skill_dir = _write_skill(tmp_path, "mutable")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -328,7 +328,7 @@ class TestSkillLoader:
 
     async def test_allowed_tools_normalisation_list(self, tmp_path: Path) -> None:
         """``allowed-tools`` given as a YAML list is normalised to a Python list."""
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(
             tmp_path,
@@ -343,7 +343,7 @@ class TestSkillLoader:
 
     async def test_allowed_tools_normalisation_string(self, tmp_path: Path) -> None:
         """Spec form: space-delimited string → list of tokens."""
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(
             tmp_path,
@@ -357,7 +357,7 @@ class TestSkillLoader:
         assert skill.manifest.allowed_tools == ["Bash(git:*)", "Read", "Write"]
 
     async def test_compatibility_too_long_rejected(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader, SkillValidationError
+        from StAgent.skills.loader import SkillLoader, SkillValidationError
 
         _write_skill(tmp_path, "compat", compatibility="x" * 600)
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -365,7 +365,7 @@ class TestSkillLoader:
             await loader.load_skill(tmp_path / "compat")
 
     async def test_missing_skill_md_rejected(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoadError, SkillLoader
+        from StAgent.skills.loader import SkillLoadError, SkillLoader
 
         skill_dir = tmp_path / "empty-dir"
         skill_dir.mkdir()
@@ -375,7 +375,7 @@ class TestSkillLoader:
             await loader.load_skill(skill_dir)
 
     async def test_load_all_ignores_dotdirs(self, tmp_path: Path) -> None:
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(tmp_path, "visible")
         _write_skill(tmp_path, "_hidden")
@@ -402,7 +402,7 @@ class TestSkillLoaderHotReload:
         import os
         import time
 
-        from leagent.skills.loader import SkillLoader
+        from StAgent.skills.loader import SkillLoader
 
         _write_skill(tmp_path, "first")
         loader = SkillLoader(tmp_path, source=SkillSource.LOCAL)
@@ -441,7 +441,7 @@ class TestSkillLoaderHotReload:
 @pytest.mark.asyncio
 class TestSkillsManager:
     async def test_loads_and_activates(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(tmp_path, "activateable")
         manager = SkillsManager(
@@ -460,7 +460,7 @@ class TestSkillsManager:
         assert not manager.get_skill("activateable").is_active
 
     async def test_any_skill_has_resources_helpers(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         skill_dir = _write_skill(tmp_path, "progressive")
         (skill_dir / "references").mkdir()
@@ -477,7 +477,7 @@ class TestSkillsManager:
         assert not manager.any_skill_has_scripts()
 
     async def test_search(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(tmp_path, "alpha", description="Describe alpha analyzer.")
         _write_skill(tmp_path, "beta", description="Describe beta converter.")
@@ -494,7 +494,7 @@ class TestSkillsManager:
         assert "beta" not in names
 
     async def test_list_by_category_and_tag(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(
             tmp_path,
@@ -517,7 +517,7 @@ class TestSkillsManager:
         assert [s.name for s in manager.list_by_tag("template")] == ["cat-b"]
 
     async def test_activate_unknown_raises(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager, SkillNotFoundError
+        from StAgent.skills.manager import SkillsManager, SkillNotFoundError
 
         manager = SkillsManager(
             skills_dir=tmp_path,
@@ -529,7 +529,7 @@ class TestSkillsManager:
             await manager.activate("ghost")
 
     async def test_activate_merges_config(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(tmp_path, "cfg")
         manager = SkillsManager(
@@ -546,7 +546,7 @@ class TestSkillsManager:
         assert skill.config == {"threshold": 5, "mode": "fast"}
 
     async def test_advertisement_snapshot(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(tmp_path, "visible")
         manager = SkillsManager(
@@ -564,7 +564,7 @@ class TestSkillsManager:
 
     async def test_precedence_explicit_over_builtin(self, tmp_path: Path) -> None:
         """When a user skills_dir shadows a builtin skill name, the user wins."""
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         # Use the real builtin name to force a precedence clash.
         _write_skill(tmp_path, "data-analyzer", description="User override.")
@@ -591,10 +591,10 @@ class TestSkillsManager:
 @pytest.mark.asyncio
 class TestProgressiveDisclosure:
     async def test_load_skill_returns_body(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         _write_skill(tmp_path, "probe")
         mgr = SkillsManager(
@@ -613,12 +613,12 @@ class TestProgressiveDisclosure:
     async def test_read_skill_resource_second_call_hits_cache(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from leagent.skills import manager as manager_mod
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills.resource_cache import clear_skill_resource_read_cache
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills import resource as resource_mod
-        from leagent.tools.skills.resource import SkillResourceTool
+        from StAgent.skills import manager as manager_mod
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills.resource_cache import clear_skill_resource_read_cache
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills import resource as resource_mod
+        from StAgent.tools.skills.resource import SkillResourceTool
 
         clear_skill_resource_read_cache()
 
@@ -656,12 +656,12 @@ class TestProgressiveDisclosure:
     async def test_load_skill_bundle_second_call_hits_cache(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from leagent.skills import bundle_payload as bp
-        from leagent.skills.bundle_payload_cache import clear_bundle_payload_cache
-        from leagent.skills import manager as manager_mod
-        from leagent.skills.manager import SkillsManager
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills import bundle_payload as bp
+        from StAgent.skills.bundle_payload_cache import clear_bundle_payload_cache
+        from StAgent.skills import manager as manager_mod
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         clear_bundle_payload_cache()
 
@@ -695,7 +695,7 @@ class TestProgressiveDisclosure:
         assert len(builds) == 1
 
     async def test_skills_manager_content_revision_tracks_loader(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
+        from StAgent.skills.manager import SkillsManager
 
         _write_skill(tmp_path, "rev-skill")
         mgr = SkillsManager(
@@ -710,10 +710,10 @@ class TestProgressiveDisclosure:
         assert len(rev) >= 8
 
     async def test_load_skill_bundles_inline_content(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(tmp_path, "packed")
         (skill_dir / "references").mkdir()
@@ -744,15 +744,15 @@ class TestProgressiveDisclosure:
         )
 
     async def test_load_skill_bundle_on_load_metadata(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(
             tmp_path,
             "meta-bundle",
-            metadata={"leagent": {"bundle_on_load": True}},
+            metadata={"StAgent": {"bundle_on_load": True}},
         )
         (skill_dir / "references").mkdir()
         (skill_dir / "references" / "guide.md").write_text("FROM_METADATA_BUNDLE", encoding="utf-8")
@@ -772,15 +772,15 @@ class TestProgressiveDisclosure:
         assert any("FROM_METADATA_BUNDLE" in r.get("content", "") for r in result["bundled_resources"])
 
     async def test_load_skill_explicit_opt_out_overrides_metadata(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(
             tmp_path,
             "opt-out",
-            metadata={"leagent": {"bundle_on_load": True}},
+            metadata={"StAgent": {"bundle_on_load": True}},
         )
         (skill_dir / "references").mkdir()
         (skill_dir / "references" / "secret.md").write_text("SHOULD_NOT_APPEAR", encoding="utf-8")
@@ -803,10 +803,10 @@ class TestProgressiveDisclosure:
         assert "bundled_resources" not in result
 
     async def test_load_skill_bundle_respects_budget(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(tmp_path, "huge-body")
         huge = "x" * 190_000
@@ -859,10 +859,10 @@ class TestProgressiveDisclosure:
         assert any("reserve space for" in n.lower() or "truncat" in n.lower() for n in result["truncation_notes"])
 
     async def test_load_skill_bundles_root_txt_refs_and_script(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(tmp_path, "full-pack")
         (skill_dir / "references").mkdir()
@@ -897,10 +897,10 @@ class TestProgressiveDisclosure:
 
     async def test_load_skill_bundle_binary_placeholder_not_inline_base64(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Non-UTF-8 bytes under a discovered extension become placeholders — no base64 in load_skill."""
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(tmp_path, "bin-pack")
         (skill_dir / "references").mkdir()
@@ -928,10 +928,10 @@ class TestProgressiveDisclosure:
         assert "content_base64" not in rows[0]
 
     async def test_load_skill_bundle_truncates_large_resource(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.loader import SkillTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.loader import SkillTool
 
         skill_dir = _write_skill(tmp_path, "big-ref")
         (skill_dir / "references").mkdir()
@@ -957,10 +957,10 @@ class TestProgressiveDisclosure:
         assert len(entry["content"]) <= 50_000
 
     async def test_read_resource_returns_name(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.resource import SkillResourceTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.resource import SkillResourceTool
 
         skill_dir = _write_skill(tmp_path, "guarded")
         (skill_dir / "references").mkdir()
@@ -982,10 +982,10 @@ class TestProgressiveDisclosure:
         assert ok["name"] == "guarded"
 
     async def test_read_resource_rejects_escape(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.resource import SkillResourceTool
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.resource import SkillResourceTool
 
         skill_dir = _write_skill(tmp_path, "guarded")
         (skill_dir / "references").mkdir()
@@ -1012,11 +1012,11 @@ class TestProgressiveDisclosure:
         assert bad["found"] is False
 
     async def test_run_script_requires_env_flag(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.config.settings import get_settings
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills import manager as manager_mod
-        from leagent.tools.base import ToolContext
-        from leagent.tools.skills.script import ENV_FLAG, SkillScriptTool
+        from StAgent.config.settings import get_settings
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills import manager as manager_mod
+        from StAgent.tools.base import ToolContext
+        from StAgent.tools.skills.script import ENV_FLAG, SkillScriptTool
 
         skill_dir = _write_skill(tmp_path, "scripter")
         (skill_dir / "scripts").mkdir()
@@ -1061,8 +1061,8 @@ class TestProgressiveDisclosure:
 @pytest.mark.asyncio
 class TestSkillPythonDeps:
     async def test_ensure_skips_without_declarations(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills.python_deps import ensure_skill_python_deps
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills.python_deps import ensure_skill_python_deps
 
         _write_skill(tmp_path, "nodeps")
         mgr = SkillsManager(
@@ -1085,13 +1085,13 @@ class TestSkillPythonDeps:
         import asyncio
         import shutil
 
-        from leagent.config.settings import get_settings
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills.python_deps import clear_skill_python_deps_cache, ensure_skill_python_deps
+        from StAgent.config.settings import get_settings
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills.python_deps import clear_skill_python_deps_cache, ensure_skill_python_deps
 
         clear_skill_python_deps_cache()
         get_settings.cache_clear()
-        monkeypatch.setenv("LEAGENT_SKILL_PYTHON_DEPS_AUTO_INSTALL", "1")
+        monkeypatch.setenv("StAgent_SKILL_PYTHON_DEPS_AUTO_INSTALL", "1")
         get_settings.cache_clear()
 
         skill_dir = _write_skill(tmp_path, "with-req")
@@ -1142,15 +1142,15 @@ class TestSkillPythonDeps:
 
 class TestReferencedSkillBundle:
     def test_iter_skill_ids_from_message(self) -> None:
-        from leagent.skills.referenced_bundle import iter_skill_ids_from_message
+        from StAgent.skills.referenced_bundle import iter_skill_ids_from_message
 
         text = "x @skill:显示名#pdf-skill y @skill:Other#data-analyzer z"
         assert iter_skill_ids_from_message(text) == ["pdf-skill", "data-analyzer"]
 
     @pytest.mark.asyncio
     async def test_build_append_extra_inlines_bundle(self, tmp_path: Path) -> None:
-        from leagent.skills.manager import SkillsManager
-        from leagent.skills.referenced_bundle import build_referenced_skills_append_extra
+        from StAgent.skills.manager import SkillsManager
+        from StAgent.skills.referenced_bundle import build_referenced_skills_append_extra
 
         skill_dir = _write_skill(tmp_path, "pack-skill")
         (skill_dir / "references").mkdir()
@@ -1181,12 +1181,12 @@ class TestReferencedSkillBundle:
 
 class TestDiscovery:
     def test_collects_project_and_user_roots(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.discovery import collect_discovery_roots
+        from StAgent.skills.discovery import collect_discovery_roots
 
         home = tmp_path / "home"
         project = tmp_path / "project"
 
-        (project / ".leagent" / "skills").mkdir(parents=True)
+        (project / ".StAgent" / "skills").mkdir(parents=True)
         (project / ".openclaw" / "skills").mkdir(parents=True)
         (project / ".claude" / "skills").mkdir(parents=True)
         (home / ".openclaw").mkdir(parents=True)
@@ -1194,26 +1194,26 @@ class TestDiscovery:
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
 
         roots = collect_discovery_roots(
-            leagent_home=home / ".leagent",
+            StAgent_home=home / ".StAgent",
             project_dir=project,
             builtin_dir=None,
         )
         scopes = [(r.scope, r.origin) for r in roots]
-        assert ("project", "leagent") in scopes
+        assert ("project", "StAgent") in scopes
         assert ("project", "openclaw") in scopes
         assert ("user", "openclaw") in scopes
         assert ("project", "claude") in scopes
         assert ("user", "claude") in scopes
 
     def test_precedence_sort(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.skills.discovery import collect_discovery_roots
+        from StAgent.skills.discovery import collect_discovery_roots
 
         project = tmp_path / "p"
-        (project / ".leagent" / "skills").mkdir(parents=True)
+        (project / ".StAgent" / "skills").mkdir(parents=True)
         (project / ".cursor" / "skills").mkdir(parents=True)
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
 
-        roots = collect_discovery_roots(leagent_home=None, project_dir=project, builtin_dir=None)
+        roots = collect_discovery_roots(StAgent_home=None, project_dir=project, builtin_dir=None)
         priorities = [r.priority for r in roots]
         assert priorities == sorted(priorities)
 
@@ -1226,14 +1226,14 @@ class TestDiscovery:
 @pytest.mark.asyncio
 class TestRegistry:
     async def test_disabled_registry_rejects_install(self, tmp_path: Path) -> None:
-        from leagent.skills.registry import DisabledRegistry, RegistryNotConfiguredError
+        from StAgent.skills.registry import DisabledRegistry, RegistryNotConfiguredError
 
         reg = DisabledRegistry()
         with pytest.raises(RegistryNotConfiguredError):
             await reg.install("anything", tmp_path)
 
     async def test_disabled_registry_local_uninstall(self, tmp_path: Path) -> None:
-        from leagent.skills.registry import DisabledRegistry
+        from StAgent.skills.registry import DisabledRegistry
 
         (tmp_path / "victim").mkdir()
         (tmp_path / "victim" / "SKILL.md").write_text("---\nname: victim\ndescription: x\n---\n", encoding="utf-8")
@@ -1246,8 +1246,8 @@ class TestRegistry:
     ) -> None:
         import tarfile
 
-        from leagent.skills.base import SkillHubEntry
-        from leagent.skills.registry import HTTPSkillRegistry
+        from StAgent.skills.base import SkillHubEntry
+        from StAgent.skills.registry import HTTPSkillRegistry
 
         # Build a real tar.gz archive for the skill.
         source_dir = tmp_path / "src" / "tarball-skill"
@@ -1294,8 +1294,8 @@ class TestRegistry:
         import hashlib
         import tarfile
 
-        from leagent.skills.base import SkillHubEntry
-        from leagent.skills.registry import HTTPSkillRegistry
+        from StAgent.skills.base import SkillHubEntry
+        from StAgent.skills.registry import HTTPSkillRegistry
 
         # Build a real tar.gz archive from a valid skill directory.
         src_root = tmp_path / "src"
@@ -1341,8 +1341,8 @@ class TestRegistry:
     async def test_http_registry_search_via_fake_client(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from leagent.skills.base import SkillHubEntry
-        from leagent.skills.registry import HTTPSkillRegistry
+        from StAgent.skills.base import SkillHubEntry
+        from StAgent.skills.registry import HTTPSkillRegistry
 
         class _FakeResp:
             def __init__(self, payload: Any) -> None:
@@ -1386,14 +1386,14 @@ class TestRegistry:
     async def test_get_default_registry_url_env_override(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from leagent.skills.registry import get_default_registry_url
+        from StAgent.skills.registry import get_default_registry_url
 
         monkeypatch.setenv(
-            "LEAGENT_SKILLS_REGISTRY_URL", "https://example.test/api/"
+            "StAgent_SKILLS_REGISTRY_URL", "https://example.test/api/"
         )
         assert get_default_registry_url() == "https://example.test/api"
 
-        monkeypatch.delenv("LEAGENT_SKILLS_REGISTRY_URL", raising=False)
+        monkeypatch.delenv("StAgent_SKILLS_REGISTRY_URL", raising=False)
 
 
 async def _coro_return(value: Any) -> Any:
@@ -1408,7 +1408,7 @@ async def _coro_return(value: Any) -> Any:
 
 class TestMarkdownParser:
     def test_parses_valid_frontmatter(self) -> None:
-        from leagent.skills.markdown_loader import parse_skill_markdown
+        from StAgent.skills.markdown_loader import parse_skill_markdown
 
         content = (
             "---\n"
@@ -1426,14 +1426,14 @@ class TestMarkdownParser:
         assert "Body text" in body
 
     def test_missing_frontmatter(self) -> None:
-        from leagent.skills.markdown_loader import parse_skill_markdown
+        from StAgent.skills.markdown_loader import parse_skill_markdown
 
         front, body = parse_skill_markdown("no frontmatter here\n")
         assert front == {}
         assert body == "no frontmatter here"
 
     def test_malformed_frontmatter_returns_empty(self) -> None:
-        from leagent.skills.markdown_loader import parse_skill_markdown
+        from StAgent.skills.markdown_loader import parse_skill_markdown
 
         content = "---\n: not valid yaml :\n---\nbody\n"
         front, body = parse_skill_markdown(content)
@@ -1451,10 +1451,10 @@ class TestCliMigrate:
     def test_migrate_generates_skill_md(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """`leagent skills migrate --apply` converts YAML manifests."""
+        """`StAgent skills migrate --apply` converts YAML manifests."""
         from click.testing import CliRunner
 
-        from leagent.cli import skills_cmd
+        from StAgent.cli import skills_cmd
 
         monkeypatch.setattr(skills_cmd, "SKILLS_DIR", tmp_path)
 
@@ -1498,7 +1498,7 @@ class TestCliMigrate:
     ) -> None:
         from click.testing import CliRunner
 
-        from leagent.cli import skills_cmd
+        from StAgent.cli import skills_cmd
 
         _write_skill(tmp_path, "ok-skill")
         runner = CliRunner()
@@ -1511,7 +1511,7 @@ class TestCliMigrate:
     def test_validate_command_rejects_invalid(self, tmp_path: Path) -> None:
         from click.testing import CliRunner
 
-        from leagent.cli import skills_cmd
+        from StAgent.cli import skills_cmd
 
         _write_skill(tmp_path, "Bad_Name")
         runner = CliRunner()
@@ -1532,14 +1532,14 @@ class TestApiSchemas:
         """`SkillDetail` must not expose keys starting with an underscore."""
         from unittest.mock import MagicMock
 
-        from leagent.api.v1.skills import _detail_from_skill
-        from leagent.skills.manager import SkillsManager
+        from StAgent.api.v1.skills import _detail_from_skill
+        from StAgent.skills.manager import SkillsManager
 
         manifest = SkillManifest(
             name="api-probe",
             description="d",
             license="MIT",
-            compatibility="LeAgent >=1",
+            compatibility="StAgent >=1",
             metadata={"version": "2.0.0", "tags": ["x"], "category": "data"},
             allowed_tools=["Read"],
         )
@@ -1554,7 +1554,7 @@ class TestApiSchemas:
         detail = _detail_from_skill(skill, mgr)
         assert detail.name == "api-probe"
         assert detail.license == "MIT"
-        assert detail.compatibility == "LeAgent >=1"
+        assert detail.compatibility == "StAgent >=1"
         assert detail.allowed_tools == ["Read"]
         assert detail.tags == ["x"]
         assert detail.config == {"user": "Alice"}

@@ -1,6 +1,6 @@
 """Standalone sample-file generator.
 
-Generates every file type that LeAgent's tools and file-processing service
+Generates every file type that StAgent's tools and file-processing service
 support into a persistent ``_cache/`` directory (or a custom path).  Running
 this once creates all binary and text samples without network access.
 
@@ -138,12 +138,12 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
             page = doc.new_page()
             page.insert_text(
                 (72, 72),
-                f"Page {i} – LeAgent Test Document\n\n"
+                f"Page {i} – StAgent Test Document\n\n"
                 f"Fiscal Year 2024 – Section {i}\n"
                 "Total expenses: ¥1,200,000\n"
                 "Approved by: Finance Director\n",
             )
-        doc.set_metadata({"title": "Test PDF", "author": "LeAgent"})
+        doc.set_metadata({"title": "Test PDF", "author": "StAgent"})
         doc.save(str(pdf))
         doc.close()
     except ImportError:
@@ -163,7 +163,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
     try:
         from docx import Document
         doc = Document()
-        doc.add_heading("LeAgent Annual Report 2024", level=0)
+        doc.add_heading("StAgent Annual Report 2024", level=0)
         doc.add_heading("Executive Summary", level=1)
         doc.add_paragraph(
             "This report summarises the financial performance for fiscal year 2024. "
@@ -270,7 +270,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
     html.write_text(
         '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n'
         '  <meta charset="utf-8">\n'
-        '  <title>LeAgent 2024年度报告</title>\n'
+        '  <title>StAgent 2024年度报告</title>\n'
         '</head>\n<body>\n'
         '  <h1>财务年度报告</h1>\n'
         '  <p>本报告总结了 <strong>2024财年</strong> 的财务绩效。</p>\n'
@@ -294,7 +294,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
     # ── Markdown ────────────────────────────────────────────────────────────
     md = out_dir / "sample.md"
     md.write_text(
-        "# LeAgent Test Document\n\n"
+        "# StAgent Test Document\n\n"
         "## Introduction\n\nThis is a **Markdown** test file.\n\n"
         "## Code Example\n\n```python\ndef greet(name: str) -> str:\n    return f'Hello, {name}'\n```\n\n"
         "## Data Table\n\n"
@@ -310,7 +310,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
     json_file = out_dir / "config.json"
     json_file.write_text(
         json.dumps({
-            "app": {"name": "leagent", "version": "1.0.0", "debug": False},
+            "app": {"name": "StAgent", "version": "1.0.0", "debug": False},
             "database": {"host": "localhost", "port": 5432},
             "features": ["feature_a", "feature_b"],
         }, indent=2, ensure_ascii=False),
@@ -321,7 +321,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
 
     yaml_file = out_dir / "config.yaml"
     yaml_file.write_text(
-        "app:\n  name: leagent\n  version: '1.0.0'\n  debug: false\n\n"
+        "app:\n  name: StAgent\n  version: '1.0.0'\n  debug: false\n\n"
         "database:\n  host: localhost\n  port: 5432\n\n"
         "features:\n  - feature_a\n  - feature_b\n",
         encoding="utf-8",
@@ -331,7 +331,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
 
     toml_file = out_dir / "config.toml"
     toml_file.write_text(
-        '[app]\nname = "leagent"\nversion = "1.0.0"\ndebug = false\n\n'
+        '[app]\nname = "StAgent"\nversion = "1.0.0"\ndebug = false\n\n'
         '[database]\nhost = "localhost"\nport = 5432\n\n'
         '[features]\nenabled = ["feature_a", "feature_b"]\n',
         encoding="utf-8",
@@ -374,29 +374,29 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
         "Example.java":  (
             "package com.example;\npublic class Example {\n"
             "    public static void main(String[] args) {\n"
-            "        System.out.println(\"LeAgent Java Test\");\n    }\n}\n"
+            "        System.out.println(\"StAgent Java Test\");\n    }\n}\n"
         ),
         "example.c":    (
-            "#include <stdio.h>\nint main(void) {\n    printf(\"LeAgent C Test\\n\");\n    return 0;\n}\n"
+            "#include <stdio.h>\nint main(void) {\n    printf(\"StAgent C Test\\n\");\n    return 0;\n}\n"
         ),
         "example.cpp":  (
-            "#include <iostream>\nint main() {\n    std::cout << \"LeAgent C++ Test\" << std::endl;\n    return 0;\n}\n"
+            "#include <iostream>\nint main() {\n    std::cout << \"StAgent C++ Test\" << std::endl;\n    return 0;\n}\n"
         ),
         "example.h":    (
             "#ifndef EXAMPLE_H\n#define EXAMPLE_H\n#define MAX_VALUE 100\ntypedef struct { int id; } Record;\n#endif\n"
         ),
         "example.rs":   (
-            "fn main() {\n    println!(\"LeAgent Rust Test\");\n}\n"
+            "fn main() {\n    println!(\"StAgent Rust Test\");\n}\n"
         ),
         "example.go":   (
-            'package main\nimport "fmt"\nfunc main() { fmt.Println("LeAgent Go Test") }\n'
+            'package main\nimport "fmt"\nfunc main() { fmt.Println("StAgent Go Test") }\n'
         ),
         "example.rb":   (
             "class Greeter\n  def greet(name) = \"Hello, #{name}\"\nend\n"
-            "puts Greeter.new.greet('LeAgent')\n"
+            "puts Greeter.new.greet('StAgent')\n"
         ),
         "deploy.sh":    (
-            "#!/bin/bash\nset -euo pipefail\necho 'Deploying LeAgent...'\npip install -r requirements.txt\n"
+            "#!/bin/bash\nset -euo pipefail\necho 'Deploying StAgent...'\npip install -r requirements.txt\n"
             "echo 'Done.'\n"
         ),
         "schema.sql":   (
@@ -503,7 +503,7 @@ def generate_all(out_dir: Path) -> dict[str, Path]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
 
-    parser = argparse.ArgumentParser(description="Generate LeAgent test sample files")
+    parser = argparse.ArgumentParser(description="Generate StAgent test sample files")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output directory")
     parser.add_argument("--list", action="store_true", help="List files that would be generated")
     args = parser.parse_args()

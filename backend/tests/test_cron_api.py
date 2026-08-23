@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.cron.base import CronExecution, CronExecutionStatus, CronJob, CronJobStatus
+from StAgent.cron.base import CronExecution, CronExecutionStatus, CronJob, CronJobStatus
 
 
 class FakeCronManager:
@@ -102,13 +102,13 @@ def fake_cron() -> FakeCronManager:
 
 
 def _override_cron(app: Any, fake: FakeCronManager) -> None:
-    from leagent.api.v1.cron import get_cron_manager
+    from StAgent.api.v1.cron import get_cron_manager
 
     app.dependency_overrides[get_cron_manager] = lambda: fake
 
 
 def _clear_overrides(app: Any) -> None:
-    from leagent.api.v1.cron import get_cron_manager
+    from StAgent.api.v1.cron import get_cron_manager
 
     app.dependency_overrides.pop(get_cron_manager, None)
 

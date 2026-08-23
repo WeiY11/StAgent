@@ -1,6 +1,6 @@
 id: TPL-08
 name: 通知占位示例
-description: 调用 notification 工具 admin 通道；未配置 LEAGENT_ADMIN_WEBHOOK_URL 时跳过外部 HTTP。
+description: 调用 notification 工具 admin 通道；未配置 StAgent_ADMIN_WEBHOOK_URL 时跳过外部 HTTP。
 inputs:
 - name: message
   type: string

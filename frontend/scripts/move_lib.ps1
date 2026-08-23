@@ -1,4 +1,4 @@
-$lib = "d:\LeAgent\frontend\src\lib"
+$lib = "d:\StAgent\frontend\src\lib"
 
 # Create subdirectories
 $dirs = @("stream","pet","canvas","chat","agent","auth","workflow","knowledge","utils")

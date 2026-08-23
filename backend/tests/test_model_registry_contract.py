@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_registry import ModelRegistry
 
 
 def test_registry_treats_non_collection_sections_as_empty() -> None:

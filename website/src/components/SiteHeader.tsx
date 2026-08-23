@@ -33,7 +33,7 @@ export function SiteHeader() {
           className="flex items-center gap-3 font-display text-xl font-semibold tracking-tight text-text-primary"
         >
           <img src={faviconUrl} width={36} height={36} alt="" />
-          LeAgent
+          StAgent
         </Link>
 
         {/* Desktop nav */}

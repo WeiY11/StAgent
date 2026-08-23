@@ -28,7 +28,7 @@ export function SiteFooter() {
               className="mb-3 inline-flex items-center gap-2 font-display text-lg font-semibold text-text-primary"
             >
               <img src={faviconUrl} width={24} height={24} alt="" />
-              LeAgent
+              StAgent
             </Link>
             <p className="whitespace-pre-line text-sm leading-relaxed text-text-muted">
               {t.footer.tagline}

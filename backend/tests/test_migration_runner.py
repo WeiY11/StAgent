@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from leagent.scripts import run_migrations
+from StAgent.scripts import run_migrations
 
 if TYPE_CHECKING:
     from alembic.config import Config
@@ -19,7 +19,7 @@ def test_startup_migration_skip_flag_returns_before_alembic_import(
 ) -> None:
     import asyncio
 
-    from leagent import main
+    from StAgent import main
 
     monkeypatch.setattr(main, "_migrations_applied", False)
     monkeypatch.setattr(
@@ -42,7 +42,7 @@ def test_sqlite_runner_uses_sync_injected_connection(
 ) -> None:
     migrated_connections: list[object] = []
     disposed: list[bool] = []
-    sync_url = "sqlite:///C:/tmp/leagent-migration-test/leagent.db"
+    sync_url = "sqlite:///C:/tmp/StAgent-migration-test/StAgent.db"
 
     class FakeConnection:
         def __enter__(self) -> FakeConnection:
@@ -75,10 +75,10 @@ def test_sqlite_runner_uses_sync_injected_connection(
 
     monkeypatch.setattr("sqlalchemy.create_engine", fake_create_engine)
     monkeypatch.setattr(
-        "leagent.alembic.sync_runner.run_sync_migrations",
+        "StAgent.alembic.sync_runner.run_sync_migrations",
         fake_run_sync_migrations,
     )
-    monkeypatch.setattr("leagent.config.settings.get_settings", fake_settings)
+    monkeypatch.setattr("StAgent.config.settings.get_settings", fake_settings)
 
     status = run_migrations._run_sqlite_migrations()
 
@@ -97,7 +97,7 @@ def test_postgres_runner_uses_packaged_async_alembic_path(
 
     monkeypatch.setattr("alembic.command.upgrade", fake_upgrade)
 
-    dsn = "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent"
+    dsn = "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent"
     status = run_migrations._run_postgres_migrations(dsn)
 
     assert status == 0
@@ -115,7 +115,7 @@ def test_migration_runner_no_longer_imports_psycopg2() -> None:
 
 
 def test_async_alembic_environment_serializes_postgres_migrations() -> None:
-    env_source = (_REPO_ROOT / "backend" / "leagent" / "alembic" / "env.py").read_text(
+    env_source = (_REPO_ROOT / "backend" / "StAgent" / "alembic" / "env.py").read_text(
         encoding="utf-8"
     )
 
@@ -129,7 +129,7 @@ def test_async_alembic_environment_serializes_postgres_migrations() -> None:
 
 
 def test_async_alembic_environment_ignores_placeholder_ini_url() -> None:
-    env_source = (_REPO_ROOT / "backend" / "leagent" / "alembic" / "env.py").read_text(
+    env_source = (_REPO_ROOT / "backend" / "StAgent" / "alembic" / "env.py").read_text(
         encoding="utf-8"
     )
 

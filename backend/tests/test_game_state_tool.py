@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.services.session.state import SessionState
-from leagent.tools.base import ToolContext
-from leagent.tools.util.game_state import GameStateTool
+from StAgent.services.session.state import SessionState
+from StAgent.tools.base import ToolContext
+from StAgent.tools.util.game_state import GameStateTool
 
 
 class _FakeSessionManager:

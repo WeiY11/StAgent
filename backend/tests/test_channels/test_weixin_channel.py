@@ -8,9 +8,9 @@ from uuid import UUID
 
 import pytest
 
-from leagent.channels.agent_bridge import channel_session_id
-from leagent.channels.base import ChannelEvent, ChannelMessage, ChannelType, MessageType
-from leagent.channels.weixin.channel import WeixinChannel
+from StAgent.channels.agent_bridge import channel_session_id
+from StAgent.channels.base import ChannelEvent, ChannelMessage, ChannelType, MessageType
+from StAgent.channels.weixin.channel import WeixinChannel
 
 
 async def _noop(*_a: Any, **_k: Any) -> None:
@@ -176,7 +176,7 @@ async def test_consume_one_sends_image_artifact_and_strips_link() -> None:
 
 
 def test_harvest_and_dedupe_file_id_path() -> None:
-    from leagent.channels.outbound_artifacts import (
+    from StAgent.channels.outbound_artifacts import (
         dedupe_artifacts,
         harvest_artifacts_from_payload,
         strip_delivered_file_links,
@@ -238,7 +238,7 @@ def test_harvest_and_dedupe_file_id_path() -> None:
 def test_base64_aes_key_is_hex_wrapped() -> None:
     import base64
 
-    from leagent.channels.weixin.media import base64_aes_key, build_file_item
+    from StAgent.channels.weixin.media import base64_aes_key, build_file_item
 
     key = bytes(range(16))
     encoded = base64_aes_key(key)
@@ -267,9 +267,9 @@ def test_channel_session_id_stable() -> None:
 
 @pytest.mark.asyncio
 async def test_agent_bridge_yields_reply(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.channels import agent_bridge
-    from leagent.sdk.events import AgentEvent, AgentEventType
-    from leagent.services.auth.service import LOCAL_USER_ID
+    from StAgent.channels import agent_bridge
+    from StAgent.sdk.events import AgentEvent, AgentEventType
+    from StAgent.services.auth.service import LOCAL_USER_ID
 
     captured: dict[str, Any] = {}
 
@@ -285,8 +285,8 @@ async def test_agent_bridge_yields_reply(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(agent_bridge, "AgentRuntime", FakeRuntime, raising=False)
 
-    # process_channel_message imports AgentRuntime from leagent.sdk inside the body
-    import leagent.sdk as sdk_mod
+    # process_channel_message imports AgentRuntime from StAgent.sdk inside the body
+    import StAgent.sdk as sdk_mod
 
     monkeypatch.setattr(sdk_mod, "AgentRuntime", FakeRuntime)
 

@@ -7,7 +7,7 @@ from pathlib import Path  # noqa: TC003
 
 import pytest
 
-from leagent.knowledge.local_models import LocalModelRegistry, ModelValidationError
+from StAgent.knowledge.local_models import LocalModelRegistry, ModelValidationError
 
 
 def _safe_model(directory: Path) -> None:

@@ -1,17 +1,17 @@
-# LeAgent Development Guidelines
+# StAgent Development Guidelines
 
 AI coding assistants: this file is the concise contributor reference. For deep subsystem docs see `docs/technical/`.
 
 ## Project Overview
 
-LeAgent is an open-source desktop AI agent stack that doesn't just chat — it gets work done. It fuses three capabilities most agents keep apart: a streaming agent runtime that **plans, calls tools, and self-corrects** in one think-act loop; **agentic visual workflows** where the agent designs, runs, and refines ReactFlow DAGs (every tool is automatically a typed node); and a **generative UI** layer that streams live, interactive interfaces (KPI boards, slide decks, galleries) into the chat. Key pieces: `QueryEngine` session orchestrator, 100+ domain tools across 13 categories, a versioned Agent SDK, layered prompt management, cognitive three-store agent memory, a relevance-gated context pipeline, a visual workflow builder (ReactFlow) with a first-class game-art asset pipeline, Agent Skills v1.0, MCP, and a declarative YAML rule engine. Runs locally with zero external dependencies by default (SQLite, single process). Providers: DeepSeek, DashScope (Qwen), OpenAI, Anthropic, Azure OpenAI, Ollama, vLLM.
+StAgent is an open-source desktop AI agent stack that doesn't just chat — it gets work done. It fuses three capabilities most agents keep apart: a streaming agent runtime that **plans, calls tools, and self-corrects** in one think-act loop; **agentic visual workflows** where the agent designs, runs, and refines ReactFlow DAGs (every tool is automatically a typed node); and a **generative UI** layer that streams live, interactive interfaces (KPI boards, slide decks, galleries) into the chat. Key pieces: `QueryEngine` session orchestrator, 100+ domain tools across 13 categories, a versioned Agent SDK, layered prompt management, cognitive three-store agent memory, a relevance-gated context pipeline, a visual workflow builder (ReactFlow) with a first-class game-art asset pipeline, Agent Skills v1.0, MCP, and a declarative YAML rule engine. Runs locally with zero external dependencies by default (SQLite, single process). Providers: DeepSeek, DashScope (Qwen), OpenAI, Anthropic, Azure OpenAI, Ollama, vLLM.
 
 ## Architecture
 
 ```
-LeAgent/
+StAgent/
 ├── backend/
-│   ├── leagent/
+│   ├── StAgent/
 │   │   ├── agent/        # QueryEngine, controller (compat shim), planner, subagents, recovery
 │   │   ├── sdk/          # Versioned public Agent SDK: runtime re-exports, kernel, protocols
 │   │   ├── runtime/      # ExecutionRun plane, AgentRuntime, platform/service wiring
@@ -84,7 +84,7 @@ Durable state   (TieredSessionStore · CheckpointStore · WorkflowStateStore)
 Observability   (EventManager FLOW_*/TASK_*/AGENT_* · OpenTelemetry spans)
 ```
 
-**Canonical agent path.** All turns flow through `leagent.sdk.kernel.loop.run_loop`, either directly or via `AgentRuntime.stream()`. The legacy `AgentController.run_stream` is a compat shim that re-maps kernel `SDKMessage`s onto the old `StreamEvent` stream. Direct `QueryEngine.submit_message()` is reserved for tests and kernel internals.
+**Canonical agent path.** All turns flow through `StAgent.sdk.kernel.loop.run_loop`, either directly or via `AgentRuntime.stream()`. The legacy `AgentController.run_stream` is a compat shim that re-maps kernel `SDKMessage`s onto the old `StreamEvent` stream. Direct `QueryEngine.submit_message()` is reserved for tests and kernel internals.
 
 | Caller | Entry | Reaches kernel via |
 |---|---|---|
@@ -104,7 +104,7 @@ Observability   (EventManager FLOW_*/TASK_*/AGENT_* · OpenTelemetry spans)
 | **Chat step card** | `ChatWorkflowSpec` → compiled linear flow | `WorkflowService` scoped run | playbook steps inside a chat turn |
 | **Chat embed** | validated Flow JSON | preview + Flow API | graph preview in chat |
 
-Chat step cards compile to linear `WorkflowDocument`s via `leagent.chat_workflow.compile`, so step execution reuses the same executor as editor runs.
+Chat step cards compile to linear `WorkflowDocument`s via `StAgent.chat_workflow.compile`, so step execution reuses the same executor as editor runs.
 
 **State ownership.** Each state class has exactly one durable owner:
 
@@ -116,15 +116,15 @@ Chat step cards compile to linear `WorkflowDocument`s via `leagent.chat_workflow
 | Chat step results | `Message.extensions.chat_workflow_step_runs` | Yes |
 | Background task log | `TaskManager` output file | Yes |
 
-**Pause / resume.** A unified `PauseToken` (`leagent.runtime.execution_run`) carries either a `checkpoint_id` (agent scope) or a `workflow_execution_id` + `workflow_state_id` (DAG scope), plus a `scope` of `chat_turn` | `workflow` | `task` | `tool_only`. Chat turns resume via `POST /chat/sessions/{id}/resume-checkpoint`; workflows via `POST /workflow/prompts/{id}/resume`.
+**Pause / resume.** A unified `PauseToken` (`StAgent.runtime.execution_run`) carries either a `checkpoint_id` (agent scope) or a `workflow_execution_id` + `workflow_state_id` (DAG scope), plus a `scope` of `chat_turn` | `workflow` | `task` | `tool_only`. Chat turns resume via `POST /chat/sessions/{id}/resume-checkpoint`; workflows via `POST /workflow/prompts/{id}/resume`.
 
-**Correlation + observability.** Every ingress mints exactly one `ExecutionRun` (`leagent.runtime.execution_factory`); child scopes (workflow steps, sub-agents, tasks) register with `parent_run_id` pointing at the parent turn. Lifecycle signals publish through `EventManager` (`FLOW_*` / `TASK_*` / `AGENT_*`); WebSocket and SSE are transports only, and webhooks subscribe to the bus. OTel spans link via `run_id` / `parent_run_id`. `ExecutionRunRegistry` is the default in-process implementation of the `RunStore` protocol (`leagent.runtime.run_store`, reached via `get_run_store()`); multi-worker deployments use sticky sessions or install a shared `RunStore` (e.g. `RedisRunStore`) at startup — see `docs/technical/execution-topology.md`.
+**Correlation + observability.** Every ingress mints exactly one `ExecutionRun` (`StAgent.runtime.execution_factory`); child scopes (workflow steps, sub-agents, tasks) register with `parent_run_id` pointing at the parent turn. Lifecycle signals publish through `EventManager` (`FLOW_*` / `TASK_*` / `AGENT_*`); WebSocket and SSE are transports only, and webhooks subscribe to the bus. OTel spans link via `run_id` / `parent_run_id`. `ExecutionRunRegistry` is the default in-process implementation of the `RunStore` protocol (`StAgent.runtime.run_store`, reached via `get_run_store()`); multi-worker deployments use sticky sessions or install a shared `RunStore` (e.g. `RedisRunStore`) at startup — see `docs/technical/execution-topology.md`.
 
 ### Surface map (where things live)
 
-- **LLM providers** (`leagent/llm/providers/`): `deepseek`, `dashscope`, `openai`, `anthropic` (via OpenAI-compatible/`custom`), `ollama`, `vllm`, `custom`. DeepSeek auto-aliases as `tier1`/`tier2` when `DEEPSEEK_API_KEY` is set. Media generation lives in `leagent/llm/generation/` (image/video/3D/vfx/audio backends + `GenerationService`).
-- **HTTP API** (`leagent/api/`): `router.py` mounts the routers; v1 lives in `api/v1/` (chat, files, documents, flows, templates, tasks, cron, rules, skills, mcp, webhooks, channels, canvas/genui, image_gen, pdf_research, coding_projects, pet_space, python_env, models, settings, stats/metrics, admin/, health). v2 is incubating. Auth + signed-URL deps in `services/auth/`.
-- **CLI** (`leagent/cli/`, Click): `app`, `init`, `chat(s)`, `config`, `providers`, `rules`, `skills`, `tasks`, `cron`, `channels`, `webhooks`, `templates`, `workflows`, `daemon`, `env`, `clean`, `bootstrap`. Entry: `leagent <command>` (`uv run leagent ...`).
+- **LLM providers** (`StAgent/llm/providers/`): `deepseek`, `dashscope`, `openai`, `anthropic` (via OpenAI-compatible/`custom`), `ollama`, `vllm`, `custom`. DeepSeek auto-aliases as `tier1`/`tier2` when `DEEPSEEK_API_KEY` is set. Media generation lives in `StAgent/llm/generation/` (image/video/3D/vfx/audio backends + `GenerationService`).
+- **HTTP API** (`StAgent/api/`): `router.py` mounts the routers; v1 lives in `api/v1/` (chat, files, documents, flows, templates, tasks, cron, rules, skills, mcp, webhooks, channels, canvas/genui, image_gen, pdf_research, coding_projects, pet_space, python_env, models, settings, stats/metrics, admin/, health). v2 is incubating. Auth + signed-URL deps in `services/auth/`.
+- **CLI** (`StAgent/cli/`, Click): `app`, `init`, `chat(s)`, `config`, `providers`, `rules`, `skills`, `tasks`, `cron`, `channels`, `webhooks`, `templates`, `workflows`, `daemon`, `env`, `clean`, `bootstrap`. Entry: `StAgent <command>` (`uv run StAgent ...`).
 - **Frontend pages** (`frontend/src/pages/`): Chat, Dashboard, Home, Workflows, Templates, Execution, Cron, Tasks, Rules, Knowledge, Skills, Tools, MCP, Webhooks, Channels, CodingProjects, PetSpace, Playground, Admin, Settings, Docs, Folder.
 
 ### Layered Domain Model: File → Code → Project
@@ -133,25 +133,25 @@ The backend uses a strict three-layer architecture. Dependencies flow downward o
 
 | Layer | Package | Responsibility |
 |---|---|---|
-| **File** | `leagent/file/` | Unified blob storage, metadata, lifecycle. `FileService` is the single ingress for all managed files. `primitives.py` holds shared utilities (`sanitize_filename`, `detect_mime`, `classify_file_kind`, `is_path_inside`, `FileScope`, `FileKind`). |
-| **Code** | `leagent/code/` | Code execution sandbox, workspace management, artifact handling. Builds on File layer for artifact registration. |
-| **Project** | `leagent/project/` | Coding project workspaces: file editing, project scaffold, dev server, templates. Never imports from File layer (`FileService`/`FileRef`). |
-| **Persistence** | `leagent/db/` | Infrastructure persistence: `DatabaseService`, `engine.make_async_engine` (SQLite-WAL / PG-pool), SQLModel `models/`, sqlite compat, and per-domain `repositories/` (`ChatRepository`, `FileRepository`, `TaskRepository`, `WorkflowExecutionRepository`, modeled on `cron/repository.py`). Exposed lazily via `DatabaseService.repositories`. |
+| **File** | `StAgent/file/` | Unified blob storage, metadata, lifecycle. `FileService` is the single ingress for all managed files. `primitives.py` holds shared utilities (`sanitize_filename`, `detect_mime`, `classify_file_kind`, `is_path_inside`, `FileScope`, `FileKind`). |
+| **Code** | `StAgent/code/` | Code execution sandbox, workspace management, artifact handling. Builds on File layer for artifact registration. |
+| **Project** | `StAgent/project/` | Coding project workspaces: file editing, project scaffold, dev server, templates. Never imports from File layer (`FileService`/`FileRef`). |
+| **Persistence** | `StAgent/db/` | Infrastructure persistence: `DatabaseService`, `engine.make_async_engine` (SQLite-WAL / PG-pool), SQLModel `models/`, sqlite compat, and per-domain `repositories/` (`ChatRepository`, `FileRepository`, `TaskRepository`, `WorkflowExecutionRepository`, modeled on `cron/repository.py`). Exposed lazily via `DatabaseService.repositories`. |
 
 **Key rules:**
-- `leagent/project/` must never import `FileService` or `FileRef` (enforced by `test_file/test_invariants.py`).
+- `StAgent/project/` must never import `FileService` or `FileRef` (enforced by `test_file/test_invariants.py`).
 - All managed-blob writes go through `FileService.register()` — no direct `open(..., 'wb')`/`write_bytes`/`write_text` in blob paths (INV-1, hard-asserted). Genuinely non-managed writes (CLI, app/provider/cron config, workflow-definition exports, Tier-B sandbox/output-path tool writes) live in `_INV1_ALLOWLIST` in `test_file/test_invariants.py` with a written justification + CODEOWNERS review.
-- Path containment checks must use `leagent.file.primitives.is_path_inside()`, not inline `relative_to`/`commonpath` (INV-7, hard-asserted).
-- Persistence lives in `leagent/db/` (canonical). There is no `leagent.services.database` package or shim; all imports use `leagent.db.*`.
-- Tools persist output bytes via `leagent.file.tool_output.register_tool_artifact()` (or `SessionManager.register_artifact_bytes`) rather than writing a temp file and re-registering it.
-- Legacy shim modules have been removed. All imports must use canonical paths (`leagent.file.*`, `leagent.code.*`, `leagent.project.*`, `leagent.db.*`).
+- Path containment checks must use `StAgent.file.primitives.is_path_inside()`, not inline `relative_to`/`commonpath` (INV-7, hard-asserted).
+- Persistence lives in `StAgent/db/` (canonical). There is no `StAgent.services.database` package or shim; all imports use `StAgent.db.*`.
+- Tools persist output bytes via `StAgent.file.tool_output.register_tool_artifact()` (or `SessionManager.register_artifact_bytes`) rather than writing a temp file and re-registering it.
+- Legacy shim modules have been removed. All imports must use canonical paths (`StAgent.file.*`, `StAgent.code.*`, `StAgent.project.*`, `StAgent.db.*`).
 
 ### Adding a New Tool That Produces Files
 
 Tools that produce output files should return `FileRef` objects via `ToolResult.produced_files`:
 
 ```python
-from leagent.file.service import FileRef
+from StAgent.file.service import FileRef
 
 async def execute(self, context: ToolContext, **kwargs) -> ToolResult:
     output_bytes = await self._generate(...)
@@ -175,7 +175,7 @@ it). Full reference: [`docs/workflow-engine/art-asset-nodes.md`](backend/docs/wo
 - **Typed media sockets + `MediaRef`.** `IO.Image` / `IO.Video` / `IO.Mesh3D`
   (`workflow/io/types.py`) carry assets *by reference* as a `MediaRef`
   (`workflow/io/media.py`) — never base64 — using `/api/v1/files/{id}/preview`.
-- **Generation backends (Strategy + Registry).** `leagent/llm/generation/` is the **media plane** (image / video / 3D / vfx / audio). Vendor HTTP clients live in `generation/providers/`; strategy backends in `generation/backends/`. All media generation goes through `GenerationService.generate()` (retry + failover). Chat image generation (`LLMService.generate_image`) delegates here too. Kinds: `image` / `video` / `model3d` / `vfx` / `audio`. Backends include `OpenAIImageBackend`, `DashScopeImageBackend`, `SiliconFlowImageBackend`, `LocalDiffusionBackend`, `HttpUpscaleBackend`, `HttpVideoBackend`, `HttpMesh3DBackend`, `HttpVfxBackend`, `ReplicateBackend`, `ElevenLabsBackend`, plus a deterministic `offline` floor (`LEAGENT_ART_OFFLINE=1` or `provider: offline`). Config: `providers.yaml` → `image_gen` section (`ImageGenConfigStore`). Capability discovery: single `CapabilityRegistry` shared by `GenerationService` and `bootstrap_capabilities()`.
+- **Generation backends (Strategy + Registry).** `StAgent/llm/generation/` is the **media plane** (image / video / 3D / vfx / audio). Vendor HTTP clients live in `generation/providers/`; strategy backends in `generation/backends/`. All media generation goes through `GenerationService.generate()` (retry + failover). Chat image generation (`LLMService.generate_image`) delegates here too. Kinds: `image` / `video` / `model3d` / `vfx` / `audio`. Backends include `OpenAIImageBackend`, `DashScopeImageBackend`, `SiliconFlowImageBackend`, `LocalDiffusionBackend`, `HttpUpscaleBackend`, `HttpVideoBackend`, `HttpMesh3DBackend`, `HttpVfxBackend`, `ReplicateBackend`, `ElevenLabsBackend`, plus a deterministic `offline` floor (`StAgent_ART_OFFLINE=1` or `provider: offline`). Config: `providers.yaml` → `image_gen` section (`ImageGenConfigStore`). Capability discovery: single `CapabilityRegistry` shared by `GenerationService` and `bootstrap_capabilities()`.
 - **Art node pack.** `workflow/nodes/art/` exports `ArtNodeExtension`;
   `BaseGenerationNode` (Template Method) owns the execute skeleton. Nodes:
   `Art.ImageGen`, `Art.Upscale` (dedicated super-resolution), `Art.VideoGen`,
@@ -208,7 +208,7 @@ it). Full reference: [`docs/workflow-engine/art-asset-nodes.md`](backend/docs/wo
 
 ### Prompt composition + gated policy sources
 
-The system prompt is assembled by `leagent/context/` from typed sources listed in
+The system prompt is assembled by `StAgent/context/` from typed sources listed in
 a per-agent recipe (`context/recipe.py`). Only small, universally-relevant
 policies (`file_access`, `database_tool`, `human_gate`) ship on every turn via the
 always-on `policies` source. Heavy, domain-specific manuals are
@@ -264,14 +264,14 @@ export function ChatMessage({ message, isStreaming = false }: ChatMessageProps) 
 }
 ```
 
-## Agent SDK (`leagent.sdk`)
+## Agent SDK (`StAgent.sdk`)
 
-The **Agent SDK** (`leagent/sdk/`) is the single, versioned public surface for all agent interactions. See `docs/technical/agent_sdk.md` for the full reference.
+The **Agent SDK** (`StAgent/sdk/`) is the single, versioned public surface for all agent interactions. See `docs/technical/agent_sdk.md` for the full reference.
 
 **Quick start:**
 
 ```python
-from leagent.sdk import AgentRuntime, AgentBuilder
+from StAgent.sdk import AgentRuntime, AgentBuilder
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 result = await runtime.run("default_agent", "Summarise this PDF")
@@ -287,7 +287,7 @@ async for event in runtime.resume("default_agent", checkpoint_id, "my answer"):
 ```
 
 Chat **and** every background path drive through the one think-act loop
-(`leagent.sdk.kernel.run_loop`): it maps `SDKMessage → AgentEvent` (identical
+(`StAgent.sdk.kernel.run_loop`): it maps `SDKMessage → AgentEvent` (identical
 `{type, data}` wire shape), snapshots `RunState.messages`, dispatches the
 single-site hook lifecycle (tool/subagent/pre_compact), and saves a checkpoint
 on `awaiting_user_input`. The store is `InMemoryCheckpointStore` by default and
@@ -296,7 +296,7 @@ present — wired via `RuntimeContext.from_service_manager`.
 
 **Key exports:** `AgentRuntime` (`run`/`stream`/`delegate`/`resume`/`session`), `AgentSession`, `AgentDefinition`, `AgentBuilder`, `AgentRegistry`, `AgentEvent`, `AgentResult`, `RunContext`, `ToolContext`, `CheckpointStore`, `InMemoryCheckpointStore`, `SQLCheckpointStore`, protocols (`LLMClient`, `Provider`, `ContextAssembler`, `MemoryStore`, `RecallProvider`).
 
-**Version:** `leagent.sdk.__version__` (semver). Current: `0.1.0`.
+**Version:** `StAgent.sdk.__version__` (semver). Current: `0.1.0`.
 
 ## Adding New Tools
 
@@ -307,7 +307,7 @@ Parameter naming conventions and strict contract rules:
 2. Implement `BaseTool`:
 
 ```python
-from leagent.tools.base import BaseTool, ToolResult, ToolContext
+from StAgent.tools.base import BaseTool, ToolResult, ToolContext
 
 class NewTool(BaseTool):
     name = "new_tool"
@@ -336,7 +336,7 @@ No workflow work needed — the factory auto-generates a `Tool.<name>` node.
 
 ```python
 from fastapi import APIRouter, Depends
-from leagent.services.auth.deps import get_current_user_id
+from StAgent.services.auth.deps import get_current_user_id
 
 router = APIRouter()
 
@@ -403,7 +403,7 @@ alembic downgrade -1
 
 ## Desktop (`desktop/`)
 
-Electron 42 shell (main process **ESM**: `"type": "module"`, `tsc` → `NodeNext`): splash → `InstallationManager` → `BackendServer` (`python -m leagent.server` on `:7860`) → React SPA.
+Electron 42 shell (main process **ESM**: `"type": "module"`, `tsc` → `NodeNext`): splash → `InstallationManager` → `BackendServer` (`python -m StAgent.server` on `:7860`) → React SPA.
 
 | Package | Version |
 |---------|---------|
@@ -417,16 +417,16 @@ Electron 42 shell (main process **ESM**: `"type": "module"`, `tsc` → `NodeNext
 | `cd desktop/scripts && ./build-mac.sh` | macOS DMG/ZIP |
 | `cd desktop/electron && npm test` | Vitest (install/path validators) |
 
-**Env vars set by Electron:** `LEAGENT_DESKTOP=1`, `LEAGENT_DESKTOP_MODE=1`, `LEAGENT_HOME`, `LEAGENT_FRONTEND_DIST` (packaged).
+**Env vars set by Electron:** `StAgent_DESKTOP=1`, `StAgent_DESKTOP_MODE=1`, `StAgent_HOME`, `StAgent_FRONTEND_DIST` (packaged).
 
-**Frontend bridge:** `window.leagent` (see `desktop/README.md`). Build frontend with `VITE_DESKTOP=true`.
+**Frontend bridge:** `window.StAgent` (see `desktop/README.md`). Build frontend with `VITE_DESKTOP=true`.
 
 **Releases:** tag `desktop-v*` → `.github/workflows/desktop-release.yml`.
 
 ## Testing
 
 ```bash
-cd backend && uv run pytest tests/ -v --cov=leagent
+cd backend && uv run pytest tests/ -v --cov=StAgent
 cd frontend && npm run test
 ```
 
@@ -436,25 +436,25 @@ cd frontend && npm run test
 
 | Variable | Purpose |
 |---|---|
-| `LEAGENT_SECRET_KEY` | App secret for signed file URLs + session crypto (`openssl rand -hex 32`). Falls back to JWT secret for `LEAGENT_FILES__SIGNED_URL_SECRET` |
-| `DATABASE_URL` | Switch persistence to PostgreSQL (default: SQLite under `LEAGENT_HOME`) |
+| `StAgent_SECRET_KEY` | App secret for signed file URLs + session crypto (`openssl rand -hex 32`). Falls back to JWT secret for `StAgent_FILES__SIGNED_URL_SECRET` |
+| `DATABASE_URL` | Switch persistence to PostgreSQL (default: SQLite under `StAgent_HOME`) |
 | `DEEPSEEK_API_KEY` | DeepSeek provider — auto-aliased as `tier1` (v4-pro / reasoning) + `tier2` (v4-flash / fast) when no other tier provider is configured |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DASHSCOPE_API_KEY` | Additional cloud providers |
 | `VLLM_ENDPOINT` / `LLM_OLLAMA_ENDPOINT` | Local / self-hosted OpenAI-compatible inference |
-| `LEAGENT_PORT` / `LEAGENT_HOST` / `LEAGENT_WORKERS` | Server bind + Gunicorn workers (keep `1` for SQLite — single writer) |
-| `LEAGENT_HOME` | Root for the SQLite DB, uploads, knowledge, logs, coding projects |
-| `LEAGENT_DEBUG` / `LEAGENT_LOG_LEVEL` | Debug mode + structlog level |
-| `LEAGENT_CJK_FONT` | CJK font for PDF / matplotlib output in `code_execution` |
+| `StAgent_PORT` / `StAgent_HOST` / `StAgent_WORKERS` | Server bind + Gunicorn workers (keep `1` for SQLite — single writer) |
+| `StAgent_HOME` | Root for the SQLite DB, uploads, knowledge, logs, coding projects |
+| `StAgent_DEBUG` / `StAgent_LOG_LEVEL` | Debug mode + structlog level |
+| `StAgent_CJK_FONT` | CJK font for PDF / matplotlib output in `code_execution` |
 
-On first startup, detected API keys are imported into `providers.yaml`, which becomes the primary provider store (manage further via **Admin → Providers**). Provider keys can also be set at runtime from **Settings → Environment secrets**, which writes `~/.leagent/.env`.
+On first startup, detected API keys are imported into `providers.yaml`, which becomes the primary provider store (manage further via **Admin → Providers**). Provider keys can also be set at runtime from **Settings → Environment secrets**, which writes `~/.StAgent/.env`.
 
 ## Operational Notes
 
-- **Persistence & backup.** SQLite runs in WAL mode at `LEAGENT_HOME/leagent.db`; a full backup = the database **plus** the on-disk trees under `LEAGENT_HOME` (`working/uploads`, `knowledge/`, `coding-projects/`). New coding-project scaffolds run `git init` when `git` is available.
+- **Persistence & backup.** SQLite runs in WAL mode at `StAgent_HOME/StAgent.db`; a full backup = the database **plus** the on-disk trees under `StAgent_HOME` (`working/uploads`, `knowledge/`, `coding-projects/`). New coding-project scaffolds run `git init` when `git` is available.
 - **Scaling.** A single Gunicorn worker is correct for the default SQLite setup. To run multiple workers, move to PostgreSQL (`DATABASE_URL`) and either use sticky sessions or install a shared `RunStore` (`RedisRunStore`) at startup — the `ExecutionRunRegistry` and in-process WebSocket fan-out are per-process by default. See `docs/technical/execution-topology.md` for prerequisites and thresholds.
 - **Vector memory.** Episodic / semantic / procedural recall degrades gracefully: with no Milvus configured, writes are no-ops and recall falls back to the lexical backend.
 - **Observability.** Structured logs via structlog; OpenTelemetry spans are emitted when an OTLP endpoint is configured; workflow + quality/refine Prometheus histograms feed procedure memory and provider-ranking stats.
-- **Debugging.** Backend logs under `logs/` (repo root) or `LEAGENT_HOME/logs`; OpenAPI at `/docs`; set `LEAGENT_DEBUG=true` for verbose tracing.
+- **Debugging.** Backend logs under `logs/` (repo root) or `StAgent_HOME/logs`; OpenAPI at `/docs`; set `StAgent_DEBUG=true` for verbose tracing.
 
 ## Python Environment
 

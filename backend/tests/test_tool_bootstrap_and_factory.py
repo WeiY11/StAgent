@@ -3,11 +3,11 @@
 These cover the integration surface that was added as part of the
 tool-system upgrade:
 
-* ``leagent.bootstrap.tools.bootstrap_tools`` wires up the tool
+* ``StAgent.bootstrap.tools.bootstrap_tools`` wires up the tool
   registry + workflow node registry from a cold start.
-* ``leagent.workflow.io.schema_bridge.json_schema_to_inputs``
+* ``StAgent.workflow.io.schema_bridge.json_schema_to_inputs``
   correctly turns a tool's JSON schema into typed workflow inputs.
-* ``leagent.workflow.nodes.tool_factory.build_node_class`` produces
+* ``StAgent.workflow.nodes.tool_factory.build_node_class`` produces
   a runnable ``WorkflowNode`` subclass from an arbitrary tool.
 """
 
@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext
+from StAgent.tools.registry import ToolRegistry
 
 
 class _EchoTool(BaseTool):
@@ -50,7 +50,7 @@ class _EchoTool(BaseTool):
 
 
 def test_schema_bridge_maps_primitive_types() -> None:
-    from leagent.workflow.io import IO, json_schema_to_inputs
+    from StAgent.workflow.io import IO, json_schema_to_inputs
 
     tool = _EchoTool()
     inputs = json_schema_to_inputs(tool.parameters)
@@ -70,7 +70,7 @@ def test_schema_bridge_maps_primitive_types() -> None:
 
 
 def test_tool_factory_builds_runnable_node() -> None:
-    from leagent.workflow.nodes.tool_factory import (
+    from StAgent.workflow.nodes.tool_factory import (
         build_node_class,
         clear_factory_cache,
     )
@@ -88,9 +88,9 @@ def test_tool_factory_builds_runnable_node() -> None:
 
 @pytest.mark.asyncio
 async def test_bootstrap_registers_tool_nodes() -> None:
-    from leagent.bootstrap import bootstrap_tools
-    from leagent.tools.registry import get_registry
-    from leagent.workflow.nodes.registry import get_registry as get_node_registry
+    from StAgent.bootstrap import bootstrap_tools
+    from StAgent.tools.registry import get_registry
+    from StAgent.workflow.nodes.registry import get_registry as get_node_registry
 
     summary = await bootstrap_tools()
     reg = get_registry()

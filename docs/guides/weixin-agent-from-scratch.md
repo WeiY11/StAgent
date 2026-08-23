@@ -1,13 +1,13 @@
 # 如何把微信接到自己的 Agent
 
 > 一篇面向开源爱好者的通用技术分享：说明「个人微信 → 自建 Agent」这条链路到底怎么走，协议长什么样，哪些坑几乎人人会踩。  
-> LeAgent 的实现可作为参考实现；文中思路同样适用于你自己的 Agent runtime。
+> StAgent 的实现可作为参考实现；文中思路同样适用于你自己的 Agent runtime。
 
 | | |
 |---|---|
 | **受众** | 想给自建 Agent 加上 IM 入口、愿意读一点协议细节的开发者 |
 | **协议** | 腾讯微信 **iLink Bot API**（个人微信 / ClawBot 能力） |
-| **参考** | [协议说明](https://www.wechatbot.dev/en/protocol)、[Hermes Weixin 文档](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/weixin)、LeAgent `leagent/channels/weixin/` |
+| **参考** | [协议说明](https://www.wechatbot.dev/en/protocol)、[Hermes Weixin 文档](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/weixin)、StAgent `StAgent/channels/weixin/` |
 
 ---
 
@@ -22,7 +22,7 @@
 | **个人微信 iLink Bot** | 扫码把 *个人账号* 接到 Agent | **HTTP 长轮询**（可不上公网） | iLink bot 身份（如 `…@im.bot`） |
 
 本文只讲第三种：**用个人微信号扫码，把私信接到你自己的 Agent**。  
-它和「企业微信出站机器人」不是一条路——LeAgent 里对应的是 `weixin`，而不是 `wechat_work`。
+它和「企业微信出站机器人」不是一条路——StAgent 里对应的是 `weixin`，而不是 `wechat_work`。
 
 为什么很多人选 iLink：
 
@@ -201,21 +201,21 @@ session_id = uuid5(NAMESPACE_DNS, f"weixin:{peer_user_id}")
 
 ---
 
-## 6. 参考实现：LeAgent 怎么落地
+## 6. 参考实现：StAgent 怎么落地
 
-下面用 LeAgent 说明「同一套模板」如何落到工程里（路径便于跳读，不必捆绑框架）。
+下面用 StAgent 说明「同一套模板」如何落到工程里（路径便于跳读，不必捆绑框架）。
 
 ### 6.1 模块划分
 
 ```text
-leagent/channels/weixin/
+StAgent/channels/weixin/
   client.py   # iLink HTTP：getupdates / sendmessage / typing / upload
   crypto.py   # AES-128-ECB + 多种 aes_key 解码
   media.py    # CDN 上下载
   store.py    # account / context_token / sync_buf
   login.py    # QR 会话、状态归一化、凭据落盘
   channel.py  # BaseChannel：轮询入队、consume、回发
-leagent/channels/agent_bridge.py
+StAgent/channels/agent_bridge.py
               # ChannelMessage → AgentRuntime.stream → 终态 ChannelEvent
 ```
 
@@ -240,11 +240,11 @@ Hermes Agent 的 Weixin 适配器、以及 [wechatbot.dev 协议页](https://www
 
 ---
 
-## 7. LeAgent 里怎么用（实操）
+## 7. StAgent 里怎么用（实操）
 
 ### 7.1 前端扫码（推荐）
 
-1. 启动 LeAgent（`./start.sh`）  
+1. 启动 StAgent（`./start.sh`）  
 2. 打开 **消息通道**  
 3. 点 **扫码连接** → 微信扫码 → 手机确认  
 4. 面板显示「运行中」后，直接给 bot 发私信即可  
@@ -255,14 +255,14 @@ Hermes Agent 的 Weixin 适配器、以及 [wechatbot.dev 协议页](https://www
 
 ```bash
 cd backend
-uv run leagent channels login weixin
+uv run StAgent channels login weixin
 # 若服务已在跑：到 UI 点「启动监听」，或调用 POST /api/v1/channels/weixin/start
 ```
 
 凭据位置：
 
-- `$LEAGENT_HOME/weixin/accounts/<account_id>.json`
-- `$LEAGENT_HOME/weixin/accounts/<account_id>.context-tokens.json`
+- `$StAgent_HOME/weixin/accounts/<account_id>.json`
+- `$StAgent_HOME/weixin/accounts/<account_id>.context-tokens.json`
 - `$LEAGENT_HOME/config.yaml` → `channels.weixin`
 
 ### 7.3 相关环境变量（可选覆盖）
@@ -303,9 +303,9 @@ uv run leagent channels login weixin
 
 - 协议：<https://www.wechatbot.dev/en/protocol>  
 - Hermes 用户指南（中文）：<https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/messaging/weixin>  
-- LeAgent 教程渠道章节：[`docs/tutorial_zh.md`](../tutorial_zh.md)（个人微信小节）  
+- StAgent 教程渠道章节：[`docs/tutorial_zh.md`](../tutorial_zh.md)（个人微信小节）  
 - 执行拓扑（Agent 内核入口）：[`docs/technical/execution-topology.md`](../technical/execution-topology.md)  
-- 本仓库实现：`backend/leagent/channels/weixin/`、`backend/leagent/channels/agent_bridge.py`
+- 本仓库实现：`backend/StAgent/channels/weixin/`、`backend/StAgent/channels/agent_bridge.py`
 
 ---
 

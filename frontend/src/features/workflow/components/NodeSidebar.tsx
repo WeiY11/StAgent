@@ -75,7 +75,7 @@ export function NodeSidebar({ registry, collapsed, onAdd }: NodeSidebarProps) {
                         type="button"
                         draggable
                         onDragStart={(e) => {
-                          e.dataTransfer.setData('application/leagent-node', def.type);
+                          e.dataTransfer.setData('application/StAgent-node', def.type);
                           e.dataTransfer.effectAllowed = 'move';
                         }}
                         onClick={() => onAdd(def)}

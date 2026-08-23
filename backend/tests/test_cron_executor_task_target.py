@@ -17,12 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from leagent.cron.base import (
+from StAgent.cron.base import (
     CronExecution,
     CronJob,
     CronJobType,
 )
-from leagent.cron.executor import CronExecutor
+from StAgent.cron.executor import CronExecutor
 
 
 # ---------------------------------------------------------------------------
@@ -35,8 +35,8 @@ async def test_execute_workflow_loads_definition_and_returns_outputs() -> None:
     """CronExecutor._execute_workflow delegates to WorkflowExecutor.execute."""
     from uuid import uuid4
 
-    from leagent.workflow.base import WorkflowResult, WorkflowStatus
-    from leagent.workflow.io import load
+    from StAgent.workflow.base import WorkflowResult, WorkflowStatus
+    from StAgent.workflow.io import load
 
     minimal = {
         "id": "cron-mini",
@@ -130,7 +130,7 @@ async def test_script_without_path_rejected_when_shell_disallowed() -> None:
     executor = CronExecutor()
 
     with patch(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         return_value=MagicMock(cron_allow_shell=False),
     ):
         job = _make_job({"script": "echo hi"})
@@ -157,7 +157,7 @@ async def test_script_with_shell_string_needs_opt_in() -> None:
     job = _make_job({"script": "echo cron-allowed"})
 
     with patch(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         return_value=MagicMock(cron_allow_shell=True),
     ):
         result = await executor._execute_script(job, _make_execution(job))
@@ -222,7 +222,7 @@ class _FakeDB:
 @pytest.mark.asyncio
 async def test_execute_task_routes_through_task_manager() -> None:
     """Cron ``task`` jobs must invoke ``TaskManager.create_task + start_task``."""
-    from leagent.db.models.task import TaskStatus
+    from StAgent.db.models.task import TaskStatus
 
     fake_task = _FakeTask()
     fake_task.status = TaskStatus.COMPLETED
@@ -245,9 +245,9 @@ async def test_execute_task_routes_through_task_manager() -> None:
     executor = CronExecutor(default_timeout_sec=30)
 
     with patch(
-        "leagent.services.task_manager.get_task_manager", return_value=mgr
+        "StAgent.services.task_manager.get_task_manager", return_value=mgr
     ), patch(
-        "leagent.db.get_database_service", return_value=fake_db
+        "StAgent.db.get_database_service", return_value=fake_db
     ):
         result = await executor._execute_task(job, execution)
 
@@ -266,7 +266,7 @@ async def test_execute_task_routes_through_task_manager() -> None:
 
 @pytest.mark.asyncio
 async def test_execute_task_propagates_failure() -> None:
-    from leagent.db.models.task import TaskStatus
+    from StAgent.db.models.task import TaskStatus
 
     fake_task = _FakeTask()
     fake_task.status = TaskStatus.FAILED
@@ -288,9 +288,9 @@ async def test_execute_task_propagates_failure() -> None:
     executor = CronExecutor(default_timeout_sec=30)
 
     with patch(
-        "leagent.services.task_manager.get_task_manager", return_value=mgr
+        "StAgent.services.task_manager.get_task_manager", return_value=mgr
     ), patch(
-        "leagent.db.get_database_service", return_value=fake_db
+        "StAgent.db.get_database_service", return_value=fake_db
     ):
         with pytest.raises(RuntimeError, match="failed"):
             await executor._execute_task(job, execution)

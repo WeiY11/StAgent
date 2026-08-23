@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from leagent.llm.base import ChatMessage, StreamChunk, TokenUsage, ToolDefinition
-from leagent.llm.providers.dashscope import DashScopeProvider
+from StAgent.llm.base import ChatMessage, StreamChunk, TokenUsage, ToolDefinition
+from StAgent.llm.providers.dashscope import DashScopeProvider
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +141,7 @@ class TestDashScopeSettingsMerge:
     def test_settings_merge_enable_thinking(self) -> None:
         p = DashScopeProvider(api_key="k")
         mock_settings = self._mock_settings(enable_thinking=True)
-        with patch("leagent.llm.providers.dashscope.DashScopeProvider._merge_dashscope_settings") as mock_merge:
+        with patch("StAgent.llm.providers.dashscope.DashScopeProvider._merge_dashscope_settings") as mock_merge:
             mock_merge.return_value = {"enable_thinking": True}
             result = mock_merge({})
             assert result["enable_thinking"] is True
@@ -150,7 +150,7 @@ class TestDashScopeSettingsMerge:
         p = DashScopeProvider(api_key="k")
         kwargs: dict = {}
         mock_settings = self._mock_settings(enable_search=True)
-        with patch("leagent.config.settings.get_settings", return_value=mock_settings):
+        with patch("StAgent.config.settings.get_settings", return_value=mock_settings):
             merged = p._merge_dashscope_settings(kwargs)
         assert merged.get("enable_search") is True
 
@@ -158,7 +158,7 @@ class TestDashScopeSettingsMerge:
         p = DashScopeProvider(api_key="k")
         kwargs = {"enable_thinking": False, "enable_search": False}
         mock_settings = self._mock_settings(enable_thinking=True, enable_search=True)
-        with patch("leagent.config.settings.get_settings", return_value=mock_settings):
+        with patch("StAgent.config.settings.get_settings", return_value=mock_settings):
             merged = p._merge_dashscope_settings(kwargs)
         assert merged["enable_thinking"] is False
         assert merged["enable_search"] is False
@@ -166,7 +166,7 @@ class TestDashScopeSettingsMerge:
     def test_settings_merge_handles_import_error(self) -> None:
         p = DashScopeProvider(api_key="k")
         kwargs = {"temperature": 0.5}
-        with patch("leagent.config.settings.get_settings", side_effect=ImportError("no settings")):
+        with patch("StAgent.config.settings.get_settings", side_effect=ImportError("no settings")):
             merged = p._merge_dashscope_settings(kwargs)
         assert merged == kwargs
 
@@ -325,7 +325,7 @@ class TestDashScopeCacheMetrics:
             total_tokens=150,
             prompt_cache_hit_tokens=80,
         )
-        with caplog.at_level(logging.DEBUG, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.DEBUG, logger="StAgent.llm.providers.dashscope"):
             p._log_cache_metrics(usage, "qwen-plus")
         assert any("dashscope_cache_metrics" in r.message for r in caplog.records)
 
@@ -337,7 +337,7 @@ class TestDashScopeCacheMetrics:
             total_tokens=150,
             prompt_cache_hit_tokens=0,
         )
-        with caplog.at_level(logging.DEBUG, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.DEBUG, logger="StAgent.llm.providers.dashscope"):
             p._log_cache_metrics(usage, "qwen-plus")
         assert not any("dashscope_cache_metrics" in r.message for r in caplog.records)
 
@@ -354,7 +354,7 @@ class TestDashScopeErrorHandling:
     def test_reasoning_content_passback_error_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         p = DashScopeProvider(api_key="k")
         body = {"error": {"message": "reasoning_content field is required"}}
-        with caplog.at_level(logging.ERROR, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.ERROR, logger="StAgent.llm.providers.dashscope"):
             try:
                 p._handle_error(400, body, "qwen3-max")
             except Exception:
@@ -364,7 +364,7 @@ class TestDashScopeErrorHandling:
     def test_enable_thinking_error_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         p = DashScopeProvider(api_key="k")
         body = {"error": {"message": "enable_thinking is not supported for this model"}}
-        with caplog.at_level(logging.ERROR, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.ERROR, logger="StAgent.llm.providers.dashscope"):
             try:
                 p._handle_error(400, body, "qwen-plus")
             except Exception:
@@ -374,7 +374,7 @@ class TestDashScopeErrorHandling:
     def test_tool_choice_thinking_error_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         p = DashScopeProvider(api_key="k")
         body = {"error": {"message": "tool_choice not supported in thinking mode"}}
-        with caplog.at_level(logging.ERROR, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.ERROR, logger="StAgent.llm.providers.dashscope"):
             try:
                 p._handle_error(400, body, "qwen3-max")
             except Exception:
@@ -383,7 +383,7 @@ class TestDashScopeErrorHandling:
 
     def test_non_400_error_no_diagnostic(self, caplog: pytest.LogCaptureFixture) -> None:
         p = DashScopeProvider(api_key="k")
-        with caplog.at_level(logging.ERROR, logger="leagent.llm.providers.dashscope"):
+        with caplog.at_level(logging.ERROR, logger="StAgent.llm.providers.dashscope"):
             try:
                 p._handle_error(500, "server error", "qwen-plus")
             except Exception:
@@ -420,11 +420,11 @@ class TestDashScopeThinkingDetection:
 
 class TestDashScopeRegistryWiring:
     def test_providers_package_exports_dashscope(self) -> None:
-        from leagent.llm.providers import DashScopeProvider as Exported
+        from StAgent.llm.providers import DashScopeProvider as Exported
         assert Exported is DashScopeProvider
 
     def test_provider_config_constructs_dashscope(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="dashscope-test",
@@ -442,7 +442,7 @@ class TestDashScopeRegistryWiring:
         assert provider.default_model == "qwen-max"
 
     def test_provider_config_qwen_type_constructs_dashscope(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="qwen-test",
@@ -458,7 +458,7 @@ class TestDashScopeRegistryWiring:
         assert isinstance(provider, DashScopeProvider)
 
     def test_provider_config_passes_base_url(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         custom_url = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
         pc = ProviderConfig(
@@ -482,19 +482,19 @@ class TestDashScopeRegistryWiring:
 
 class TestDashScopeHostnameDetection:
     def test_dashscope_hostname(self) -> None:
-        from leagent.llm.registry import _endpoint_hostname_is_dashscope
+        from StAgent.llm.registry import _endpoint_hostname_is_dashscope
 
         assert _endpoint_hostname_is_dashscope("https://dashscope.aliyuncs.com/compatible-mode/v1") is True
         assert _endpoint_hostname_is_dashscope("https://dashscope-intl.aliyuncs.com/compatible-mode/v1") is True
 
     def test_non_dashscope_hostname(self) -> None:
-        from leagent.llm.registry import _endpoint_hostname_is_dashscope
+        from StAgent.llm.registry import _endpoint_hostname_is_dashscope
 
         assert _endpoint_hostname_is_dashscope("https://api.openai.com/v1") is False
         assert _endpoint_hostname_is_dashscope("https://api.deepseek.com") is False
         assert _endpoint_hostname_is_dashscope("") is False
 
     def test_maas_hostname(self) -> None:
-        from leagent.llm.registry import _endpoint_hostname_is_dashscope
+        from StAgent.llm.registry import _endpoint_hostname_is_dashscope
 
         assert _endpoint_hostname_is_dashscope("https://maas.aliyuncs.com/v1") is True

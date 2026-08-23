@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 
-from leagent.tools.base import ToolContext
-from leagent.tools.executor import (
+from StAgent.tools.base import ToolContext
+from StAgent.tools.executor import (
     _recover_tool_argument_blob_args,
     _try_parse_raw_tool_args,
     parse_tool_arguments_str,
 )
-from leagent.agent.deps import _try_blob_streaming_ingest, _try_direct_content_ingest
-from leagent.tools.util.tool_argument_blob import (
+from StAgent.agent.deps import _try_blob_streaming_ingest, _try_direct_content_ingest
+from StAgent.tools.util.tool_argument_blob import (
     ToolArgumentBlobStore,
     ToolArgumentBlobTool,
     resolve_blob_text,
@@ -203,7 +203,7 @@ class TestBlobStreamingIngest:
         ToolArgumentBlobStore._blobs.clear()
 
     async def test_streaming_ingest_append(self) -> None:
-        from leagent.agent.deps import _try_blob_streaming_ingest
+        from StAgent.agent.deps import _try_blob_streaming_ingest
 
         sid = "stream-test-session"
         blob_id = await ToolArgumentBlobStore.create(sid)
@@ -219,7 +219,7 @@ class TestBlobStreamingIngest:
         assert result["_ingested_bytes"] > 0
 
     async def test_streaming_ingest_create_and_finalize(self) -> None:
-        from leagent.agent.deps import _try_blob_streaming_ingest
+        from StAgent.agent.deps import _try_blob_streaming_ingest
 
         raw = (
             '{"action":"create_and_finalize",'
@@ -232,13 +232,13 @@ class TestBlobStreamingIngest:
         assert "blob_id" in result
 
     async def test_streaming_ingest_ignores_non_blob_tool(self) -> None:
-        from leagent.agent.deps import _try_blob_streaming_ingest
+        from StAgent.agent.deps import _try_blob_streaming_ingest
 
         result = await _try_blob_streaming_ingest("code_execution", '{"source":"x"}')
         assert result is None
 
     async def test_streaming_ingest_ignores_non_append_action(self) -> None:
-        from leagent.agent.deps import _try_blob_streaming_ingest
+        from StAgent.agent.deps import _try_blob_streaming_ingest
 
         result = await _try_blob_streaming_ingest(
             "tool_argument_blob", '{"action":"finalize","blob_id":"x"}',
@@ -247,7 +247,7 @@ class TestBlobStreamingIngest:
 
     async def test_streaming_ingest_truncated_base64_partial_blob(self) -> None:
         """Truncated base64 in create_and_finalize saves partial content, not finalized."""
-        from leagent.agent.deps import _try_blob_streaming_ingest
+        from StAgent.agent.deps import _try_blob_streaming_ingest
 
         full_html = "<p>Hello world from truncated ingest</p>"
         valid_b64 = base64.b64encode(full_html.encode()).decode()

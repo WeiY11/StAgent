@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from leagent.llm.generation import build_default_generation_service
-from leagent.llm.generation.backends import SiliconFlowImageBackend
-from leagent.llm.generation.providers.siliconflow import (
+from StAgent.llm.generation import build_default_generation_service
+from StAgent.llm.generation.backends import SiliconFlowImageBackend
+from StAgent.llm.generation.providers.siliconflow import (
     build_payload,
     match_model_family,
     snap_image_size,
@@ -188,7 +188,7 @@ async def test_siliconflow_generate_downloads_image_bytes(monkeypatch):
     )
     transport = _FakeTransport(client)
     monkeypatch.setattr(
-        "leagent.llm.transport.HttpTransport", lambda *a, **k: transport
+        "StAgent.llm.transport.HttpTransport", lambda *a, **k: transport
     )
 
     backend = SiliconFlowImageBackend()
@@ -224,7 +224,7 @@ async def test_siliconflow_generate_falls_back_to_url_on_download_error(monkeypa
         get_resp=_FakeResponse(),
     )
     transport = _FakeTransport(client)
-    monkeypatch.setattr("leagent.llm.transport.HttpTransport", lambda *a, **k: transport)
+    monkeypatch.setattr("StAgent.llm.transport.HttpTransport", lambda *a, **k: transport)
 
     out = await SiliconFlowImageBackend().generate(kind="image", prompt="hero")
     assert out.success is True
@@ -241,7 +241,7 @@ async def test_response_b64_json_decoded(monkeypatch):
         get_resp=_FakeResponse(),
     )
     transport = _FakeTransport(client)
-    monkeypatch.setattr("leagent.llm.transport.HttpTransport", lambda *a, **k: transport)
+    monkeypatch.setattr("StAgent.llm.transport.HttpTransport", lambda *a, **k: transport)
 
     out = await SiliconFlowImageBackend().generate(
         kind="image",
@@ -268,7 +268,7 @@ async def test_siliconflow_error_body_surfaced(monkeypatch):
         get_resp=_FakeResponse(),
     )
     transport = _FakeTransport(client)
-    monkeypatch.setattr("leagent.llm.transport.HttpTransport", lambda *a, **k: transport)
+    monkeypatch.setattr("StAgent.llm.transport.HttpTransport", lambda *a, **k: transport)
 
     out = await SiliconFlowImageBackend().generate(kind="image", prompt="hero")
     assert out.success is False
@@ -291,7 +291,7 @@ async def test_provider_z_image_payload_via_backend(monkeypatch):
         get_resp=_FakeResponse(content=b"png", headers={"content-type": "image/png"}),
     )
     transport = _FakeTransport(client)
-    monkeypatch.setattr("leagent.llm.transport.HttpTransport", lambda *a, **k: transport)
+    monkeypatch.setattr("StAgent.llm.transport.HttpTransport", lambda *a, **k: transport)
 
     out = await SiliconFlowImageBackend().generate(
         kind="image",
@@ -319,7 +319,7 @@ async def test_provider_direct_generate(monkeypatch):
         get_resp=_FakeResponse(content=png, headers={"content-type": "image/png"}),
     )
     transport = _FakeTransport(client)
-    monkeypatch.setattr("leagent.llm.transport.HttpTransport", lambda *a, **k: transport)
+    monkeypatch.setattr("StAgent.llm.transport.HttpTransport", lambda *a, **k: transport)
 
     provider = SiliconFlowImageProvider(api_key="sk-test")
     result = await provider.generate(model="Kwai-Kolors/Kolors", prompt="cat")

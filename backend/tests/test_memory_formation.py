@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.memory.formation import (
+from StAgent.memory.formation import (
     EPISODIC_THRESHOLD,
     FormationDecision,
     FormationPolicy,
@@ -329,9 +329,9 @@ class TestHelpers:
 # observe_turn integration (using fakes from test_agent_memory.py pattern)
 # ---------------------------------------------------------------------------
 
-from leagent.memory.agent_memory import AgentMemory
-from leagent.memory.types import Episode, Fact, Procedure, RecallBundle, RecallEntry
-from leagent.memory.vector import VectorWriteResult
+from StAgent.memory.agent_memory import AgentMemory
+from StAgent.memory.types import Episode, Fact, Procedure, RecallBundle, RecallEntry
+from StAgent.memory.vector import VectorWriteResult
 
 
 @dataclass

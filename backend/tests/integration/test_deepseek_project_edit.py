@@ -76,7 +76,7 @@ async def test_live_deepseek_project_edit_add_function(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import build_coding_agent_engine
+    from StAgent.agent.coding_agent import build_coding_agent_engine
 
     engine = build_coding_agent_engine(
         llm=deepseek_llm,
@@ -111,7 +111,7 @@ async def test_live_deepseek_project_multiedit_constants(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import (
+    from StAgent.agent.coding_agent import (
         DEFAULT_CODING_AGENT_TOOLS,
         build_coding_agent_engine,
     )
@@ -155,7 +155,7 @@ async def test_live_deepseek_project_apply_patch_docstring(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import build_coding_agent_engine
+    from StAgent.agent.coding_agent import build_coding_agent_engine
 
     engine = build_coding_agent_engine(
         llm=deepseek_llm,

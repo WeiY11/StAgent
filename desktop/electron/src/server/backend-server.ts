@@ -119,18 +119,18 @@ export class BackendServer {
     const frontend = frontendDir();
     const venvBin = runtimeVenvBinDir();
 
-    const args = ['-m', 'leagent.server', '--host', '127.0.0.1', '--port', String(port)];
+    const args = ['-m', 'StAgent.server', '--host', '127.0.0.1', '--port', String(port)];
 
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       VIRTUAL_ENV: runtimeVenvDir(),
       UV_PROJECT_ENVIRONMENT: runtimeVenvDir(),
-      LEAGENT_HOME: home,
-      LEAGENT_DESKTOP: '1',
-      LEAGENT_DESKTOP_MODE: '1',
-      LEAGENT_BUILD_VERSION: desktopBuildVersionEnv(app.getVersion()),
-      LEAGENT_SKILLS_INTEROP_DISCOVERY: desktopSkillsInteropDiscoveryEnv(process.env),
-      ...(app.isPackaged ? { LEAGENT_FRONTEND_DIST: frontend } : {}),
+      StAgent_HOME: home,
+      StAgent_DESKTOP: '1',
+      StAgent_DESKTOP_MODE: '1',
+      StAgent_BUILD_VERSION: desktopBuildVersionEnv(app.getVersion()),
+      StAgent_SKILLS_INTEROP_DISCOVERY: desktopSkillsInteropDiscoveryEnv(process.env),
+      ...(app.isPackaged ? { StAgent_FRONTEND_DIST: frontend } : {}),
       PYTHONDONTWRITEBYTECODE: '0',
       PYTHONUNBUFFERED: '1',
       PATH: `${venvBin}${path.delimiter}${process.env.PATH ?? ''}`,

@@ -6,7 +6,7 @@
 |------|------|--------|
 | 聊天 transcript | 用户可见的 SSOT | `TieredSessionStore` |
 | 恢复（Resume） | 暂停 / 继续 | `CheckpointStore` |
-| **运行追踪** | 评测、模型对比、缺陷定位 | `leagent.telemetry.trace` |
+| **运行追踪** | 评测、模型对比、缺陷定位 | `StAgent.telemetry.trace` |
 
 灵感来自 Hermes（OTel / OpenInference span kinds）、Codex（`trace.jsonl` + 外联 payload）以及 Claude session transcripts（只追加事件）。
 
@@ -23,10 +23,10 @@
 
 | 环境变量 | 默认值 | 含义 |
 |----------|--------|------|
-| `LEAGENT_TRACE__ENABLED` | `true` | 总开关 |
-| `LEAGENT_TRACE__CAPTURE_PAYLOADS` | `false` | 将完整 I/O 写入 `LEAGENT_HOME/traces/` |
-| `LEAGENT_TRACE__PREVIEW_CHARS` | `4096` | 截断预览长度 |
-| `LEAGENT_TRACE__RETENTION_DAYS` | `30` | 计划保留天数（清理任务待定） |
+| `StAgent_TRACE__ENABLED` | `true` | 总开关 |
+| `StAgent_TRACE__CAPTURE_PAYLOADS` | `false` | 将完整 I/O 写入 `StAgent_HOME/traces/` |
+| `StAgent_TRACE__PREVIEW_CHARS` | `4096` | 截断预览长度 |
+| `StAgent_TRACE__RETENTION_DAYS` | `30` | 计划保留天数（清理任务待定） |
 
 ## API
 

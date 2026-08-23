@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from leagent.workflow.engine.progress import ProgressEvent, ProgressRegistry
+from StAgent.workflow.engine.progress import ProgressEvent, ProgressRegistry
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-"""Tests for leagent.file.service — the unified FileService."""
+"""Tests for StAgent.file.service — the unified FileService."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.file.primitives import FileScope
-from leagent.file.service import FileRef, FileService
-from leagent.file.storage.local import LocalStorageBackend
+from StAgent.file.primitives import FileScope
+from StAgent.file.service import FileRef, FileService
+from StAgent.file.storage.local import LocalStorageBackend
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -94,7 +94,7 @@ async def test_scope_in_ref(file_service: FileService):
 
 @pytest.mark.asyncio
 async def test_size_limit_enforcement(storage_root: Path):
-    from leagent.file.service import FileAccessPolicy
+    from StAgent.file.service import FileAccessPolicy
 
     backend = LocalStorageBackend(storage_root)
     svc = FileService(

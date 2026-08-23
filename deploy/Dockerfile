@@ -1,5 +1,5 @@
 # =============================================================================
-# LeAgent Dockerfile - Multi-stage production build
+# StAgent Dockerfile - Multi-stage production build
 # Build context: repository root (see deploy/docker-compose.yml).
 # =============================================================================
 
@@ -42,7 +42,7 @@ RUN uv sync \
     --extra production
 
 # Layer 2: Copy source and install the project itself.
-COPY backend/leagent/ leagent/
+COPY backend/StAgent/ StAgent/
 COPY backend/alembic.ini ./
 RUN uv sync \
     --frozen \
@@ -61,10 +61,10 @@ RUN playwright install chromium && \
 # -----------------------------------------------------------------------------
 FROM python:3.11-slim-bookworm AS production
 
-ARG LEAGENT_VERSION=dev
+ARG StAgent_VERSION=dev
 LABEL maintainer="Cheng Yuanqi <vixues@gmail.com>" \
-      version="${LEAGENT_VERSION}" \
-      description="LeAgent - Intelligent Office Agent Platform"
+      version="${StAgent_VERSION}" \
+      description="StAgent - Intelligent Office Agent Platform"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -72,7 +72,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     APP_HOME=/app \
-    APP_USER=leagent \
+    APP_USER=StAgent \
     APP_UID=1000 \
     APP_GID=1000
 
@@ -119,7 +119,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /root/.cache/ms-playwright /home/$APP_USER/.cache/ms-playwright
 RUN chown -R $APP_USER:$APP_USER /home/$APP_USER/.cache || true
 
-COPY --chown=$APP_USER:$APP_USER --from=builder /build/leagent /app/leagent
+COPY --chown=$APP_USER:$APP_USER --from=builder /build/StAgent /app/StAgent
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/alembic.ini /app/alembic.ini
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/pyproject.toml /app/pyproject.toml
 COPY --chown=$APP_USER:$APP_USER --from=builder /build/uv.lock /app/uv.lock
@@ -133,14 +133,14 @@ RUN mkdir -p \
     /app/tmp \
     && chown -R $APP_USER:$APP_USER /app
 
-COPY deploy/supervisord.conf /etc/supervisor/conf.d/leagent.conf
+COPY deploy/supervisord.conf /etc/supervisor/conf.d/StAgent.conf
 COPY deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f "http://localhost:${LEAGENT_PORT:-8000}/api/v1/health/ready" || exit 1
+    CMD curl -f "http://localhost:${StAgent_PORT:-8000}/api/v1/health/ready" || exit 1
 
 USER $APP_USER
 
@@ -160,10 +160,10 @@ RUN uv sync --frozen --no-editable --extra dev --extra ocr --extra postgres --ex
 
 USER $APP_USER
 
-ENV LEAGENT_DEBUG=true \
-    LEAGENT_LOG_LEVEL=DEBUG
+ENV StAgent_DEBUG=true \
+    StAgent_LOG_LEVEL=DEBUG
 
-CMD ["uvicorn", "leagent.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "StAgent.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # -----------------------------------------------------------------------------
 # Stage 4: OCR - With full OCR dependencies (PaddleOCR)

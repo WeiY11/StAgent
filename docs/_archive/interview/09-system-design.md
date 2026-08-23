@@ -10,7 +10,7 @@
 
 **安全与评估：**预订、支付、取消必须 HITL；第三方网页内容视为不可信输入，个人证件与支付数据最小化保存。评估约束满足率、事实/价格时效性、预算误差、路线可行性、用户修改次数和预订前误操作率。
 
-**LeAgent 可复用模块：**用 workflow DAG 并行检索并按依赖汇总，用 Agent 节点处理开放式规划；`run_loop` 承载工具迭代，checkpoint/PauseToken 等待用户确认，ToolPermissionContext 限制有副作用工具，FileService 管理行程文档。仓库提供通用工具与编排基础，但不应宣称已内置完整旅游供应链。
+**StAgent 可复用模块：**用 workflow DAG 并行检索并按依赖汇总，用 Agent 节点处理开放式规划；`run_loop` 承载工具迭代，checkpoint/PauseToken 等待用户确认，ToolPermissionContext 限制有副作用工具，FileService 管理行程文档。仓库提供通用工具与编排基础，但不应宣称已内置完整旅游供应链。
 
 ## 9.2 设计一个招聘 Agent
 
@@ -22,7 +22,7 @@
 
 **安全与评估：**做 RBAC、租户隔离、保留期、删除请求和审计；屏蔽年龄、性别、民族等不应使用的属性，检测代理变量与群体差异。评估抽取准确率、证据引用率、召回率、人工覆盖率、公平性差异和错误通知率，不能只看历史录用标签。
 
-**LeAgent 可复用模块：**文档/文件层负责受控简历引用，RAG/Memory 可存岗位知识但需 ACL，workflow 安排解析—评分—人工复核，pause/resume 等待审批，任务系统承载批量处理。现有通用 Memory 不自动满足招聘合规，需业务数据治理。
+**StAgent 可复用模块：**文档/文件层负责受控简历引用，RAG/Memory 可存岗位知识但需 ACL，workflow 安排解析—评分—人工复核，pause/resume 等待审批，任务系统承载批量处理。现有通用 Memory 不自动满足招聘合规，需业务数据治理。
 
 ## 9.3 设计一个股票分析 Agent
 
@@ -34,7 +34,7 @@
 
 **安全与评估：**区分实时、延迟与历史数据；防止未来信息泄漏、幸存者偏差和来源许可违规。若接交易接口，必须使用账户隔离、额度、风控规则、双重确认和 kill switch。评估数据完整率、数值误差、引用正确率、时点一致性、回测外表现和风险披露覆盖率，而非只看收益。
 
-**LeAgent 可复用模块：**workflow 并行拉取多源数据，Tool 节点执行计算，Agent 做解释与异常追查，FileService 注册图表/报告，checkpoint 支持研究中断恢复。工具权限可默认拒绝交易工具；LeAgent 不提供“保证收益”的能力。
+**StAgent 可复用模块：**workflow 并行拉取多源数据，Tool 节点执行计算，Agent 做解释与异常追查，FileService 注册图表/报告，checkpoint 支持研究中断恢复。工具权限可默认拒绝交易工具；StAgent 不提供“保证收益”的能力。
 
 ## 9.4 设计一个代码生成 Agent
 
@@ -46,7 +46,7 @@
 
 **安全与评估：**沙箱命令、限制网络和路径、保护 secret、禁止未授权发布/推送；依赖安装与迁移需额外审批。评估任务测试通过率、回归率、diff 大小、无关修改率、安全扫描、人工接受率和恢复成功率。
 
-**LeAgent 可复用模块：**project/code/file 三层提供 workspace、执行和产物边界；工具的 `authorized_roots` 与权限策略限制路径和副作用；subagent 可分派探索或测试，父子通过 `parent_run_id` 追踪；所有 Agent 执行经 `run_loop`，长步骤可进入 Task system。项目层不得绕过文件层规则写 managed blob。
+**StAgent 可复用模块：**project/code/file 三层提供 workspace、执行和产物边界；工具的 `authorized_roots` 与权限策略限制路径和副作用；subagent 可分派探索或测试，父子通过 `parent_run_id` 追踪；所有 Agent 执行经 `run_loop`，长步骤可进入 Task system。项目层不得绕过文件层规则写 managed blob。
 
 ## 9.5 设计一个客服 Agent
 
@@ -58,7 +58,7 @@
 
 **安全与评估：**防提示注入、越权查单、PII 泄露和退款滥用；写操作需二次确认和幂等键。评估一次解决率、正确转人工率、引用准确率、平均处理时间、重复联系率、越权率和人工抽检，而非单看语气满意度。
 
-**LeAgent 可复用模块：**channels 作为入口，TieredSessionStore 保存对话，RAG/context 组装知识，ToolExecutor 透传身份并做权限检查，checkpoint/PauseToken 支持澄清或审批，Task system 处理异步工单。现成模块不替代 CRM 侧授权。
+**StAgent 可复用模块：**channels 作为入口，TieredSessionStore 保存对话，RAG/context 组装知识，ToolExecutor 透传身份并做权限检查，checkpoint/PauseToken 支持澄清或审批，Task system 处理异步工单。现成模块不替代 CRM 侧授权。
 
 ## 9.6 设计 Deep Research Agent
 
@@ -70,7 +70,7 @@
 
 **安全与评估：**网页内容均为不可信数据，不能把页面指令当系统指令；遵守 robots、许可、速率和隐私要求。用最大深度、来源数、token 和截止时间控制成本。评估 claim 支持率、引用可访问性、来源多样性、时间覆盖、矛盾识别、重复检索率与专家评分。
 
-**LeAgent 可复用模块：**subagent 适合隔离研究子题，workflow DAG 适合并行搜索和聚合；AgentMemory 可沉淀经验证知识，任务系统支持长研究，checkpoint 支持预算或人工中断，FileService 保存报告。LeAgent 提供积木，不代表默认研究策略已达到任意专业领域的专家质量。
+**StAgent 可复用模块：**subagent 适合隔离研究子题，workflow DAG 适合并行搜索和聚合；AgentMemory 可沉淀经验证知识，任务系统支持长研究，checkpoint 支持预算或人工中断，FileService 保存报告。StAgent 提供积木，不代表默认研究策略已达到任意专业领域的专家质量。
 
 ## 9.7 设计 Manus 类 Agent
 
@@ -82,7 +82,7 @@
 
 **安全与评估：**外部发送、购买、删除、发布和凭证使用必须显式授权；网络、文件系统和 secret 按任务隔离。评估跨域任务成功率、恢复率、人工介入次数、不可逆误操作、成本、P95 时长和产物可用性。
 
-**LeAgent 可复用模块：**`run_loop` 提供统一 think-act 自纠错路径，runtime wiring 注入工具/Memory/checkpoint，workflow 支持确定性子流程，task system 承载后台运行，PauseToken 支持审批，文件层管理产物。当前进程内 run registry 和默认本地部署不能被描述为互联网规模自治云平台。
+**StAgent 可复用模块：**`run_loop` 提供统一 think-act 自纠错路径，runtime wiring 注入工具/Memory/checkpoint，workflow 支持确定性子流程，task system 承载后台运行，PauseToken 支持审批，文件层管理产物。当前进程内 run registry 和默认本地部署不能被描述为互联网规模自治云平台。
 
 ## 9.8 设计 Cursor Agent
 
@@ -94,7 +94,7 @@
 
 **安全与评估：**根目录 allowlist、命令沙箱、secret redaction、网络策略和高风险操作确认；并发编辑用文件版本或 patch precondition。评估仓库级测试通过、编辑精度、无关 diff、命令失败恢复、延迟、token 和用户撤销率。
 
-**LeAgent 可复用模块：**project 工具承担仓库文件操作，code 层执行命令，ToolPermissionContext 和 `authorized_roots` 做边界，subagent 可独立探索/测试，run checkpoint 支持继续，FileService 管理导出产物。LeAgent 是可构建此类能力的后端栈，不等同于 Cursor 产品本身。
+**StAgent 可复用模块：**project 工具承担仓库文件操作，code 层执行命令，ToolPermissionContext 和 `authorized_roots` 做边界，subagent 可独立探索/测试，run checkpoint 支持继续，FileService 管理导出产物。StAgent 是可构建此类能力的后端栈，不等同于 Cursor 产品本身。
 
 ## 9.9 设计 Devin
 
@@ -106,7 +106,7 @@
 
 **安全与评估：**每任务隔离 VM/容器、最小权限凭证、默认不部署、不合并；外部副作用需审批。评估真实 issue 解决率、测试回归、平均人工修正、恢复后重复工作、环境成本、超时率及安全事件。
 
-**LeAgent 可复用模块：**TaskManager/AgentTaskHandler 运行后台 Agent 并流式记录进度，AgentRuntime 统一 kernel 语义，checkpoint 保存可恢复对话，project workspace 与文件层管理代码和产物，`parent_run_id` 关联子任务。跨机器 workspace snapshot、分布式 lease 和完整 PR 机器人仍需部署层建设。
+**StAgent 可复用模块：**TaskManager/AgentTaskHandler 运行后台 Agent 并流式记录进度，AgentRuntime 统一 kernel 语义，checkpoint 保存可恢复对话，project workspace 与文件层管理代码和产物，`parent_run_id` 关联子任务。跨机器 workspace snapshot、分布式 lease 和完整 PR 机器人仍需部署层建设。
 
 ## 9.10 设计 Operator
 
@@ -118,7 +118,7 @@
 
 **安全与评估：**网页提示注入隔离、域名 allowlist、下载扫描、凭证保险库、支付/提交前确认、验证码转人工；动作需防重复提交。评估任务完成率、步骤效率、页面变化鲁棒性、危险动作阻止率、恢复率和误点击率。
 
-**LeAgent 可复用模块：**web 工具可作为受控动作面，`run_loop` 处理观察—行动循环，权限和 PauseToken 管关键确认，workflow 固化稳定流程，FileService 注册截图/下载。浏览器级隔离、凭证注入和视觉 grounding 的质量取决于具体工具实现，不能由 runtime 自动保证。
+**StAgent 可复用模块：**web 工具可作为受控动作面，`run_loop` 处理观察—行动循环，权限和 PauseToken 管关键确认，workflow 固化稳定流程，FileService 注册截图/下载。浏览器级隔离、凭证注入和视觉 grounding 的质量取决于具体工具实现，不能由 runtime 自动保证。
 
 ## 9.11 如何支持百万用户？
 
@@ -130,7 +130,7 @@
 
 **安全与评估：**租户数据和密钥隔离、配额、滥用检测、区域合规、审计和灾备。压测关注 admission rate、queue lag、P50/P95/P99、模型限流、数据库热点、成本/请求、恢复时间和降级效果。
 
-**LeAgent 映射与边界：**ServiceManager runtime wiring 可保证各入口复用同一执行依赖，ExecutionRun 提供关联，Task/Workflow 服务提供执行抽象，文件层适合产物外置。但默认 SQLite 是单写者，ExecutionRunRegistry 与 event bus 是进程内组件；扩到百万级需要 PostgreSQL/分片、外部消息总线、durable run registry、分布式队列、对象存储和多区域设计，这些不能说成当前仓库已完成。
+**StAgent 映射与边界：**ServiceManager runtime wiring 可保证各入口复用同一执行依赖，ExecutionRun 提供关联，Task/Workflow 服务提供执行抽象，文件层适合产物外置。但默认 SQLite 是单写者，ExecutionRunRegistry 与 event bus 是进程内组件；扩到百万级需要 PostgreSQL/分片、外部消息总线、durable run registry、分布式队列、对象存储和多区域设计，这些不能说成当前仓库已完成。
 
 ## 9.12 如何支持长任务？
 
@@ -142,7 +142,7 @@
 
 **安全与评估：**每租户并发/成本配额，取消信号向工具和子任务传播；副作用阶段必须幂等，checkpoint 加密并设置保留期。评估任务成功率、取消延迟、checkpoint 开销、worker 崩溃恢复时间、重复副作用和陈旧任务比例。
 
-**LeAgent 映射与边界：**AgentTaskHandler 通过 AgentRuntime.stream 进入统一 `run_loop`，写任务输出和进度，并传播 abort event；workflow 有持久状态与 pause/resume。当前能力适合本地/单进程后台任务；跨节点 lease、心跳接管和队列高可用需要外部基础设施。
+**StAgent 映射与边界：**AgentTaskHandler 通过 AgentRuntime.stream 进入统一 `run_loop`，写任务输出和进度，并传播 abort event；workflow 有持久状态与 pause/resume。当前能力适合本地/单进程后台任务；跨节点 lease、心跳接管和队列高可用需要外部基础设施。
 
 ## 9.13 如何做任务恢复？
 
@@ -154,7 +154,7 @@
 
 **安全与评估：**checkpoint 包含敏感对话时需加密和 ACL；代码升级后做 schema migrator 或拒绝不兼容恢复；人工答复绑定原 run、scope 和参数摘要。故障注入测试进程崩溃、网络分区、重复 resume、checkpoint 写一半和外部成功但本地超时。
 
-**LeAgent 映射与边界：**kernel 在可恢复 reason 下保存消息快照与 usage，SQLCheckpointStore 可持久化 Agent checkpoint；WorkflowExecutor 可从 WorkflowStateStore 加载并用输出缓存跳过已完成节点；PauseToken 统一引用两类恢复入口。进程内 ExecutionRun 只是活跃句柄，durable checkpoint/state 才是重启恢复依据。
+**StAgent 映射与边界：**kernel 在可恢复 reason 下保存消息快照与 usage，SQLCheckpointStore 可持久化 Agent checkpoint；WorkflowExecutor 可从 WorkflowStateStore 加载并用输出缓存跳过已完成节点；PauseToken 统一引用两类恢复入口。进程内 ExecutionRun 只是活跃句柄，durable checkpoint/state 才是重启恢复依据。
 
 ## 9.14 如何做任务队列？
 
@@ -166,7 +166,7 @@
 
 **安全与评估：**消息不直接携带大文件或长期 secret，只放受控引用；防止某租户饿死其他租户；取消与重试必须可竞态安全。评估 queue lag、redelivery、DLQ、lease timeout、吞吐、公平性和单位任务成本。
 
-**LeAgent 映射与边界：**Task system 定义任务类型、handler、状态、进度、取消和输出，WorkflowService 也暴露 queue-aware 操作，可作为业务契约。若目标是多机高可用，应在其外接 durable broker、分布式 lease 和 worker autoscaling，而不是把进程内异步执行当作完整分布式队列。
+**StAgent 映射与边界：**Task system 定义任务类型、handler、状态、进度、取消和输出，WorkflowService 也暴露 queue-aware 操作，可作为业务契约。若目标是多机高可用，应在其外接 durable broker、分布式 lease 和 worker autoscaling，而不是把进程内异步执行当作完整分布式队列。
 
 ## 9.15 如何做状态管理？
 
@@ -187,4 +187,4 @@
 
 **安全与评估：**租户键参与所有查询；敏感字段加密、最小保留；并发更新使用乐观锁或事务；状态 schema 显式版本化。测试并发 resume、重复事件、缓存失效、跨版本迁移、部分写失败与删除合规。
 
-**在 LeAgent 中：**TieredSessionStore、CheckpointStore、WorkflowStateStore 与 TaskManager 分别拥有不同 durable state；ExecutionRun 的 `run_id/parent_run_id` 负责执行关联而不是替代数据库；RuntimeContext 从 ServiceManager 统一注入 registry、executor、hooks、Memory、LLM 与 checkpoint；文件产物通过 FileService 和 `register_tool_artifact` 管理。默认部署仍需遵守 SQLite 单 worker 和进程内 registry/event bus 的边界。
+**在 StAgent 中：**TieredSessionStore、CheckpointStore、WorkflowStateStore 与 TaskManager 分别拥有不同 durable state；ExecutionRun 的 `run_id/parent_run_id` 负责执行关联而不是替代数据库；RuntimeContext 从 ServiceManager 统一注入 registry、executor、hooks、Memory、LLM 与 checkpoint；文件产物通过 FileService 和 `register_tool_artifact` 管理。默认部署仍需遵守 SQLite 单 worker 和进程内 registry/event bus 的边界。

@@ -22,9 +22,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.memory.agent_memory import AgentMemory, RecallHandle
-from leagent.memory.recall import RecallOptions, RetrievalPipeline
-from leagent.memory.types import (
+from StAgent.memory.agent_memory import AgentMemory, RecallHandle
+from StAgent.memory.recall import RecallOptions, RetrievalPipeline
+from StAgent.memory.types import (
     Episode,
     Fact,
     MemoryKind,
@@ -32,7 +32,7 @@ from leagent.memory.types import (
     RecallBundle,
     RecallEntry,
 )
-from leagent.memory.vector import VectorWriteResult
+from StAgent.memory.vector import VectorWriteResult
 
 
 # ---------------------------------------------------------------------------

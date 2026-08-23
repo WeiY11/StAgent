@@ -8,11 +8,11 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.memory.procedure_promotion import (
+from StAgent.memory.procedure_promotion import (
     PROCEDURAL_PROMOTED_KEY,
     record_procedure_for_liked_assistant,
 )
-from leagent.db.models.message import MessageRole, MessageStatus
+from StAgent.db.models.message import MessageRole, MessageStatus
 
 
 @pytest.mark.asyncio

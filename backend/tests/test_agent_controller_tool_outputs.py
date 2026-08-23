@@ -9,10 +9,10 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import AgentConfig, AgentContext, ToolResult
-from leagent.agent.script_agent import build_script_execution_agent
-from leagent.agent.controller import AgentController
-from leagent.tools.registry import ToolRegistry
+from StAgent.agent.base import AgentConfig, AgentContext, ToolResult
+from StAgent.agent.script_agent import build_script_execution_agent
+from StAgent.agent.controller import AgentController
+from StAgent.tools.registry import ToolRegistry
 
 
 class _FakeSessionManager:
@@ -93,7 +93,7 @@ def _controller(session_manager: Any | None = None) -> AgentController:
 
 async def _finalize_single_tool_call(name: str, raw_args: str) -> dict[str, Any]:
     """Drive one coalesced tool call through the production recovery path."""
-    from leagent.agent.deps import _finalize_pending_tool_calls
+    from StAgent.agent.deps import _finalize_pending_tool_calls
 
     pending = {0: {"id": "call_1", "name": name, "arguments": raw_args}}
     events = await _finalize_pending_tool_calls(pending, {}, session_id=None)

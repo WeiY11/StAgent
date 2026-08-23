@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from leagent.code.runner import _load_runner_payload, build_runner_stdin
+from StAgent.code.runner import _load_runner_payload, build_runner_stdin
 
 
 def test_v2_runner_payload_round_trip() -> None:

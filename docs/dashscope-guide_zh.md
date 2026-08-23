@@ -1,12 +1,12 @@
 # DashScope（Qwen / 通义千问）集成指南
 
-> LeAgent 开发者参考：通过 **OpenAI 兼容** Chat Completions API 接入阿里云
+> StAgent 开发者参考：通过 **OpenAI 兼容** Chat Completions API 接入阿里云
 > DashScope（模型工作室 / 百炼）。
 >
 > 上游官方文档：
 > <https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions>
 
-LeAgent 通过 `/compatible-mode/v1/chat/completions` 端点与 DashScope 通信，
+StAgent 通过 `/compatible-mode/v1/chat/completions` 端点与 DashScope 通信，
 因此请求/响应形态与 OpenAI 兼容——所有 DashScope 特有参数通过 `extra_body`
 （Python SDK）或以顶层 JSON 字段（HTTP / Node.js）附加。
 
@@ -34,10 +34,10 @@ DashScope 在四个区域提供 OpenAI 兼容 API。不同区域的 `base_url`
 
 ## 2. 模型
 
-LeAgent 的 `PROVIDER_CATALOG`（`leagent/llm/provider_config.py`）在提供商类型
+StAgent 的 `PROVIDER_CATALOG`（`StAgent/llm/provider_config.py`）在提供商类型
 `qwen`（别名 `dashscope`）下预置了以下 Qwen 模型：
 
-| 模型 | LeAgent 档位 | 上下文窗口 | 工具 | 定价（¥ / 百万 tokens，入 / 出） | 说明 |
+| 模型 | StAgent 档位 | 上下文窗口 | 工具 | 定价（¥ / 百万 tokens，入 / 出） | 说明 |
 |------|--------------|------------|------|----------------------------------|------|
 | `qwen3-max` | tier1 | 128 000 | 是 | 10.00 / 30.00 | 最强推理，支持思考模式 |
 | `qwen3.5-plus` | tier1 | 128 000 | 是 | 2.00 / 8.00 | 性能与成本均衡 |
@@ -45,7 +45,7 @@ LeAgent 的 `PROVIDER_CATALOG`（`leagent/llm/provider_config.py`）在提供商
 | `qwen3.5-flash` | tier2 | 128 000 | 是 | 0.30 / 0.60 | 最快 / 最便宜 |
 | `qwen-long` | tier1 | 1 000 000 | 是 | 0.50 / 2.00 | 长上下文，支持文件摄入 |
 
-同一端点还暴露其他模型族（未在 LeAgent 预注册，但可在管理后台选用）：
+同一端点还暴露其他模型族（未在 StAgent 预注册，但可在管理后台选用）：
 
 - **视觉** — `qwen-vl-plus`、`qwen-vl-max`、`qwen2.5-vl-*`、`qwen3-vl-*`
 - **推理** — `qwq-*`、`qvq-*`
@@ -67,21 +67,21 @@ LeAgent 的 `PROVIDER_CATALOG`（`leagent/llm/provider_config.py`）在提供商
 |------|--------|------|
 | `DASHSCOPE_API_KEY` | *（必填）* | 来自百炼控制台的 API Key |
 | `LEAGENT_LLM__DASHSCOPE_API_KEY` | — | 同上，显式 Settings 前缀形式 |
-| `LEAGENT_LLM__DASHSCOPE_MODEL` | `qwen-max` | 注册表实例化 DashScope 时使用的默认模型 |
+| `StAgent_LLM__DASHSCOPE_MODEL` | `qwen-max` | 注册表实例化 DashScope 时使用的默认模型 |
 
-`leagent/config/env_bootstrap.py` 会在以下变量未设置时，自动将裸
+`StAgent/config/env_bootstrap.py` 会在以下变量未设置时，自动将裸
 `DASHSCOPE_API_KEY` 桥接到：
 
-- `LEAGENT_LLM__DASHSCOPE_API_KEY`
-- `LEAGENT_LLM__TIER1_API_KEY`
-- `LEAGENT_LLM__TIER2_API_KEY`
+- `StAgent_LLM__DASHSCOPE_API_KEY`
+- `StAgent_LLM__TIER1_API_KEY`
+- `StAgent_LLM__TIER2_API_KEY`
 
 因此 `.env` 中只需一行即可将 DashScope 作为默认 tier1/tier2 提供商启用。
 
 ### 档位映射
 
 当 DashScope 是唯一配置的云端密钥时，注册表
-（`leagent/llm/registry.py → create_default_registry()`）会将其同时挂为
+（`StAgent/llm/registry.py → create_default_registry()`）会将其同时挂为
 `tier1` 与 `tier2` 端点（默认模型为 `qwen-max`）。如需不同拆分，可用
 `LLM_TIER1_MODEL` / `LLM_TIER2_MODEL` 覆盖（例如 tier1 用 `qwen3-max`，
 tier2 用 `qwen3.5-flash`）。
@@ -111,7 +111,7 @@ providers:
 
 ## 4. 基本用法（OpenAI 兼容）
 
-由于端点与 OpenAI 兼容，所有官方 OpenAI SDK 均可使用。LeAgent 内部采用
+由于端点与 OpenAI 兼容，所有官方 OpenAI SDK 均可使用。StAgent 内部采用
 Python SDK 模式。
 
 ### Python（非流式）
@@ -170,13 +170,13 @@ curl -X POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions 
 
 ## 5. 思考模式（`enable_thinking`）
 
-Qwen3 与 QwQ 系列混合模型可在最终答案前返回思维链。LeAgent 的
+Qwen3 与 QwQ 系列混合模型可在最终答案前返回思维链。StAgent 的
 `DashScopeProvider` 会自动注入该参数。
 
-### LeAgent 中的自动注入
+### StAgent 中的自动注入
 
 ```python
-# leagent/llm/providers/dashscope.py
+# StAgent/llm/providers/dashscope.py
 _THINKING_CAPABLE_PREFIXES = ("qwen3", "qwq")
 
 def _build_request_body(...):
@@ -197,7 +197,7 @@ provider.complete(..., enable_thinking=False)
 
 思考输出有两条表面通道：
 
-| 模式 | LeAgent 表面 |
+| 模式 | StAgent 表面 |
 |------|--------------|
 | 非流式 | `LLMResponse.reasoning_content`（从 `choices[0].message.reasoning_content` 提取） |
 | 流式 | `StreamChunk.raw_delta["reasoning_content"]` |
@@ -483,17 +483,17 @@ client.chat.completions.create(
 | `completion_tokens_details.reasoning_tokens` | 思考阶段 token（Qwen3 / QwQ） |
 | `cache_creation.ephemeral_5m_input_tokens` | 写入显式缓存的 token |
 
-LeAgent 将这些字段映射到 `TokenUsage`（见
+StAgent 将这些字段映射到 `TokenUsage`（见
 `OpenAIProvider._parse_response` 以及 `DashScopeProvider._parse_response` /
 `_parse_stream_chunk`）。
 
 ---
 
-## 12. LeAgent 实现细节
+## 12. StAgent 实现细节
 
 ### 提供商类
 
-`leagent/llm/providers/dashscope.py` — `DashScopeProvider(OpenAIProvider)`：
+`StAgent/llm/providers/dashscope.py` — `DashScopeProvider(OpenAIProvider)`：
 
 - 默认将 `base_url` 固定为 `https://dashscope.aliyuncs.com/compatible-mode/v1`，
   `default_model` 为 `qwen-plus`。
@@ -505,7 +505,7 @@ LeAgent 将这些字段映射到 `TokenUsage`（见
 
 ### 注册表接线
 
-`leagent/llm/registry.py → create_default_registry()`：
+`StAgent/llm/registry.py → create_default_registry()`：
 
 - 当 `settings.llm.dashscope_api_key` 已设置时，以名称 `"dashscope"` 注册
   `DashScopeProvider`。
@@ -513,7 +513,7 @@ LeAgent 将这些字段映射到 `TokenUsage`（见
 
 ### 提供商配置目录
 
-`leagent/llm/provider_config.py`：
+`StAgent/llm/provider_config.py`：
 
 - `PROVIDER_CATALOG["qwen"]` 列出管理后台使用的精选模型清单。
 - `_create_llm_provider()` 同时接受 `providers.yaml` 中的 `type: qwen` 与
@@ -521,8 +521,8 @@ LeAgent 将这些字段映射到 `TokenUsage`（见
 
 ### 环境引导
 
-`leagent/config/env_bootstrap.py → _bridge_dashscope_key()` 确保 `.env` 中的裸
-`DASHSCOPE_API_KEY=...` 会填充带 LeAgent 前缀的设置以及 tier1/tier2 API Key 槽位。
+`StAgent/config/env_bootstrap.py → _bridge_dashscope_key()` 确保 `.env` 中的裸
+`DASHSCOPE_API_KEY=...` 会填充带 StAgent 前缀的设置以及 tier1/tier2 API Key 槽位。
 
 ---
 
@@ -557,8 +557,8 @@ uv run python -m pytest tests/test_dashscope_provider.py -v
 DASHSCOPE_API_KEY=sk-... \
   uv run python -c "
 import asyncio
-from leagent.llm.providers.dashscope import DashScopeProvider
-from leagent.llm.base import ChatMessage
+from StAgent.llm.providers.dashscope import DashScopeProvider
+from StAgent.llm.base import ChatMessage
 
 async def main():
     p = DashScopeProvider(api_key='${DASHSCOPE_API_KEY}')
@@ -583,7 +583,7 @@ asyncio.run(main())
 - 模型列表与定价：
   <https://help.aliyun.com/zh/model-studio/getting-started/models>
 - 百炼控制台：<https://bailian.console.aliyun.com/>
-- LeAgent 提供商源码：`backend/leagent/llm/providers/dashscope.py`
-- LeAgent 模型目录：`backend/leagent/llm/provider_config.py`（`PROVIDER_CATALOG["qwen"]`）
+- StAgent 提供商源码：`backend/StAgent/llm/providers/dashscope.py`
+- StAgent 模型目录：`backend/StAgent/llm/provider_config.py`（`PROVIDER_CATALOG["qwen"]`）
 - 姊妹提供商指南：[`deepseek-guide_zh.md`](./deepseek-guide_zh.md)
 - 英文版：[`dashscope-guide.md`](./dashscope-guide.md)

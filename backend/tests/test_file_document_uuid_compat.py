@@ -12,31 +12,38 @@ import pytest_asyncio
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from leagent.api.v1 import documents as documents_api
-from leagent.api.v1 import knowledge as knowledge_api
-from leagent.api.v1.documents import search_documents
-from leagent.api.v1.files import (
+from StAgent.api.v1 import documents as documents_api
+from StAgent.api.v1 import knowledge as knowledge_api
+from StAgent.api.v1.documents import search_documents
+from StAgent.api.v1.files import (
     FileRenameRequest,
     _resolve_file_for_serve,
     delete_file,
     rename_file,
     search_files,
 )
-from leagent.config.settings import Settings
-from leagent.db.models.knowledge_index import KnowledgeIndexStatus
-from leagent.db.repositories.document_chunks import ChunkHit
-from leagent.db.service import DatabaseService
-from leagent.knowledge.acl import ensure_personal_knowledge_space
-from leagent.library.chunking import chunk_auto
-from leagent.services.file_processing.service import FileProcessingService
-from leagent.tools.base import ToolContext
-from leagent.tools.doc.knowledge_search import KnowledgeSearchTool
+from StAgent.config.settings import Settings
+from StAgent.db.models.knowledge_index import KnowledgeIndexStatus
+from StAgent.db.repositories.document_chunks import ChunkHit
+from StAgent.db.service import DatabaseService
+from StAgent.knowledge.acl import ensure_personal_knowledge_space
+from StAgent.library.chunking import chunk_auto
+from StAgent.services.file_processing.service import FileProcessingService
+from StAgent.tools.base import ToolContext
+from StAgent.tools.doc.knowledge_search import KnowledgeSearchTool
 
 
 @pytest_asyncio.fixture()
 async def file_doc_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     db_path = tmp_path / "file-doc.db"
     monkeypatch.setenv("DB_DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
+    # App-lifespan tests (any `client` fixture) wire a module-level retrieval
+    # pipeline bound to the shared app DB, and the still-running app can
+    # re-wire it between tests. Force the tool's per-db fallback path so this
+    # suite always queries its own database.
+    import StAgent.library.retrieval as _retrieval
+
+    monkeypatch.setattr(_retrieval, "_pipeline", None)
     db = DatabaseService(Settings())
     await db.create_tables()
     try:
@@ -373,7 +380,7 @@ async def test_knowledge_search_reads_dashed_sqlite_file_rows(
         storage_path=tmp_path / "kb.txt",
     )
     db = _WrappedDb(file_doc_db, [_hit(file_id)])
-    monkeypatch.setattr("leagent.db.get_database_service", lambda: db)
+    monkeypatch.setattr("StAgent.db.get_database_service", lambda: db)
 
     tool = KnowledgeSearchTool()
     ctx = ToolContext(user_id=str(user_id), session_id=None)
@@ -408,7 +415,7 @@ async def test_file_processing_updates_and_indexes_dashed_sqlite_file_row(
         db = file_doc_db
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     service = FileProcessingService()
@@ -477,7 +484,7 @@ async def test_file_processing_reindexes_changed_content_after_existing_index(
         db = file_doc_db
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     service = FileProcessingService()
@@ -555,11 +562,11 @@ async def test_file_processing_reindexes_unchanged_content_after_index_version_u
         opensearch_url="",
     )
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: types.SimpleNamespace(knowledge=knowledge_settings),
     )
     service = FileProcessingService()
@@ -673,10 +680,10 @@ async def test_bulk_reindex_queues_only_stale_writable_documents(
         return "task-1"
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
     )
-    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+    monkeypatch.setattr("StAgent.tasks.jobs.enqueue_file_processing", _enqueue)
 
     endpoint = getattr(knowledge_api, "reindex_stale_knowledge_documents", None)
     assert endpoint is not None, "knowledge bulk reindex endpoint is missing"
@@ -746,10 +753,10 @@ async def test_bulk_reindex_marks_unavailable_source_as_failed(
         return "task-1"
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
     )
-    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+    monkeypatch.setattr("StAgent.tasks.jobs.enqueue_file_processing", _enqueue)
 
     response = await knowledge_api.reindex_stale_knowledge_documents(
         knowledge_api.KnowledgeBulkReindexRequest(limit=10),
@@ -813,10 +820,10 @@ async def test_bulk_reindex_repairs_state_when_task_enqueue_fails(
         raise RuntimeError("task queue unavailable")
 
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: types.SimpleNamespace(knowledge=types.SimpleNamespace(index_version="rag-v2")),
     )
-    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+    monkeypatch.setattr("StAgent.tasks.jobs.enqueue_file_processing", _enqueue)
 
     response = await knowledge_api.reindex_stale_knowledge_documents(
         knowledge_api.KnowledgeBulkReindexRequest(limit=10),
@@ -1256,7 +1263,7 @@ async def test_file_processing_index_failure_is_retryable_and_not_marked_indexed
         db = wrapped_db
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     service = FileProcessingService()
@@ -1313,7 +1320,7 @@ async def test_file_processing_unexpected_extraction_failure_marks_document_fail
         db = file_doc_db
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     service = FileProcessingService()
@@ -1373,7 +1380,7 @@ async def test_reindex_endpoint_resets_state_and_enqueues_owned_knowledge_file(
         captured.update(kwargs)
         return "task-1"
 
-    monkeypatch.setattr("leagent.tasks.jobs.enqueue_file_processing", _enqueue)
+    monkeypatch.setattr("StAgent.tasks.jobs.enqueue_file_processing", _enqueue)
     endpoint = getattr(documents_api, "reindex_document", None)
     assert endpoint is not None, "documents.reindex_document endpoint is missing"
 
@@ -1410,7 +1417,7 @@ async def test_reindex_enqueue_failure_does_not_leave_document_processing(
         raise RuntimeError("task queue unavailable")
 
     monkeypatch.setattr(
-        "leagent.tasks.jobs.enqueue_file_processing",
+        "StAgent.tasks.jobs.enqueue_file_processing",
         _fail_enqueue,
     )
 

@@ -1,4 +1,4 @@
-"""Unit coverage for the bundled :mod:`leagent.tasks.handlers` modules.
+"""Unit coverage for the bundled :mod:`StAgent.tasks.handlers` modules.
 
 These tests bypass :class:`TaskManager` and exercise each handler's
 ``spawn`` directly with a minimal :class:`TaskContext`. Heavy
@@ -15,12 +15,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from leagent.db.models.task import (
+from StAgent.db.models.task import (
     TaskContext,
     TaskStatus,
     TaskType,
 )
-from leagent.tasks.handlers import (
+from StAgent.tasks.handlers import (
     AgentTaskHandler,
     BatchTaskHandler,
     ShellTaskHandler,
@@ -95,10 +95,10 @@ async def test_tool_handler_dispatches_to_executor(tmp_path) -> None:
     executor.execute = AsyncMock(return_value=fake_result)
 
     with patch(
-        "leagent.tools.executor.ToolExecutor",
+        "StAgent.tools.executor.ToolExecutor",
         return_value=executor,
     ), patch(
-        "leagent.tools.registry.get_registry",
+        "StAgent.tools.registry.get_registry",
         return_value=MagicMock(),
     ):
         summary = await handler.spawn(
@@ -127,8 +127,8 @@ async def test_tool_handler_raises_when_tool_fails(tmp_path) -> None:
     executor.execute = AsyncMock(return_value=fake_result)
 
     with patch(
-        "leagent.tools.executor.ToolExecutor", return_value=executor
-    ), patch("leagent.tools.registry.get_registry", return_value=MagicMock()):
+        "StAgent.tools.executor.ToolExecutor", return_value=executor
+    ), patch("StAgent.tools.registry.get_registry", return_value=MagicMock()):
         with pytest.raises(RuntimeError, match="nope"):
             await handler.spawn(
                 ctx, {"tool_name": "echo"}, session=MagicMock()
@@ -195,7 +195,7 @@ async def test_workflow_handler_requires_service(tmp_path) -> None:
 
 async def _fake_submit(prompt: str):
     """Emit a tiny SDK message stream for AgentTaskHandler to consume."""
-    from leagent.agent.query_engine import SDKMessage
+    from StAgent.agent.query_engine import SDKMessage
 
     yield SDKMessage(type="system_init", data={})
     yield SDKMessage(type="stream_delta", data={"content": "hello"})
@@ -235,7 +235,7 @@ async def test_agent_handler_streams_query_engine(tmp_path) -> None:
 
     async def _fake_stream(*_args, **_kwargs):
         async for msg in _fake_submit(""):
-            from leagent.sdk.events import AgentEvent
+            from StAgent.sdk.events import AgentEvent
 
             yield AgentEvent.from_sdk_message(msg)
 
@@ -243,11 +243,11 @@ async def test_agent_handler_streams_query_engine(tmp_path) -> None:
     fake_runtime.stream = _fake_stream
 
     with patch(
-        "leagent.sdk.AgentRuntime.from_service_manager", return_value=fake_runtime
+        "StAgent.sdk.AgentRuntime.from_service_manager", return_value=fake_runtime
     ), patch(
-        "leagent.tools.executor.ToolExecutor", return_value=MagicMock()
+        "StAgent.tools.executor.ToolExecutor", return_value=MagicMock()
     ), patch(
-        "leagent.tools.registry.get_registry", return_value=MagicMock()
+        "StAgent.tools.registry.get_registry", return_value=MagicMock()
     ):
         result = await handler.spawn(
             ctx, {"prompt": "say hi"}, session=MagicMock()
@@ -282,7 +282,7 @@ async def test_agent_handler_applies_runtime_profile(tmp_path) -> None:
         captured["definition"] = definition
         captured["kwargs"] = kwargs
         async for msg in _fake_submit(prompt):
-            from leagent.sdk.events import AgentEvent
+            from StAgent.sdk.events import AgentEvent
 
             yield AgentEvent.from_sdk_message(msg)
 
@@ -290,11 +290,11 @@ async def test_agent_handler_applies_runtime_profile(tmp_path) -> None:
     executor_ctor = MagicMock(return_value=MagicMock())
 
     with patch(
-        "leagent.sdk.AgentRuntime.from_service_manager", return_value=fake_runtime
+        "StAgent.sdk.AgentRuntime.from_service_manager", return_value=fake_runtime
     ), patch(
-        "leagent.tools.executor.ToolExecutor", executor_ctor
+        "StAgent.tools.executor.ToolExecutor", executor_ctor
     ), patch(
-        "leagent.tools.registry.get_registry", return_value=MagicMock()
+        "StAgent.tools.registry.get_registry", return_value=MagicMock()
     ):
         result = await handler.spawn(
             ctx,
@@ -375,9 +375,9 @@ async def test_batch_handler_spawns_children(tmp_path) -> None:
             return _Ctx()
 
     with patch(
-        "leagent.services.task_manager.get_task_manager", return_value=mgr
+        "StAgent.services.task_manager.get_task_manager", return_value=mgr
     ), patch(
-        "leagent.db.get_database_service", return_value=_DB()
+        "StAgent.db.get_database_service", return_value=_DB()
     ):
         result = await handler.spawn(
             ctx,

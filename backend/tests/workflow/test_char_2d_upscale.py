@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.bootstrap.tools import bootstrap_tools
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import get_registry
-from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine.caching import build_cache_set
-from leagent.workflow.engine.executor import WorkflowExecutor
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.template_service import TemplateService
+from StAgent.bootstrap.tools import bootstrap_tools
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import get_registry
+from StAgent.workflow.base import WorkflowStatus
+from StAgent.workflow.engine.caching import build_cache_set
+from StAgent.workflow.engine.executor import WorkflowExecutor
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.template_service import TemplateService
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ async def test_char_2d_template_upscale_completes(
     workflow_executor_with_tools: WorkflowExecutor,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     doc = load(svc.get_template("TPL-CHAR-2D-01"))
@@ -71,7 +71,7 @@ async def test_char_2d_upscale_fails_without_source_image(
     workflow_executor_with_tools: WorkflowExecutor,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     raw = svc.get_template("TPL-CHAR-2D-01")
@@ -98,7 +98,7 @@ async def test_char_2d_refine_loop_requires_gate_control(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Without per-node control (editor-save bug), the refine loop never runs."""
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     raw = svc.get_template("TPL-CHAR-2D-01")
@@ -117,7 +117,7 @@ async def test_char_2d_refine_loop_runs_with_gate_control(
     workflow_executor_with_tools: WorkflowExecutor,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     doc = load(svc.get_template("TPL-CHAR-2D-01"))

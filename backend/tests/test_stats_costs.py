@@ -1,7 +1,7 @@
 """Contract tests for the ``/stats/costs`` cost-dashboard endpoints.
 
 Traces are seeded straight into the app database (the same trick as
-``test_missions_api``: sync ``sqlite3`` on ``LEAGENT_HOME/leagent.db``) because
+``test_missions_api``: sync ``sqlite3`` on ``StAgent_HOME/StAgent.db``) because
 the aggregates run server-side over ``agent_traces``. The soft budget is a
 ``user_settings`` row managed exclusively through the REST endpoints.
 """
@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from leagent.config.settings import get_settings
-from leagent.services.auth.service import LOCAL_USER_ID
+from StAgent.config.settings import get_settings
+from StAgent.services.auth.service import LOCAL_USER_ID
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient

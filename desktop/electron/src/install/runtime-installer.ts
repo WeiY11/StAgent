@@ -214,14 +214,14 @@ export async function installRuntime(fresh = true): Promise<void> {
 
   progress('Compiling bytecode cache…');
   const venvPy = runtimeVenvPython();
-  await runCommand(venvPy, ['-m', 'compileall', '-q', path.join(payload, 'leagent')]);
+  await runCommand(venvPy, ['-m', 'compileall', '-q', path.join(payload, 'StAgent')]);
 
   progress('Applying database migrations…');
   await runCommand(venvPy, ['-m', 'alembic', 'upgrade', 'head'], {
     cwd: payload,
     env: {
       VIRTUAL_ENV: venvDir,
-      LEAGENT_HOME: home,
+      StAgent_HOME: home,
     },
   });
 
@@ -241,7 +241,7 @@ export async function runAlembicUpgrade(): Promise<void> {
     cwd: payload,
     env: {
       VIRTUAL_ENV: runtimeVenvDir(),
-      LEAGENT_HOME: resolveLeagentHome(),
+      StAgent_HOME: resolveLeagentHome(),
     },
   });
 }

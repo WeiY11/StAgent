@@ -15,13 +15,11 @@ const railTabIdle =
 
 export function RightPanel() {
   const { t } = useTranslation();
-  const {
-    artifacts,
-    openTabIds,
-    activeTabId,
-    setActiveTab,
-    closeTab,
-  } = useArtifactStore();
+  const artifacts = useArtifactStore((s) => s.artifacts);
+  const openTabIds = useArtifactStore((s) => s.openTabIds);
+  const activeTabId = useArtifactStore((s) => s.activeTabId);
+  const setActiveTab = useArtifactStore((s) => s.setActiveTab);
+  const closeTab = useArtifactStore((s) => s.closeTab);
 
   const workspaceOpen = useLayoutStore((s) => s.workspaceOpen);
   const setWorkspaceOpen = useLayoutStore((s) => s.setWorkspaceOpen);

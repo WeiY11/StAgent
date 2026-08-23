@@ -166,7 +166,7 @@ def download_all(force: bool = False) -> dict[str, Path]:
         try:
             req = urllib.request.Request(
                 sf.url,
-                headers={"User-Agent": "LeAgent-TestSuite/1.0"},
+                headers={"User-Agent": "StAgent-TestSuite/1.0"},
             )
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # noqa: S310
                 data = resp.read()
@@ -252,7 +252,7 @@ if __name__ == "__main__":
         format="%(levelname)-8s %(message)s",
     )
 
-    parser = argparse.ArgumentParser(description="Download LeAgent test sample files")
+    parser = argparse.ArgumentParser(description="Download StAgent test sample files")
     parser.add_argument("--force", action="store_true", help="Re-download even if cached")
     parser.add_argument("--list", action="store_true", help="List cached files and exit")
     args = parser.parse_args()

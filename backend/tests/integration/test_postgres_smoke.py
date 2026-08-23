@@ -16,19 +16,19 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401
-from leagent.config.settings import DatabaseSettings, Settings
-from leagent.db.engine import make_async_engine
-from leagent.db.models.coding_project import (
+import StAgent.db.models  # noqa: F401
+from StAgent.config.settings import DatabaseSettings, Settings
+from StAgent.db.engine import make_async_engine
+from StAgent.db.models.coding_project import (
     CodingProject,
     CodingProjectRuntimeKind,
     CodingProjectStatus,
 )
-from leagent.db.models.file import File, FileStatus, FileType, InboxState, LibraryScope
-from leagent.db.models.flow import Flow, FlowStatus, FlowType
-from leagent.db.models.message import Message, MessageRole, MessageStatus
-from leagent.db.models.task import Task, TaskPriority, TaskStatus, TaskType
-from leagent.db.service import DatabaseService
+from StAgent.db.models.file import File, FileStatus, FileType, InboxState, LibraryScope
+from StAgent.db.models.flow import Flow, FlowStatus, FlowType
+from StAgent.db.models.message import Message, MessageRole, MessageStatus
+from StAgent.db.models.task import Task, TaskPriority, TaskStatus, TaskType
+from StAgent.db.service import DatabaseService
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
 pytestmark = [pytest.mark.integration, pytest.mark.live]
@@ -44,7 +44,7 @@ def test_postgres_bootstrap_migrations_and_roundtrips() -> None:
     from alembic import command
     from alembic.script import ScriptDirectory
 
-    from leagent.alembic.runtime_config import load_alembic_config
+    from StAgent.alembic.runtime_config import load_alembic_config
 
     db_settings = DatabaseSettings(database_url=_DATABASE_URL)
     app_settings = Settings(
@@ -131,7 +131,7 @@ async def _assert_head_and_roundtrip(
                     name=f"enum-smoke-{marker}",
                     template="fastapi",
                     runtime_kind=CodingProjectRuntimeKind.FASTAPI,
-                    root_path=f"/tmp/leagent-{marker}",
+                    root_path=f"/tmp/StAgent-{marker}",
                     status=CodingProjectStatus.RUNNING,
                 )
             )

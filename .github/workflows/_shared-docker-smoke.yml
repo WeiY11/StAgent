@@ -26,17 +26,17 @@ jobs:
           target: production
           push: false
           load: true
-          tags: leagent:test
+          tags: StAgent:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Start built image
         run: |
-          docker run -d --name leagent-smoke \
+          docker run -d --name StAgent-smoke \
             -p 127.0.0.1:18000:8000 \
-            -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
-            -e LEAGENT_SECURITY_ENFORCE_AUTH=false \
-            leagent:test
+            -e StAgent_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
+            -e StAgent_SECURITY_ENFORCE_AUTH=false \
+            StAgent:test
 
       - name: Wait for /health and /api/v1/health/ready
         run: |
@@ -57,10 +57,10 @@ jobs:
 
       - name: Verify runtime imports inside the image
         run: |
-          docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
+          docker exec StAgent-smoke python -c "import StAgent, asyncpg; print(StAgent.__version__)"
 
       - name: Container logs and cleanup
         if: always()
         run: |
-          docker logs leagent-smoke || true
-          docker rm -f leagent-smoke || true
+          docker logs StAgent-smoke || true
+          docker rm -f StAgent-smoke || true

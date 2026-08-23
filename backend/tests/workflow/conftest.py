@@ -6,14 +6,14 @@ from typing import Any
 
 import pytest
 
-from leagent.runtime import AgentBuilder, AgentDefinition
-from leagent.workflow.io import HiddenHolder
+from StAgent.runtime import AgentBuilder, AgentDefinition
+from StAgent.workflow.io import HiddenHolder
 
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
     """Give every test a fresh node registry so side-effects don't leak."""
-    from leagent.workflow.nodes.registry import reset_registry
+    from StAgent.workflow.nodes.registry import reset_registry
     reset_registry()
     yield
     reset_registry()
@@ -21,7 +21,7 @@ def _clean_registry():
 
 @pytest.fixture
 async def registered_builtins():
-    from leagent.workflow.nodes import bootstrap
+    from StAgent.workflow.nodes import bootstrap
     await bootstrap()
 
 
@@ -97,7 +97,7 @@ class FakeAgentRuntime:
 
     async def stream(self, agent, prompt, **kwargs):
         self.stream_calls.append({"agent": agent, "prompt": prompt, **kwargs})
-        from leagent.sdk.events import AgentEvent
+        from StAgent.sdk.events import AgentEvent
 
         yield AgentEvent(type="tool_use", data={"name": "code_execution"})
         yield AgentEvent(type="assistant", data={"content": "standalone done"})
@@ -110,7 +110,7 @@ class FakeAgentRuntime:
         self.resume_calls.append(
             {"agent": agent, "checkpoint_id": checkpoint_id, "prompt": prompt, **kwargs}
         )
-        from leagent.sdk.events import AgentEvent
+        from StAgent.sdk.events import AgentEvent
 
         yield AgentEvent(type="assistant", data={"content": "resumed done"})
         yield AgentEvent(

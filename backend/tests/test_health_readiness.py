@@ -7,8 +7,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from leagent.api.deps import get_service_manager
-from leagent.api.v1.health import router
+from StAgent.api.deps import get_service_manager
+from StAgent.api.v1.health import router
 
 
 class _ServiceManagerStub:

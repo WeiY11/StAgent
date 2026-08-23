@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.context.sources import get_all_sources
-from leagent.context.sources.base import ResolveContext
-from leagent.prompts.registry import PromptRegistry
+from StAgent.context.sources import get_all_sources
+from StAgent.context.sources.base import ResolveContext
+from StAgent.prompts.registry import PromptRegistry
 
 
 def _registry() -> PromptRegistry:
@@ -33,7 +33,7 @@ def test_gated_sources_registered():
 def test_default_agent_keeps_email_policy_gated():
     body = _registry().get("default_agent", variant="default").body
     assert "get_config" not in body
-    assert "LEAGENT_SMTP" not in body
+    assert "StAgent_SMTP" not in body
 
 
 # -- canvas_guide gating ----------------------------------------------------
@@ -56,7 +56,7 @@ async def test_canvas_guide_injects_for_visual_query():
 
 @pytest.mark.asyncio
 async def test_canvas_guide_silent_for_non_visual_query():
-    from leagent.tools.registry import get_registry
+    from StAgent.tools.registry import get_registry
 
     src = get_all_sources()["canvas_guide"]()
     # Irrelevant query stays silent even with all tools registered globally.

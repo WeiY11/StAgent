@@ -34,21 +34,21 @@ jobs:
       # ── Blocking gates ─────────────────────────────────────────────
 
       - name: "Ruff gate (fatal + security + isort + pyupgrade + bugbear + perf/c4/pie/ret)"
-        run: uv run ruff check leagent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
+        run: uv run ruff check StAgent/ --select E9,F63,F7,F82,F821,S602,S604,S605,S606,S609,S506,S507,S508,I,UP,B007,C4,PIE790,PIE808,RET501,RET505,RET506,PERF101,PERF102 --ignore UP042,UP035,UP031
         working-directory: backend
 
       - name: "Mypy (runtime · sdk · api · config · db · file)"
-        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py leagent/config leagent/db leagent/file
+        run: uv run mypy StAgent/runtime StAgent/sdk StAgent/api/router.py StAgent/config StAgent/db StAgent/file
         working-directory: backend
 
       # ── Advisory reports (non-blocking) ─────────────────────────────
 
       - name: "Ruff full report (advisory)"
-        run: uv run ruff check leagent/ --output-format concise
+        run: uv run ruff check StAgent/ --output-format concise
         working-directory: backend
         continue-on-error: true
 
       - name: "Ruff format report (advisory)"
-        run: uv run ruff format --check leagent/
+        run: uv run ruff format --check StAgent/
         working-directory: backend
         continue-on-error: true

@@ -48,7 +48,7 @@
 
 **只读 HTTP。** `GET /api/v1/chat/sessions/{id}/agent-memory?limit=1–100` 返回 `enabled` 与三类快照：该 session 的 episodes + **owner 级** facts/procedures。校验 session owner 与项目访问令牌；memory 未启用时 `enabled=false` 与空数组。**不提供**通用 DELETE body，不替代 `delete_user_data`。
 
-**WAL 与写入健康。** 写入失败可能 append 到 `LEAGENT_HOME/memory_failed_writes.wal`（截断 detail）；运维需纳入磁盘权限与轮转，勿把 WAL 当用户可删界面。
+**WAL 与写入健康。** 写入失败可能 append 到 `StAgent_HOME/memory_failed_writes.wal`（截断 detail）；运维需纳入磁盘权限与轮转，勿把 WAL 当用户可删界面。
 
 ## 真实实现中的边界
 
@@ -93,7 +93,7 @@ uv run pytest tests/test_agent_memory.py -k "delete_user or export" -v
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-GDPR/CCPA 下，云厂商 API 很少内建「Agent 记忆橡皮擦」；义务落在应用。OpenAI/Anthropic 数据保留政策主要谈训练与 API logs，与你的 Episode 表无关。Mem0、Zep 等托管记忆常提供 user-scoped delete；自托管 LeAgent 把原语留在 `AgentMemory` + `maintenance`，HTTP 治理面需产品自己补齐。LangGraph checkpoint 删除也不等于 cognitive memory 删除——再次印证 [05 状态所有权](05-state-ownership.md) 的分裂。
+GDPR/CCPA 下，云厂商 API 很少内建「Agent 记忆橡皮擦」；义务落在应用。OpenAI/Anthropic 数据保留政策主要谈训练与 API logs，与你的 Episode 表无关。Mem0、Zep 等托管记忆常提供 user-scoped delete；自托管 StAgent 把原语留在 `AgentMemory` + `maintenance`，HTTP 治理面需产品自己补齐。LangGraph checkpoint 删除也不等于 cognitive memory 删除——再次印证 [05 状态所有权](05-state-ownership.md) 的分裂。
 
 ## 总结
 

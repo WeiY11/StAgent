@@ -1,3 +1,3 @@
-﻿# Configuration
+# Configuration
 
 TODO: Write configuration guide.

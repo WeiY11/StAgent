@@ -9,7 +9,7 @@ function isCodingProjectPreviewPath(pathname: string): boolean {
 }
 
 /**
- * Rewrite assistant markdown that used a wrong absolute origin (e.g. ``https://leagent.dev``)
+ * Rewrite assistant markdown that used a wrong absolute origin (e.g. ``https://StAgent.dev``)
  * so preview links hit this deployment's API (Vite proxy or ``VITE_API_BASE_URL``).
  */
 export function resolveCodingProjectPreviewHref(

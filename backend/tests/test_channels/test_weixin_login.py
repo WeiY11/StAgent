@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.channels.weixin.login import (
+from StAgent.channels.weixin.login import (
     normalize_qr_status,
     parse_login_result,
     render_qr_data_url,
@@ -42,7 +42,7 @@ def test_render_qr_encodes_https_liteapp_url() -> None:
 
 
 def test_extract_prefers_liteapp_payload() -> None:
-    from leagent.channels.weixin.login import _extract_qr_fields
+    from StAgent.channels.weixin.login import _extract_qr_fields
 
     token, payload = _extract_qr_fields(
         {

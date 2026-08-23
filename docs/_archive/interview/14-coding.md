@@ -1,6 +1,6 @@
 # 十四、Coding 高频题
 
-> 本章代码用于说明核心思路，是刻意省略鉴权、持久化、流式协议、限流、完整类型与异常分类的紧凑示例/伪代码，**不能声称可直接复制到生产环境**。生产实现可对照 LeAgent 的 `backend/leagent/agent/`、`tools/`、`sdk/kernel/`、`memory/`、`workflow/engine/` 与 `telemetry/trace/`。
+> 本章代码用于说明核心思路，是刻意省略鉴权、持久化、流式协议、限流、完整类型与异常分类的紧凑示例/伪代码，**不能声称可直接复制到生产环境**。生产实现可对照 StAgent 的 `backend/StAgent/agent/`、`tools/`、`sdk/kernel/`、`memory/`、`workflow/engine/` 与 `telemetry/trace/`。
 
 ## 14.1 实现 ReAct Loop
 
@@ -24,7 +24,7 @@ async def react(question, llm, tools, max_turns=8):
     raise RuntimeError("turn budget exhausted")
 ```
 
-面试加分点：不要要求模型输出私有思维链；系统只需可见的 action、observation、停止原因和验证结果。LeAgent 中 `QueryEngine.submit_message()` 持有会话内状态，`leagent.agent.query` 实现 think-act-observe 生成器，`leagent.sdk.kernel.loop.run_loop` 将其统一映射为 `AgentEvent`，并处理 hook 与 checkpoint。
+面试加分点：不要要求模型输出私有思维链；系统只需可见的 action、observation、停止原因和验证结果。StAgent 中 `QueryEngine.submit_message()` 持有会话内状态，`StAgent.agent.query` 实现 think-act-observe 生成器，`StAgent.sdk.kernel.loop.run_loop` 将其统一映射为 `AgentEvent`，并处理 hook 与 checkpoint。
 
 ## 14.2 实现 Tool Calling Agent
 
@@ -51,7 +51,7 @@ async def tool_agent(prompt, model, registry, executor):
             })
 ```
 
-生产还需参数规范化、敏感字段脱敏、审批、幂等键、并发上限和输出尺寸限制。LeAgent 对应实现是 `tools/registry.py::ToolRegistry` 与 `tools/executor.py::ToolExecutor`；后者在执行前做 enabled/permission 检查，并统一返回 `ExecutionResult`。
+生产还需参数规范化、敏感字段脱敏、审批、幂等键、并发上限和输出尺寸限制。StAgent 对应实现是 `tools/registry.py::ToolRegistry` 与 `tools/executor.py::ToolExecutor`；后者在执行前做 enabled/permission 检查，并统一返回 `ExecutionResult`。
 
 ## 14.3 实现 Multi-Agent Router
 
@@ -79,7 +79,7 @@ async def route(task, agents, classifier):
     return Route(label, confidence, "intent classification")
 ```
 
-Router 不应让 Agent 直接共享可变内存或复用同一个权限主体。LeAgent 可由 `AgentDefinition` 声明工具/模型/记忆策略，由 `AgentRuntime.delegate()` 创建子运行；模型层再通过 `TaskResolver` 选择逻辑任务对应 provider/model，并用 `run_id/parent_run_id` 关联父子 trace。
+Router 不应让 Agent 直接共享可变内存或复用同一个权限主体。StAgent 可由 `AgentDefinition` 声明工具/模型/记忆策略，由 `AgentRuntime.delegate()` 创建子运行；模型层再通过 `TaskResolver` 选择逻辑任务对应 provider/model，并用 `run_id/parent_run_id` 关联父子 trace。
 
 ## 14.4 实现 Memory Store
 
@@ -105,7 +105,7 @@ class MemoryStore:
         return rerank_and_pack(dense + lexical, limit=limit, token_budget=2000)
 ```
 
-生产需处理删除传播、数据保留、embedding 版本、事实冲突、时间衰减和降级路径。LeAgent 的 `memory/agent_memory.py::AgentMemory` 是统一门面，提供 episode、fact、procedure 三类写入和混合 recall；向量后端不可用时应允许词法降级，而不是阻塞主 Agent。
+生产需处理删除传播、数据保留、embedding 版本、事实冲突、时间衰减和降级路径。StAgent 的 `memory/agent_memory.py::AgentMemory` 是统一门面，提供 episode、fact、procedure 三类写入和混合 recall；向量后端不可用时应允许词法降级，而不是阻塞主 Agent。
 
 ## 14.5 实现 Agent State Machine
 
@@ -138,7 +138,7 @@ def apply(state, event):
         raise ValueError(f"illegal transition: {state} + {event.type}")
 ```
 
-实际系统还应持久化 `state_version` 并用 CAS/事务防止重复 resume。LeAgent 将不同状态分给不同 owner：聊天 transcript 属于 session store，Agent 暂停属于 `CheckpointStore`，工作流运行属于 workflow state store；`PauseToken` 统一表达恢复入口，但不混淆三类数据。
+实际系统还应持久化 `state_version` 并用 CAS/事务防止重复 resume。StAgent 将不同状态分给不同 owner：聊天 transcript 属于 session store，Agent 暂停属于 `CheckpointStore`，工作流运行属于 workflow state store；`PauseToken` 统一表达恢复入口，但不混淆三类数据。
 
 ## 14.6 实现 LangGraph Workflow
 
@@ -174,7 +174,7 @@ graph.add_edge("act", "think")
 app = graph.compile(checkpointer=checkpointer)
 ```
 
-如果不依赖 LangGraph，LeAgent 的 `WorkflowExecutor` 提供原生 DAG：先验证 `WorkflowDocument`，再拓扑调度 ready nodes，支持并行、缓存、进度、取消和 resume；`Agent` 节点内部仍通过统一 `AgentRuntime/run_loop`，避免出现第二套 think-act kernel。
+如果不依赖 LangGraph，StAgent 的 `WorkflowExecutor` 提供原生 DAG：先验证 `WorkflowDocument`，再拓扑调度 ready nodes，支持并行、缓存、进度、取消和 resume；`Agent` 节点内部仍通过统一 `AgentRuntime/run_loop`，避免出现第二套 think-act kernel。
 
 ## 14.7 实现 Retry Mechanism
 
@@ -202,7 +202,7 @@ result = await retry(
 )
 ```
 
-工具 retry 与模型 retry 不能混为一谈：写操作若无幂等语义，重试可能重复扣款或发两封邮件。LeAgent 的 provider registry 带健康状态与 circuit breaker；`ToolExecutor` 和 workflow `NodeRunner` 分别在各自边界治理工具和节点执行，trace 应记录每次 attempt，而不是只记录最终结果。
+工具 retry 与模型 retry 不能混为一谈：写操作若无幂等语义，重试可能重复扣款或发两封邮件。StAgent 的 provider registry 带健康状态与 circuit breaker；`ToolExecutor` 和 workflow `NodeRunner` 分别在各自边界治理工具和节点执行，trace 应记录每次 attempt，而不是只记录最终结果。
 
 ## 14.8 实现 Tool Registry
 
@@ -232,7 +232,7 @@ class ToolRegistry:
         return [t.to_function_schema() for t in selected if matches(t, allow)]
 ```
 
-生产注册表还需版本、缓存失效、插件隔离、描述质量检查和租户策略。LeAgent 的 `ToolRegistry` 已包含 category、alias、deny filtering、enabled gating、搜索 hint 和 schema cache；工作流工具节点也复用同一注册表，而不是复制一份工具目录。
+生产注册表还需版本、缓存失效、插件隔离、描述质量检查和租户策略。StAgent 的 `ToolRegistry` 已包含 category、alias、deny filtering、enabled gating、搜索 hint 和 schema cache；工作流工具节点也复用同一注册表，而不是复制一份工具目录。
 
 ## 14.9 实现 Agent Checkpoint
 
@@ -263,7 +263,7 @@ async def resume(checkpoint_id, answer, store):
     return rebuild_run(cp)
 ```
 
-生产需校验 owner/tenant、单次消费或版本冲突、过期时间、加密和 schema migration。LeAgent 的 `InMemoryCheckpointStore` 用于测试/单进程，`SQLCheckpointStore` 持久化到 `agent_checkpoints`；`run_loop` 在 awaiting input、预算耗尽、模型错误等可恢复原因上快照 `QueryEngine.mutable_messages`，并生成 `PauseToken`。
+生产需校验 owner/tenant、单次消费或版本冲突、过期时间、加密和 schema migration。StAgent 的 `InMemoryCheckpointStore` 用于测试/单进程，`SQLCheckpointStore` 持久化到 `agent_checkpoints`；`run_loop` 在 awaiting input、预算耗尽、模型错误等可恢复原因上快照 `QueryEngine.mutable_messages`，并生成 `PauseToken`。
 
 ## 14.10 实现 Agent Trace System
 
@@ -292,4 +292,4 @@ async def span(store, trace_id, kind, attrs=None, parent_id=None):
                             "duration_ms": int((monotonic()-started)*1000)})
 ```
 
-关键指标包括端到端成功率、各 span 延迟、TTFB、token/费用、工具错误分类、重试、人工介入和恢复成功率。LeAgent 的 `TraceRecorder` 采用 fire-and-forget 与批量 flush，`trace_id = run_id`，可选截断 preview/外置 payload；`TraceHook` 补充 compact 和 subagent 边界，API 支持 span tree、JSONL 导出和按模型统计。
+关键指标包括端到端成功率、各 span 延迟、TTFB、token/费用、工具错误分类、重试、人工介入和恢复成功率。StAgent 的 `TraceRecorder` 采用 fire-and-forget 与批量 flush，`trace_id = run_id`，可选截断 preview/外置 payload；`TraceHook` 补充 compact 和 subagent 边界，API 支持 span tree、JSONL 导出和按模型统计。

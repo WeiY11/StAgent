@@ -6,7 +6,7 @@
 - **难度**：★★★☆☆
 - **先修**：[25 Session](25-session-identity.md)、[27 消息生命周期](27-message-lifecycle.md)、[31 记忆边界](31-memory-boundaries.md)
 
-用户常问“根据我这周各个聊天，写周报”。这需要读 **transcript**，不是翻长期 memory，也不是恢复某个 checkpoint。实现：`backend/leagent/tools/util/conversation_history.py`（bootstrap curated 列表已注册 `ConversationHistoryTool`）。
+用户常问“根据我这周各个聊天，写周报”。这需要读 **transcript**，不是翻长期 memory，也不是恢复某个 checkpoint。实现：`backend/StAgent/tools/util/conversation_history.py`（bootstrap curated 列表已注册 `ConversationHistoryTool`）。
 
 ## 学习目标
 
@@ -58,9 +58,9 @@ get/extract：chat.get_session(..., user_id=) 或比对 state.user_id
 
 相邻篇：[27](27-message-lifecycle.md) 讲单会话写入；[28](28-history-compaction.md) 讲单会话压缩；[32](32-three-store-memory.md)/[33](33-memory-formation.md) 讲有损长期记忆——**周报证据不要指望 recall**。
 
-## LeAgent 的真实实现要点
+## StAgent 的真实实现要点
 
-- 文件：`backend/leagent/tools/util/conversation_history.py`  
+- 文件：`backend/StAgent/tools/util/conversation_history.py`  
 - `is_read_only=True`、`is_concurrency_safe=True`  
 - 别名：`chat_history`、`extract_conversation` 等（以工具定义为准）  
 - 时间窗：`since`/`until` 或 `days`（1–365，默认 7）  
@@ -115,7 +115,7 @@ uv run pytest tests/test_tools/test_conversation_history.py -v
 
 ## 业内对照
 
-ChatGPT “记忆”偏长期偏好；Cursor/IDE agent 常限当前 workspace 线程。企业助手则常提供 “search my past tickets”。LeAgent 用显式只读工具暴露跨会话 transcript，并把安全放在 user 范围，而不是塞进无边界的 system prompt。
+ChatGPT “记忆”偏长期偏好；Cursor/IDE agent 常限当前 workspace 线程。企业助手则常提供 “search my past tickets”。StAgent 用显式只读工具暴露跨会话 transcript，并把安全放在 user 范围，而不是塞进无边界的 system prompt。
 
 ## 总结与延伸阅读
 

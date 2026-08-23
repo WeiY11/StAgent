@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from leagent.db.models.base import naive_utc_for_db_column
+from StAgent.db.models.base import naive_utc_for_db_column
 
 
 def test_none_passthrough() -> None:

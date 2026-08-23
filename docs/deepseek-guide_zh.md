@@ -1,6 +1,6 @@
 # DeepSeek 集成指南
 
-> LeAgent 开发者参考：DeepSeek V4 API。
+> StAgent 开发者参考：DeepSeek V4 API。
 > 官方 API 文档：<https://api-docs.deepseek.com>
 
 英文版：[deepseek-guide.md](./deepseek-guide.md)
@@ -49,7 +49,7 @@
 
 ### 提供商配置（管理后台 / providers.yaml）
 
-`leagent/llm/provider_config.py` 中的 `PROVIDER_CATALOG` 列出了 DeepSeek
+`StAgent/llm/provider_config.py` 中的 `PROVIDER_CATALOG` 列出了 DeepSeek
 及其模型清单与定价。管理员也可通过「设置 → 模型提供商」页面配置 DeepSeek。
 
 ---
@@ -132,7 +132,7 @@ messages.append({
 })
 ```
 
-LeAgent 通过 `ChatMessage.reasoning_content` 与
+StAgent 通过 `ChatMessage.reasoning_content` 与
 `AssistantMessage.to_openai()` 处理此事（按条件包含该字段）。
 
 ---
@@ -150,7 +150,7 @@ DeepSeek 会自动将请求前缀缓存到磁盘。对所有用户默认开启�
 
 ### 优化缓存命中率
 
-在 LeAgent 中最大化缓存：
+在 StAgent 中最大化缓存：
 
 1. 保持系统提示词（L0–L4 层）**稳定且确定**——不要在稳定层嵌入时间戳、随机值或易变状态。
 2. 自然使用多轮对话——每一轮都会延长前缀。
@@ -191,7 +191,7 @@ response = client.completions.create(
 print(response.choices[0].text)
 ```
 
-在 LeAgent 中，可通过 `DeepSeekProvider.fim_complete()` 以编程方式访问。
+在 StAgent 中，可通过 `DeepSeekProvider.fim_complete()` 以编程方式访问。
 
 ---
 
@@ -221,7 +221,7 @@ print(response.choices[0].text)
 
 请求参数 `user_id`（字符集 `[a-zA-Z0-9\-_]`, 最长 512 字符）
 可让 DeepSeek 按用户分区 KV 缓存。当 API 层设置了 `_deepseek_user_id`
-上下文变量时，LeAgent 会通过 `DeepSeekProvider._build_request_body`
+上下文变量时，StAgent 会通过 `DeepSeekProvider._build_request_body`
 注入经过净化的 `workspace_id:user_id`。
 
 `user_id` 中**不要**包含个人身份信息（PII）。
@@ -237,11 +237,11 @@ print(response.choices[0].text)
 
 ---
 
-## 10. LeAgent 实现细节
+## 10. StAgent 实现细节
 
 ### 提供商类
 
-`leagent/llm/providers/deepseek.py` — `DeepSeekProvider(OpenAIProvider)`：
+`StAgent/llm/providers/deepseek.py` — `DeepSeekProvider(OpenAIProvider)`：
 
 - 合并来自 settings 与按请求 contextvar 覆盖的 `thinking` / `reasoning_effort`。
 - 从请求中剥离已弃用及与思考模式不兼容的参数。
@@ -252,14 +252,14 @@ print(response.choices[0].text)
 
 ### 上下文策略
 
-`leagent/context/strategies/deepseek.py` — `DeepSeekContextStrategy`：
+`StAgent/context/strategies/deepseek.py` — `DeepSeekContextStrategy`：
 
 - 针对 DeepSeek 的注意力模式优化上下文排序（稳定前缀以利于自动磁盘缓存，高优先级内容放在边界）。
 - 默认预算按 V4 的 100 万 token 上下文窗口调优。
 
 ### 注册表接线
 
-`leagent/llm/registry.py` — `create_default_registry()`：
+`StAgent/llm/registry.py` — `create_default_registry()`：
 
 - API Key 已设置时，以 `"deepseek"` 注册 `DeepSeekProvider`。
 - 未显式配置档位端点时，自动别名为 `tier1`（`deepseek-v4-pro`）与
@@ -278,7 +278,7 @@ print(response.choices[0].text)
 | 流式 delta 中 `content: null` | DeepSeek 在 tool-call delta 前的特性 | 由 `_parse_stream_chunk` 合并为空字符串 |
 | `finish_reason: insufficient_system_resource` | DeepSeek 服务端过载 | 指数退避重试（由 `max_retries` 处理） |
 | `prompt_cache_hit_tokens` 始终为 0 | 系统提示词在请求间变化 | 稳定 L0–L4 提示词层；缓存需要数秒构建 |
-| 来自 `/opt/ros/*` 的导入错误 | `PYTHONPATH` 包含 ROS 路径 | 运行 LeAgent 前设置 `PYTHONPATH=""` |
+| 来自 `/opt/ros/*` 的导入错误 | `PYTHONPATH` 包含 ROS 路径 | 运行 StAgent 前设置 `PYTHONPATH=""` |
 
 ---
 
@@ -301,7 +301,7 @@ PYTHONPATH="" DEEPSEEK_API_KEY=sk-... \
 - DeepSeek API 文档：<https://api-docs.deepseek.com>
 - DeepSeek V4 公告：<https://api-docs.deepseek.com/news/news260424>
 - 定价：<https://api-docs.deepseek.com/quick_start/pricing>
-- LeAgent AGENTS.md：DeepSeek 提供商章节
-- LeAgent 上下文压缩指南：`docs/context-compression-and-usage.md`
+- StAgent AGENTS.md：DeepSeek 提供商章节
+- StAgent 上下文压缩指南：`docs/context-compression-and-usage.md`
 - 姊妹提供商指南：[`dashscope-guide_zh.md`](./dashscope-guide_zh.md)
 - 英文版：[`deepseek-guide.md`](./deepseek-guide.md)

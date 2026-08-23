@@ -68,7 +68,7 @@ export const useThemeStore = create<ThemeState>()(
       },
     }),
     {
-      name: 'leagent-theme',
+      name: 'StAgent-theme',
     }
   )
 );

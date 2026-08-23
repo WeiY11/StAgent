@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from leagent.context.cache import SourceCache
-from leagent.context.types import ContextBlock, ContextScope, RenderTarget
+from StAgent.context.cache import SourceCache
+from StAgent.context.types import ContextBlock, ContextScope, RenderTarget
 
 
 def _block(sid="test"):

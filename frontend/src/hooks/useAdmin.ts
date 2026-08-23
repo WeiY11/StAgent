@@ -6,6 +6,8 @@ import type {
   ToolConfig,
   RuleSetCreateData,
   RuleSetUpdateData,
+  PaginatedResponse,
+  Task,
 } from '@/types/admin';
 
 const QUERY_KEYS = {
@@ -321,8 +323,17 @@ export function useTasks(params: {
         flow_id: params.flow_id,
         search: params.search,
       }),
-    refetchInterval: 5000,
+    refetchInterval: (query) => (listHasActiveTasks(query.state.data) ? 5000 : 30000),
   });
+}
+
+/** Any task in a non-terminal state keeps list polling fast. */
+function listHasActiveTasks(data: unknown): boolean {
+  const items = (data as PaginatedResponse<Task> | undefined)?.items;
+  if (!Array.isArray(items)) return true;
+  return items.some(
+    (t) => t.status === 'running' || t.status === 'pending' || t.status === 'queued',
+  );
 }
 
 export function useTask(id: string) {
@@ -330,7 +341,13 @@ export function useTask(id: string) {
     queryKey: [...QUERY_KEYS.tasks, id],
     queryFn: () => adminApi.tasks.get(id),
     enabled: !!id,
-    refetchInterval: 3000,
+    refetchInterval: (query) => {
+      const task = query.state.data as Task | undefined;
+      if (!task) return 3000;
+      return task.status === 'running' || task.status === 'pending' || task.status === 'queued'
+        ? 3000
+        : false;
+    },
   });
 }
 

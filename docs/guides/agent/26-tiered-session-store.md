@@ -1,6 +1,6 @@
 # 26. Tiered Session Store：热缓存与持久化如何共同守住 transcript
 
-> 本篇目标：读懂 LeAgent 的两层会话存储、SSOT 与 UI projection，理解锁、缓存淘汰和数据库降级的实际语义。结论先行：**`chat_sessions.session_metadata` 中的 `session_state_v1` JSON 是 durable transcript 的单一事实来源；进程内 LRU 只是读穿缓存，`messages` 表主要是 UI 查询投影。**
+> 本篇目标：读懂 StAgent 的两层会话存储、SSOT 与 UI projection，理解锁、缓存淘汰和数据库降级的实际语义。结论先行：**`chat_sessions.session_metadata` 中的 `session_state_v1` JSON 是 durable transcript 的单一事实来源；进程内 LRU 只是读穿缓存，`messages` 表主要是 UI 查询投影。**
 
 ## 一、三类状态仍要分开
 
@@ -14,7 +14,7 @@
 
 ## 二、两层并不是“两份真相”
 
-真实实现位于 `backend/leagent/services/session/store.py`：
+真实实现位于 `backend/StAgent/services/session/store.py`：
 
 ```text
 load(session_id)
@@ -33,7 +33,7 @@ save(state)
 
 ## 三、为什么 JSON blob 才是 SSOT
 
-`SessionState` 不只有消息。`backend/leagent/services/session/state.py` 中还包括附件引用、文件读取缓存、累计 token、todo 和系统提示词指纹。若仅从 `messages` 表恢复，这些字段无法完整重建。因此 store 优先读取：
+`SessionState` 不只有消息。`backend/StAgent/services/session/state.py` 中还包括附件引用、文件读取缓存、累计 token、todo 和系统提示词指纹。若仅从 `messages` 表恢复，这些字段无法完整重建。因此 store 优先读取：
 
 ```json
 {
@@ -55,7 +55,7 @@ save(state)
 
 ## 四、SessionManager 如何提供并发边界
 
-`backend/leagent/services/session/manager.py` 为每个 `session_id` 维护一把 `asyncio.Lock`：
+`backend/StAgent/services/session/manager.py` 为每个 `session_id` 维护一把 `asyncio.Lock`：
 
 ```python
 async with session_manager.locked(session_id) as state:
@@ -90,7 +90,7 @@ async with session_manager.locked(session_id) as state:
 会话存储测试完全不需要模型：
 
 ```bash
-cd /home/yqc/Desktop/LeAgent-github/backend
+cd /home/yqc/Desktop/StAgent-github/backend
 uv run pytest tests/test_session_manager.py -v
 ```
 
@@ -119,9 +119,9 @@ uv run pytest tests/test_session_attachments.py tests/test_session_artifacts.py 
 
 ## 八、业内对照
 
-这种结构类似常见的 write-through/read-through cache，但比“Redis + SQL 双主”更保守：缓存从不拥有数据库没有的状态。`session_state_v1` 类似 event-sourced 系统中的聚合快照，而 `messages` 表像查询侧 projection，接近 CQRS 的读模型。不过 LeAgent 并非完整 event sourcing，因为 JSON 会被整体覆盖，消息表也不是可重放的唯一事件日志。
+这种结构类似常见的 write-through/read-through cache，但比“Redis + SQL 双主”更保守：缓存从不拥有数据库没有的状态。`session_state_v1` 类似 event-sourced 系统中的聚合快照，而 `messages` 表像查询侧 projection，接近 CQRS 的读模型。不过 StAgent 并非完整 event sourcing，因为 JSON 会被整体覆盖，消息表也不是可重放的唯一事件日志。
 
-LangGraph 常把 thread state 和 checkpoint 统一放进 checkpointer；LeAgent 则将“聊天 SSOT”和“可恢复执行快照”拆开。代价是要维护边界，收益是 UI 历史、普通多轮与中断恢复不必共享同一生命周期。
+LangGraph 常把 thread state 和 checkpoint 统一放进 checkpointer；StAgent 则将“聊天 SSOT”和“可恢复执行快照”拆开。代价是要维护边界，收益是 UI 历史、普通多轮与中断恢复不必共享同一生命周期。
 
 ## 九、小结
 

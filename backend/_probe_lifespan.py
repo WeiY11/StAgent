@@ -1,6 +1,6 @@
-﻿import asyncio, time
-from leagent.config.settings import get_settings
-from leagent.services.service_manager import ServiceManager
+import asyncio, time
+from StAgent.config.settings import get_settings
+from StAgent.services.service_manager import ServiceManager
 
 async def main():
     s = get_settings()
@@ -9,7 +9,7 @@ async def main():
     await sm.start_all()
     t1 = time.perf_counter()
     print(f"start_all: {t1-t0:.2f}s")
-    from leagent.main import _run_db_migrations, _bootstrap_tool_system
+    from StAgent.main import _run_db_migrations, _bootstrap_tool_system
     try:
         await _run_db_migrations()
     except Exception as e:

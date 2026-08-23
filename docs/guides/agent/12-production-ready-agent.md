@@ -54,7 +54,7 @@ while True:
 ### 第 1 步：写出契约
 
 ```python
-from leagent.sdk import AgentBuilder
+from StAgent.sdk import AgentBuilder
 
 ops = (
     AgentBuilder("ops_agent")
@@ -71,7 +71,7 @@ ops = (
 ### 第 2 步：注册并以会话方式运行
 
 ```python
-from leagent.sdk import AgentRuntime, get_agent_registry
+from StAgent.sdk import AgentRuntime, get_agent_registry
 
 get_agent_registry().register(ops, replace=True)
 runtime = AgentRuntime.from_service_manager(service_manager)
@@ -83,7 +83,7 @@ r2 = await session.turn("根据刚才结果给出复盘提纲。")
 ### 第 3 步：需要过程可见性时改用 stream
 
 ```python
-from leagent.sdk import AgentEventType
+from StAgent.sdk import AgentEventType
 
 async for event in runtime.stream("ops_agent", "汇总本周 cron 失败"):
     if event.type == AgentEventType.TOOL_USE:
@@ -123,7 +123,7 @@ cd backend && uv run pytest \
 
 ## 业内对照
 
-Anthropic 的 computer-use / agent 示例强调工具循环与人机批准，对应 hooks、`permission_context` 与 checkpoint。OpenAI Agents SDK 强调 tracing 与 handoff，对应 `ExecutionRun` 与 subagents。LangGraph 强调可持久化图状态；LeAgent 对话路径以 query 循环加多层 store 分担状态，DAG 则走独立 workflow 引擎。对照的意义是选型，而不是 API 对齐。
+Anthropic 的 computer-use / agent 示例强调工具循环与人机批准，对应 hooks、`permission_context` 与 checkpoint。OpenAI Agents SDK 强调 tracing 与 handoff，对应 `ExecutionRun` 与 subagents。LangGraph 强调可持久化图状态；StAgent 对话路径以 query 循环加多层 store 分担状态，DAG 则走独立 workflow 引擎。对照的意义是选型，而不是 API 对齐。
 
 ## 总结与延伸
 

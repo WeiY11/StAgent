@@ -13,9 +13,9 @@
     "sections": {
       "systemIntro": {
         "title": "System introduction",
-        "lead": "LeAgent is an open-source desktop AI agent stack that does more than chat: it plans, calls tools, and self-corrects in one streaming think-act loop. It unifies that runtime with agentic ReactFlow workflows and generative UI (KPI boards, decks, galleries) streamed into the conversation—so asking a question, running a flow, and viewing a live interface share one traceable surface.",
+        "lead": "StAgent is an open-source desktop AI agent stack that does more than chat: it plans, calls tools, and self-corrects in one streaming think-act loop. It unifies that runtime with agentic ReactFlow workflows and generative UI (KPI boards, decks, galleries) streamed into the conversation—so asking a question, running a flow, and viewing a live interface share one traceable surface.",
         "subPositioningTitle": "Positioning and value",
-        "subPositioningBody": "Unlike a chat-only tool or a loose script runner, LeAgent connects versionable workflow DAGs, a managed knowledge base, configurable model providers, and 100+ domain tools—plus a versioned Agent SDK, layered prompts, three-store cognitive memory, and a relevance-gated context pipeline. It fits semi-automation, reproducible paths, and promoting explorations into reusable flows.",
+        "subPositioningBody": "Unlike a chat-only tool or a loose script runner, StAgent connects versionable workflow DAGs, a managed knowledge base, configurable model providers, and 100+ domain tools—plus a versioned Agent SDK, layered prompts, three-store cognitive memory, and a relevance-gated context pipeline. It fits semi-automation, reproducible paths, and promoting explorations into reusable flows.",
         "subArchitectureTitle": "Layers and how teams work",
         "subArchitectureBody": "The product surface covers streaming chat with tools, ReactFlow authoring (every tool can become a typed node), knowledge plus Skills/MCP, and backend tasks, cron, and execution history. At runtime, chat SSE, the SDK, background tasks, sub-agents, and workflow agent nodes all converge on one think-act kernel; providers, vector stores, and blob storage depend on your deployment. Workspaces and permissions isolate multi-user data; within a workspace, teams share flow templates and corpora.",
         "subScenariosTitle": "Typical scenarios",
@@ -25,57 +25,57 @@
       },
       "systemImpl": {
         "title": "System implementation",
-        "lead": "LeAgent uses one kernel with many ingresses: chat SSE, the Agent SDK, background tasks, sub-agents, and workflow agent nodes all enter the same think-act loop (run_loop). The items below summarize subsystem contracts and ownership so you can see how work is orchestrated, persisted, and observed.",
+        "lead": "StAgent uses one kernel with many ingresses: chat SSE, the Agent SDK, background tasks, sub-agents, and workflow agent nodes all enter the same think-act loop (run_loop). The items below summarize subsystem contracts and ownership so you can see how work is orchestrated, persisted, and observed.",
         "items": {
           "executionTopology": {
             "title": "Execution topology",
             "body": "Requests enter via Ingress (HTTP/SSE, WebSocket, Cron, background tasks, GenUI). An ExecutionRun registry mints run_id / parent_run_id / scope / prompt_id, then Facades (ServiceManager.runtime_context, AgentRuntime, WorkflowService) reach the Kernel. Durable state and EventManager / OpenTelemetry close the path. Child scopes (workflow steps, sub-agents, tasks) link via parent_run_id; WebSocket and SSE are transports only.",
-            "codeHint": "leagent.runtime · docs/technical/execution-topology.md"
+            "codeHint": "StAgent.runtime · docs/technical/execution-topology.md"
           },
           "agentRuntime": {
             "title": "AgentRuntime and Agent SDK",
-            "body": "leagent.sdk is the versioned public surface for every caller (semver 0.1.0 today). AgentRuntime exposes run / stream / delegate / resume / session; multi-turn work uses AgentSession. Dependencies come from RuntimeContext—prefer ServiceManager.runtime_context to wire ToolRegistry, HookManager, CheckpointStore, SessionManager, AgentMemory, and LLMService once. Streaming events use a uniform {type, data} wire shape (AgentEvent).",
-            "codeHint": "leagent.sdk · AgentRuntime / RuntimeContext"
+            "body": "StAgent.sdk is the versioned public surface for every caller (semver 0.1.0 today). AgentRuntime exposes run / stream / delegate / resume / session; multi-turn work uses AgentSession. Dependencies come from RuntimeContext—prefer ServiceManager.runtime_context to wire ToolRegistry, HookManager, CheckpointStore, SessionManager, AgentMemory, and LLMService once. Streaming events use a uniform {type, data} wire shape (AgentEvent).",
+            "codeHint": "StAgent.sdk · AgentRuntime / RuntimeContext"
           },
           "queryEngine": {
             "title": "QueryEngine and the think-act loop",
             "body": "The canonical path is run_loop → QueryEngine → query → ToolExecutor. Chat’s AgentController.run_stream is a compatibility shim that remaps kernel SDKMessages onto legacy StreamEvents; background tasks and workflow agent nodes enter via AgentRuntime.stream into the same loop. Direct QueryEngine.submit_message is reserved for tests and kernel internals. Paused turns persist to CheckpointStore (SQLCheckpointStore when a database is present).",
-            "codeHint": "leagent.sdk.kernel.loop.run_loop"
+            "codeHint": "StAgent.sdk.kernel.loop.run_loop"
           },
           "gatedPrompts": {
             "title": "Gated prompts and RelevanceGate",
             "body": "The system prompt is assembled by the context layer from an agent recipe. Light, always-relevant policies (file_access, database_tool, human_gate, …) ship via the always-on policies source. Heavy domain manuals load through GatedPolicySource only when a RelevanceGate opens—on query or workflow_hint keyword match, or when a template_vars opt_in_key is truthy. Typical gated sources include canvas_guide, chart_guide, document_generation, document_fonts, email_tool, and art_playbook, so long manuals do not crowd every turn.",
-            "codeHint": "leagent.context.relevance · GatedPolicySource"
+            "codeHint": "StAgent.context.relevance · GatedPolicySource"
           },
           "workflows": {
             "title": "Three workflow orchestration shapes",
             "body": "One engine kernel serves three models: the DAG engine runs WorkflowDocument via WorkflowExecutor (saved flows, cron, agent workflow_run, agent nodes); chat step cards use ChatWorkflowSpec compiled by chat_workflow.compile into a linear WorkflowDocument; chat embeds validate Flow JSON for preview via the Flow API. Step cards and editor runs share the executor so semantics stay unified.",
-            "codeHint": "leagent.workflow · leagent.chat_workflow.compile"
+            "codeHint": "StAgent.workflow · StAgent.chat_workflow.compile"
           },
           "memory": {
             "title": "Agent Memory (three stores)",
             "body": "AgentMemory provides episodic, semantic, and procedural stores plus recall handles. Without Milvus, vector writes are no-ops and recall falls back to a lexical backend so local zero-dependency setups still work; with a vector store, cross-session retrieval and procedural experience improve.",
-            "codeHint": "leagent.memory.agent_memory"
+            "codeHint": "StAgent.memory.agent_memory"
           },
           "tools": {
             "title": "Tools and auto-generated nodes",
             "body": "Tools span roughly 13 categories (documents, web, data, DB, generation, canvas, charts, image, media, skills, workflow, integration, utilities)—100+ in total. Registry tools can be factory-promoted to Workflow node types Tool.<name> without hand-authored nodes. Agent Skills v1.0, MCP, and a declarative YAML rule engine extend the same surface.",
-            "codeHint": "leagent.tools · ToolRegistry"
+            "codeHint": "StAgent.tools · ToolRegistry"
           },
           "fileCodeProject": {
             "title": "File → Code → Project layers",
             "body": "The backend enforces a strict downward dependency: File owns managed blobs (FileService.register is the single ingress for managed writes); Code owns sandbox execution and artifact registration; Project owns coding workspaces and must never import FileService / FileRef (enforced by invariant tests). Tools that produce files should return FileRef or use register_tool_artifact rather than bypassing the file layer.",
-            "codeHint": "leagent.file · leagent.code · leagent.project"
+            "codeHint": "StAgent.file · StAgent.code · StAgent.project"
           },
           "pauseResume": {
             "title": "Pause and resume (PauseToken)",
             "body": "A unified PauseToken carries either a checkpoint_id (agent scope) or workflow_execution_id + workflow_state_id (DAG scope), plus a scope of chat_turn / workflow / task / tool_only. Chat turns resume via the session resume-checkpoint API; workflows resume via the prompts resume endpoint. Ownership is explicit: transcripts live in TieredSessionStore, pauses in CheckpointStore, workflow runs in WorkflowStateStore.",
-            "codeHint": "leagent.runtime.execution_run.PauseToken"
+            "codeHint": "StAgent.runtime.execution_run.PauseToken"
           },
           "genUiArt": {
             "title": "Generative UI and the art asset pipeline",
             "body": "Generative UI streams interactive surfaces (KPI boards, decks, galleries) into chat. The art path is a first-class node pack (image, upscale, video, 3D, VFX, …) that passes assets as MediaRef references rather than base64. QualityCritic, quality gates, and bounded refine back-edges provide engine-side self-correction; on the agent side, workflow_run can fail a quality bar in the same turn and inject a regeneration directive.",
-            "codeHint": "leagent.llm.generation · workflow/nodes/art"
+            "codeHint": "StAgent.llm.generation · workflow/nodes/art"
           }
         }
       },

@@ -6,9 +6,9 @@ export interface DesktopInfo {
   /** Platform reported by the shell, or null in a browser. */
   platform: NodeJS.Platform | null;
   /** How window controls should be rendered. */
-  titleBarStyle: LeAgentTitleBarStyle | null;
+  titleBarStyle: StAgentTitleBarStyle | null;
   /** The desktop bridge, or null in a browser. */
-  bridge: LeAgentDesktopBridge | null;
+  bridge: StAgentDesktopBridge | null;
 }
 
 /**
@@ -17,7 +17,7 @@ export interface DesktopInfo {
  */
 export function useDesktop(): DesktopInfo {
   return useMemo(() => {
-    const bridge = typeof window !== 'undefined' ? window.leagent ?? null : null;
+    const bridge = typeof window !== 'undefined' ? window.StAgent ?? null : null;
     return {
       isDesktop: Boolean(bridge),
       platform: bridge?.platform ?? null,

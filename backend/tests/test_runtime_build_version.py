@@ -5,14 +5,14 @@ from __future__ import annotations
 import runpy
 from pathlib import Path
 
-_PACKAGE_INIT = Path(__file__).resolve().parents[1] / "leagent" / "__init__.py"
+_PACKAGE_INIT = Path(__file__).resolve().parents[1] / "StAgent" / "__init__.py"
 
 
 def _load_package_version(monkeypatch, build_version: str | None) -> str:
     if build_version is None:
-        monkeypatch.delenv("LEAGENT_BUILD_VERSION", raising=False)
+        monkeypatch.delenv("StAgent_BUILD_VERSION", raising=False)
     else:
-        monkeypatch.setenv("LEAGENT_BUILD_VERSION", build_version)
+        monkeypatch.setenv("StAgent_BUILD_VERSION", build_version)
     namespace = runpy.run_path(str(_PACKAGE_INIT))
     return str(namespace["__version__"])
 

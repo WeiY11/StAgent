@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.llm.capabilities import (
+from StAgent.llm.capabilities import (
     BackendClass,
     CapabilityContract,
     CapabilityProfile,
@@ -16,12 +16,12 @@ from leagent.llm.capabilities import (
     from_generation_backend,
     from_model_spec,
 )
-from leagent.llm.domain_registry import DomainModelSpec, DomainParam
-from leagent.llm.generation.backends import (
+from StAgent.llm.domain_registry import DomainModelSpec, DomainParam
+from StAgent.llm.generation.backends import (
     ImageProviderBackend,
     OfflineGenerationBackend,
 )
-from leagent.llm.model_spec import ModelCapabilities, ModelSpec
+from StAgent.llm.model_spec import ModelCapabilities, ModelSpec
 
 
 # ---------------------------------------------------------------------------
@@ -214,16 +214,16 @@ def test_provider_options_lists_all_with_offline_last():
 
 @pytest.mark.asyncio
 async def test_generation_service_offline_floor(monkeypatch):
-    from leagent.llm.generation import build_default_generation_service
+    from StAgent.llm.generation import build_default_generation_service
 
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = build_default_generation_service()
     out = await svc.generate(kind="image", prompt="a knight")
     assert out.success and out.provider == "offline" and out.data
 
 
 def test_generation_service_palette_providers_include_local(monkeypatch):
-    from leagent.llm.generation import build_default_generation_service
+    from StAgent.llm.generation import build_default_generation_service
 
     svc = build_default_generation_service()
     providers = svc.palette_providers("image")

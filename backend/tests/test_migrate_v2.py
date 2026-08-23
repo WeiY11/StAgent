@@ -7,24 +7,24 @@ from pathlib import Path
 import pytest
 import yaml
 
-from leagent.config.tier_env_guard import detect_legacy_tier_env
-from leagent.config.migrate_v2 import (
+from StAgent.config.tier_env_guard import detect_legacy_tier_env
+from StAgent.config.migrate_v2 import (
     migrate_env_file,
     migrate_providers_yaml,
     run_migration,
 )
-from leagent.llm.providers_schema import PROVIDERS_CONFIG_VERSION
+from StAgent.llm.providers_schema import PROVIDERS_CONFIG_VERSION
 
 
 def test_detect_legacy_tier_env() -> None:
     env = {
         "DEEPSEEK_API_KEY": "sk-x",
         "WORKAGENT_LLM__TIER1_API_KEY": "sk-y",
-        "LEAGENT_LLM__TIER2_MODEL": "m",
+        "StAgent_LLM__TIER2_MODEL": "m",
     }
     found = detect_legacy_tier_env(env)
     assert "WORKAGENT_LLM__TIER1_API_KEY" in found
-    assert "LEAGENT_LLM__TIER2_MODEL" in found
+    assert "StAgent_LLM__TIER2_MODEL" in found
     assert "DEEPSEEK_API_KEY" not in found
 
 

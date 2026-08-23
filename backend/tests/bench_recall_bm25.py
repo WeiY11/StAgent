@@ -30,8 +30,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.memory.recall import RecallOptions, RetrievalPipeline
-from leagent.memory.types import MemoryKind, RecallEntry
+from StAgent.memory.recall import RecallOptions, RetrievalPipeline
+from StAgent.memory.types import MemoryKind, RecallEntry
 
 # ---------------------------------------------------------------------------
 # Fakes

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 
-from leagent.api.v1.chat import _accumulate_workflow_extensions
+from StAgent.api.v1.chat import _accumulate_workflow_extensions
 
 _FLOW = {
     "id": "x",

@@ -4,7 +4,7 @@
 
 本文位于“提示词与上下文工程”的入口。建议先读[把最小 Agent 补成工程化 Agent](12-production-ready-agent.md)，并知道一次请求最终会进入 `QueryEngine → query`。这里的“分层”不是把一个 Markdown 文件切成八段，而是把不同生命周期、优先级和渲染位置的信息建模为独立 `ContextSource`，再统一组装。
 
-对应实现主要在 [`prompts/builder.py`](../../../backend/leagent/prompts/builder.py)、[`context/manager.py`](../../../backend/leagent/context/manager.py)、[`context/types.py`](../../../backend/leagent/context/types.py) 与 [`context/recipe.py`](../../../backend/leagent/context/recipe.py)。
+对应实现主要在 [`prompts/builder.py`](../../../backend/StAgent/prompts/builder.py)、[`context/manager.py`](../../../backend/StAgent/context/manager.py)、[`context/types.py`](../../../backend/StAgent/context/types.py) 与 [`context/recipe.py`](../../../backend/StAgent/context/recipe.py)。
 
 ## 目标
 
@@ -33,13 +33,13 @@ PromptContext
   → QueryEngine 将附件放在 transcript 前，再调用 query()
 ```
 
-最重要的事实是：[`PromptBuilder.build()`](../../../backend/leagent/prompts/builder.py) 只检查 `context_manager`、传递 query/persona/template vars 等参数，并返回 `turn.built_prompt`。没有 manager 会直接抛出 `ValueError`；旧的“仅凭 registry 自己收集各层”的 fallback 已删除。单元测试 [`test_prompts_package.py`](../../../backend/tests/test_prompts_package.py) 固化了这个契约。因此，`PromptBuilder` 是兼容调用者的组合 façade，真正的 source 调度、预算、排序、hash 和附件分流都在 `ContextManager`。
+最重要的事实是：[`PromptBuilder.build()`](../../../backend/StAgent/prompts/builder.py) 只检查 `context_manager`、传递 query/persona/template vars 等参数，并返回 `turn.built_prompt`。没有 manager 会直接抛出 `ValueError`；旧的“仅凭 registry 自己收集各层”的 fallback 已删除。单元测试 [`test_prompts_package.py`](../../../backend/tests/test_prompts_package.py) 固化了这个契约。因此，`PromptBuilder` 是兼容调用者的组合 façade，真正的 source 调度、预算、排序、hash 和附件分流都在 `ContextManager`。
 
 ## 实现路径
 
 ### 1. 模板只负责 Persona 与元数据
 
-[`prompts/templates/default_agent.md`](../../../backend/leagent/prompts/templates/default_agent.md) 的正文由 `IdentitySource` 读取，front matter 中的 `policies` 列表由 `PoliciesSource` 使用。`PromptRegistry` 负责定位、解析和缓存模板；它不是每轮上下文调度器。
+[`prompts/templates/default_agent.md`](../../../backend/StAgent/prompts/templates/default_agent.md) 的正文由 `IdentitySource` 读取，front matter 中的 `policies` 列表由 `PoliciesSource` 使用。`PromptRegistry` 负责定位、解析和缓存模板；它不是每轮上下文调度器。
 
 ### 2. Recipe 决定“邀请谁参加”
 
@@ -84,7 +84,7 @@ uv run pytest tests/test_context/test_manager.py \
   tests/test_prompts_package.py -q
 ```
 
-还可查看聊天 prompt preview API 的测试与 [`ContextLedger`](../../../backend/leagent/context/ledger.py)：它记录 source 的 bytes/tokens、cache hit、skip、truncated、dropped 与 hash，适合定位“为什么某块没有进入请求”。
+还可查看聊天 prompt preview API 的测试与 [`ContextLedger`](../../../backend/StAgent/context/ledger.py)：它记录 source 的 bytes/tokens、cache hit、skip、truncated、dropped 与 hash，适合定位“为什么某块没有进入请求”。
 
 ## 常见误区
 
@@ -96,7 +96,7 @@ uv run pytest tests/test_context/test_manager.py \
 
 ## 与 Anthropic 等业内方案对照
 
-Anthropic 的实践强调把稳定指令放在提示词前部、动态输入置后，并可通过 prompt caching 标记可缓存前缀；OpenAI、DashScope 也会从重复前缀中获得自动缓存收益。LeAgent 当前 manager 的三档排序遵循相同的“稳定前缀、易变尾部”原则，但 canonical manager 只生成普通 system message，并未调用 `AnthropicRenderer` 写入显式 `cache_control`。LangGraph 常把上下文装配放入 graph state/node；Google ADK、OpenAI Agents SDK 更偏向 instruction + runtime context。LeAgent 的特点是把 source、预算、附件和审计 ledger 集中到一个 session-scoped manager。
+Anthropic 的实践强调把稳定指令放在提示词前部、动态输入置后，并可通过 prompt caching 标记可缓存前缀；OpenAI、DashScope 也会从重复前缀中获得自动缓存收益。StAgent 当前 manager 的三档排序遵循相同的“稳定前缀、易变尾部”原则，但 canonical manager 只生成普通 system message，并未调用 `AnthropicRenderer` 写入显式 `cache_control`。LangGraph 常把上下文装配放入 graph state/node；Google ADK、OpenAI Agents SDK 更偏向 instruction + runtime context。StAgent 的特点是把 source、预算、附件和审计 ledger 集中到一个 session-scoped manager。
 
 ## 总结与延伸
 

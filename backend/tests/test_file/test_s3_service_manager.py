@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from leagent.config.settings import ObjectStorageSettings, Settings
-from leagent.services.service_manager import ServiceManager
+from StAgent.config.settings import ObjectStorageSettings, Settings
+from StAgent.services.service_manager import ServiceManager
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_object_storage_enabled_uses_s3_backend_and_exposes_client(
         captured["settings"] = settings
         return backend, client
 
-    monkeypatch.setattr("leagent.file.storage.s3.build_s3_storage_backend", build)
+    monkeypatch.setattr("StAgent.file.storage.s3.build_s3_storage_backend", build)
     settings = Settings(object_storage=ObjectStorageSettings(enabled=True, bucket="kb"))
     manager = ServiceManager(settings)
 
@@ -42,7 +42,7 @@ async def test_enabled_object_storage_failure_is_not_silently_downgraded(
     def build(_settings: ObjectStorageSettings) -> tuple[object, object]:
         raise RuntimeError("unreachable object store")
 
-    monkeypatch.setattr("leagent.file.storage.s3.build_s3_storage_backend", build)
+    monkeypatch.setattr("StAgent.file.storage.s3.build_s3_storage_backend", build)
     manager = ServiceManager(
         Settings(object_storage=ObjectStorageSettings(enabled=True, bucket="kb"))
     )

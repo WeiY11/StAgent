@@ -1,6 +1,6 @@
 # 工具参数命名约定
 
-LeAgent 的工具输入遵循**严格的规范契约**：每个工具 `parameters` 属性上声明的
+StAgent 的工具输入遵循**严格的规范契约**：每个工具 `parameters` 属性上声明的
 JSON Schema 是暴露给 LLM 的唯一权威定义。不存在静默别名强制转换。
 
 英文版：[tool-parameters.md](./tool-parameters.md)
@@ -20,7 +20,7 @@ JSON Schema 是暴露给 LLM 的唯一权威定义。不存在静默别名强制
 ## 契约强制
 
 校验在 `BaseTool.validate_params()` 中通过
-[`backend/leagent/tools/contract.py`](../../backend/leagent/tools/contract.py) 执行：
+[`backend/StAgent/tools/contract.py`](../../backend/StAgent/tools/contract.py) 执行：
 
 1. **未知键** — 以可操作错误拒绝（例如 schema 期望 `file_path` 时传入了 `path`）。
 2. **操作条件必填字段** — 例如 `markdown_processor` 的 `create` 需要 `file_path`。

@@ -10,7 +10,7 @@ export function isPathInside(root: string, target: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-/** Application install root used for LEAGENT_HOME containment checks. */
+/** Application install root used for StAgent_HOME containment checks. */
 export function getAppInstallRoot(): string {
   if (app.isPackaged) {
     // Packaged: resourcesPath is …/App.app/Contents/Resources or …/resources

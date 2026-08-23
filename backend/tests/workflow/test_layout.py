@@ -1,4 +1,4 @@
-"""Tests for :mod:`leagent.workflow.layout`.
+"""Tests for :mod:`StAgent.workflow.layout`.
 
 Cover the four canonical graph shapes that the templates exercise:
 
@@ -18,8 +18,8 @@ from collections import Counter
 
 import pytest
 
-from leagent.workflow.io.authoring import to_canonical
-from leagent.workflow.layout import (
+from StAgent.workflow.io.authoring import to_canonical
+from StAgent.workflow.layout import (
     LayoutOptions,
     build_ui_block,
     compute_layout,
@@ -230,8 +230,8 @@ def test_layout_document_attaches_ui_block_without_mutating_canonical() -> None:
 @pytest.mark.asyncio
 async def test_every_template_has_control_flow_edges() -> None:
     """Every shipped template must declare control-flow exits so the editor can draw links."""
-    from leagent.workflow.nodes import bootstrap
-    from leagent.workflow.template_service import get_template_service
+    from StAgent.workflow.nodes import bootstrap
+    from StAgent.workflow.template_service import get_template_service
 
     await bootstrap()
     service = get_template_service()
@@ -252,8 +252,8 @@ async def test_every_template_has_control_flow_edges() -> None:
 
 @pytest.mark.asyncio
 async def test_every_template_lays_out_without_overlap() -> None:
-    from leagent.workflow.nodes import bootstrap
-    from leagent.workflow.template_service import get_template_service
+    from StAgent.workflow.nodes import bootstrap
+    from StAgent.workflow.template_service import get_template_service
 
     await bootstrap()
     service = get_template_service()

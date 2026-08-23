@@ -21,13 +21,13 @@
 ### Task 1: Add explicit knowledge-embedding configuration and a capability-aware resolver
 
 **Files:**
-- Modify: `backend/leagent/config/settings/services.py`
-- Modify: `backend/leagent/memory/embeddings.py`
-- Create: `backend/leagent/knowledge/embedding_runtime.py`
+- Modify: `backend/StAgent/config/settings/services.py`
+- Modify: `backend/StAgent/memory/embeddings.py`
+- Create: `backend/StAgent/knowledge/embedding_runtime.py`
 - Create: `backend/tests/test_knowledge_embedding_runtime.py`
 
 **Interfaces:**
-- `KnowledgeRetrievalSettings` gains `embedding_enabled`, `embedding_provider`, `embedding_model`, and `embedding_dimension` settings under `LEAGENT_KNOWLEDGE_`.
+- `KnowledgeRetrievalSettings` gains `embedding_enabled`, `embedding_provider`, `embedding_model`, and `embedding_dimension` settings under `StAgent_KNOWLEDGE_`.
 - `LLMServiceEmbeddingProvider` accepts an optional `provider: str | None` and passes it through to `LLMService.embed`.
 - `resolve_knowledge_embedding_runtime(...) -> KnowledgeEmbeddingRuntime` returns a provider only for a registered provider whose `supports_embeddings` flag is true.
 
@@ -110,7 +110,7 @@ Run later: `cd backend && uv run pytest tests/test_knowledge_embedding_runtime.p
 ### Task 2: Wire the resolver into the RAG bootstrap and health summary
 
 **Files:**
-- Modify: `backend/leagent/services/service_manager.py`
+- Modify: `backend/StAgent/services/service_manager.py`
 - Modify: `backend/tests/test_cache_service_manager.py`
 
 **Interfaces:**
@@ -180,20 +180,20 @@ Run later: `cd backend && uv run pytest tests/test_cache_service_manager.py test
 **Files:**
 - Modify: `deploy/.env.example`
 - Modify: `deploy/README.md`
-- Modify: `deploy/helm/leagent/README.md`
-- Modify: `deploy/helm/leagent/values.yaml`
+- Modify: `deploy/helm/StAgent/README.md`
+- Modify: `deploy/helm/StAgent/values.yaml`
 
 **Interfaces:**
-- `LEAGENT_KNOWLEDGE_EMBEDDING_ENABLED=false` remains the default.
+- `StAgent_KNOWLEDGE_EMBEDDING_ENABLED=false` remains the default.
 - The docs name the provider/model/dimension fields and state that DeepSeek-only deployments remain lexical/BM25.
 
 - [x] **Step 1: Add commented non-secret environment examples**
 
 ```dotenv
-# LEAGENT_KNOWLEDGE_EMBEDDING_ENABLED=false
-# LEAGENT_KNOWLEDGE_EMBEDDING_PROVIDER=ollama
-# LEAGENT_KNOWLEDGE_EMBEDDING_MODEL=nomic-embed-text
-# LEAGENT_KNOWLEDGE_EMBEDDING_DIMENSION=768
+# StAgent_KNOWLEDGE_EMBEDDING_ENABLED=false
+# StAgent_KNOWLEDGE_EMBEDDING_PROVIDER=ollama
+# StAgent_KNOWLEDGE_EMBEDDING_MODEL=nomic-embed-text
+# StAgent_KNOWLEDGE_EMBEDDING_DIMENSION=768
 ```
 
 - [x] **Step 2: State the safe transition rule**
@@ -202,7 +202,7 @@ Document that enabling Milvus without an embedding-capable provider leaves vecto
 
 - [ ] **Step 3: Deferred verification command**
 
-Run later: `cd backend && uv run ruff check leagent/knowledge/embedding_runtime.py leagent/memory/embeddings.py leagent/services/service_manager.py tests/test_knowledge_embedding_runtime.py && uv run pytest tests/test_cache_service_manager.py tests/test_knowledge_embedding_runtime.py -q`
+Run later: `cd backend && uv run ruff check StAgent/knowledge/embedding_runtime.py StAgent/memory/embeddings.py StAgent/services/service_manager.py tests/test_knowledge_embedding_runtime.py && uv run pytest tests/test_cache_service_manager.py tests/test_knowledge_embedding_runtime.py -q`
 
 ## Deferred Acceptance Phase
 

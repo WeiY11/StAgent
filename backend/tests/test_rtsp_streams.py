@@ -7,9 +7,9 @@ from urllib.parse import quote
 
 import pytest
 
-from leagent.config.settings import Settings, get_settings
-from leagent.services.auth.service import AuthService
-from leagent.services.rtsp_proxy import (
+from StAgent.config.settings import Settings, get_settings
+from StAgent.services.auth.service import AuthService
+from StAgent.services.rtsp_proxy import (
     decode_rtsp_mjpeg_token,
     mint_rtsp_mjpeg_token,
     validate_rtsp_url,
@@ -92,7 +92,7 @@ def test_mjpeg_invalid_token(client, rtsp_enabled: Settings) -> None:
 
 
 def test_mjpeg_mock_ffmpeg(client, rtsp_enabled: Settings, test_settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.services import rtsp_proxy
+    from StAgent.services import rtsp_proxy
 
     async def _fake_iter(_settings: Settings, _rtsp_url: str, **_kw):
         yield b"--ffmpeg\r\nContent-Type: image/jpeg\r\n\r\n\xff\xd8\xff\xd9\r\n"

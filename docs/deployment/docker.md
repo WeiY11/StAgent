@@ -1,3 +1,3 @@
-﻿# Docker Deployment
+# Docker Deployment
 
 TODO: Write Docker deployment guide.

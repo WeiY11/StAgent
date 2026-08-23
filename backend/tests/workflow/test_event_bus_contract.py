@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from leagent.workflow.engine.progress import ProgressEvent
-from leagent.workflow.server.event_bus import InMemoryEventBus
+from StAgent.workflow.engine.progress import ProgressEvent
+from StAgent.workflow.server.event_bus import InMemoryEventBus
 
 
 @pytest.mark.asyncio

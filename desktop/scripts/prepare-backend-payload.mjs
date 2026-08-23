@@ -8,19 +8,37 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const REPO = path.resolve(import.meta.dirname, '..', '..');
 const SRC = path.join(REPO, 'backend');
 const DEST = path.join(REPO, 'desktop', 'electron', 'resources', 'backend-payload');
 const ROOT_CONFIG = path.join(REPO, 'config');
 
-const INCLUDE = [
-  'leagent', // includes leagent/alembic migrations
-  'pyproject.toml',
-  'uv.lock',
-  'alembic.ini',
-  'README.md',
-];
+const PACKAGE_CANDIDATES = ['StAgent', 'leagent'];
+
+export function resolveBackendPackage(src = SRC) {
+  const packageName = PACKAGE_CANDIDATES.find((candidate) => {
+    const packagePath = path.join(src, candidate);
+    return fs.existsSync(packagePath) && fs.statSync(packagePath).isDirectory();
+  });
+  if (!packageName) {
+    throw new Error(
+      `No backend package found under ${src}; expected one of ${PACKAGE_CANDIDATES.join(', ')}`,
+    );
+  }
+  return packageName;
+}
+
+export function getIncludeEntries(src = SRC) {
+  return [
+    resolveBackendPackage(src), // includes the package's alembic migrations
+    'pyproject.toml',
+    'uv.lock',
+    'alembic.ini',
+    'README.md',
+  ];
+}
 
 const EXCLUDE_DIRS = new Set([
   '__pycache__',
@@ -74,8 +92,9 @@ function main() {
   }
   fs.mkdirSync(DEST, { recursive: true });
 
+  const include = getIncludeEntries();
   let copied = 0;
-  for (const entry of INCLUDE) {
+  for (const entry of include) {
     const srcPath = path.join(SRC, entry);
     const destPath = path.join(DEST, entry);
     if (!fs.existsSync(srcPath)) {
@@ -102,4 +121,6 @@ function main() {
   console.log(`\nDone. ${copied} entries staged.`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main();
+}

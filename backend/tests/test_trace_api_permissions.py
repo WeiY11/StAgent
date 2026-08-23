@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from leagent.api.v1 import traces as traces_api
+from StAgent.api.v1 import traces as traces_api
 
 
 def _trace_row(trace_id: str, *, user_id: object, experiment_id: str | None = None):
@@ -251,7 +251,7 @@ async def test_get_trace_span_returns_full_payload(
     row.output_preview = "prev-out"
     fake_trace_store.spans["t1"] = [row]
 
-    from leagent.config import constants as trace_constants
+    from StAgent.config import constants as trace_constants
 
     monkeypatch.setattr(trace_constants, "TRACES_DIR", str(tmp_path / "traces"))
 
@@ -279,7 +279,7 @@ async def test_get_trace_span_falls_back_to_preview(
     row.output_preview = "prev-out"
     fake_trace_store.spans["t1"] = [row]
 
-    from leagent.config import constants as trace_constants
+    from StAgent.config import constants as trace_constants
 
     monkeypatch.setattr(trace_constants, "TRACES_DIR", str(tmp_path / "traces"))
 

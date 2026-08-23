@@ -197,7 +197,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: 'leagent-settings',
+      name: 'StAgent-settings',
     }
   )
 );

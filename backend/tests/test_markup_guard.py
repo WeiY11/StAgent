@@ -6,13 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.code.markup_guard import (
+from StAgent.code.markup_guard import (
     WEBPAGE_NEXT_STEP,
     attach_webpage_block,
     source_writes_webpage,
     webpage_paths_in_produced,
 )
-from leagent.tools.base import ToolContext
+from StAgent.tools.base import ToolContext
 
 
 @pytest.mark.parametrize(
@@ -51,7 +51,7 @@ def test_attach_webpage_block() -> None:
 
 @pytest.mark.asyncio
 async def test_code_execution_blocks_html_write_source() -> None:
-    from leagent.code.execution import CodeExecutionTool
+    from StAgent.code.execution import CodeExecutionTool
 
     tool = CodeExecutionTool()
     ctx = ToolContext(user_id=str(uuid4()), session_id=str(uuid4()))
@@ -71,7 +71,7 @@ async def test_code_execution_blocks_html_write_source() -> None:
 
 @pytest.mark.asyncio
 async def test_code_execution_blocks_produced_html() -> None:
-    from leagent.code.execution import CodeExecutionTool
+    from StAgent.code.execution import CodeExecutionTool
 
     tool = CodeExecutionTool()
     ctx = ToolContext(user_id=str(uuid4()), session_id=str(uuid4()))

@@ -12,7 +12,7 @@
 
 判断标准可以是：若 80% 的路径可枚举，就优先 workflow；若主要难点是发现下一步，就使用 Agent；若副作用不可逆，则无论模型多强都应回到受控 workflow gate。
 
-LeAgent 正好体现这条边界：`WorkflowExecutor` 验证 `WorkflowDocument`、拓扑调度、并行执行并持久化 workflow state；Agent 节点通过 `AgentRuntime` 进入同一个 `QueryEngine/run_loop` think-act kernel。两者共享工具执行面，但状态 owner 和 resume token 语义不能混为一谈。
+StAgent 正好体现这条边界：`WorkflowExecutor` 验证 `WorkflowDocument`、拓扑调度、并行执行并持久化 workflow state；Agent 节点通过 `AgentRuntime` 进入同一个 `QueryEngine/run_loop` think-act kernel。两者共享工具执行面，但状态 owner 和 resume token 语义不能混为一谈。
 
 ## 15.2 Agent 真正的核心能力是什么？
 
@@ -26,7 +26,7 @@ LeAgent 正好体现这条边界：`WorkflowExecutor` 验证 `WorkflowDocument`�
 
 模型推理只是决策器。真正的系统能力还包括工具质量、环境反馈、状态持久化、权限、验证器和可观测性。一个聪明模型配上模糊工具和不可恢复 runtime，通常不如中等模型配上清晰契约。
 
-LeAgent 将核心拆开：provider abstraction 允许替换模型，`ToolRegistry/ToolExecutor` 统一动作空间，`QueryEngine` 保持 think-act-observe，checkpoint 保证暂停恢复，trace 提供证据链，`AgentMemory` 让历史经验以受控方式影响后续决策。
+StAgent 将核心拆开：provider abstraction 允许替换模型，`ToolRegistry/ToolExecutor` 统一动作空间，`QueryEngine` 保持 think-act-observe，checkpoint 保证暂停恢复，trace 提供证据链，`AgentMemory` 让历史经验以受控方式影响后续决策。
 
 ## 15.3 为什么很多 Agent Demo 无法上线？
 
@@ -43,7 +43,7 @@ Demo 优化的是一次“惊艳路径”，生产优化的是分布尾部和责
 
 Staff 级落地路径应先缩窄任务域，定义 SLO 与风险等级，再建立 deterministic baseline、shadow traffic、人工接管和逐级放权。不要用平均成功率掩盖高损失的 1% 尾部。
 
-LeAgent 的单 kernel、多 ingress、统一工具执行、durable checkpoint、`run_id/parent_run_id` 和分层 state owner，解决的是“能治理地运行”，而不只是“模型能跑起来”。
+StAgent 的单 kernel、多 ingress、统一工具执行、durable checkpoint、`run_id/parent_run_id` 和分层 state owner，解决的是“能治理地运行”，而不只是“模型能跑起来”。
 
 ## 15.4 为什么 Deep Research 比普通 Agent 强？
 
@@ -87,7 +87,7 @@ Deep Research 的优势通常来自系统化研究流程，而不只是一个更
 
 更准确地说，RAG 会从“绕过窗口限制”演化为 context query planner 和证据控制面。它可能动态决定读取数据库、搜索、知识图谱、文件切片或缓存，而非固定向量 Top-K。
 
-LeAgent 的 relevance-gated context source 和 `AgentMemory.recall()` 都体现了“按需组装工作集”；即使模型窗口变大，这种可解释、可审计的上下文选择仍有价值。
+StAgent 的 relevance-gated context source 和 `AgentMemory.recall()` 都体现了“按需组装工作集”；即使模型窗口变大，这种可解释、可审计的上下文选择仍有价值。
 
 ## 15.7 如果模型足够强，还需要 Planning 吗？
 
@@ -99,7 +99,7 @@ LeAgent 的 relevance-gated context source 和 `AgentMemory.recall()` 都体现�
 
 模型越强，简单任务越可以边做边想；但长时任务的资源协调、并发、预算、人工接口和跨进程恢复仍需要外部计划结构。静态 upfront planning 的风险是环境一变就失效，过度动态则难以估算成本和审计。
 
-LeAgent 的合理分工是：`QueryEngine` 做局部 think-act，`WorkflowExecutor` 管全局 DAG 和并行依赖，checkpoint 保留暂停点，trace 检查计划偏离。Planning 是控制问题，不应被等同于一段自然语言。
+StAgent 的合理分工是：`QueryEngine` 做局部 think-act，`WorkflowExecutor` 管全局 DAG 和并行依赖，checkpoint 保留暂停点，trace 检查计划偏离。Planning 是控制问题，不应被等同于一段自然语言。
 
 ## 15.8 Agent 的 Scaling Law 存在吗？
 
@@ -114,7 +114,7 @@ LeAgent 的合理分工是：`QueryEngine` 做局部 think-act，`WorkflowExecut
 - rollout 数量、搜索宽度和 verifier 强度；
 - 任务时长、状态容量和组织知识。
 
-研究 Agent scaling law 时应固定工具与环境版本，按轨迹长度分桶，报告 pass@k、成本归一化成功率和恢复率，并警惕 benchmark contamination。LeAgent 的 trace 与多模型实验接口可提供模型、token、工具 span 和结果数据，但因果结论仍需随机分流和版本化评测。
+研究 Agent scaling law 时应固定工具与环境版本，按轨迹长度分桶，报告 pass@k、成本归一化成功率和恢复率，并警惕 benchmark contamination。StAgent 的 trace 与多模型实验接口可提供模型、token、工具 span 和结果数据，但因果结论仍需随机分流和版本化评测。
 
 ## 15.9 Agent 未来会演化成什么形态？
 
@@ -129,7 +129,7 @@ LeAgent 的合理分工是：`QueryEngine` 做局部 think-act，`WorkflowExecut
 
 Principal 级判断是：未来不太像一个“全能人格”，更像操作系统上的进程模型。每次运行有身份、能力、预算、状态、父子关系和生命周期；模型只是可热切换的计算资源。
 
-LeAgent 的 `ExecutionRun`、`AgentRuntime`、`ToolExecutor`、`CheckpointStore`、`WorkflowExecutor` 和 trace 平面已经接近这种拆分，但多 worker 下的 durable run registry、分布式 event bus 和更强资源隔离仍是平台演进重点。
+StAgent 的 `ExecutionRun`、`AgentRuntime`、`ToolExecutor`、`CheckpointStore`、`WorkflowExecutor` 和 trace 平面已经接近这种拆分，但多 worker 下的 durable run registry、分布式 event bus 和更强资源隔离仍是平台演进重点。
 
 ## 15.10 AI Agent 的护城河在哪里？
 
@@ -162,7 +162,7 @@ LeAgent 的 `ExecutionRun`、`AgentRuntime`、`ToolExecutor`、`CheckpointStore`
 8. Citation auditor 检查 entailment、引用位置和来源质量；
 9. Human gate 处理医疗、法律、金融等高风险输出。
 
-可用强推理模型做 planner/冲突分析，快速模型做抽取与去重，视觉模型处理图表/PDF。LeAgent 中可用 task routing 实现 multi-model tier，用 `WorkflowExecutor` 并行研究分支，用 Agent 节点动态扩展查询；所有来源和模型调用进入 trace，checkpoint 支持长任务恢复。
+可用强推理模型做 planner/冲突分析，快速模型做抽取与去重，视觉模型处理图表/PDF。StAgent 中可用 task routing 实现 multi-model tier，用 `WorkflowExecutor` 并行研究分支，用 Agent 节点动态扩展查询；所有来源和模型调用进入 trace，checkpoint 支持长任务恢复。
 
 关键权衡：搜索广度与成本、来源多样性与质量、实时性与可复现性。缓存必须带抓取时间和内容哈希；被引用内容应保留允许范围内的快照或证据片段。
 
@@ -181,7 +181,7 @@ LeAgent 的 `ExecutionRun`、`AgentRuntime`、`ToolExecutor`、`CheckpointStore`
 - 下载、上传、支付、发送、删除等动作触发审批；
 - 每步截图、动作、目标元素和结果写 trace，可回放但需脱敏。
 
-GUI 操作脆弱且慢，能调用 API 时优先 API；Computer Use 是兼容无 API 系统的最后一公里。失败恢复应基于“页面是否达到预期状态”，而不是机械重放坐标。LeAgent 可把 GUI 操作封装为受控工具，由 `ToolExecutor` 承担权限/超时，`QueryEngine` 处理观察自纠，checkpoint 在验证码或审批处暂停。
+GUI 操作脆弱且慢，能调用 API 时优先 API；Computer Use 是兼容无 API 系统的最后一公里。失败恢复应基于“页面是否达到预期状态”，而不是机械重放坐标。StAgent 可把 GUI 操作封装为受控工具，由 `ToolExecutor` 承担权限/超时，`QueryEngine` 处理观察自纠，checkpoint 在验证码或审批处暂停。
 
 ## 15.13 设计 Cursor Agent
 
@@ -199,7 +199,7 @@ GUI 操作脆弱且慢，能调用 API 时优先 API；Computer Use 是兼容无
 - Checkpoint/undo：每个编辑批次可恢复，用户改动永不被静默覆盖；
 - Eval：repo-level issue、build pass、test pass、diff quality 与人工接受率。
 
-Principal 级风险是本地代码、密钥、命令执行和供应链。默认应只读探索，写入限定 workspace，网络和 destructive git 命令单独审批。LeAgent 的 coding project/file/code 三层边界、`ToolRegistry/Executor` 和单 `run_loop` 可作为类似系统的 runtime 基础。
+Principal 级风险是本地代码、密钥、命令执行和供应链。默认应只读探索，写入限定 workspace，网络和 destructive git 命令单独审批。StAgent 的 coding project/file/code 三层边界、`ToolRegistry/Executor` 和单 `run_loop` 可作为类似系统的 runtime 基础。
 
 ## 15.14 设计 Devin
 
@@ -217,7 +217,7 @@ Principal 级风险是本地代码、密钥、命令执行和供应链。默认�
 - PR gate 检查测试、lint、安全、变更范围和用户未提交改动；
 - 人在环节点处理需求歧义、架构选择、凭证和生产操作。
 
-关键权衡是自治时长与错误漂移。应按阶段设置 budget，并在连续无进展、diff 过大或测试恶化时停止。LeAgent 可让 `AgentRuntime` 负责开放式 coding loop，让 `WorkflowExecutor` 固化“准备环境—实现—验证—审查—交付”，trace 关联 shell/tool/subagent，checkpoint 保存可继续的消息与任务元数据。
+关键权衡是自治时长与错误漂移。应按阶段设置 budget，并在连续无进展、diff 过大或测试恶化时停止。StAgent 可让 `AgentRuntime` 负责开放式 coding loop，让 `WorkflowExecutor` 固化“准备环境—实现—验证—审查—交付”，trace 关联 shell/tool/subagent，checkpoint 保存可继续的消息与任务元数据。
 
 ## 15.15 设计一个企业级 Agent Platform
 
@@ -235,7 +235,7 @@ Principal 级风险是本地代码、密钥、命令执行和供应链。默认�
 - 所有外部写操作可审计，关键操作可审批、幂等或补偿；
 - provider 可替换，能力与任务路由不依赖品牌字符串。
 
-LeAgent 的 `ServiceManager.runtime_context` 已集中装配 registry/executor/hooks/checkpoint/session/memory/LLM，所有 ingress 汇入 SDK kernel。企业化扩展应优先补充分布式 run store/event bus、KMS、租户隔离、配额、数据区域、策略即代码和灾难恢复，而不是再造第二套 Agent loop。
+StAgent 的 `ServiceManager.runtime_context` 已集中装配 registry/executor/hooks/checkpoint/session/memory/LLM，所有 ingress 汇入 SDK kernel。企业化扩展应优先补充分布式 run store/event bus、KMS、租户隔离、配额、数据区域、策略即代码和灾难恢复，而不是再造第二套 Agent loop。
 
 组织上要设平台 paved road，同时允许领域团队注册工具和 AgentDefinition；平台团队负责协议与治理，领域团队对业务 eval 和工具语义负责。
 
@@ -252,7 +252,7 @@ Eval 平台应覆盖四层，而不是只做最终答案打分：
 
 发布流程应支持 baseline、candidate、分层报表、置信区间、回归阈值和 canary。模型、prompt、tool、policy、数据集都要版本化，不能只记录“用了 GPT/Claude”。
 
-LeAgent 的 trace span、按模型统计和 experiment API 可作为数据源；还应把 checkpoint resume success、workflow node 结果、`AgentMemory` 命中与污染率纳入评测。离线指标最终需与线上业务 KPI 对齐。
+StAgent 的 trace span、按模型统计和 experiment API 可作为数据源；还应把 checkpoint resume success、workflow node 结果、`AgentMemory` 命中与污染率纳入评测。离线指标最终需与线上业务 KPI 对齐。
 
 ## 15.17 如何建设 Agent Observability 平台？
 
@@ -265,7 +265,7 @@ Observability 要回答四个问题：它在做什么、为什么这样做、花
 
 采集必须 best-effort，不能因 trace store 故障阻塞 Agent；高基数字段不应进入 metric label。采样应风险感知：错误、高成本、高风险动作全采，普通成功运行抽样。数据保留、访问审计和删除请求是平台的一部分。
 
-LeAgent 的 `TraceRecorder` 用 fire-and-forget、批量 flush、可选 preview/payload，`trace_id = run_id`；`TraceHook` 捕获 compact/subagent。需继续关注跨进程 context propagation、event ordering、掉数率和 trace 与业务结果的 join。
+StAgent 的 `TraceRecorder` 用 fire-and-forget、批量 flush、可选 preview/payload，`trace_id = run_id`；`TraceHook` 捕获 compact/subagent。需继续关注跨进程 context propagation、event ordering、掉数率和 trace 与业务结果的 join。
 
 ## 15.18 如何建设 Agent Runtime？
 
@@ -282,7 +282,7 @@ Runtime 是 Agent 的“进程与系统调用层”，不应只是 while loop。
 
 设计原则是“一条 canonical path”。聊天、SDK、任务、子 Agent 和 workflow Agent node 若各有一套循环，会产生无法统一修复的安全与恢复差异。
 
-LeAgent 的 `leagent.sdk.kernel.loop.run_loop` 是单 kernel，`QueryEngine` 是每会话编排器，`ServiceManager.runtime_context` 是统一 wiring。当前架构下 in-process execution registry 与 event bus 在多 worker 部署时需要 sticky session；演进到分布式 runtime 时应把 run ownership、lease、事件序列和恢复协议持久化。
+StAgent 的 `StAgent.sdk.kernel.loop.run_loop` 是单 kernel，`QueryEngine` 是每会话编排器，`ServiceManager.runtime_context` 是统一 wiring。当前架构下 in-process execution registry 与 event bus 在多 worker 部署时需要 sticky session；演进到分布式 runtime 时应把 run ownership、lease、事件序列和恢复协议持久化。
 
 ## 15.19 如何建设 Agent Memory Platform？
 
@@ -298,7 +298,7 @@ Memory Platform 不是一个 vector database。它至少包含：
 
 多租户隔离必须在存储查询层强制，不依赖 prompt。embedding/model 升级需要双写或后台重建；向量服务故障应降级到词法/关系查询。还要评估 memory 的负收益：错误召回率、过期事实率、prompt 注入传播和因记忆造成的任务退化。
 
-LeAgent 的 `AgentMemory` 以 episode/fact/procedure 三存储和 `RetrievalPipeline` 提供窄门面，并有 formation policy、写入健康和可选向量降级。平台化后应补充事实版本图、用户可见编辑/删除、跨区域策略和 memory eval。
+StAgent 的 `AgentMemory` 以 episode/fact/procedure 三存储和 `RetrievalPipeline` 提供窄门面，并有 formation policy、写入健康和可选向量降级。平台化后应补充事实版本图、用户可见编辑/删除、跨区域策略和 memory eval。
 
 ## 15.20 如何建设 Agent Operating System？
 
@@ -315,6 +315,6 @@ LeAgent 的 `AgentMemory` 以 episode/fact/procedure 三存储和 `RetrievalPipe
 
 关键取舍是通用性与可治理性。若允许任意 Agent、任意工具、任意共享状态，平台会迅速失去隔离和可预测性；若所有流程都要求预定义，又退化成普通 BPM。合理方案是小而稳定的 kernel、版本化能力接口、领域扩展包，以及 Agent 自由度随风险动态收缩。
 
-LeAgent 可作为这一方向的雏形：provider abstraction 是可替换计算设备，`QueryEngine/run_loop` 是执行 kernel，`ToolRegistry/Executor` 是 syscall table，checkpoint 是进程快照，trace 是审计/调试，`AgentMemory` 是长期知识层，`WorkflowExecutor` 是确定性调度器。
+StAgent 可作为这一方向的雏形：provider abstraction 是可替换计算设备，`QueryEngine/run_loop` 是执行 kernel，`ToolRegistry/Executor` 是 syscall table，checkpoint 是进程快照，trace 是审计/调试，`AgentMemory` 是长期知识层，`WorkflowExecutor` 是确定性调度器。
 
 Principal 级路线图应优先解决：durable distributed run registry、租约与抢占、事件顺序、跨租户资源隔离、能力令牌、沙箱镜像供应链、全局成本调度和灾难恢复。只有这些不变量成立后，多 Agent 市场、自动技能学习等上层能力才值得扩展。

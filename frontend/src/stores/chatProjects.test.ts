@@ -24,7 +24,7 @@ describe('chat project unlock headers', () => {
 
   it('returns an unlock header for a non-expired token', () => {
     sessionStorage.setItem(
-      'leagent-chat-project-unlocks',
+      'StAgent-chat-project-unlocks',
       JSON.stringify({
         p1: { token: 'tok', expiresAt: Math.floor(Date.now() / 1000) + 60 },
       }),
@@ -35,13 +35,13 @@ describe('chat project unlock headers', () => {
 
   it('drops expired tokens', () => {
     sessionStorage.setItem(
-      'leagent-chat-project-unlocks',
+      'StAgent-chat-project-unlocks',
       JSON.stringify({
         p1: { token: 'tok', expiresAt: Math.floor(Date.now() / 1000) - 1 },
       }),
     );
 
     expect(getChatProjectHeaders('p1')).toBeUndefined();
-    expect(sessionStorage.getItem('leagent-chat-project-unlocks')).toBe('{}');
+    expect(sessionStorage.getItem('StAgent-chat-project-unlocks')).toBe('{}');
   });
 });

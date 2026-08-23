@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="LeAgent Logo" width="120" height="120">
+  <img src="docs/assets/logo.svg" alt="StAgent Logo" width="120" height="120">
 </p>
 
-<h1 align="center">LeAgent</h1>
+<h1 align="center">StAgent</h1>
 
 <p align="center">
   <strong>The open-source desktop AI agent that gets work done — an agent that plans and self-corrects, agentic visual workflows, generative UI, and 100+ offline tools in a single self-hostable stack.</strong>
@@ -27,12 +27,12 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/hero-en.png" alt="LeAgent Screenshot" width="720">
+  <img src="docs/assets/screenshots/hero-en.png" alt="StAgent Screenshot" width="720">
 </p>
 
 ---
 
-**LeAgent** is an open-source desktop AI agent that doesn't just chat — it gets work done. Unlike cloud chatbots and code-only CLIs, LeAgent fuses three capabilities most agents keep apart: a streaming agent runtime that **plans, calls tools, and self-corrects** in one think-act loop; **agentic visual workflows** where the agent designs, runs, and refines ReactFlow DAGs (and every one of its tools is automatically a typed node); and a **generative UI** layer that streams live, interactive interfaces — KPI boards, slide decks, galleries — right into the chat. It ships **100+ built-in offline tools** (documents, web, data, code, databases, media, game-art generation) plus a declarative rule engine, Agent Skills, and the Model Context Protocol — all running locally with **zero external dependencies by default** (SQLite, single process). Bring your own model keys, or run **fully offline** against a local Ollama / vLLM endpoint.
+**StAgent** is an open-source desktop AI agent that doesn't just chat — it gets work done. Unlike cloud chatbots and code-only CLIs, StAgent fuses three capabilities most agents keep apart: a streaming agent runtime that **plans, calls tools, and self-corrects** in one think-act loop; **agentic visual workflows** where the agent designs, runs, and refines ReactFlow DAGs (and every one of its tools is automatically a typed node); and a **generative UI** layer that streams live, interactive interfaces — KPI boards, slide decks, galleries — right into the chat. It ships **100+ built-in offline tools** (documents, web, data, code, databases, media, game-art generation) plus a declarative rule engine, Agent Skills, and the Model Context Protocol — all running locally with **zero external dependencies by default** (SQLite, single process). Bring your own model keys, or run **fully offline** against a local Ollama / vLLM endpoint.
 
 It is built for people who want a private, hackable, self-hosted alternative to closed agent products: your documents, sessions, and credentials never leave the machine unless you point a provider at a remote API.
 
@@ -52,7 +52,7 @@ It is built for people who want a private, hackable, self-hosted alternative to 
 
 ## What you can build
 
-LeAgent is a complete agent platform, not a starter kit — the building blocks below are wired together and work out of the box, fully offline by default.
+StAgent is a complete agent platform, not a starter kit — the building blocks below are wired together and work out of the box, fully offline by default.
 
 - **Office automation** — point it at a folder of invoices, contracts, or reports: it OCRs and classifies the files, extracts structured data into Excel, and produces a polished Word or PPTX summary in a single turn.
 - **Research & briefings** — search across DuckDuckGo / SearXNG / Bing, scrape and download sources, then assemble a cited PDF report with charts and KPI dashboards.
@@ -64,12 +64,12 @@ LeAgent is a complete agent platform, not a starter kit — the building blocks 
 
 ## Architecture
 
-LeAgent is an async Python (FastAPI) backend plus a React 19 single-page app, packaged as a modular monolith. The backend uses a strict, downward-only layered domain model — **File → Code → Project** — over a single persistence layer, and every agent turn (chat, SDK, background task, sub-agent, workflow node) converges on **one think-act kernel**.
+StAgent is an async Python (FastAPI) backend plus a React 19 single-page app, packaged as a modular monolith. The backend uses a strict, downward-only layered domain model — **File → Code → Project** — over a single persistence layer, and every agent turn (chat, SDK, background task, sub-agent, workflow node) converges on **one think-act kernel**.
 
 ```text
-LeAgent/
+StAgent/
 ├── backend/                 # FastAPI backend (Python 3.11+, uv-managed)
-│   └── leagent/
+│   └── StAgent/
 │       ├── agent/           # QueryEngine orchestrator, planner, subagents
 │       ├── sdk/             # Versioned public Agent SDK (runtime, kernel, protocols)
 │       ├── api/             # FastAPI routers (v1 + incubating v2)
@@ -113,7 +113,7 @@ State     TieredSessionStore · CheckpointStore · WorkflowStateStore
 Observe   EventManager (FLOW_*/TASK_*/AGENT_*) · OpenTelemetry
 ```
 
-- **One kernel.** Chat and every background path drive through `leagent.sdk.kernel.run_loop`. Turns pause to a durable checkpoint when they await user input, then resume exactly where they left off.
+- **One kernel.** Chat and every background path drive through `StAgent.sdk.kernel.run_loop`. Turns pause to a durable checkpoint when they await user input, then resume exactly where they left off.
 - **Three workflow shapes, one engine.** Saved DAG flows, chat playbook step-cards (compiled to linear flows), and in-chat graph embeds all execute on the same `WorkflowExecutor`, which stages ready batches, runs independent branches concurrently, and applies centralized retry/backoff and timeouts.
 - **Clear state ownership.** The chat transcript lives in `TieredSessionStore`, paused turns in `CheckpointStore` (`agent_checkpoints`), and workflow runs in `WorkflowStateStore` — no shared mutable state across subsystems.
 
@@ -189,7 +189,7 @@ Cost-tiered routing (`tier1` reasoning / `tier2` fast) with automatic failover �
 
 ```bash
 git clone https://github.com/WeiY11/StAgent.git
-cd LeAgent
+cd StAgent
 ./start.sh                # backend :7860 + frontend :5173
 ```
 
@@ -198,8 +198,8 @@ The dev orchestrator syncs the Python env with `uv`, installs frontend deps, and
 ### Docker
 
 ```bash
-cd LeAgent/deploy
-cp .env.example .env      # set LEAGENT_SECRET_KEY + at least one provider key
+cd StAgent/deploy
+cp .env.example .env      # set StAgent_SECRET_KEY + at least one provider key
 docker compose up -d --build
 ```
 
@@ -211,8 +211,8 @@ API and interactive docs at `http://localhost:8000/docs`. The default image is a
 # Backend
 cd backend
 uv sync --extra dev
-uv run leagent init
-uv run leagent app
+uv run StAgent init
+uv run StAgent app
 
 # Frontend (separate terminal)
 cd frontend
@@ -227,16 +227,16 @@ curl -fsSL https://vixues.com.cn/install.sh | bash
 
 ### Configuration
 
-Set at least one provider key (env var or **Settings → Environment secrets** in the web UI, which writes `~/.leagent/.env`). The most common knobs:
+Set at least one provider key (env var or **Settings → Environment secrets** in the web UI, which writes `~/.StAgent/.env`). The most common knobs:
 
 | Variable | Purpose |
 | --- | --- |
-| `LEAGENT_SECRET_KEY` | App secret for signed URLs and session crypto (`openssl rand -hex 32`) |
+| `StAgent_SECRET_KEY` | App secret for signed URLs and session crypto (`openssl rand -hex 32`) |
 | `DEEPSEEK_API_KEY` | DeepSeek provider — auto-aliased as `tier1` (reasoning) / `tier2` (fast) |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DASHSCOPE_API_KEY` | Additional cloud providers |
 | `VLLM_ENDPOINT` / `LLM_OLLAMA_ENDPOINT` | Local / self-hosted OpenAI-compatible inference |
 | `DATABASE_URL` | Switch from SQLite to PostgreSQL (install the driver with `uv sync --extra postgres`; `DB_DATABASE_URL` is a compatibility alias) |
-| `LEAGENT_DEBUG` | Enable debug logging |
+| `StAgent_DEBUG` | Enable debug logging |
 
 See [`deploy/.env.example`](deploy/.env.example) for the full annotated list.
 
@@ -246,10 +246,10 @@ Installers for each platform ship with every GitHub release — download and run
 
 | Platform | Download | Notes |
 | --- | --- | --- |
-| **Windows 10/11 (x64)** | [`LeAgent-Setup-*.exe`](../../releases/latest) | NSIS installer; desktop + start-menu shortcut |
-| **macOS (Apple Silicon)** | [`LeAgent-*-arm64.dmg`](../../releases/latest) | Unsigned — `xattr -dr com.apple.quarantine /Applications/LeAgent.app` after install |
-| **macOS (Intel)** | [`LeAgent-*.dmg`](../../releases/latest) | Same Gatekeeper note as above |
-| **Linux (x64)** | [`LeAgent-*.AppImage`](../../releases/latest) / [`LeAgent-*.deb`](../../releases/latest) | AppImage: `chmod +x` then run. `.deb`: `sudo dpkg -i` |
+| **Windows 10/11 (x64)** | [`StAgent-Setup-*.exe`](../../releases/latest) | NSIS installer; desktop + start-menu shortcut |
+| **macOS (Apple Silicon)** | [`StAgent-*-arm64.dmg`](../../releases/latest) | Unsigned — `xattr -dr com.apple.quarantine /Applications/StAgent.app` after install |
+| **macOS (Intel)** | [`StAgent-*.dmg`](../../releases/latest) | Same Gatekeeper note as above |
+| **Linux (x64)** | [`StAgent-*.AppImage`](../../releases/latest) / [`StAgent-*.deb`](../../releases/latest) | AppImage: `chmod +x` then run. `.deb`: `sudo dpkg -i` |
 
 See all releases: **<https://github.com/WeiY11/StAgent/releases>**
 
@@ -266,9 +266,9 @@ See all releases: **<https://github.com/WeiY11/StAgent/releases>**
 ## Operations
 
 - **Ports.** Local dev serves the backend on `:7860` and the Vite frontend on `:5173` (`start.sh`); the Docker image publishes the API on `:8000`.
-- **Persistence & backup.** State lives under `LEAGENT_HOME`: the SQLite database (WAL mode) plus the working-uploads, knowledge, and coding-project trees. A complete backup is the database **and** that directory.
+- **Persistence & backup.** State lives under `StAgent_HOME`: the SQLite database (WAL mode) plus the working-uploads, knowledge, and coding-project trees. A complete backup is the database **and** that directory.
 - **Scaling.** The default single-process / single-worker setup is correct for SQLite (single writer). To scale out, switch to PostgreSQL via `DATABASE_URL` and front the app with sticky sessions (the in-process execution registry and event bus are per-worker). Milvus is optional and only powers vector-backed memory recall.
-- **Observability.** Structured JSON logs (structlog), OpenTelemetry spans when an OTLP endpoint is configured, and Prometheus workflow/quality histograms. Interactive API docs at `/docs`; set `LEAGENT_DEBUG=true` for verbose tracing.
+- **Observability.** Structured JSON logs (structlog), OpenTelemetry spans when an OTLP endpoint is configured, and Prometheus workflow/quality histograms. Interactive API docs at `/docs`; set `StAgent_DEBUG=true` for verbose tracing.
 
 ## Documentation
 

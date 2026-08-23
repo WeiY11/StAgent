@@ -1,4 +1,4 @@
-"""Tests for leagent.file.primitives — the shared file-management utilities."""
+"""Tests for StAgent.file.primitives — the shared file-management utilities."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from leagent.file.primitives import (
+from StAgent.file.primitives import (
     FileKind,
     FileScope,
     classify_file_kind,

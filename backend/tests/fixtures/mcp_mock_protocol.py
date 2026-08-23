@@ -1,6 +1,6 @@
 """Shared JSON-RPC dispatch for MCP mock servers (stdio + HTTP /rpc).
 
-Mirrors the subset of MCP that :class:`leagent.mcp.client.MCPClient` uses.
+Mirrors the subset of MCP that :class:`StAgent.mcp.client.MCPClient` uses.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from leagent.mcp.constants import MCP_PROTOCOL_VERSION
+from StAgent.mcp.constants import MCP_PROTOCOL_VERSION
 
 
 def _json_rpc_error(req_id: Any, code: int, message: str) -> dict[str, Any]:
@@ -43,9 +43,9 @@ def handle_mcp_message(msg: dict[str, Any]) -> dict[str, Any] | None:
                 "prompts": {},
                 "resources": {},
             },
-            "serverInfo": {"name": "leagent-mcp-mock", "version": "0.0.1"},
+            "serverInfo": {"name": "StAgent-mcp-mock", "version": "0.0.1"},
             # MCPServerInfo.from_dict reads top-level name/version in this codebase.
-            "name": "leagent-mcp-mock",
+            "name": "StAgent-mcp-mock",
             "version": "0.0.1",
         }
         return {"jsonrpc": "2.0", "id": req_id, "result": result}

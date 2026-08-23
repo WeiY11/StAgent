@@ -7,10 +7,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.context.recipe import RECIPE_REGISTRY
-from leagent.context.sources import SOURCE_REGISTRY
-from leagent.context.sources.base import ResolveContext
-from leagent.context.sources.gated_policy import DataAnalysisGuideSource
+from StAgent.context.recipe import RECIPE_REGISTRY
+from StAgent.context.sources import SOURCE_REGISTRY
+from StAgent.context.sources.base import ResolveContext
+from StAgent.context.sources.gated_policy import DataAnalysisGuideSource
 
 GATE = DataAnalysisGuideSource.gate
 
@@ -42,7 +42,7 @@ def test_gate_opt_in_keys():
 
 
 def test_policy_template_exists_in_registry():
-    from leagent.prompts.registry import get_prompt_registry
+    from StAgent.prompts.registry import get_prompt_registry
 
     policy = get_prompt_registry().get("policies/data_analysis_guide", variant="default")
     assert "Data analysis mode" in policy.body
@@ -80,7 +80,7 @@ _CSV_SNAPSHOT: dict[str, Any] = {
 
 
 def _ctx(attachments: list[_Attachment] | None, query: str) -> ResolveContext:
-    from leagent.prompts.registry import get_prompt_registry
+    from StAgent.prompts.registry import get_prompt_registry
 
     sm = _FakeSessionManager(attachments) if attachments is not None else None
     return ResolveContext(
@@ -138,7 +138,7 @@ async def test_large_file_snapshot_summary_hints_chunked_processing():
 
 
 def test_summary_line_capped_at_400_chars():
-    from leagent.context.sources.gated_policy import _summarise_tabular_snapshot
+    from StAgent.context.sources.gated_policy import _summarise_tabular_snapshot
 
     wide = {
         "columns": [{"name": f"column_{i}_with_a_long_name", "dtype": "float64", "null_pct": 0.0} for i in range(60)],

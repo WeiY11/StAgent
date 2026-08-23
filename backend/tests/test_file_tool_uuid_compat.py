@@ -10,11 +10,11 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
-from leagent.file.service import FileService
-from leagent.tools.base import ToolContext
-from leagent.tools.util.folder_tool import FolderOperationsTool
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
+from StAgent.file.service import FileService
+from StAgent.tools.base import ToolContext
+from StAgent.tools.util.folder_tool import FolderOperationsTool
 
 
 @pytest_asyncio.fixture()
@@ -162,7 +162,7 @@ async def test_folder_tool_matches_dashed_sqlite_ids_and_enforces_owner(
         file_processing = None
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: _ServiceManager(),
     )
     tool = FolderOperationsTool()

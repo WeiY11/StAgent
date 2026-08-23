@@ -6,12 +6,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from leagent.exceptions.llm import LLMServiceError, ModelNotFoundError
-from leagent.llm.base import ChatMessage, MessageRole
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.model_spec import ModelCapabilities, ModelSpec, ModelTask
-from leagent.llm.registry import ProviderRegistry
-from leagent.llm.task_resolver import (
+from StAgent.exceptions.llm import LLMServiceError, ModelNotFoundError
+from StAgent.llm.base import ChatMessage, MessageRole
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_spec import ModelCapabilities, ModelSpec, ModelTask
+from StAgent.llm.registry import ProviderRegistry
+from StAgent.llm.task_resolver import (
     TaskResolver,
     messages_contain_image,
     strip_image_blocks_from_messages,

@@ -8,15 +8,15 @@ from uuid import uuid4
 
 import pytest
 
-import leagent.config.config as runtime_config
-from leagent.config.settings import Settings
-from leagent.knowledge.semantic_runtime import (
+import StAgent.config.config as runtime_config
+from StAgent.config.settings import Settings
+from StAgent.knowledge.semantic_runtime import (
     CandidateDualWriteIndex,
     KnowledgeSemanticRebuilder,
     SemanticRuntimeState,
     redact_semantic_error,
 )
-from leagent.services.service_manager import ServiceManager
+from StAgent.services.service_manager import ServiceManager
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -75,8 +75,8 @@ class _LifecycleBackend(_Backend):
 
 
 def test_environment_semantic_settings_take_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED", "true")
-    monkeypatch.setenv("LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID", "local-explicit")
+    monkeypatch.setenv("StAgent_KNOWLEDGE_SEMANTIC_ENABLED", "true")
+    monkeypatch.setenv("StAgent_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID", "local-explicit")
 
     semantic = Settings().knowledge.semantic
 
@@ -86,10 +86,10 @@ def test_environment_semantic_settings_take_precedence(monkeypatch: pytest.Monke
 
 
 def test_nested_environment_semantic_settings_are_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED", raising=False)
-    monkeypatch.delenv("LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID", raising=False)
-    monkeypatch.setenv("LEAGENT_KNOWLEDGE__SEMANTIC__ENABLED", "true")
-    monkeypatch.setenv("LEAGENT_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID", "nested-model")
+    monkeypatch.delenv("StAgent_KNOWLEDGE_SEMANTIC_ENABLED", raising=False)
+    monkeypatch.delenv("StAgent_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID", raising=False)
+    monkeypatch.setenv("StAgent_KNOWLEDGE__SEMANTIC__ENABLED", "true")
+    monkeypatch.setenv("StAgent_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID", "nested-model")
 
     semantic = Settings().knowledge.semantic
 
@@ -125,7 +125,7 @@ def test_semantic_environment_overrides_only_the_fields_it_manages(
         encoding="utf-8",
     )
     monkeypatch.setattr(runtime_config, "CONFIG_PATH", config_path)
-    monkeypatch.setenv("LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED", "true")
+    monkeypatch.setenv("StAgent_KNOWLEDGE_SEMANTIC_ENABLED", "true")
     manager = ServiceManager(Settings())
 
     effective = manager._effective_knowledge_semantic_config()
@@ -227,10 +227,10 @@ async def test_model_switch_keeps_old_active_serving_and_starts_candidate(
         def __init__(self, *args: object, **kwargs: object) -> None:
             return None
 
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path))
-    monkeypatch.setattr("leagent.knowledge.local_models.LocalModelRegistry", _Registry)
-    monkeypatch.setattr("leagent.knowledge.sqlite_vec_index.SqliteVecKnowledgeIndex", _Index)
-    monkeypatch.setattr("leagent.memory.embeddings.LocalSentenceTransformerEmbeddingProvider", _Provider)
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path))
+    monkeypatch.setattr("StAgent.knowledge.local_models.LocalModelRegistry", _Registry)
+    monkeypatch.setattr("StAgent.knowledge.sqlite_vec_index.SqliteVecKnowledgeIndex", _Index)
+    monkeypatch.setattr("StAgent.memory.embeddings.LocalSentenceTransformerEmbeddingProvider", _Provider)
     manager = ServiceManager(SimpleNamespace(workers=1))  # type: ignore[arg-type]
     await manager._start_local_semantic_retrieval(
         SimpleNamespace(

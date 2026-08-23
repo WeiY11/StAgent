@@ -17,7 +17,7 @@ Every entrypoint (HTTP server, CLI, workflow worker) populates the tool
 registry and the workflow node registry through a single helper:
 
 ```python
-from leagent.bootstrap import (
+from StAgent.bootstrap import (
     bootstrap_tools,          # async: tools + nodes in one call
     register_default_tools,   # sync: tools only
     register_script_agent_tool, # expose the Script (compute) agent as a sub-tool
@@ -53,7 +53,7 @@ always-on tool.
 
 Heavy data tools (SQL, vector search, aggregation, cleaning,
 transformation, merging, validation) share a set of primitives in
-`leagent/tools/_data/`:
+`StAgent/tools/_data/`:
 
 - `ArtifactRef` — opaque handle to a record stream stored in MinIO (or
   on disk). Tools accept either an inline array *or* an `ArtifactRef`
@@ -110,7 +110,7 @@ inline:
 
 Runtime contract:
 
-- Sandbox: `leagent/tools/_sandbox/inproc.py`. Curated stdlib
+- Sandbox: `StAgent/tools/_sandbox/inproc.py`. Curated stdlib
   allow-list (math, statistics, json, re, datetime, decimal, random,
   itertools, functools, collections, …). **No** `open`, `socket`,
   `subprocess`, `os`, `eval`, or `__import__` bypass.
@@ -141,7 +141,7 @@ refine — rather than a one-shot snippet.
 
 ### Tier 1 — In-process (`ScriptNode`)
 
-- **Module**: `leagent.tools._sandbox.inproc.execute_script`.
+- **Module**: `StAgent.tools._sandbox.inproc.execute_script`.
 - **Purpose**: evaluate tiny pure-Python snippets inside a workflow
   without forking a subprocess.
 - **Why RestrictedPython**: AST-level rewrite (not a linter), no network
@@ -151,7 +151,7 @@ refine — rather than a one-shot snippet.
 
 ### Tier 2 — Subprocess (`code_execution` tool, `CodeExecutionAgent`)
 
-- **Modules**: `leagent.services.code_execution.{workspace,subprocess_sandbox,runner}`.
+- **Modules**: `StAgent.services.code_execution.{workspace,subprocess_sandbox,runner}`.
 - **Isolation**:
   - Separate POSIX process (`start_new_session=True`).
   - `resource.setrlimit` on CPU, address space, file size, open files,
@@ -205,9 +205,9 @@ allowed directories.
 
 | Layer | Source | What it allows |
 |---|---|---|
-| Global | `LEAGENT_TOOL_FILE_ROOTS` (comma-separated abs paths) | Process-wide read/write roots for every tool call. When unset, defaults to `FilesSettings.upload_dir` (see `leagent/config/settings.py`). |
+| Global | `StAgent_TOOL_FILE_ROOTS` (comma-separated abs paths) | Process-wide read/write roots for every tool call. When unset, defaults to `FilesSettings.upload_dir` (see `StAgent/config/settings.py`). |
 | Global | `FilesSettings.resolved_knowledge_storage_dir()` | Knowledge / indexed document blobs (`…/knowledge/documents`). Always merged into the sandbox allow-list so `@knowledge:` paths resolve even when `LEAGENT_TOOL_FILE_ROOTS` is narrowed. |
-| Global (single-machine) | Desktop / local profile | When `LEAGENT_TOOL_FILE_ROOTS` is **not** set, `LEAGENT_HOME` and `WORKING_DIR` are also appended (`leagent/file/sandbox.py`). **Production tip:** set `LEAGENT_TOOL_FILE_ROOTS` explicitly instead of relying on this wide default. |
+| Global (single-machine) | Desktop / local profile | When `StAgent_TOOL_FILE_ROOTS` is **not** set, `StAgent_HOME` and `WORKING_DIR` are also appended (`StAgent/file/sandbox.py`). **Production tip:** set `StAgent_TOOL_FILE_ROOTS` explicitly instead of relying on this wide default. |
 | Per request (files) | `ToolContext.extra["attachments"]` | Absolute storage paths for chat uploads, merged knowledge files, etc. |
 | Per request (lookup) | `ToolContext.extra["attachment_lookup"]` | `by_id` / `by_name` maps for `@file:` / `@knowledge:` and UUID-prefixed filenames (`session_attachment_context.py`). |
 | Per request (dirs) | `ToolContext.extra["project_roots"]` | Code-project / Folder `project_path` directories for `project_*` and `coding_agent` (`AgentController._run_via_query_engine`). |
@@ -224,18 +224,18 @@ Every blocked path emits a structured warning:
 ```
 path_sandbox_denied  tool=file_manager  request_id=abc123
   attempted_path=/home/user/project/main.py
-  allowed_roots=['/tmp/leagent/files']
+  allowed_roots=['/tmp/StAgent/files']
 ```
 
 No file contents are ever included in the log.
 
 ### Testing
 
-Set `LEAGENT_TOOL_FILE_ROOTS` to include your test `tmp_path`:
+Set `StAgent_TOOL_FILE_ROOTS` to include your test `tmp_path`:
 
 ```python
-os.environ["LEAGENT_TOOL_FILE_ROOTS"] = str(tmp_path)
-reset_roots()  # from leagent.file.sandbox
+os.environ["StAgent_TOOL_FILE_ROOTS"] = str(tmp_path)
+reset_roots()  # from StAgent.file.sandbox
 ```
 
 The shared `conftest.py` fixture `_widen_sandbox_for_tests` does this
@@ -247,18 +247,18 @@ automatically (session-scoped, adds `/tmp`).
 
 ### Adding a tool
 
-1. Create the class under `leagent/tools/{doc,data,web,gen,integration,util}/your_tool.py`.
+1. Create the class under `StAgent/tools/{doc,data,web,gen,integration,util}/your_tool.py`.
 2. Implement `parameters` (JSON Schema) and `execute` (async or via `SyncTool`).
 3. If the constructor takes no args, auto-discovery picks it up.
 4. If it needs runtime deps, add `(module_path, class_name)` to
-   `_CURATED_UTIL_TOOL_PATHS` in `leagent/bootstrap/tools.py`.
+   `_CURATED_UTIL_TOOL_PATHS` in `StAgent/bootstrap/tools.py`.
 
 No further work is required — the workflow factory generates
 `Tool.your_tool` automatically.
 
 ### Adding a workflow node
 
-Drop it into `leagent/workflow/nodes/builtin/your_node.py`, register
+Drop it into `StAgent/workflow/nodes/builtin/your_node.py`, register
 it in `workflow/nodes/builtin/__init__.py::BUILTIN_NODES`, and if you
 want YAML authoring, map the YAML `type` string in
 `workflow/io/authoring._TYPE_TO_CLASS`.

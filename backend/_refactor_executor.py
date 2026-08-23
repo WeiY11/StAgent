@@ -2,23 +2,23 @@
 
 Deletes the JSON parsing/repair/recovery block (now in tool_args_parsing.py)
 and the moved ``normalize_tool_parameters`` from executor.py, inserting a
-re-export import so ``from leagent.tools.executor import X`` keeps working.
+re-export import so ``from StAgent.tools.executor import X`` keeps working.
 """
 from __future__ import annotations
 
 import inspect
 from pathlib import Path
 
-import leagent.tools.tool_args_parsing as tap
+import StAgent.tools.tool_args_parsing as tap
 
-EXEC = Path("leagent/tools/executor.py")
+EXEC = Path("StAgent/tools/executor.py")
 lines = EXEC.read_text(encoding="utf-8").splitlines(keepends=True)
 
 # Collect the public + private function names defined in the parsing module.
 names = sorted(
     n
     for n, obj in inspect.getmembers(tap, inspect.isfunction)
-    if getattr(obj, "__module__", None) == "leagent.tools.tool_args_parsing"
+    if getattr(obj, "__module__", None) == "StAgent.tools.tool_args_parsing"
 )
 assert names, "no functions found in tool_args_parsing"
 
@@ -36,9 +36,9 @@ assert at(1257).startswith("# ----"), at(1257)
 import_block = (
     "\n"
     "# JSON tool-argument parsing/repair/recovery lives in a dedicated module;\n"
-    "# re-exported here so existing ``from leagent.tools.executor import ...`` and\n"
+    "# re-exported here so existing ``from StAgent.tools.executor import ...`` and\n"
     "# tests that reach for these helpers keep working unchanged.\n"
-    "from leagent.tools.tool_args_parsing import (  # noqa: E402\n"
+    "from StAgent.tools.tool_args_parsing import (  # noqa: E402\n"
     + "".join(f"    {n},\n" for n in names)
     + ")\n"
 )

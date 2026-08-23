@@ -41,7 +41,7 @@ describe('chatMediaUtils file preview parsing', () => {
   it('rewrites absolute managed previews to the active deployment', () => {
     expect(
       resolveManagedFileHref(
-        `https://app.leagent.cn/api/v1/files/${id}/preview?token=signed`,
+        `https://app.StAgent.cn/api/v1/files/${id}/preview?token=signed`,
       ),
     ).toBe(`/api/v1/files/${id}/preview?token=signed`);
     expect(resolveManagedFileHref('https://cdn.example.com/image.png')).toBe(

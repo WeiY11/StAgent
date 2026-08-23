@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from leagent.channels.weixin.channel import split_text_for_delivery
-from leagent.channels.weixin.client import is_session_expired
-from leagent.channels.weixin.crypto import (
+from StAgent.channels.weixin.channel import split_text_for_delivery
+from StAgent.channels.weixin.client import is_session_expired
+from StAgent.channels.weixin.crypto import (
     aes128_ecb_decrypt,
     aes128_ecb_encrypt,
     parse_aes_key,
 )
-from leagent.channels.weixin.store import (
+from StAgent.channels.weixin.store import (
     ContextTokenStore,
     MessageDeduplicator,
     load_account,
@@ -48,7 +48,7 @@ def test_session_expired_detection() -> None:
 
 def test_context_token_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "leagent.channels.weixin.store.ACCOUNTS_DIR",
+        "StAgent.channels.weixin.store.ACCOUNTS_DIR",
         tmp_path,
     )
     store = ContextTokenStore(root=tmp_path)
@@ -61,7 +61,7 @@ def test_context_token_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_save_load_account(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("leagent.channels.weixin.store.ACCOUNTS_DIR", tmp_path)
+    monkeypatch.setattr("StAgent.channels.weixin.store.ACCOUNTS_DIR", tmp_path)
     path = save_account(
         account_id="bot123",
         token="secret-token",
@@ -97,8 +97,8 @@ def test_split_text_packs_long_content() -> None:
 
 
 def test_weixin_channel_from_config() -> None:
-    from leagent.channels.base import ChannelType
-    from leagent.channels.weixin import WeixinChannel
+    from StAgent.channels.base import ChannelType
+    from StAgent.channels.weixin import WeixinChannel
 
     ch = WeixinChannel.from_config(
         {

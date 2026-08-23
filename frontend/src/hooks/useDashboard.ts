@@ -54,7 +54,14 @@ export function useDashboardTasks(params: {
       const apiParams = { ...rest, page_size: pageSize };
       return apiClient.get<PaginatedResponse<Task>>('/tasks', apiParams);
     },
-    refetchInterval: 10000,
+    refetchInterval: (query) => {
+      const items = (query.state.data as PaginatedResponse<Task> | undefined)?.items;
+      if (!Array.isArray(items)) return 10000;
+      const active = items.some(
+        (t) => t.status === 'running' || t.status === 'pending' || t.status === 'queued',
+      );
+      return active ? 10000 : 60000;
+    },
   });
 }
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.tools.base import ToolContext
-from leagent.tools.integration.notification import (
+from StAgent.tools.base import ToolContext
+from StAgent.tools.integration.notification import (
     NotificationTool,
     normalize_workflow_notification_params,
 )
@@ -17,21 +17,21 @@ def tool_ctx() -> ToolContext:
 
 
 def test_normalize_admin_maps_and_skip_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LEAGENT_ADMIN_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("StAgent_ADMIN_WEBHOOK_URL", raising=False)
     out = normalize_workflow_notification_params(
         {"channel": "admin", "message": "alert", "severity": "medium"},
     )
     assert out["channel"] == "webhook"
     assert out["content"] == "alert"
     assert out["priority"] == "normal"
-    assert out.get("_leagent_skip_notification") is True
+    assert out.get("_StAgent_skip_notification") is True
 
 
 def test_normalize_admin_uses_env_webhook(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_ADMIN_WEBHOOK_URL", "https://example.com/hook")
+    monkeypatch.setenv("StAgent_ADMIN_WEBHOOK_URL", "https://example.com/hook")
     out = normalize_workflow_notification_params({"channel": "admin", "message": "x"})
     assert out["webhook_url"] == "https://example.com/hook"
-    assert out.get("_leagent_skip_notification") is None
+    assert out.get("_StAgent_skip_notification") is None
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_notification_run_admin_no_http(
     monkeypatch: pytest.MonkeyPatch,
     tool_ctx: ToolContext,
 ) -> None:
-    monkeypatch.delenv("LEAGENT_ADMIN_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("StAgent_ADMIN_WEBHOOK_URL", raising=False)
     tool = NotificationTool()
     res = await tool.run({"channel": "admin", "message": "hello"}, tool_ctx)
     assert res.success is True

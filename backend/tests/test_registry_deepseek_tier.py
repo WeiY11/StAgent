@@ -1,6 +1,6 @@
 """Registry helpers for DeepSeek tier routing."""
 
-from leagent.llm.registry import _endpoint_hostname_is_deepseek
+from StAgent.llm.registry import _endpoint_hostname_is_deepseek
 
 
 def test_endpoint_hostname_detects_deepseek() -> None:

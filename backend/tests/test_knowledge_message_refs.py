@@ -15,11 +15,11 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from leagent.api.v1 import chat as chat_api
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
-from leagent.file.service import FileService
-from leagent.file.storage.s3 import S3StorageBackend
+from StAgent.api.v1 import chat as chat_api
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
+from StAgent.file.service import FileService
+from StAgent.file.storage.s3 import S3StorageBackend
 
 
 def _db_returning_knowledge_row(row: object | None) -> MagicMock:
@@ -471,7 +471,7 @@ async def test_native_stream_closes_folder_and_knowledge_leases_on_client_shutdo
     monkeypatch.setattr(chat_api, "_require_project_access", _allow_access)
     monkeypatch.setattr(chat_api, "_require_session_project_access", _allow_access)
     monkeypatch.setattr(
-        "leagent.services.chat.project_files.resolve_session_project_file_space",
+        "StAgent.services.chat.project_files.resolve_session_project_file_space",
         AsyncMock(return_value=None),
     )
     monkeypatch.setattr(
@@ -493,7 +493,7 @@ async def test_native_stream_closes_folder_and_knowledge_leases_on_client_shutdo
     monkeypatch.setattr(chat_api, "_materialize_knowledge_message_paths", _knowledge_lease)
     monkeypatch.setattr(chat_api, "build_agent_controller", lambda: object())
     monkeypatch.setattr(
-        "leagent.services.chat.pet_personality.apply_pet_personality_to_agent",
+        "StAgent.services.chat.pet_personality.apply_pet_personality_to_agent",
         AsyncMock(),
     )
     monkeypatch.setattr(

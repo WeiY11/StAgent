@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.io import HiddenHolder
-from leagent.workflow.nodes.builtin.iterative_refine import IterativeRefineNode
-from leagent.workflow.nodes.builtin.quality_gate import QualityGateNode
+from StAgent.workflow.io import HiddenHolder
+from StAgent.workflow.nodes.builtin.iterative_refine import IterativeRefineNode
+from StAgent.workflow.nodes.builtin.quality_gate import QualityGateNode
 
 
 @pytest.mark.asyncio

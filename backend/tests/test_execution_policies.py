@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from leagent.services.execution.policies import (
+from StAgent.services.execution.policies import (
     AgentPolicy,
     CronPolicy,
     ExecutionPolicy,

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from leagent.services.execution import os_sandbox
-from leagent.services.execution.os_sandbox import (
+from StAgent.services.execution import os_sandbox
+from StAgent.services.execution.os_sandbox import (
     MODE_NONE,
     MODE_READ_ONLY,
     MODE_WORKSPACE_WRITE,
@@ -32,25 +32,25 @@ def _reset_probes():
 
 
 def test_resolve_mode_explicit_wins(monkeypatch):
-    monkeypatch.setenv("LEAGENT_SANDBOX_MODE", "read-only")
+    monkeypatch.setenv("StAgent_SANDBOX_MODE", "read-only")
     assert resolve_sandbox_mode("workspace-write") == MODE_WORKSPACE_WRITE
 
 
 def test_resolve_mode_env_fallback(monkeypatch):
-    monkeypatch.setenv("LEAGENT_SANDBOX_MODE", "workspace-write")
+    monkeypatch.setenv("StAgent_SANDBOX_MODE", "workspace-write")
     assert resolve_sandbox_mode(None) == MODE_WORKSPACE_WRITE
     assert resolve_sandbox_mode("auto") == MODE_WORKSPACE_WRITE
 
 
 def test_resolve_mode_legacy_aliases(monkeypatch):
-    monkeypatch.delenv("LEAGENT_SANDBOX_MODE", raising=False)
+    monkeypatch.delenv("StAgent_SANDBOX_MODE", raising=False)
     assert resolve_sandbox_mode("bwrap") == MODE_WORKSPACE_WRITE
     assert resolve_sandbox_mode("ro") == MODE_READ_ONLY
     assert resolve_sandbox_mode("none") == MODE_NONE
 
 
 def test_resolve_mode_unknown_falls_back(monkeypatch):
-    monkeypatch.delenv("LEAGENT_SANDBOX_MODE", raising=False)
+    monkeypatch.delenv("StAgent_SANDBOX_MODE", raising=False)
     assert resolve_sandbox_mode("martian") == MODE_NONE
 
 

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import i18n from '@/i18n';
 import { OnboardingTour, hasCompletedOnboarding } from './OnboardingTour';
 
-const STORAGE_KEY = 'leagent.ftue.v1.done';
+const STORAGE_KEY = 'StAgent.ftue.v1.done';
 
 describe('OnboardingTour', () => {
   beforeEach(() => {

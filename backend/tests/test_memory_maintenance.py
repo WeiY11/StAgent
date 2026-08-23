@@ -15,9 +15,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.memory.formation import retention_score
-from leagent.memory.recall import RetrievalPipeline, RecallOptions
-from leagent.memory.types import (
+from StAgent.memory.formation import retention_score
+from StAgent.memory.recall import RetrievalPipeline, RecallOptions
+from StAgent.memory.types import (
     Episode,
     Fact,
     MemoryKind,

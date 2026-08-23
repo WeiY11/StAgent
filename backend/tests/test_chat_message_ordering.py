@@ -11,12 +11,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401 — register metadata
-from leagent.config.settings import get_settings
-from leagent.db.models.message import ChatSession, Message, MessageRole
-from leagent.services.cache.service import CacheService
-from leagent.services.chat.service import ChatService
-from leagent.services.session.store import TieredSessionStore
+import StAgent.db.models  # noqa: F401 — register metadata
+from StAgent.config.settings import get_settings
+from StAgent.db.models.message import ChatSession, Message, MessageRole
+from StAgent.services.cache.service import CacheService
+from StAgent.services.chat.service import ChatService
+from StAgent.services.session.store import TieredSessionStore
 
 
 class _InMemoryDatabase:
@@ -155,3 +155,18 @@ async def test_rehydrate_from_messages_preserves_insert_order(
         state = await store._rehydrate_from_messages(session, chat)
 
     assert [m.content for m in state.messages] == ["one", "two", "three"]
+
+
+@pytest.mark.asyncio
+async def test_get_history_returns_newest_window_in_order(
+    chat_svc: tuple[ChatService, UUID, UUID],
+) -> None:
+    """get_history must return the NEWEST ``limit`` messages (feeding the LLM
+    recent context), in chronological order — not the session's opening rows."""
+    svc, session_id, user_id = chat_svc
+    for n in range(6):
+        await svc.add_message(session_id, MessageRole.USER, f"m{n}", user_id=user_id)
+
+    history = await svc.get_history(session_id, user_id=user_id, limit=3)
+
+    assert [m.content for m in history] == ["m3", "m4", "m5"]

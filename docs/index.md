@@ -1,3 +1,3 @@
-﻿# LeAgent Documentation
+# StAgent Documentation
 
-Welcome to the LeAgent documentation.
+Welcome to the StAgent documentation.

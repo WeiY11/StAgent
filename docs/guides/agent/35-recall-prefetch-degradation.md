@@ -67,7 +67,7 @@ prompt 组装前
 
 **procedure_write_status 与预取无关但共用 degraded 信号。** 写入侧 `embedding_degraded` 与读取侧 `last_degraded` 同源 embedding provider；运维面板应同时看 write health 与 recall timeout，避免只修一端。
 
-**Milvus 关闭时的用户预期。** 产品文案应区分「记忆功能不可用」与「无语义近邻、仍可按关键词回忆」；后者是 LeAgent 默认单机模式的正常态，不是 partial outage。
+**Milvus 关闭时的用户预期。** 产品文案应区分「记忆功能不可用」与「无语义近邻、仍可按关键词回忆」；后者是 StAgent 默认单机模式的正常态，不是 partial outage。
 
 ## 示例与验证
 
@@ -101,7 +101,7 @@ uv run pytest tests/test_agent_memory.py -k "recall_handle or prefetch" -v
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-许多 RAG 管道在 LLM 调用前**同步** retrieval，简单但伤首字延迟。LeAgent `RecallHandle` 属于**并行预取 + 超时放弃等待**，与「先答后检索」的边缘方案不同：本 turn 仍尝试在 budget 内注入 recall，只是超时不阻塞。Anthropic prompt caching 优化重复**前缀**成本，不是用户长期 memory 检索。向量 SaaS 故障时若无 lexical 底板，整条记忆链硬失败——LeAgent 把 SQL lexical 当默认安全网，适合桌面/单机零依赖部署。
+许多 RAG 管道在 LLM 调用前**同步** retrieval，简单但伤首字延迟。StAgent `RecallHandle` 属于**并行预取 + 超时放弃等待**，与「先答后检索」的边缘方案不同：本 turn 仍尝试在 budget 内注入 recall，只是超时不阻塞。Anthropic prompt caching 优化重复**前缀**成本，不是用户长期 memory 检索。向量 SaaS 故障时若无 lexical 底板，整条记忆链硬失败——StAgent 把 SQL lexical 当默认安全网，适合桌面/单机零依赖部署。
 
 ## 总结
 

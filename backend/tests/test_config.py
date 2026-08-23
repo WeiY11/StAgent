@@ -1,4 +1,4 @@
-"""Tests for the LeAgent configuration system.
+"""Tests for the StAgent configuration system.
 
 Validates Settings structure, all nested sub-settings groups, and helper
 properties (database URL, etc.) without relying on any external environment.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.config.settings import (
+from StAgent.config.settings import (
     AgentSettings,
     CanvasSettings,
     ContextSettings,
@@ -43,7 +43,7 @@ class TestGetSettings:
 class TestSettingsTopLevel:
     def test_app_name(self) -> None:
         s = get_settings()
-        assert s.app_name == "LeAgent"
+        assert s.app_name == "StAgent"
 
     def test_has_debug(self) -> None:
         s = get_settings()
@@ -75,13 +75,13 @@ class TestSettingsTopLevel:
     def test_skip_startup_migrations_defaults_false(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.delenv("LEAGENT_SKIP_STARTUP_MIGRATIONS", raising=False)
+        monkeypatch.delenv("StAgent_SKIP_STARTUP_MIGRATIONS", raising=False)
         assert Settings().skip_startup_migrations is False
 
     def test_skip_startup_migrations_env_flag(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LEAGENT_SKIP_STARTUP_MIGRATIONS", "true")
+        monkeypatch.setenv("StAgent_SKIP_STARTUP_MIGRATIONS", "true")
         assert Settings().skip_startup_migrations is True
 
     def test_rules_directory(self) -> None:
@@ -109,7 +109,7 @@ class TestDatabaseSettings:
         assert "://" in url
         if "sqlite" in db.driver.lower():
             assert "sqlite" in url.lower()
-            assert "leagent.db" in url
+            assert "StAgent.db" in url
         else:
             assert db.user in url
             assert db.name in url
@@ -123,8 +123,8 @@ class TestDatabaseSettings:
         assert db.sync_url.startswith("sqlite:///")
 
     def test_sync_url_strips_aiosqlite_from_explicit_database_url(self) -> None:
-        db = DatabaseSettings(database_url="sqlite+aiosqlite:///C:/tmp/leagent.db")
-        assert db.sync_url == "sqlite:///C:/tmp/leagent.db"
+        db = DatabaseSettings(database_url="sqlite+aiosqlite:///C:/tmp/StAgent.db")
+        assert db.sync_url == "sqlite:///C:/tmp/StAgent.db"
 
 
 class TestDatabaseBackendSelection:
@@ -134,7 +134,7 @@ class TestDatabaseBackendSelection:
         monkeypatch.delenv("DB_DATABASE_URL", raising=False)
         monkeypatch.setenv(
             "DATABASE_URL",
-            "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+            "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent",
         )
         db = DatabaseSettings()
         assert db.backend == "postgresql"
@@ -147,7 +147,7 @@ class TestDatabaseBackendSelection:
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.setenv(
             "DB_DATABASE_URL",
-            "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+            "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent",
         )
         assert DatabaseSettings().backend == "postgresql"
 

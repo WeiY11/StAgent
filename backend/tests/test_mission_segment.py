@@ -5,9 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from leagent.db.models.mission import Mission, MissionAutonomy, MissionStep
-from leagent.mission.segment import KernelSegmentExecutor
-from leagent.sdk.events import AgentEvent
+from StAgent.db.models.mission import Mission, MissionAutonomy, MissionStep
+from StAgent.mission.segment import KernelSegmentExecutor
+from StAgent.sdk.events import AgentEvent
 
 
 class FakeRuntime:
@@ -140,7 +140,7 @@ async def test_stream_error_becomes_model_error_result():
 
 
 async def test_readonly_autonomy_scopes_tool_allowlist(monkeypatch):
-    from leagent.tools import registry as registry_module
+    from StAgent.tools import registry as registry_module
 
     class FakeRegistry:
         def get_enabled_tools(self) -> list[SimpleNamespace]:

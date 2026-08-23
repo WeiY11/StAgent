@@ -12,7 +12,7 @@ Agent 的输出不是一次固定映射，而是一条由模型推理、工具�
 
 因此评测对象应同时包括“结果”和“过程”：任务是否完成、是否遵守约束、轨迹是否合理、调用成本是否可接受、是否产生安全副作用。离线评测要使用版本化数据集、固定工具桩和多次采样；线上评测再观察真实完成率、人工接管率和回归告警。
 
-LeAgent 的 `leagent.telemetry.trace` 为这种轨迹评测提供数据底座：每个 `ExecutionRun` 对应一条持久化 trace，`run_id` 即 `trace_id`，其 span kind 包括 `agent`、`llm`、`tool`、`approval`、`compact`、`subagent`、`error` 和 `event`。Trace 与聊天 transcript、恢复 checkpoint 分离，避免把“用户可见历史”“可恢复状态”和“评测遥测”混为一谈。
+StAgent 的 `StAgent.telemetry.trace` 为这种轨迹评测提供数据底座：每个 `ExecutionRun` 对应一条持久化 trace，`run_id` 即 `trace_id`，其 span kind 包括 `agent`、`llm`、`tool`、`approval`、`compact`、`subagent`、`error` 和 `event`。Trace 与聊天 transcript、恢复 checkpoint 分离，避免把“用户可见历史”“可恢复状态”和“评测遥测”混为一谈。
 
 ## 10.2 LLM-as-a-Judge 是什么？
 
@@ -28,7 +28,7 @@ LLM-as-a-Judge 是让另一个模型依据 rubric 对候选答案或执行轨迹
 
 LLM Judge 适合扩大覆盖面，不适合独立批准高风险操作，也不能替代可执行断言。能用数据库状态、文件摘要、单元测试或工具返回值验证的目标，应优先使用确定性检查。
 
-LeAgent 的 `agent_traces.scores` 可保存评测分数，`prompt_hash`、模型、token、成本、延迟及 span 树可用于分组分析；Trace API 还支持同提示词多模型实验。但仓库中的 Trace 实验能力是数据采集和模型对比底座，不等于已经内置一套通用 Judge rubric，具体评分器和金标集仍需按业务建设。
+StAgent 的 `agent_traces.scores` 可保存评测分数，`prompt_hash`、模型、token、成本、延迟及 span 树可用于分组分析；Trace API 还支持同提示词多模型实验。但仓库中的 Trace 实验能力是数据采集和模型对比底座，不等于已经内置一套通用 Judge rubric，具体评分器和金标集仍需按业务建设。
 
 ## 10.3 Human Evaluation 如何做？
 
@@ -42,7 +42,7 @@ Human Evaluation 应把“凭感觉评价”变成可复现的标注流程：
 
 抽样应同时覆盖随机流量、失败流量、长尾工具、低置信度样本和高价值用户任务。线上可增加用户确认、撤销、人工接管、重试和投诉信号，但“点赞率”会受到呈现方式和用户耐心影响，不能单独代表正确率。
 
-在 LeAgent 中，评审者可借助运行瀑布图、span 树和 JSONL 导出检查完整轨迹；`run_id`、`parent_run_id` 可以串起父轮次、工作流步骤和子 Agent。若评审涉及工具审批，还应查看 `approval_decisions` 中的工具名、参数摘要哈希、决定和决定者，而不是只看模型最后一句话。
+在 StAgent 中，评审者可借助运行瀑布图、span 树和 JSONL 导出检查完整轨迹；`run_id`、`parent_run_id` 可以串起父轮次、工作流步骤和子 Agent。若评审涉及工具审批，还应查看 `approval_decisions` 中的工具名、参数摘要哈希、决定和决定者，而不是只看模型最后一句话。
 
 ## 10.4 Success Rate 如何定义？
 
@@ -60,7 +60,7 @@ Success Rate 必须先定义样本单位和成功判据。最简单的定义是�
 
 建议同时报告任务级成功率、首次成功率、重试恢复率和带约束成功率，并按任务类型、模型、工具、版本和风险等级切片。置信区间和样本量也必须展示，否则小样本的百分比容易误导。
 
-LeAgent 的模型 trace 统计将 `status` 聚合为 runs、successes、errors、success rate、延迟、token、成本和平均工具次数。面试时应指出：运行状态成功只表示执行正常结束，不天然等于业务目标正确；业务评测仍需把确定性验收或人工/Judge 分数写入 `scores`，再定义业务 Success Rate。
+StAgent 的模型 trace 统计将 `status` 聚合为 runs、successes、errors、success rate、延迟、token、成本和平均工具次数。面试时应指出：运行状态成功只表示执行正常结束，不天然等于业务目标正确；业务评测仍需把确定性验收或人工/Judge 分数写入 `scores`，再定义业务 Success Rate。
 
 ## 10.5 Agent KPI 有哪些？
 
@@ -75,7 +75,7 @@ Agent KPI 通常分为六类：
 
 核心指标最好使用“每个成功任务”的归一化口径，例如 cost per successful task，而非只追求 token 更少。还应设置护栏指标，防止通过降低工具调用次数牺牲正确性。
 
-LeAgent 的 Prometheus 指标覆盖 HTTP、LLM、工具、Agent task/turn、工作流、session、memory、database、cache 和 sandbox；其中包括 LLM 延迟、TTFB、token、错误，工具成功/失败及耗时，工作流节点状态，以及艺术工作流质量分数和 refinement 次数。持久 Trace 又记录 `latency_ms`、token、`total_cost_usd`、工具/LLM 调用数和终止原因。两者用途不同：metrics 适合趋势和告警，trace 适合单次归因和评测。
+StAgent 的 Prometheus 指标覆盖 HTTP、LLM、工具、Agent task/turn、工作流、session、memory、database、cache 和 sandbox；其中包括 LLM 延迟、TTFB、token、错误，工具成功/失败及耗时，工作流节点状态，以及艺术工作流质量分数和 refinement 次数。持久 Trace 又记录 `latency_ms`、token、`total_cost_usd`、工具/LLM 调用数和终止原因。两者用途不同：metrics 适合趋势和告警，trace 适合单次归因和评测。
 
 ## 10.6 如何评估 Tool Calling？
 
@@ -88,7 +88,7 @@ LeAgent 的 Prometheus 指标覆盖 HTTP、LLM、工具、Agent task/turn、工�
 
 测试集应包含近义工具、无需工具的问题、无效参数、超时、限流、部分失败、幂等重试和恶意工具返回。对于有副作用的工具，应在隔离环境验证前后状态，并检查重复执行是否造成二次写入。
 
-LeAgent 的 `run_loop` 对 `TOOL_USE` 和 `TOOL_RESULT` 统一派发 hook，TraceRecorder 记录 tool/result/error span，Prometheus 记录各工具耗时、状态和错误类型。权限层在执行前依次处理 deny、Plan Mode、allow、always-ask、破坏性确认、`untrusted` 策略和工具自身 `check_permissions`。因此可以从 trace 自动计算选错工具、参数失败、重试、审批和耗时，同时用状态断言判断真正完成。
+StAgent 的 `run_loop` 对 `TOOL_USE` 和 `TOOL_RESULT` 统一派发 hook，TraceRecorder 记录 tool/result/error span，Prometheus 记录各工具耗时、状态和错误类型。权限层在执行前依次处理 deny、Plan Mode、allow、always-ask、破坏性确认、`untrusted` 策略和工具自身 `check_permissions`。因此可以从 trace 自动计算选错工具、参数失败、重试、审批和耗时，同时用状态断言判断真正完成。
 
 ## 10.7 如何评估 Planning？
 
@@ -103,7 +103,7 @@ Planning 不能只评价计划文本“是否漂亮”，而要评价它是否�
 
 可用计划与参考 DAG 的结构距离、依赖满足率、步骤完成率、无效步骤率、重规划次数和最终成功率来量化。开放任务不应只与唯一“标准计划”逐字比较，而应检查必要里程碑和约束。
 
-LeAgent 的所有入口最终进入同一 `run_loop → QueryEngine → ToolExecutor` 内核，工作流则把 DAG 节点进度桥接为 `FLOW_*` 生命周期事件。`parent_run_id` 可把工作流步骤和子 Agent 链接到父轮次，适合还原“计划—执行—修正”路径。Plan Mode 还由 executor 强制限制为只读工具，退出时可要求用户确认，这使“计划阶段是否提前产生副作用”成为可自动验证的安全指标。
+StAgent 的所有入口最终进入同一 `run_loop → QueryEngine → ToolExecutor` 内核，工作流则把 DAG 节点进度桥接为 `FLOW_*` 生命周期事件。`parent_run_id` 可把工作流步骤和子 Agent 链接到父轮次，适合还原“计划—执行—修正”路径。Plan Mode 还由 executor 强制限制为只读工具，退出时可要求用户确认，这使“计划阶段是否提前产生副作用”成为可自动验证的安全指标。
 
 ## 10.8 如何评估 RAG？
 
@@ -115,7 +115,7 @@ RAG 要分别评估检索和生成，避免最终答案分数掩盖检索问题�
 
 数据集应包含问题、相关文档/片段、可接受答案和无答案样本。还要测试切块策略、embedding 版本、top-k、重排器、过滤条件以及文档更新/删除后的行为。对于权限敏感知识库，必须把“召回了不该看的内容”作为严重失败，而不是普通 precision 问题。
 
-在 LeAgent 中可用 trace 的 LLM/tool span 和耗时定位检索与生成阶段，但仓库的通用 Trace 并不会自动计算 Recall@K 或 faithfulness。评测系统应记录查询、候选片段 ID、排序分数、最终引用和语料版本；完整正文若包含敏感信息，不应默认写入 trace payload。
+在 StAgent 中可用 trace 的 LLM/tool span 和耗时定位检索与生成阶段，但仓库的通用 Trace 并不会自动计算 Recall@K 或 faithfulness。评测系统应记录查询、候选片段 ID、排序分数、最终引用和语料版本；完整正文若包含敏感信息，不应默认写入 trace payload。
 
 ## 10.9 如何评估 Memory？
 
@@ -128,7 +128,7 @@ Memory 评测至少包含写入、检索、使用和遗忘四部分：
 
 测试要覆盖跨轮、跨会话、事实更新、相互矛盾的信息、长时间间隔、不同用户隔离和向量后端降级。可做有/无 Memory 的配对实验，比较成功率、token、延迟和隐私风险。
 
-LeAgent 通过 `AgentMemory` 统一访问 episodic、semantic、procedural 三类存储，并以混合 recall 汇总；向量能力不可用时可退化到 lexical 路径。评测时应分别统计三类命中、写入降级、错误记忆引用和用户隔离。`memory_write_status()` 暴露 episode、fact、procedure 的最近写入健康状态，但这只是运维健康信号，不是记忆正确性的替代指标。
+StAgent 通过 `AgentMemory` 统一访问 episodic、semantic、procedural 三类存储，并以混合 recall 汇总；向量能力不可用时可退化到 lexical 路径。评测时应分别统计三类命中、写入降级、错误记忆引用和用户隔离。`memory_write_status()` 暴露 episode、fact、procedure 的最近写入健康状态，但这只是运维健康信号，不是记忆正确性的替代指标。
 
 ## 10.10 如何评估 Multi-Agent？
 
@@ -142,4 +142,4 @@ Multi-Agent 需要同时评价单个角色和协作系统：
 
 实验至少应包含单 Agent baseline、固定编排和动态委派三组，并统计 delegation precision、子任务成功率、消息/调用次数、关键路径延迟、冲突率和总成本。还应做“删除一个 Agent”“注入错误结果”“子 Agent 超时”等消融与故障测试。
 
-LeAgent 的子 Agent 也通过规范 `run_loop` 执行，TraceHook 记录 subagent 边界，子运行以 `parent_run_id` 连接父运行；工作流 Agent 节点同样经 `AgentRuntime.stream()` 进入统一内核。因此可按父子 trace 计算委派树、关键路径和各子 Agent 成本。需要注意 `ExecutionRunRegistry` 当前是进程内单例，多 worker 场景依赖粘性会话；评测系统不能误把跨进程缺失的活跃注册信息当作子 Agent 从未执行。
+StAgent 的子 Agent 也通过规范 `run_loop` 执行，TraceHook 记录 subagent 边界，子运行以 `parent_run_id` 连接父运行；工作流 Agent 节点同样经 `AgentRuntime.stream()` 进入统一内核。因此可按父子 trace 计算委派树、关键路径和各子 Agent 成本。需要注意 `ExecutionRunRegistry` 当前是进程内单例，多 worker 场景依赖粘性会话；评测系统不能误把跨进程缺失的活跃注册信息当作子 Agent 从未执行。

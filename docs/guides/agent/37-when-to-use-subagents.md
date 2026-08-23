@@ -42,7 +42,7 @@ result = await runtime.delegate(
     parent_engine,
     "subagent",
     (
-        "只读调查 backend/leagent/workflow。"
+        "只读调查 backend/StAgent/workflow。"
         "说明 Agent 节点的执行入口、输出槽顺序和暂停条件；"
         "给出文件路径与测试证据，不修改文件。"
     ),
@@ -74,9 +74,9 @@ if not result["success"]:
 
 ## 与常见框架对照
 
-- **OpenAI Agents SDK handoff** 更像把对话控制权交给另一个 Agent；默认接收方可看到既有历史，也可用 `input_filter` 或 nested handoff history 改写。LeAgent 的子 Agent 默认是 fresh transcript，更接近显式任务包委派。
-- **LangGraph supervisor** 通常用图状态和路由节点决定下一位 worker。LeAgent 可以用父 Agent、条件节点和 Agent 节点组合出该模式，但当前实现不应被描述为存在独立的 `Supervisor` 类。
-- **AutoGen teams** 的 `RoundRobinGroupChat` 或 `SelectorGroupChat` 维护团队会话并广播消息，强调“谁下一位发言”。LeAgent delegation 更强调一个父级调用一个隔离子运行，并拿回结构化 envelope。
+- **OpenAI Agents SDK handoff** 更像把对话控制权交给另一个 Agent；默认接收方可看到既有历史，也可用 `input_filter` 或 nested handoff history 改写。StAgent 的子 Agent 默认是 fresh transcript，更接近显式任务包委派。
+- **LangGraph supervisor** 通常用图状态和路由节点决定下一位 worker。StAgent 可以用父 Agent、条件节点和 Agent 节点组合出该模式，但当前实现不应被描述为存在独立的 `Supervisor` 类。
+- **AutoGen teams** 的 `RoundRobinGroupChat` 或 `SelectorGroupChat` 维护团队会话并广播消息，强调“谁下一位发言”。StAgent delegation 更强调一个父级调用一个隔离子运行，并拿回结构化 envelope。
 
 ## 总结
 

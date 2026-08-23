@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.config.settings import RedisSettings, Settings
-from leagent.runtime.run_store import get_run_store, reset_run_store
-from leagent.services.cache.redis_backend import build_redis_clients
-from leagent.services.cache.service import CacheService
-from leagent.services.service_manager import ServiceManager
+from StAgent.config.settings import RedisSettings, Settings
+from StAgent.runtime.run_store import get_run_store, reset_run_store
+from StAgent.services.cache.redis_backend import build_redis_clients
+from StAgent.services.cache.service import CacheService
+from StAgent.services.service_manager import ServiceManager
 
 
 class FakeAsyncRedis:
@@ -168,7 +168,7 @@ async def test_service_manager_installs_redis_run_store_for_multi_worker(
     async def build(_settings: RedisSettings) -> tuple[FakeAsyncRedis, FakeSyncRedis]:
         return async_client, sync_client
 
-    monkeypatch.setattr("leagent.services.cache.redis_backend.build_redis_clients", build)
+    monkeypatch.setattr("StAgent.services.cache.redis_backend.build_redis_clients", build)
     settings = _settings()
     settings.workers = 2
     manager = ServiceManager(settings)

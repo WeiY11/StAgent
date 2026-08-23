@@ -1,3 +1,3 @@
-﻿# SDK
+# SDK
 
 TODO: Write SDK reference.

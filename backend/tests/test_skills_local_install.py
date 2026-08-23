@@ -11,7 +11,7 @@ from tests.test_skills import _write_skill
 
 @pytest.mark.asyncio
 async def test_install_skill_from_workspace_directory(tmp_path: Path) -> None:
-    from leagent.skills.local_install import install_skill_from_workspace_directory
+    from StAgent.skills.local_install import install_skill_from_workspace_directory
 
     src_root = tmp_path / "src"
     src_root.mkdir()

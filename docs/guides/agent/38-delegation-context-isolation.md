@@ -54,7 +54,7 @@ sdk.kernel.run_loop(child, prompt)
 
 ## 真实实现中的边界
 
-**Fresh transcript 是默认隔离，不是缺陷。** 需要父对话细节时，必须改写进 prompt：路径、约束、已确认事实、验收标准、上一工人 envelope 摘要。把 OpenAI handoff「默认可见历史」的预期套到 LeAgent 会系统性误解委派行为。
+**Fresh transcript 是默认隔离，不是缺陷。** 需要父对话细节时，必须改写进 prompt：路径、约束、已确认事实、验收标准、上一工人 envelope 摘要。把 OpenAI handoff「默认可见历史」的预期套到 StAgent 会系统性误解委派行为。
 
 **Clone 不是实时共享引用。** 父在子运行期间继续改自己的 FileState，子看不到；子读文件只更新子 cache。非 coding 变体结束后也不合回，父可能重复发起相同 `project_read`——这是隔离代价，不是 bug。
 
@@ -72,7 +72,7 @@ result = await runtime.delegate(
     "coding_agent",
     (
         "只读说明 Agent 节点 pause/resume 路径；"
-        "给出 backend/leagent/workflow/nodes/agent_exec.py 证据行号；"
+        "给出 backend/StAgent/workflow/nodes/agent_exec.py 证据行号；"
         "禁止改文件。输出：要点列表 + 测试名。"
     ),
     allowed_tools=["project_read", "project_grep", "project_glob"],
@@ -100,7 +100,7 @@ assert result["success"] and not result.get("partial")
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-OpenAI Agents SDK 的 handoff 常转移控制权并 **默认暴露历史**；可用 `input_filter` 收紧。LangGraph 用共享 graph state 传字段，隔离靠你设计 channel 与子图。AutoGen 团队聊天广播消息，隔离弱、协作强。Claude/Cowork 式 subagent 更接近「任务说明书 + 独立 transcript」——与 LeAgent `fork` 语义同类。Google ADK 的 sub-agent 组合也强调显式输入包。选型时先问三件事：**历史默认共享还是默认隔离？文件缓存如何合并？返回是扁平 envelope 还是会话移交？**
+OpenAI Agents SDK 的 handoff 常转移控制权并 **默认暴露历史**；可用 `input_filter` 收紧。LangGraph 用共享 graph state 传字段，隔离靠你设计 channel 与子图。AutoGen 团队聊天广播消息，隔离弱、协作强。Claude/Cowork 式 subagent 更接近「任务说明书 + 独立 transcript」——与 StAgent `fork` 语义同类。Google ADK 的 sub-agent 组合也强调显式输入包。选型时先问三件事：**历史默认共享还是默认隔离？文件缓存如何合并？返回是扁平 envelope 还是会话移交？**
 
 ## 总结
 

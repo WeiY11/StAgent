@@ -17,7 +17,7 @@
 
 把所有东西塞进 `messages` 数组，短期省事，长期必乱：压缩策略会误删检查点、记忆写入会污染 transcript、工作流暂停无法独立恢复。
 
-LeAgent 的契约（见执行拓扑）是：
+StAgent 的契约（见执行拓扑）是：
 
 | 状态 | 所有者 | 持久化 | 主要用途 |
 |------|--------|--------|----------|
@@ -29,15 +29,15 @@ LeAgent 的契约（见执行拓扑）是：
 
 「每一类状态只有一个 durable owner」——避免双重写入与漂移。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-- **Session**：`backend/leagent/services/session/manager.py`、`store.py`。L1 LRU + DB blob；messages 表是 UI 投影。`SessionManager.locked()` 保证同会话串行写入。
-- **Checkpoint**：`backend/leagent/sdk/kernel/checkpoint.py`。`run_loop` 在 `RESUMABLE_CHECKPOINT_REASONS`（如 `awaiting_user_input`、`max_turns`、`aborted`）下保存 `RunState.messages` 快照。无 DB 时退回 `InMemoryCheckpointStore`。
-- **Memory**：`backend/leagent/memory/agent_memory.py`。`record_*` / `recall` / `observe_turn`——**不是** transcript 的别名。
+- **Session**：`backend/StAgent/services/session/manager.py`、`store.py`。L1 LRU + DB blob；messages 表是 UI 投影。`SessionManager.locked()` 保证同会话串行写入。
+- **Checkpoint**：`backend/StAgent/sdk/kernel/checkpoint.py`。`run_loop` 在 `RESUMABLE_CHECKPOINT_REASONS`（如 `awaiting_user_input`、`max_turns`、`aborted`）下保存 `RunState.messages` 快照。无 DB 时退回 `InMemoryCheckpointStore`。
+- **Memory**：`backend/StAgent/memory/agent_memory.py`。`record_*` / `recall` / `observe_turn`——**不是** transcript 的别名。
 - **Workflow**：`WorkflowExecutor` + `WorkflowStateStore`；Agent 节点还可额外带 `checkpoint_id` 输出（见 `AGENT_OUTPUT_NAMES`）。
-- **Trace**：`backend/leagent/telemetry/trace/`——与 resume 平面分离。
+- **Trace**：`backend/StAgent/telemetry/trace/`——与 resume 平面分离。
 
-统一暂停令牌 `PauseToken`（`backend/leagent/runtime/execution_run.py`）可携带 `checkpoint_id` 或 workflow 恢复坐标，以及 `scope`：`chat_turn` | `workflow` | `task` | `tool_only`。
+统一暂停令牌 `PauseToken`（`backend/StAgent/runtime/execution_run.py`）可携带 `checkpoint_id` 或 workflow 恢复坐标，以及 `scope`：`chat_turn` | `workflow` | `task` | `tool_only`。
 
 ## 分步对照：三种「记住」
 

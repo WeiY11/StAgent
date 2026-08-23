@@ -9,13 +9,13 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.themes import (
+from StAgent.docgen.themes import (
     Theme,
     get_theme,
     invalidate_custom_theme_cache,
     list_theme_names,
 )
-from leagent.docgen.theming import (
+from StAgent.docgen.theming import (
     contrast_ratio,
     delete_custom_theme,
     derive_theme_payload,
@@ -28,7 +28,7 @@ from leagent.docgen.theming import (
 
 @pytest.fixture(autouse=True)
 def _isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path))
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path))
     invalidate_custom_theme_cache()
     yield
     invalidate_custom_theme_cache()
@@ -150,13 +150,13 @@ def test_save_no_overwrite_guard() -> None:
 
 
 def _ctx():
-    from leagent.tools.base import ToolContext
+    from StAgent.tools.base import ToolContext
 
     return ToolContext(user_id="u", session_id="s")
 
 
 def test_theme_designer_tool_create_and_get(tmp_path: Path) -> None:
-    from leagent.tools.gen.theme_tool import ThemeDesignerTool
+    from StAgent.tools.gen.theme_tool import ThemeDesignerTool
 
     tool = ThemeDesignerTool()
     result = tool.execute_sync(
@@ -185,7 +185,7 @@ def test_theme_designer_tool_create_and_get(tmp_path: Path) -> None:
 
 
 def test_theme_designer_tool_dry_run_saves_nothing() -> None:
-    from leagent.tools.gen.theme_tool import ThemeDesignerTool
+    from StAgent.tools.gen.theme_tool import ThemeDesignerTool
 
     result = ThemeDesignerTool().execute_sync(
         {"action": "create", "name": "ghost", "primary": "#0B5FFF", "dry_run": True},
@@ -196,7 +196,7 @@ def test_theme_designer_tool_dry_run_saves_nothing() -> None:
 
 
 def test_theme_designer_tool_save_invalid_payload_rejected() -> None:
-    from leagent.tools.gen.theme_tool import ThemeDesignerTool
+    from StAgent.tools.gen.theme_tool import ThemeDesignerTool
 
     with pytest.raises(ValueError):
         ThemeDesignerTool().execute_sync(

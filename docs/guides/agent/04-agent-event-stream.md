@@ -29,9 +29,9 @@
 结束 → result（completed | awaiting_user_input | aborted | ...）
 ```
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-定义在 `backend/leagent/sdk/events.py`：
+定义在 `backend/StAgent/sdk/events.py`：
 
 ```python
 class AgentEventType(StrEnum):
@@ -46,7 +46,7 @@ class AgentEventType(StrEnum):
     RESULT = "result"
 ```
 
-`AgentEvent.from_sdk_message()` 直接复制 `SDKMessage.type` 与 `data`。内核 `run_loop`（`backend/leagent/sdk/kernel/loop.py`）在此处：
+`AgentEvent.from_sdk_message()` 直接复制 `SDKMessage.type` 与 `data`。内核 `run_loop`（`backend/StAgent/sdk/kernel/loop.py`）在此处：
 
 - 翻译事件
 - 在 `TOOL_USE` / `TOOL_RESULT` 单点派发 hooks
@@ -59,7 +59,7 @@ Chat SSE 与 WebSocket 序列化器依赖稳定线缆形状；因此改内核时
 ## 分步示例：消费流并拼装结果
 
 ```python
-from leagent.sdk import AgentRuntime, AgentEventType
+from StAgent.sdk import AgentRuntime, AgentEventType
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 parts: list[str] = []
@@ -99,7 +99,7 @@ uv run pytest tests/test_kernel_checkpoint.py tests/test_chat_sse_wire_contract.
 
 ## 业内对照
 
-- OpenAI Agents SDK / Responses 流式事件、Anthropic `content_block_delta`、ComfyUI WebSocket progress——都是「增量可见 + 生命周期事件」。LeAgent 选择保持 `{type, data}` 以兼容既有 SSE 客户端。
+- OpenAI Agents SDK / Responses 流式事件、Anthropic `content_block_delta`、ComfyUI WebSocket progress——都是「增量可见 + 生命周期事件」。StAgent 选择保持 `{type, data}` 以兼容既有 SSE 客户端。
 - LangGraph 更偏状态快照推送；事件模型不同，但「中途可观察」目标相同。
 
 ## 数据流：事件如何穿越门面
@@ -123,8 +123,8 @@ query() 产出 SDKMessage
 
 ### 路径速查
 
-- 事件枚举与 `from_sdk_message`：`backend/leagent/sdk/events.py`  
-- 翻译与 checkpoint 挂钩：`backend/leagent/sdk/kernel/loop.py`  
+- 事件枚举与 `from_sdk_message`：`backend/StAgent/sdk/events.py`  
+- 翻译与 checkpoint 挂钩：`backend/StAgent/sdk/kernel/loop.py`  
 - 聚合辅助：同文件 `run_to_result`  
 - 线缆测试：`tests/test_chat_sse_wire_contract.py`、`tests/test_tool_call_delta_stream.py`
 
@@ -134,4 +134,4 @@ query() 产出 SDKMessage
 
 - [05｜状态所有权](05-state-ownership.md)
 - [45｜Trace 与 OTel](45-tracing-and-otel.md)
-- 源码：[`sdk/events.py`](../../../backend/leagent/sdk/events.py)、[`sdk/kernel/loop.py`](../../../backend/leagent/sdk/kernel/loop.py)
+- 源码：[`sdk/events.py`](../../../backend/StAgent/sdk/events.py)、[`sdk/kernel/loop.py`](../../../backend/StAgent/sdk/kernel/loop.py)

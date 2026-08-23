@@ -28,7 +28,7 @@ function upsertMeta(
 }
 
 function upsertJsonLd(data: Record<string, unknown> | Record<string, unknown>[]): void {
-  const id = "leagent-jsonld";
+  const id = "StAgent-jsonld";
   let el = document.getElementById(id) as HTMLScriptElement | null;
   if (!el) {
     el = document.createElement("script");

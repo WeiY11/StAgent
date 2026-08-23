@@ -4,7 +4,7 @@ Each :class:`Scenario` stands in for a workflow the agent would *generate*
 from a one-line idea (concept -> image -> quality gate -> bounded
 self-correction -> 3D/video -> export). The shipped flagship + demo graphs
 are the canonical reference outputs; the harness freezes the guarantees the
-plan calls for, all hermetic and credential-free (``LEAGENT_ART_OFFLINE``):
+plan calls for, all hermetic and credential-free (``StAgent_ART_OFFLINE``):
 
 * the graph declares the expected **first-class** art / control nodes,
 * it is a valid canonical document the agent could ``workflow_save`` /
@@ -26,17 +26,17 @@ from pathlib import Path
 
 import pytest
 
-from leagent.bootstrap.tools import bootstrap_tools
-from leagent.chat_workflow.workflow_embed import validate_workflow_embed
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import get_registry
-from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine.caching import build_cache_set
-from leagent.workflow.engine.executor import WorkflowExecutor
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry as get_node_registry
-from leagent.workflow.template_service import TemplateService
+from StAgent.bootstrap.tools import bootstrap_tools
+from StAgent.chat_workflow.workflow_embed import validate_workflow_embed
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import get_registry
+from StAgent.workflow.base import WorkflowStatus
+from StAgent.workflow.engine.caching import build_cache_set
+from StAgent.workflow.engine.executor import WorkflowExecutor
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry as get_node_registry
+from StAgent.workflow.template_service import TemplateService
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEMO_DIR = _REPO_ROOT / "config" / "demo-workflows"
@@ -114,7 +114,7 @@ async def executor() -> WorkflowExecutor:
 
 @pytest.fixture(autouse=True)
 def _force_offline(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=_IDS)

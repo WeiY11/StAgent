@@ -1,7 +1,7 @@
 {
   "home": {
     "welcome": "欢迎回来",
-    "subtitle": "开始使用 LeAgent 自动化您的工作流程",
+    "subtitle": "开始使用 StAgent 自动化您的工作流程",
     "recentFlows": "最近工作流",
     "noFlows": "还没有工作流",
     "createFirstFlow": "创建第一个工作流",
@@ -21,7 +21,7 @@
     },
     "tips": {
       "title": "快速入门",
-      "description": "了解如何使用 LeAgent 提升您的工作效率",
+      "description": "了解如何使用 StAgent 提升您的工作效率",
       "learnMore": "查看文档"
     }
   },

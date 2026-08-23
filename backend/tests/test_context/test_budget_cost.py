@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.context.budget import minimise, PINNED_THRESHOLD
-from leagent.context.types import ContextBlock, RenderTarget
+from StAgent.context.budget import minimise, PINNED_THRESHOLD
+from StAgent.context.types import ContextBlock, RenderTarget
 
 
 def _block(sid, size, priority=500, weight=1.0):
@@ -43,7 +43,7 @@ def test_empty_input():
 
 
 def test_source_hard_budget_truncates_oversized_fragment():
-    from leagent.context.budget import (
+    from StAgent.context.budget import (
         DEFAULT_SOURCE_HARD_CAP_CHARS,
         enforce_source_hard_budgets,
     )
@@ -56,7 +56,7 @@ def test_source_hard_budget_truncates_oversized_fragment():
 
 
 def test_source_hard_budget_respects_default_cap():
-    from leagent.context.budget import (
+    from StAgent.context.budget import (
         DEFAULT_SOURCE_HARD_CAP_CHARS,
         enforce_source_hard_budgets,
     )
@@ -69,7 +69,7 @@ def test_source_hard_budget_respects_default_cap():
 
 
 def test_source_hard_budget_leaves_small_blocks():
-    from leagent.context.budget import enforce_source_hard_budgets
+    from StAgent.context.budget import enforce_source_hard_budgets
 
     small = _block("policies", 100)
     out, truncated = enforce_source_hard_budgets([small])
@@ -79,7 +79,7 @@ def test_source_hard_budget_leaves_small_blocks():
 
 def test_fragment_under_10k_tokens_after_hard_budget():
     """Lint: after hard-budget enforcement every fragment is ≤ ~10K tokens."""
-    from leagent.context.budget import (
+    from StAgent.context.budget import (
         DEFAULT_SOURCE_HARD_CAP_CHARS,
         enforce_source_hard_budgets,
     )

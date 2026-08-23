@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from leagent.docgen.fonts import FONT_MANIFEST, FontManager, PDF_FONT_EMOJI
-from leagent.docgen.renderers.pdf import (
+from StAgent.docgen.fonts import FONT_MANIFEST, FontManager, PDF_FONT_EMOJI
+from StAgent.docgen.renderers.pdf import (
     apply_emoji_font,
     spans_to_markup,
     text_contains_emoji,
@@ -22,15 +22,15 @@ def test_text_contains_emoji() -> None:
 
 
 def test_apply_emoji_font_wraps_runs() -> None:
-    out = apply_emoji_font("状态 ✅ 完成 🎉", "LeAgentDocEmoji")
-    assert 'face="LeAgentDocEmoji"' in out
+    out = apply_emoji_font("状态 ✅ 完成 🎉", "StAgentDocEmoji")
+    assert 'face="StAgentDocEmoji"' in out
     assert "✅" in out and "🎉" in out
     assert out.startswith("状态 ")
     assert apply_emoji_font("😀", None) == "😀"
 
 
 def test_spans_to_markup_nests_emoji_inside_styles() -> None:
-    from leagent.docgen.markdown import parse_inline
+    from StAgent.docgen.markdown import parse_inline
 
     markup = spans_to_markup(
         parse_inline("**重要 🚀** and `code ✅`"),
@@ -47,7 +47,7 @@ def test_resolve_emoji_env_override(
 ) -> None:
     font = tmp_path / "MyEmoji.ttf"
     font.write_bytes(b"x")
-    monkeypatch.setenv("LEAGENT_EMOJI_FONT", str(font))
+    monkeypatch.setenv("StAgent_EMOJI_FONT", str(font))
 
     path, warnings = FontManager(fonts_dir=tmp_path / "managed").resolve_emoji(
         allow_download=False
@@ -61,7 +61,7 @@ def test_resolve_emoji_rejects_color_font(
 ) -> None:
     color = tmp_path / "NotoColorEmoji.ttf"
     color.write_bytes(b"x")
-    monkeypatch.setenv("LEAGENT_EMOJI_FONT", str(color))
+    monkeypatch.setenv("StAgent_EMOJI_FONT", str(color))
 
     path, warnings = FontManager(fonts_dir=tmp_path / "managed").resolve_emoji(
         allow_download=False
@@ -85,8 +85,8 @@ def test_register_and_render_pdf_emoji(
 ) -> None:
     """Emoji face embeds and round-trips through PDF text extraction."""
     fitz = pytest.importorskip("fitz")
-    from leagent.docgen.model import DocumentSpec
-    from leagent.docgen.renderers import pdf as pdf_mod
+    from StAgent.docgen.model import DocumentSpec
+    from StAgent.docgen.renderers import pdf as pdf_mod
 
     managed = tmp_path / "fonts"
     mgr = FontManager(fonts_dir=managed)
@@ -99,7 +99,7 @@ def test_register_and_render_pdf_emoji(
     assert fonts["emoji_embedded"] is True
 
     monkeypatch.setattr(pdf_mod, "get_font_manager", lambda: mgr)
-    monkeypatch.delenv("LEAGENT_EMOJI_FONT", raising=False)
+    monkeypatch.delenv("StAgent_EMOJI_FONT", raising=False)
 
     out = tmp_path / "emoji.pdf"
     result = pdf_mod.render_pdf(

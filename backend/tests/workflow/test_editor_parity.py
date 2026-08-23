@@ -7,11 +7,11 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine import WorkflowExecutor, build_cache_set
-from leagent.workflow.engine.executor import _sanitize_ui
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap
+from StAgent.workflow.base import WorkflowStatus
+from StAgent.workflow.engine import WorkflowExecutor, build_cache_set
+from StAgent.workflow.engine.executor import _sanitize_ui
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap
 
 
 def _doc(nodes: dict, start: str = "start") -> dict:

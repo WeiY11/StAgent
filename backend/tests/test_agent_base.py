@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import (
+from StAgent.agent.base import (
     AgentConfig,
     AgentContext,
     AgentMode,
@@ -333,7 +333,7 @@ class TestConversationContext:
         assert len(ctx.messages) <= 4
 
     def test_trim_snaps_before_tool_block(self) -> None:
-        from leagent.agent.base import ConversationMessage
+        from StAgent.agent.base import ConversationMessage
 
         ctx = ConversationContext(max_turns=2)
         ctx.messages = [

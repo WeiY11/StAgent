@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry
-from leagent.workflow.nodes.art.storyboard import ShotNode, StoryboardNode
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry
+from StAgent.workflow.nodes.art.storyboard import ShotNode, StoryboardNode
 
 
 @pytest.fixture(scope="module")

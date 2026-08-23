@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from leagent.docgen.checklist import (
+from StAgent.docgen.checklist import (
     build_checklist_block,
     checklist_stats,
     checklist_to_dict,
     parse_workflow_checklist,
 )
-from leagent.docgen.markdown import parse_markdown_blocks
-from leagent.docgen.model import ChecklistBlock, DocumentSpec
+from StAgent.docgen.markdown import parse_markdown_blocks
+from StAgent.docgen.model import ChecklistBlock, DocumentSpec
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -108,7 +108,7 @@ def test_checklist_fence() -> None:
 
 
 def test_invalid_checklist_fence_degrades_to_code() -> None:
-    from leagent.docgen.model import CodeBlock
+    from StAgent.docgen.model import CodeBlock
 
     (block,) = parse_markdown_blocks("```checklist\nnot json {{{\n```\n")
     assert isinstance(block, CodeBlock)
@@ -150,7 +150,7 @@ def _spec() -> DocumentSpec:
 
 
 def test_render_pdf_checklist(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     result = render_pdf(_spec(), tmp_path / "cl.pdf")
     assert result["success"] is True
@@ -170,7 +170,7 @@ def test_render_pdf_checklist(tmp_path: Path) -> None:
 def test_render_docx_checklist(tmp_path: Path) -> None:
     import docx as docx_lib
 
-    from leagent.docgen.renderers.docx import render_docx
+    from StAgent.docgen.renderers.docx import render_docx
 
     result = render_docx(_spec(), tmp_path / "cl.docx")
     assert result["success"] is True
@@ -182,7 +182,7 @@ def test_render_docx_checklist(tmp_path: Path) -> None:
 
 
 def test_render_html_checklist(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_html
+    from StAgent.docgen.renderers.html import render_html
 
     result = render_html(_spec(), tmp_path / "cl.html")
     assert result["success"] is True
@@ -194,7 +194,7 @@ def test_render_html_checklist(tmp_path: Path) -> None:
 
 
 def test_render_markdown_checklist_roundtrips(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_markdown
+    from StAgent.docgen.renderers.html import render_markdown
 
     result = render_markdown(_spec(), tmp_path / "cl.md")
     assert result["success"] is True
@@ -203,7 +203,7 @@ def test_render_markdown_checklist_roundtrips(tmp_path: Path) -> None:
     assert "- [~] Migrate" in text  # in_progress marker
     assert "  - [x] write" in text  # nested sub-item
     # Reparses to a task list (GFM).
-    from leagent.docgen.model import ListBlock
+    from StAgent.docgen.model import ListBlock
 
     assert any(isinstance(b, ListBlock) for b in parse_markdown_blocks(text))
 
@@ -218,7 +218,7 @@ class _Ctx:
 
 
 def test_tool_json_export(tmp_path: Path) -> None:
-    from leagent.tools.gen.checklist_tool import ChecklistGeneratorTool
+    from StAgent.tools.gen.checklist_tool import ChecklistGeneratorTool
 
     tool = ChecklistGeneratorTool()
     out = tmp_path / "c.json"
@@ -240,14 +240,14 @@ def test_tool_json_export(tmp_path: Path) -> None:
 
 
 def test_tool_aliases_include_legacy_name() -> None:
-    from leagent.tools.gen.checklist_tool import ChecklistGeneratorTool
+    from StAgent.tools.gen.checklist_tool import ChecklistGeneratorTool
 
     assert ChecklistGeneratorTool.name == "checklist_generate"
     assert "checklist_generator" in ChecklistGeneratorTool.aliases
 
 
 def test_tool_pdf_and_docx(tmp_path: Path) -> None:
-    from leagent.tools.gen.checklist_tool import ChecklistGeneratorTool
+    from StAgent.tools.gen.checklist_tool import ChecklistGeneratorTool
 
     tool = ChecklistGeneratorTool()
     params = {
@@ -261,7 +261,7 @@ def test_tool_pdf_and_docx(tmp_path: Path) -> None:
 
 
 def test_tool_empty_checklist_raises(tmp_path: Path) -> None:
-    from leagent.tools.gen.checklist_tool import ChecklistGeneratorTool
+    from StAgent.tools.gen.checklist_tool import ChecklistGeneratorTool
 
     tool = ChecklistGeneratorTool()
     with pytest.raises(ValueError, match="empty"):

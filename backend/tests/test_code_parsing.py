@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.code.parsing import detect_code_language, parse_code_source
+from StAgent.code.parsing import detect_code_language, parse_code_source
 
 
 def test_detect_code_language_from_suffix() -> None:

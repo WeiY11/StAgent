@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 
 from tests.test_skills import _write_skill
-from leagent.tools.base import ToolContext
-from leagent.tools.skills.install import InstallSkillTool
-from leagent.tools.skills.package_skill import PackageSkillTool
+from StAgent.tools.base import ToolContext
+from StAgent.tools.skills.install import InstallSkillTool
+from StAgent.tools.skills.package_skill import PackageSkillTool
 
 
 @pytest.mark.asyncio
@@ -20,8 +20,8 @@ async def test_install_skill_url_mocked(
 ) -> None:
     import shutil
 
-    from leagent.skills.manager import SkillsManager
-    from leagent.skills import url_install as url_install_mod
+    from StAgent.skills.manager import SkillsManager
+    from StAgent.skills import url_install as url_install_mod
 
     pack = tmp_path / "pack"
     pack.mkdir()
@@ -48,7 +48,7 @@ async def test_install_skill_url_mocked(
         return mgr
 
     monkeypatch.setattr(
-        "leagent.tools.skills.resolve_skills_manager",
+        "StAgent.tools.skills.resolve_skills_manager",
         fake_resolve,
     )
 
@@ -65,7 +65,7 @@ async def test_install_skill_url_mocked(
 @pytest.mark.asyncio
 async def test_package_skill_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "leagent.file.sandbox._get_allowed_roots",
+        "StAgent.file.sandbox._get_allowed_roots",
         lambda: (tmp_path.resolve(),),
     )
 
@@ -95,7 +95,7 @@ async def test_install_skill_uploaded_archive_tool_context(
     """Resolve uploaded zip via attachment path."""
     import shutil
 
-    from leagent.skills.manager import SkillsManager
+    from StAgent.skills.manager import SkillsManager
 
     pack = tmp_path / "pack"
     pack.mkdir()
@@ -118,11 +118,11 @@ async def test_install_skill_uploaded_archive_tool_context(
         return mgr
 
     monkeypatch.setattr(
-        "leagent.tools.skills.resolve_skills_manager",
+        "StAgent.tools.skills.resolve_skills_manager",
         fake_resolve,
     )
     monkeypatch.setattr(
-        "leagent.file.sandbox._get_allowed_roots",
+        "StAgent.file.sandbox._get_allowed_roots",
         lambda: (tmp_path.resolve(),),
     )
 

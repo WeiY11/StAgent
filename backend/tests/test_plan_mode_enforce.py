@@ -6,12 +6,12 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.control import (
+from StAgent.agent.control import (
     get_session_control_registry,
     reset_session_control_registry,
 )
-from leagent.tools.approval import get_approval_store, reset_approval_store
-from leagent.tools.base import (
+from StAgent.tools.approval import get_approval_store, reset_approval_store
+from StAgent.tools.base import (
     BaseTool,
     ToolCategory,
     ToolContext,
@@ -19,7 +19,7 @@ from leagent.tools.base import (
     ToolResult,
     check_tool_permission,
 )
-from leagent.tools.util.plan_tools import EnterPlanModeTool, ExitPlanModeTool
+from StAgent.tools.util.plan_tools import EnterPlanModeTool, ExitPlanModeTool
 
 
 @pytest.fixture(autouse=True)

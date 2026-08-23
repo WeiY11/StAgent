@@ -3,7 +3,7 @@
  * live-runtime feature.
  *
  * Backend endpoints live under `/api/v1/coding-projects/...` (see
- * `leagent/backend/leagent/api/v1/coding_projects.py`).
+ * `StAgent/backend/StAgent/api/v1/coding_projects.py`).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -323,7 +323,7 @@ export function useCodingProjectLogs(
         if (token) headers.Authorization = `Bearer ${token}`;
         const fp = getMachineFingerprint();
         if (fp.length >= 8) {
-          headers['x-leagent-machine-fingerprint'] = fp;
+          headers['x-StAgent-machine-fingerprint'] = fp;
         }
         const resp = await fetch(url, {
           method: 'GET',

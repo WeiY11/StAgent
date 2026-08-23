@@ -1,4 +1,4 @@
-"""Tests for :class:`~leagent.tools.code.deepseek_fim.DeepSeekFimTool`."""
+"""Tests for :class:`~StAgent.tools.code.deepseek_fim.DeepSeekFimTool`."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from typing import Any
 
 import pytest
 
-from leagent.llm.providers.deepseek import DeepSeekProvider
-from leagent.llm.registry import ProviderRegistry
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.service import LLMService
-from leagent.tools.base import ToolContext
-from leagent.code.fim import DeepSeekFimTool, _resolve_deepseek_provider
+from StAgent.llm.providers.deepseek import DeepSeekProvider
+from StAgent.llm.registry import ProviderRegistry
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.service import LLMService
+from StAgent.tools.base import ToolContext
+from StAgent.code.fim import DeepSeekFimTool, _resolve_deepseek_provider
 
 
 class _StubDeepSeek(DeepSeekProvider):
@@ -114,7 +114,7 @@ async def test_fim_buffer_protocol() -> None:
 @pytest.mark.asyncio
 async def test_fim_no_deepseek_returns_structured_error() -> None:
     reg = ProviderRegistry()
-    from leagent.llm.providers.openai import OpenAIProvider
+    from StAgent.llm.providers.openai import OpenAIProvider
 
     reg.register("openai", OpenAIProvider(api_key="k", base_url="https://x", default_model="gpt-4o-mini"))
     llm = LLMService(registry=reg, model_registry=ModelRegistry())
@@ -131,7 +131,7 @@ async def test_fim_no_deepseek_returns_structured_error() -> None:
 @pytest.mark.asyncio
 async def test_fim_run_coerces_failure_envelope() -> None:
     reg = ProviderRegistry()
-    from leagent.llm.providers.openai import OpenAIProvider
+    from StAgent.llm.providers.openai import OpenAIProvider
 
     reg.register("openai", OpenAIProvider(api_key="k", base_url="https://x", default_model="gpt-4o-mini"))
     llm = LLMService(registry=reg, model_registry=ModelRegistry())

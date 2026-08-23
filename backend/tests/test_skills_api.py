@@ -17,7 +17,7 @@ from tests.test_skills import _write_skill
 @pytest.fixture
 def skills_auth_header(test_user: dict[str, Any], test_settings: Any) -> dict[str, str]:
     """Bearer token compatible with gateway :class:`TokenPayload` (includes ``exp``)."""
-    from leagent.services.auth import AuthService
+    from StAgent.services.auth import AuthService
 
     auth = AuthService(test_settings)
     token = auth.create_access_token(UUID(test_user["user_id"]))
@@ -25,7 +25,7 @@ def skills_auth_header(test_user: dict[str, Any], test_settings: Any) -> dict[st
 
 
 def _load_manager(tmp_path: Path) -> Any:
-    from leagent.skills.manager import SkillsManager
+    from StAgent.skills.manager import SkillsManager
 
     mgr = SkillsManager(
         skills_dir=tmp_path,
@@ -44,7 +44,7 @@ class TestSkillsFileAPI:
         skills_auth_header: dict[str, str],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.tools.skills.script import SkillScriptTool
+        from StAgent.tools.skills.script import SkillScriptTool
 
         captured: dict[str, Any] = {}
 
@@ -76,7 +76,7 @@ class TestSkillsFileAPI:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.api.v1 import skills as skills_api
+        from StAgent.api.v1 import skills as skills_api
 
         skill_dir = _write_skill(tmp_path, "resource-skill")
         references = skill_dir / "references"
@@ -100,7 +100,7 @@ class TestSkillsFileAPI:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.api.v1 import skills as skills_api
+        from StAgent.api.v1 import skills as skills_api
 
         _write_skill(tmp_path, "file-skill")
         mgr = _load_manager(tmp_path)
@@ -124,7 +124,7 @@ class TestSkillsFileAPI:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.api.v1 import skills as skills_api
+        from StAgent.api.v1 import skills as skills_api
 
         skill_dir = _write_skill(tmp_path, "edit-skill")
         orig = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
@@ -156,7 +156,7 @@ class TestSkillsFileAPI:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.api.v1 import skills as skills_api
+        from StAgent.api.v1 import skills as skills_api
 
         skill_dir = _write_skill(tmp_path, "bad-put-skill")
         before = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
@@ -182,7 +182,7 @@ class TestSkillsFileAPI:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from leagent.api.v1 import skills as skills_api
+        from StAgent.api.v1 import skills as skills_api
 
         skill_dir = _write_skill(tmp_path, "ro-skill")
         content = (skill_dir / "SKILL.md").read_text(encoding="utf-8")

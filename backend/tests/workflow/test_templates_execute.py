@@ -6,15 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.bootstrap.tools import bootstrap_tools
-from leagent.tools.executor import ToolExecutor
-from leagent.tools.registry import get_registry
-from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine.caching import build_cache_set
-from leagent.workflow.engine.executor import WorkflowExecutor
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.template_service import TemplateService
+from StAgent.bootstrap.tools import bootstrap_tools
+from StAgent.tools.executor import ToolExecutor
+from StAgent.tools.registry import get_registry
+from StAgent.workflow.base import WorkflowStatus
+from StAgent.workflow.engine.caching import build_cache_set
+from StAgent.workflow.engine.executor import WorkflowExecutor
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.template_service import TemplateService
 
 
 CORE_TEMPLATE_IDS = tuple(f"TPL-{i:02d}" for i in range(1, 11))
@@ -29,7 +29,7 @@ def _all_template_ids() -> list[str]:
 
 @pytest.fixture
 async def workflow_executor_with_tools(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     await bootstrap_tools()
     await bootstrap_nodes()
     reg = get_registry()
@@ -87,7 +87,7 @@ async def test_flagship_art_template_self_corrects_offline(
     bounded IterativeRefine back-edge regenerates, the second image passes,
     and AssetExport collates image + video + 3D mesh into a manifest.
     """
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     svc = TemplateService()
     svc.load()
     raw = svc.get_template("TPL-ART-01")

@@ -48,8 +48,8 @@
 ### Task 1: Define production-runtime settings and dependency boundary
 
 **Files:**
-- Modify: `backend/leagent/config/settings/services.py`
-- Modify: `backend/leagent/config/settings/__init__.py`
+- Modify: `backend/StAgent/config/settings/services.py`
+- Modify: `backend/StAgent/config/settings/__init__.py`
 - Modify: `backend/pyproject.toml`
 - Test: `backend/tests/test_production_runtime_settings.py`
 
@@ -61,7 +61,7 @@
 
 ```python
 def test_external_runtime_settings_default_to_disabled(monkeypatch):
-    monkeypatch.delenv("LEAGENT_REDIS_URL", raising=False)
+    monkeypatch.delenv("StAgent_REDIS_URL", raising=False)
     assert Settings().redis.enabled is False
     assert Settings().object_storage.enabled is False
 ```
@@ -76,12 +76,12 @@ Expected: FAIL because `Settings` has no `redis` or `object_storage` group.
 
 ```python
 class RedisSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="LEAGENT_REDIS_")
+    model_config = SettingsConfigDict(env_prefix="StAgent_REDIS_")
     enabled: bool = False
     url: str = ""
 
 class ObjectStorageSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="LEAGENT_OBJECT_STORAGE_")
+    model_config = SettingsConfigDict(env_prefix="StAgent_OBJECT_STORAGE_")
     enabled: bool = False
     endpoint_url: str = ""
     bucket: str = ""
@@ -89,16 +89,16 @@ class ObjectStorageSettings(BaseSettings):
 
 - [ ] **Step 4: Run settings tests and Ruff**
 
-Run: `uv run pytest tests/test_production_runtime_settings.py -q && uv run ruff check leagent/config/settings/services.py leagent/config/settings/__init__.py tests/test_production_runtime_settings.py`
+Run: `uv run pytest tests/test_production_runtime_settings.py -q && uv run ruff check StAgent/config/settings/services.py StAgent/config/settings/__init__.py tests/test_production_runtime_settings.py`
 
 Expected: PASS.
 
 ### Task 2: Add S3-compatible storage backend and FileService wiring
 
 **Files:**
-- Create: `backend/leagent/file/storage/s3.py`
-- Modify: `backend/leagent/file/storage/__init__.py`
-- Modify: `backend/leagent/services/service_manager.py`
+- Create: `backend/StAgent/file/storage/s3.py`
+- Modify: `backend/StAgent/file/storage/__init__.py`
+- Modify: `backend/StAgent/services/service_manager.py`
 - Test: `backend/tests/test_file/test_s3_storage.py`
 
 **Interfaces:**
@@ -109,7 +109,7 @@ Expected: PASS.
 
 ```python
 async def test_s3_backend_round_trips_key_without_network():
-    backend = S3StorageBackend(FakeS3Client(), bucket="kb", prefix="leagent")
+    backend = S3StorageBackend(FakeS3Client(), bucket="kb", prefix="StAgent")
     await backend.put(b"evidence", "docs/a.txt")
     assert await backend.get("docs/a.txt") == (b"evidence", "text/plain")
 ```
@@ -149,10 +149,10 @@ Expected: PASS with no endpoint access.
 ### Task 3: Add Redis cache/run-store runtime wiring
 
 **Files:**
-- Create: `backend/leagent/services/cache/redis_backend.py`
-- Modify: `backend/leagent/services/cache/service.py`
-- Modify: `backend/leagent/services/service_manager.py`
-- Modify: `backend/leagent/runtime/deployment_topology.py`
+- Create: `backend/StAgent/services/cache/redis_backend.py`
+- Modify: `backend/StAgent/services/cache/service.py`
+- Modify: `backend/StAgent/services/service_manager.py`
+- Modify: `backend/StAgent/runtime/deployment_topology.py`
 - Test: `backend/tests/test_services/test_redis_runtime.py`
 
 **Interfaces:**
@@ -188,7 +188,7 @@ class RedisCacheBackend:
 
 ```python
 if workers > 1 and not redis_enabled:
-    raise DeploymentTopologyError("multi-worker mode requires LEAGENT_REDIS_ENABLED=true")
+    raise DeploymentTopologyError("multi-worker mode requires StAgent_REDIS_ENABLED=true")
 ```
 
 - [ ] **Step 5: Run Redis runtime tests and topology tests**
@@ -200,9 +200,9 @@ Expected: PASS with fake clients only.
 ### Task 4: Add answer-level citation validation and evaluation contract
 
 **Files:**
-- Modify: `backend/leagent/knowledge/evidence.py`
-- Modify: `backend/leagent/knowledge/evaluation.py`
-- Modify: `backend/leagent/context/sources/knowledge_context.py`
+- Modify: `backend/StAgent/knowledge/evidence.py`
+- Modify: `backend/StAgent/knowledge/evaluation.py`
+- Modify: `backend/StAgent/context/sources/knowledge_context.py`
 - Test: `backend/tests/test_knowledge_answer_grounding.py`
 
 **Interfaces:**
@@ -246,9 +246,9 @@ Expected: PASS.
 
 **Files:**
 - Modify: `deploy/.env.example`
-- Modify: `deploy/helm/leagent/values.yaml`
-- Modify: `deploy/helm/leagent/templates/deployment.yaml`
-- Modify: `deploy/helm/leagent/README.md`
+- Modify: `deploy/helm/StAgent/values.yaml`
+- Modify: `deploy/helm/StAgent/templates/deployment.yaml`
+- Modify: `deploy/helm/StAgent/README.md`
 - Test: `backend/tests/test_production_runtime_settings.py`
 
 **Interfaces:**
@@ -265,8 +265,8 @@ def test_helm_values_never_ship_object_storage_credentials():
 - [ ] **Step 2: Add non-secret endpoint/bucket configuration and Secret references**
 
 ```yaml
-LEAGENT_REDIS_ENABLED: "false"
-LEAGENT_OBJECT_STORAGE_ENABLED: "false"
+StAgent_REDIS_ENABLED: "false"
+StAgent_OBJECT_STORAGE_ENABLED: "false"
 ```
 
 - [ ] **Step 3: Run YAML parse and static tests**
@@ -290,7 +290,7 @@ Expected: PASS.
 
 Run: `cd frontend && npm run test -- --run src/pages/KnowledgePage/index.test.tsx src/hooks/useKnowledge.test.tsx src/i18n/__tests__/parity.test.ts && npm run build`
 
-Run: `cd backend && uv run ruff check leagent/file/storage leagent/services/cache leagent/services/service_manager.py leagent/knowledge tests/test_production_runtime_settings.py tests/test_knowledge_answer_grounding.py`
+Run: `cd backend && uv run ruff check StAgent/file/storage StAgent/services/cache StAgent/services/service_manager.py StAgent/knowledge tests/test_production_runtime_settings.py tests/test_knowledge_answer_grounding.py`
 
 Expected: PASS.
 

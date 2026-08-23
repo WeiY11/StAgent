@@ -1,7 +1,7 @@
 """Image-generation config store + config-aware backends + preset application.
 
 All assertions run credential-free against a temp ``providers.yaml`` so the
-real ``~/.leagent`` file is never touched.
+real ``~/.StAgent`` file is never touched.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from leagent.llm.generation import config as cfg
-from leagent.llm.generation.backends import SiliconFlowImageBackend
-from leagent.llm.generation.config import ImageGenConfigStore, ImageGenPreset
+from StAgent.llm.generation import config as cfg
+from StAgent.llm.generation.backends import SiliconFlowImageBackend
+from StAgent.llm.generation.config import ImageGenConfigStore, ImageGenPreset
 
 
 @pytest.fixture()
@@ -86,7 +86,7 @@ def test_siliconflow_backend_available_from_config(store):
 
 
 def test_siliconflow_catalog_includes_z_image_and_qwen():
-    from leagent.llm.generation.config import BACKEND_MODEL_CATALOG
+    from StAgent.llm.generation.config import BACKEND_MODEL_CATALOG
 
     models = BACKEND_MODEL_CATALOG["siliconflow"]
     assert "Tongyi-MAI/Z-Image-Turbo" in models
@@ -141,7 +141,7 @@ def test_image_gen_section_preserves_other_keys(store):
 
 
 def test_validate_v2_config_preserves_image_gen():
-    from leagent.llm.providers_schema import validate_v2_config
+    from StAgent.llm.providers_schema import validate_v2_config
 
     doc = {
         "version": 2,
@@ -167,9 +167,9 @@ async def test_default_preset_applied_for_auto_node(store, monkeypatch):
     ))
     store.set_default_preset("tiny")
 
-    from leagent.llm.generation import base as gen_base  # noqa: F401 - ensure import path
-    from leagent.workflow.io import HiddenHolder
-    from leagent.workflow.nodes.art.nodes import ImageGenNode
+    from StAgent.llm.generation import base as gen_base  # noqa: F401 - ensure import path
+    from StAgent.workflow.io import HiddenHolder
+    from StAgent.workflow.nodes.art.nodes import ImageGenNode
 
     captured: dict = {}
 
@@ -177,11 +177,11 @@ async def test_default_preset_applied_for_auto_node(store, monkeypatch):
         async def generate(self, *, kind, prompt, provider=None, max_retries=0, **params):
             captured["provider"] = provider
             captured["params"] = params
-            from leagent.llm.generation.base import GenerationOutput
+            from StAgent.llm.generation.base import GenerationOutput
 
             return GenerationOutput.failure("image", "stop-before-persist")
 
-    import leagent.llm.generation as gen_pkg
+    import StAgent.llm.generation as gen_pkg
 
     monkeypatch.setattr(gen_pkg, "get_generation_service", lambda: _FakeService())
 
@@ -205,18 +205,18 @@ async def test_explicit_preset_overrides_default(store, monkeypatch):
     class _FakeService:
         async def generate(self, *, kind, prompt, provider=None, max_retries=0, **params):
             captured["params"] = params
-            from leagent.llm.generation.base import GenerationOutput
+            from StAgent.llm.generation.base import GenerationOutput
 
             return GenerationOutput.failure("image", "stop")
 
-    import leagent.llm.generation as gen_pkg
+    import StAgent.llm.generation as gen_pkg
 
     monkeypatch.setattr(gen_pkg, "get_generation_service", lambda: _FakeService())
 
     from types import SimpleNamespace as NS
 
-    from leagent.workflow.io import HiddenHolder
-    from leagent.workflow.nodes.art.nodes import ImageGenNode
+    from StAgent.workflow.io import HiddenHolder
+    from StAgent.workflow.nodes.art.nodes import ImageGenNode
 
     node = ImageGenNode()
     hidden = HiddenHolder(unique_id="img", workflow_state=None, tool_context=NS())

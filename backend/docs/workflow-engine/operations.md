@@ -5,8 +5,8 @@ monitoring of the workflow engine.
 
 ## Configuration (`workflow` section)
 
-Defined in `leagent.config.settings.WorkflowEngineSettings`; set via the
-`LEAGENT_WORKFLOW__*` env prefix or YAML config.
+Defined in `StAgent.config.settings.WorkflowEngineSettings`; set via the
+`StAgent_WORKFLOW__*` env prefix or YAML config.
 
 | Key                | Default      | Meaning                                           |
 | ------------------ | ------------ | ------------------------------------------------- |
@@ -43,10 +43,10 @@ non-fatal to avoid breaking local dev.
 
 ```bash
 # Same process as the API (for dev): workers run inside ServiceManager.
-python -m leagent
+python -m StAgent
 
 # Dedicated worker pool (for production):
-python -m leagent.workflow.cli.workflow_worker \
+python -m StAgent.workflow.cli.workflow_worker \
     --concurrency 8 \
     --queue redis://redis:6379/0
 ```

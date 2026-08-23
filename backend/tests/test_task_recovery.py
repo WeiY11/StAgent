@@ -17,9 +17,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.db.models.task import Task, TaskContext, TaskStatus, TaskType
-from leagent.services.task_manager import TaskManager
-from leagent.tasks.jobs import recover_pending_jobs
+from StAgent.db.models.task import Task, TaskContext, TaskStatus, TaskType
+from StAgent.services.task_manager import TaskManager
+from StAgent.tasks.jobs import recover_pending_jobs
 
 
 def _sqlite_connect_pragma(dbapi_conn: object, _: object) -> None:
@@ -75,7 +75,7 @@ async def task_db(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[_TaskDB]:
     db = _TaskDB()
     await db.prepare()
 
-    from leagent import db as db_pkg
+    from StAgent import db as db_pkg
 
     monkeypatch.setattr(db_pkg, "get_database_service", lambda: db, raising=True)
     yield db
@@ -118,7 +118,7 @@ async def test_recover_pending_jobs_uses_registered_handler_types(
     task_db: _TaskDB,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.services import task_manager as task_manager_module
+    from StAgent.services import task_manager as task_manager_module
 
     shell = _CaptureHandler(TaskType.SHELL)
     tool = _CaptureHandler(TaskType.TOOL)
@@ -194,7 +194,7 @@ async def test_recover_pending_jobs_skips_locally_running_task(
     task_db: _TaskDB,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.services import task_manager as task_manager_module
+    from StAgent.services import task_manager as task_manager_module
 
     shell = _CaptureHandler(TaskType.SHELL)
     mgr = TaskManager()

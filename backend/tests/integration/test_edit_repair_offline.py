@@ -44,7 +44,7 @@ async def test_offline_script_repair_via_workspace_edit(
     full_tool_registry,
     tmp_path: Path,
 ) -> None:
-    from leagent.agent.script_agent import build_script_agent_engine
+    from StAgent.agent.script_agent import build_script_agent_engine
 
     script = [
         scripted_turn(
@@ -97,7 +97,7 @@ async def test_offline_project_edit_add_function(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import build_coding_agent_engine
+    from StAgent.agent.coding_agent import build_coding_agent_engine
 
     old_block = (
         "def multiply(a, b):\n"
@@ -158,7 +158,7 @@ async def test_offline_project_multiedit_constants(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import build_coding_agent_engine
+    from StAgent.agent.coding_agent import build_coding_agent_engine
 
     script = [
         scripted_turn(
@@ -214,7 +214,7 @@ async def test_offline_project_apply_patch_docstring(
     full_tool_registry,
     calc_project: Path,
 ) -> None:
-    from leagent.agent.coding_agent import build_coding_agent_engine
+    from StAgent.agent.coding_agent import build_coding_agent_engine
 
     patch_diff = (
         "--- a/calc.py\n"

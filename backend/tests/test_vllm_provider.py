@@ -12,11 +12,11 @@ import logging
 
 import pytest
 
-from leagent.exceptions.llm import LLMServiceError
-from leagent.llm.base import ChatMessage, StreamChunk, ToolCall, ToolDefinition
-from leagent.llm.providers.custom import CustomOpenAIProvider
-from leagent.llm.providers.openai import OpenAIProvider
-from leagent.llm.providers.vllm import VLLMProvider
+from StAgent.exceptions.llm import LLMServiceError
+from StAgent.llm.base import ChatMessage, StreamChunk, ToolCall, ToolDefinition
+from StAgent.llm.providers.custom import CustomOpenAIProvider
+from StAgent.llm.providers.openai import OpenAIProvider
+from StAgent.llm.providers.vllm import VLLMProvider
 
 
 # ---------------------------------------------------------------------------
@@ -302,11 +302,11 @@ class TestVLLMModelDetection:
 
 class TestVLLMRegistryWiring:
     def test_providers_package_exports_vllm(self) -> None:
-        from leagent.llm.providers import VLLMProvider as Exported
+        from StAgent.llm.providers import VLLMProvider as Exported
         assert Exported is VLLMProvider
 
     def test_provider_config_constructs_vllm(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="vllm-test",
@@ -325,7 +325,7 @@ class TestVLLMRegistryWiring:
         assert provider.api_key == "not-needed"
 
     def test_provider_config_constructs_remote_vllm_with_api_key(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="deepseek-vllm",
@@ -353,14 +353,14 @@ class TestVLLMRegistryWiring:
         assert provider.enable_auto_tool_choice is False
 
     def test_provider_preset_exists(self) -> None:
-        from leagent.llm.provider_config import PROVIDER_PRESETS
+        from StAgent.llm.provider_config import PROVIDER_PRESETS
         assert "vllm" in PROVIDER_PRESETS
         assert PROVIDER_PRESETS["vllm"]["default_base_url"] == "http://localhost:8000/v1"
         assert PROVIDER_PRESETS["vllm"]["requires_api_key"] is True
 
     def test_vllm_env_registers_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from leagent.config.settings import get_settings
-        from leagent.llm.registry import create_default_registry
+        from StAgent.config.settings import get_settings
+        from StAgent.llm.registry import create_default_registry
 
         monkeypatch.setenv("LLM_VLLM_ENDPOINT", "http://localhost:9000/v1")
         monkeypatch.setenv("LLM_VLLM_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
@@ -458,7 +458,7 @@ class TestVLLMHealthCheck:
 
         async def fake_complete(*, model, **kwargs):  # type: ignore[no-untyped-def]
             seen["model"] = model
-            from leagent.llm.base import LLMResponse
+            from StAgent.llm.base import LLMResponse
             return LLMResponse(content="pong", model=model)
 
         monkeypatch.setattr(p, "resolve_test_model", fake_resolve_test_model)

@@ -10,13 +10,13 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.config.settings import Settings
-from leagent.db.models.message import MessageRole, MessageStatus
-from leagent.db.service import DatabaseService
-from leagent.services.chat.repair import deduplicate_user_messages
-from leagent.services.chat.service import ChatService
-from leagent.services.session.state import SessionMessage, SessionState
-from leagent.services.session.store import TieredSessionStore
+from StAgent.config.settings import Settings
+from StAgent.db.models.message import MessageRole, MessageStatus
+from StAgent.db.service import DatabaseService
+from StAgent.services.chat.repair import deduplicate_user_messages
+from StAgent.services.chat.service import ChatService
+from StAgent.services.session.state import SessionMessage, SessionState
+from StAgent.services.session.store import TieredSessionStore
 
 
 @pytest_asyncio.fixture()

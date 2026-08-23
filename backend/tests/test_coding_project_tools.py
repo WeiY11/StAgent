@@ -15,13 +15,13 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.db.models import (
+from StAgent.db.models import (
     CodingProject,
     CodingProjectRuntimeKind,
     CodingProjectStatus,
 )
-from leagent.tools.base import ToolContext
-from leagent.project.scaffold.tools import (
+from StAgent.tools.base import ToolContext
+from StAgent.project.scaffold.tools import (
     CodingProjectLogsTool,
     CodingProjectReadTool,
     CodingProjectRunTool,
@@ -70,7 +70,7 @@ def patched_manager(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     )
 
     monkeypatch.setattr(
-        "leagent.project.scaffold.tools._get_manager",
+        "StAgent.project.scaffold.tools._get_manager",
         lambda: manager,
     )
     return manager
@@ -175,7 +175,7 @@ async def test_tool_requires_authenticated_user_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "leagent.tools.context._local_user_id_fallback",
+        "StAgent.tools.context._local_user_id_fallback",
         lambda: None,
     )
     tool = CodingProjectStatusTool()

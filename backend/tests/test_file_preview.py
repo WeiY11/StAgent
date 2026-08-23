@@ -1,7 +1,7 @@
 """Tests for HMAC-signed attachment URLs.
 
-The preview + download endpoints in :mod:`leagent.api.v1.files` rely on
-:mod:`leagent.services.auth.signed_url` for auth so the browser can
+The preview + download endpoints in :mod:`StAgent.api.v1.files` rely on
+:mod:`StAgent.services.auth.signed_url` for auth so the browser can
 embed ``<img src="/api/v1/files/.../preview?token=...">`` without
 shipping a JWT. We test the token primitives directly here; the HTTP
 endpoint wiring is covered by the API layer tests.
@@ -14,9 +14,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.api.v1.files import preview_response_policy
-from leagent.config.settings import get_settings
-from leagent.services.auth.signed_url import (
+from StAgent.api.v1.files import preview_response_policy
+from StAgent.config.settings import get_settings
+from StAgent.services.auth.signed_url import (
     SignedUrlError,
     build_download_url,
     build_preview_url,

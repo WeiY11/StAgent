@@ -42,7 +42,16 @@ export function useUserTasks(params: TaskListParams) {
         priority: params.priority,
         flow_id: params.flow_id,
       } as Record<string, string | number | boolean | undefined>),
-    refetchInterval: 5000,
+    // Fast poll only while some task is live; idle lists drop to 30s so
+    // newly created background tasks still surface eventually.
+    refetchInterval: (query) => {
+      const items = (query.state.data as PaginatedResponse<Task> | undefined)?.items;
+      if (!Array.isArray(items)) return 5000;
+      const active = items.some(
+        (t) => t.status === 'running' || t.status === 'pending' || t.status === 'queued',
+      );
+      return active ? 5000 : 30000;
+    },
   });
 }
 

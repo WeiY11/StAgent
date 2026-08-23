@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import AgentContext, ExecutionPlan, PlanStep
-from leagent.agent.planner import (
+from StAgent.agent.base import AgentContext, ExecutionPlan, PlanStep
+from StAgent.agent.planner import (
     TaskPlanner,
     build_dependency_graph,
     get_parallel_groups,
@@ -346,7 +346,7 @@ class _FakeBundle:
 
 
 class _FakeAgentMemory:
-    """Stand-in for :class:`leagent.memory.AgentMemory`.
+    """Stand-in for :class:`StAgent.memory.AgentMemory`.
 
     We only exercise ``recall()`` from the planner path, so the shim is
     intentionally minimal — just enough to record call args and hand back

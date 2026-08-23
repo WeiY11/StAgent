@@ -12,10 +12,10 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
-from leagent.tools.base import ToolContext
-from leagent.tools.workflow.workflow_save import WorkflowSaveTool
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
+from StAgent.tools.base import ToolContext
+from StAgent.tools.workflow.workflow_save import WorkflowSaveTool
 
 
 @pytest_asyncio.fixture()
@@ -77,7 +77,7 @@ async def test_workflow_save_updates_owned_dashed_flow_and_denies_other_user(
     sample_canonical_document: dict,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.workflow.nodes import bootstrap
+    from StAgent.workflow.nodes import bootstrap
 
     await bootstrap()
     owner_id = uuid4()
@@ -101,7 +101,7 @@ async def test_workflow_save_updates_owned_dashed_flow_and_denies_other_user(
         name="other old",
     )
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: SimpleNamespace(db=workflow_save_db),
     )
     tool = WorkflowSaveTool()

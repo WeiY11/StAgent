@@ -1,8 +1,8 @@
-"""Unit tests for :mod:`leagent.services.diagnostics_parsers.shell_output`."""
+"""Unit tests for :mod:`StAgent.services.diagnostics_parsers.shell_output`."""
 
 from __future__ import annotations
 
-from leagent.services.diagnostics_parsers.shell_output import (
+from StAgent.services.diagnostics_parsers.shell_output import (
     extract_shell_diagnostics,
     parse_ruff_output,
     parse_tsc_output,

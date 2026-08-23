@@ -30,16 +30,16 @@ Hooks 只能观察；控制面决定请求是否进入系统，权限层决定�
 
 纵深防御顺序建议：网络暴露面 → HTTP 认证 → 资源配额 → 工具权限与审批 → 沙箱与路径遏制 → 审计 Trace。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-权威细节见 [`docs/technical/security-control-plane_zh.md`](../../technical/security-control-plane_zh.md)；设置类在 `backend/leagent/config/settings.py` 的 `SecuritySettings`（环境前缀 `LEAGENT_SECURITY_`）。
+权威细节见 [`docs/technical/security-control-plane_zh.md`](../../technical/security-control-plane_zh.md)；设置类在 `backend/StAgent/config/settings.py` 的 `SecuritySettings`（环境前缀 `LEAGENT_SECURITY_`）。
 
 ### 强制认证
 
 | 组件 | 位置 |
 |------|------|
 | 实例访问密码 | `$LEAGENT_HOME/security.json`（PBKDF2） |
-| 会话 JWT | `LEAGENT_SECRET_KEY` / `$LEAGENT_HOME/secrets/.secret_key` HMAC |
+| 会话 JWT | `StAgent_SECRET_KEY` / `$StAgent_HOME/secrets/.secret_key` HMAC |
 | HTTP API | `/api/v1/auth/setup|login|logout`，`/me`，`/status` |
 | 命名用户 | `users` 表 + `/api/v1/admin/users` |
 
@@ -59,7 +59,7 @@ Hooks 只能观察；控制面决定请求是否进入系统，权限层决定�
 - `gate_diagnostics`：metrics / meta 需 bearer；
 - `gate_openapi`：禁用或限制 OpenAPI 文档；
 - 工作流 prompt/execution 与工作流 WebSocket 的所有权校验；
-- 拒绝弱签名 URL 回退密钥 `"leagent-local-secret"`。
+- 拒绝弱签名 URL 回退密钥 `"StAgent-local-secret"`。
 
 另有 `max_concurrent_per_user`（默认 5）限制每用户并发 Agent/沙箱；`cors_allow_origins`、`trusted_hosts`、可选 HSTS。
 
@@ -109,7 +109,7 @@ uv run pytest tests/test_approval_flow.py -v
 
 ## 业内对照
 
-OWASP LLM Top 10 强调不安全输出处理、过度代理、权限过宽与提示注入。MCP / 工具投毒场景要求把外部工具描述当不可信输入。成熟控制面接近 API Gateway + IdP + policy engine；LeAgent 在单机/局域网产品形态下提供“够用的强制认证 + 配额 + 工具审批”组合，而不是完整企业 IAM。与仅依赖 prompt firewall 的演示 Agent 相比，本控制面把决策放在服务配置与中间件。
+OWASP LLM Top 10 强调不安全输出处理、过度代理、权限过宽与提示注入。MCP / 工具投毒场景要求把外部工具描述当不可信输入。成熟控制面接近 API Gateway + IdP + policy engine；StAgent 在单机/局域网产品形态下提供“够用的强制认证 + 配额 + 工具审批”组合，而不是完整企业 IAM。与仅依赖 prompt firewall 的演示 Agent 相比，本控制面把决策放在服务配置与中间件。
 
 ## 生产检查表与总结
 

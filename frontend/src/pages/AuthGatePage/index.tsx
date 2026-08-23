@@ -84,7 +84,7 @@ export function AuthGatePage() {
         onSubmit={onSubmit}
         className="relative w-full max-w-md rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm"
       >
-        <p className="text-sm font-medium tracking-[0.2em] text-sky-700 uppercase">LeAgent</p>
+        <p className="text-sm font-medium tracking-[0.2em] text-sky-700 uppercase">StAgent</p>
         <h1 className="mt-3 text-2xl font-semibold text-zinc-900">
           {needsSetup ? t('auth.setupTitle') : t('auth.login')}
         </h1>

@@ -8,7 +8,7 @@ import pandas as pd
 
 
 async def main() -> None:
-    from leagent.tools.data.stock_chart import StockChartTool
+    from StAgent.tools.data.stock_chart import StockChartTool
 
     tool = StockChartTool()
 
@@ -33,7 +33,7 @@ async def main() -> None:
         df, "600519", "cn",
         ["ma", "volume", "macd", "rsi", "kdj", "boll"],
         [5, 10, 20], "", "default",
-        "d:/LeAgent/backend/_test_chart_output.png",
+        "d:/StAgent/backend/_test_chart_output.png",
     )
     print("render result:", {k: result.get(k) for k in ("success", "output_path", "file_size_bytes", "period", "data_points")})
 
@@ -42,7 +42,7 @@ async def main() -> None:
     df2["date"] = pd.to_datetime(df2["date"]).dt.date
     result2 = tool._render_chart(
         df2, "600519", "cn", ["ma", "volume"], [5, 10], "", "dark",
-        "d:/LeAgent/backend/_test_chart_output2.png",
+        "d:/StAgent/backend/_test_chart_output2.png",
     )
     print("render result (date objects):", {k: result2.get(k) for k in ("success", "period")})
 

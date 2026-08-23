@@ -81,7 +81,7 @@ export function buildMenu(mainWindow: BrowserWindow): void {
           },
         },
         {
-          label: 'LeAgent Documentation',
+          label: 'StAgent Documentation',
           click: () => {
             shell.openExternal('https://github.com/WeiY11/StAgent');
           },

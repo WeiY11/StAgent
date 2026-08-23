@@ -12,10 +12,10 @@ from typing import Any
 
 import pytest
 
-from leagent.runtime import execution_factory
-from leagent.runtime.execution_run import ExecutionRun, ExecutionScope, PauseToken
-from leagent.runtime.redis_run_store import RedisRunStore
-from leagent.runtime.run_store import (
+from StAgent.runtime import execution_factory
+from StAgent.runtime.execution_run import ExecutionRun, ExecutionScope, PauseToken
+from StAgent.runtime.redis_run_store import RedisRunStore
+from StAgent.runtime.run_store import (
     RunStore,
     get_run_store,
     reset_run_store,
@@ -76,7 +76,7 @@ def _restore_default_store() -> Any:
 
 
 def test_default_store_is_in_process_registry() -> None:
-    from leagent.runtime.execution_registry import get_execution_run_registry
+    from StAgent.runtime.execution_registry import get_execution_run_registry
 
     assert get_run_store() is get_execution_run_registry()
 
@@ -88,7 +88,7 @@ def test_set_and_reset_run_store() -> None:
     assert get_run_store() is store
 
     reset_run_store()
-    from leagent.runtime.execution_registry import get_execution_run_registry
+    from StAgent.runtime.execution_registry import get_execution_run_registry
 
     assert get_run_store() is get_execution_run_registry()
 

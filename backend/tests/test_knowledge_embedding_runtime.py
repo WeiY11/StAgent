@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.knowledge.embedding_runtime import resolve_knowledge_embedding_runtime
-from leagent.llm.base import EmbeddingResponse
-from leagent.memory.embeddings import LLMServiceEmbeddingProvider
+from StAgent.knowledge.embedding_runtime import resolve_knowledge_embedding_runtime
+from StAgent.llm.base import EmbeddingResponse
+from StAgent.memory.embeddings import LLMServiceEmbeddingProvider
 
 
 class _Registry:

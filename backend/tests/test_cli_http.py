@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from leagent.cli.http import DEFAULT_BASE_URL, CLIHttpClient
+from StAgent.cli.http import DEFAULT_BASE_URL, CLIHttpClient
 
 if TYPE_CHECKING:
     import pytest
 
 
 def test_cli_http_uses_default_when_environment_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_API_URL", "")
+    monkeypatch.setenv("StAgent_API_URL", "")
     client = CLIHttpClient()
 
     assert client.base_url == DEFAULT_BASE_URL
@@ -22,7 +22,7 @@ def test_cli_http_uses_default_when_environment_is_empty(monkeypatch: pytest.Mon
 
 
 def test_cli_http_explicit_base_url_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_API_URL", "http://environment.invalid")
+    monkeypatch.setenv("StAgent_API_URL", "http://environment.invalid")
     client = CLIHttpClient(base_url="http://explicit.invalid")
 
     assert client.base_url == "http://explicit.invalid"

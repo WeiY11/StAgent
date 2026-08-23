@@ -87,8 +87,8 @@ export default function TutorialArticle({
   const title = article?.title[lang] ?? "";
   const sectionTitle = section?.title[lang] ?? "";
   const pageTitle = article
-    ? `${title} · ${sectionTitle} · LeAgent`
-    : "LeAgent";
+    ? `${title} · ${sectionTitle} · StAgent`
+    : "StAgent";
   const description =
     (resolved ? extractDescription(resolved.markdown) : "") ||
     section?.description[lang] ||
@@ -106,7 +106,7 @@ export default function TutorialArticle({
         url: `${SITE_ORIGIN}${path}`,
         author: {
           "@type": "Organization",
-          name: "LeAgent contributors",
+          name: "StAgent contributors",
         },
         isPartOf: {
           "@type": "CollectionPage",
@@ -153,7 +153,7 @@ export default function TutorialArticle({
 
   useDocumentMeta({
     title: pageTitle,
-    description: description || "LeAgent tutorials",
+    description: description || "StAgent tutorials",
     path,
     type: "article",
     jsonLd,

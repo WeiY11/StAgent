@@ -44,22 +44,22 @@ def test_dockerfile_healthcheck_tracks_runtime_port_and_readiness() -> None:
     assert 'ENTRYPOINT ["tini", "--", "/entrypoint.sh"]' in dockerfile
     assert 'CMD ["server"]' in dockerfile
     assert "HEALTHCHECK" in dockerfile
-    assert "localhost:${LEAGENT_PORT:-8000}/api/v1/health/ready" in dockerfile
+    assert "localhost:${StAgent_PORT:-8000}/api/v1/health/ready" in dockerfile
     assert "localhost:8000/health" not in dockerfile
 
 
 def test_compose_requires_secret_and_uses_same_readiness_endpoint() -> None:
     compose = _load_yaml(_DEPLOY_DIR / "docker-compose.yml")
-    service = compose["services"]["leagent"]
+    service = compose["services"]["StAgent"]
     environment = service["environment"]
 
     assert service["build"]["target"] == "${BUILD_TARGET:-production}"
-    assert environment["LEAGENT_HOME"] == "/app/data"
-    assert environment["LEAGENT_PORT"] == "8000"
-    assert environment["LEAGENT_SECRET_KEY"].startswith("${LEAGENT_SECRET_KEY:?")
-    assert environment["LEAGENT_FILES__SIGNED_URL_SECRET"] == "${LEAGENT_SECRET_KEY}"
-    assert environment["LEAGENT_RUN_MIGRATIONS"] == "${LEAGENT_RUN_MIGRATIONS:-true}"
-    assert environment["LEAGENT_MIGRATIONS_REQUIRED"] == "${LEAGENT_MIGRATIONS_REQUIRED:-true}"
+    assert environment["StAgent_HOME"] == "/app/data"
+    assert environment["StAgent_PORT"] == "8000"
+    assert environment["StAgent_SECRET_KEY"].startswith("${StAgent_SECRET_KEY:?")
+    assert environment["StAgent_FILES__SIGNED_URL_SECRET"] == "${StAgent_SECRET_KEY}"
+    assert environment["StAgent_RUN_MIGRATIONS"] == "${StAgent_RUN_MIGRATIONS:-true}"
+    assert environment["StAgent_MIGRATIONS_REQUIRED"] == "${StAgent_MIGRATIONS_REQUIRED:-true}"
     assert environment["DATABASE_URL"] == "${DATABASE_URL:-}"
     assert environment["DB_DATABASE_URL"] == "${DB_DATABASE_URL:-}"
     assert environment["DB_SQLITE_PATH"] == "${DB_SQLITE_PATH:-}"
@@ -67,7 +67,7 @@ def test_compose_requires_secret_and_uses_same_readiness_endpoint() -> None:
     assert environment["DB_MAX_OVERFLOW"] == "${DB_MAX_OVERFLOW:-10}"
     assert service["healthcheck"]["test"] == [
         "CMD-SHELL",
-        'curl -f "http://localhost:$${LEAGENT_PORT:-8000}/api/v1/health/ready"',
+        'curl -f "http://localhost:$${StAgent_PORT:-8000}/api/v1/health/ready"',
     ]
 
 
@@ -77,7 +77,7 @@ def test_docker_runtime_contract_documents_postgres_and_sqlite_boundaries() -> N
     readme = _read_text(_DEPLOY_DIR / "README.md")
     env_example = _read_text(_DEPLOY_DIR / ".env.example")
 
-    assert "LEAGENT_WORKERS > 1 requires PostgreSQL DATABASE_URL" in entrypoint
+    assert "StAgent_WORKERS > 1 requires PostgreSQL DATABASE_URL" in entrypoint
     assert "postgres://*|postgresql://*|postgresql+*" in entrypoint
     assert "DATABASE_URL=postgresql+asyncpg://" in env_example
     assert "Set `DATABASE_URL` to use an external PostgreSQL database" in " ".join(readme.split())
@@ -87,7 +87,7 @@ def test_docker_runtime_contract_documents_postgres_and_sqlite_boundaries() -> N
 
 def test_dev_compose_uses_readiness_endpoint() -> None:
     compose = _load_yaml(_DEPLOY_DIR / "docker-compose.dev.yml")
-    service = compose["services"]["leagent"]
+    service = compose["services"]["StAgent"]
 
     assert service["healthcheck"]["test"] == [
         "CMD",
@@ -101,8 +101,8 @@ def test_entrypoint_and_docker_helper_health_use_readiness() -> None:
     entrypoint = _read_text(_DEPLOY_DIR / "entrypoint.sh")
     helper = _read_text(_DEPLOY_DIR / "run_docker.sh")
 
-    assert "http://localhost:${LEAGENT_PORT}/api/v1/health/ready" in entrypoint
-    assert "http://localhost:${LEAGENT_PORT}/health" not in entrypoint
+    assert "http://localhost:${StAgent_PORT}/api/v1/health/ready" in entrypoint
+    assert "http://localhost:${StAgent_PORT}/health" not in entrypoint
     assert "http://localhost:$port/api/v1/health/ready" in helper
     assert "http://localhost:$port/health" not in helper
 
@@ -110,7 +110,7 @@ def test_entrypoint_and_docker_helper_health_use_readiness() -> None:
 def test_supervisor_bind_tracks_entrypoint_host_and_port() -> None:
     supervisor = _read_text(_DEPLOY_DIR / "supervisord.conf")
 
-    assert "--bind %(ENV_LEAGENT_HOST)s:%(ENV_LEAGENT_PORT)s" in supervisor
+    assert "--bind %(ENV_StAgent_HOST)s:%(ENV_StAgent_PORT)s" in supervisor
     assert "--bind 0.0.0.0:8000" not in supervisor
 
 
@@ -122,7 +122,7 @@ def test_ci_docker_smoke_covers_startup_ready_and_postgres_driver() -> None:
 
     run_blocks = "\n".join(str(step.get("run", "")) for step in job["steps"])
     assert "-p 127.0.0.1:18000:8000" in run_blocks
-    assert "LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes" in run_blocks
+    assert "StAgent_SECRET_KEY=test-secret-key-with-at-least-32-bytes" in run_blocks
     assert "for path in /health /api/v1/health/ready" in run_blocks
     assert 'curl -fsS "http://127.0.0.1:18000${path}"' in run_blocks
-    assert "import leagent, asyncpg" in run_blocks
+    assert "import StAgent, asyncpg" in run_blocks

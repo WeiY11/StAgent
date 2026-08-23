@@ -15,10 +15,10 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.db.models.mission import Mission
-from leagent.mission.runner import AlwaysPassVerifier, StaticPlanner
-from leagent.mission.service import MissionService, get_mission_service
-from leagent.mission.types import MissionPlan, MissionStepState, SegmentResult
+from StAgent.db.models.mission import Mission
+from StAgent.mission.runner import AlwaysPassVerifier, StaticPlanner
+from StAgent.mission.service import MissionService, get_mission_service
+from StAgent.mission.types import MissionPlan, MissionStepState, SegmentResult
 
 _TERMINAL = {"completed", "failed", "aborted", "expired"}
 
@@ -56,7 +56,7 @@ def fake_executor() -> FakeExecutor:
 
 @pytest.fixture()
 def mission_svc(app, fake_executor: FakeExecutor) -> MissionService:  # type: ignore[no-untyped-def]
-    from leagent.db import get_database_service
+    from StAgent.db import get_database_service
 
     service = MissionService(
         db=get_database_service(),
@@ -159,12 +159,12 @@ def test_foreign_user_mission_is_404(client: TestClient, mission_svc: MissionSer
 
     import sqlite3
 
-    from leagent.config.settings import get_settings
-    from leagent.services.auth.deps import get_current_user_id
+    from StAgent.config.settings import get_settings
+    from StAgent.services.auth.deps import get_current_user_id
 
     foreign_user = uuid4()
     # The mission FK targets ``users.id`` — materialize the foreign user row
-    # first (sync sqlite3; the app DB is a plain SQLite file under LEAGENT_HOME).
+    # first (sync sqlite3; the app DB is a plain SQLite file under StAgent_HOME).
     db_path = get_settings().database._sqlite_file_path()
     with sqlite3.connect(db_path) as conn:
         # ``users.id`` is CHAR(32): UUID hex without dashes.

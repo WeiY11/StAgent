@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.channels.base import (
+from StAgent.channels.base import (
     ChannelMessage,
     ChannelType,
     MessageStatus,
@@ -60,20 +60,20 @@ class TestChannelMessage:
 
 class TestChannelRegistry:
     def test_import_registry_module(self) -> None:
-        from leagent.channels import registry
+        from StAgent.channels import registry
         assert hasattr(registry, "_load_builtin_channels")
 
     def test_builtin_channel_specs_exist(self) -> None:
-        from leagent.channels.registry import BUILTIN_CHANNEL_SPECS
+        from StAgent.channels.registry import BUILTIN_CHANNEL_SPECS
         assert isinstance(BUILTIN_CHANNEL_SPECS, dict)
         assert "console" in BUILTIN_CHANNEL_SPECS
 
     def test_console_channel_loadable(self) -> None:
-        from leagent.channels.console.channel import ConsoleChannel
+        from StAgent.channels.console.channel import ConsoleChannel
         assert ConsoleChannel is not None
 
     def test_builtin_specs_have_correct_format(self) -> None:
-        from leagent.channels.registry import BUILTIN_CHANNEL_SPECS
+        from StAgent.channels.registry import BUILTIN_CHANNEL_SPECS
         for key, (module_path, class_name) in BUILTIN_CHANNEL_SPECS.items():
             assert isinstance(module_path, str)
             assert isinstance(class_name, str)
@@ -86,23 +86,23 @@ class TestChannelRegistry:
 
 class TestMessageRenderer:
     def test_import(self) -> None:
-        from leagent.channels.renderer import MessageRenderer
+        from StAgent.channels.renderer import MessageRenderer
         assert MessageRenderer is not None
 
     def test_format_for_console(self) -> None:
-        from leagent.channels.renderer import MessageRenderer
+        from StAgent.channels.renderer import MessageRenderer
         renderer = MessageRenderer()
         formatted = renderer.render("Hello!", MessageType.TEXT)
         assert isinstance(formatted, str)
 
     def test_format_markdown_for_web(self) -> None:
-        from leagent.channels.renderer import MessageRenderer, RenderStyle
+        from StAgent.channels.renderer import MessageRenderer, RenderStyle
         renderer = MessageRenderer(style=RenderStyle(supports_markdown=True))
         formatted = renderer.render("# Header\n**Bold**", MessageType.MARKDOWN)
         assert formatted is not None
 
     def test_render_text_message(self) -> None:
-        from leagent.channels.renderer import MessageRenderer
+        from StAgent.channels.renderer import MessageRenderer
         renderer = MessageRenderer()
         msg = ChannelMessage(content="Simple text")
         result = renderer.render(msg)
@@ -118,7 +118,7 @@ class TestMessageRenderer:
 class TestConsoleChannel:
     async def test_send_message(self) -> None:
         try:
-            from leagent.channels.console.channel import ConsoleChannel
+            from StAgent.channels.console.channel import ConsoleChannel
         except ImportError:
             pytest.skip("ConsoleChannel not available")
 
@@ -127,7 +127,7 @@ class TestConsoleChannel:
 
     async def test_channel_type(self) -> None:
         try:
-            from leagent.channels.console.channel import ConsoleChannel
+            from StAgent.channels.console.channel import ConsoleChannel
         except ImportError:
             pytest.skip("ConsoleChannel not available")
 

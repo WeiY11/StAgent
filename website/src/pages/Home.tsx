@@ -57,7 +57,7 @@ export default function Home() {
             <div className="hero-canvas__inner">
               <img
                 src={homePreviewSrc}
-                alt="LeAgent workspace"
+                alt="StAgent workspace"
                 className="hero-canvas__image"
               />
             </div>

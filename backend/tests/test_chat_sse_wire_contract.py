@@ -17,8 +17,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.base import StreamEvent
-from leagent.api.v1.chat.agent_stream import run_agent_stream
+from StAgent.agent.base import StreamEvent
+from StAgent.api.v1.chat.agent_stream import run_agent_stream
 
 
 class _FakeAgent:

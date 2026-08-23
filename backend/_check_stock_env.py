@@ -12,7 +12,7 @@ for mod in ("akshare", "pandas", "matplotlib", "mplfinance"):
 
 # Check tool registration path
 try:
-    from leagent.tools.registry import ToolRegistry
+    from StAgent.tools.registry import ToolRegistry
     reg = ToolRegistry()
     n = reg.discover_all(categories=["data"])
     names = [t for t in reg.list_tools()]

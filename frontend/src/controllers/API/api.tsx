@@ -73,7 +73,7 @@ export function getAccessToken(): string | null {
   try {
     // Sync path — prefer in-memory/localStorage via the shared client module.
     // Dynamic import is async; use localStorage mirror for interceptors.
-    return localStorage.getItem('leagent_access_token');
+    return localStorage.getItem('StAgent_access_token');
   } catch {
     return null;
   }

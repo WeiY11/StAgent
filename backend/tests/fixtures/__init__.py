@@ -1,1 +1,1 @@
-"""Test fixtures package for LeAgent backend tests."""
+"""Test fixtures package for StAgent backend tests."""

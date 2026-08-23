@@ -1,5 +1,5 @@
 {
-  "name": "leagent-frontend",
+  "name": "stagent-frontend",
   "version": "1.2.12",
   "license": "Apache-2.0",
   "private": true,
@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "check:source-text": "node scripts/check-source-text.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {

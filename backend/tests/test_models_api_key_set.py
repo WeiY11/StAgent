@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from leagent.api.v1.models import _compute_api_key_set
-from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+from StAgent.api.v1.models import _compute_api_key_set
+from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
 
 def _fake_llm(**keys: str) -> SimpleNamespace:
@@ -42,7 +42,7 @@ def test_compute_from_env_reference_when_unset(tmp_path, monkeypatch: pytest.Mon
         api_key="${MISSING_KEY}",
         models=[{"name": "deepseek-v4-flash"}],
     )
-    with patch("leagent.config.settings.get_settings", return_value=SimpleNamespace(llm=_fake_llm())):
+    with patch("StAgent.config.settings.get_settings", return_value=SimpleNamespace(llm=_fake_llm())):
         assert _compute_api_key_set(pc, svc) is False
 
 
@@ -55,7 +55,7 @@ def test_compute_fallback_deepseek_env(tmp_path, monkeypatch: pytest.MonkeyPatch
         models=[{"name": "deepseek-v4-flash"}],
     )
     llm = _fake_llm(deepseek_api_key="sk-env")
-    with patch("leagent.config.settings.get_settings", return_value=SimpleNamespace(llm=llm)):
+    with patch("StAgent.config.settings.get_settings", return_value=SimpleNamespace(llm=llm)):
         assert _compute_api_key_set(pc, svc) is True
 
 
@@ -68,5 +68,5 @@ def test_compute_deepseek_from_env_when_yaml_empty(tmp_path, monkeypatch: pytest
         models=[{"name": "deepseek-v4-flash"}],
     )
     llm = _fake_llm(deepseek_api_key="k-tier")
-    with patch("leagent.config.settings.get_settings", return_value=SimpleNamespace(llm=llm)):
+    with patch("StAgent.config.settings.get_settings", return_value=SimpleNamespace(llm=llm)):
         assert _compute_api_key_set(pc, svc) is True

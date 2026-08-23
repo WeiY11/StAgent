@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'leagent-site-theme';
+  var STORAGE_KEY = 'StAgent-site-theme';
   var mqDark = window.matchMedia('(prefers-color-scheme: dark)');
 
   function getStoredTheme() {

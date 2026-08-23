@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-当 Agent 调用 `ask_user`、触发工具审批，或因 `max_turns`、中止、预算耗尽等原因停下时，系统需要**从同一次执行的位置继续**，而不是让用户从头把故事再讲一遍。LeAgent 用 `Checkpoint` 与 `CheckpointStore` 表达这种可恢复点。先修：[25](25-session-identity.md)、[27](27-message-lifecycle.md)。代码：`backend/leagent/sdk/kernel/checkpoint.py`、`loop.py`，以及 `AgentRuntime.resume`（`backend/leagent/runtime/runtime.py`）。
+当 Agent 调用 `ask_user`、触发工具审批，或因 `max_turns`、中止、预算耗尽等原因停下时，系统需要**从同一次执行的位置继续**，而不是让用户从头把故事再讲一遍。StAgent 用 `Checkpoint` 与 `CheckpointStore` 表达这种可恢复点。先修：[25](25-session-identity.md)、[27](27-message-lifecycle.md)。代码：`backend/StAgent/sdk/kernel/checkpoint.py`、`loop.py`，以及 `AgentRuntime.resume`（`backend/StAgent/runtime/runtime.py`）。
 
 开始前再次背诵边界——做错身份键比写错摘要更常见：
 
@@ -88,7 +88,7 @@ uv run pytest tests/test_kernel_checkpoint.py tests/test_chat_checkpoint_resume.
 
 ## 业内对照
 
-LangGraph checkpointer、Claude / Codex 可恢复 rollout、部分 Assistants run 状态，都在表达执行可挂起。LeAgent 将其收拢进 SDK kernel，并与 `ExecutionRun` 的 pause token 关联，让 SSE/UI 能展示统一的 Continue 体验，同时保持 transcript 与 checkpoint 分表分责。
+LangGraph checkpointer、Claude / Codex 可恢复 rollout、部分 Assistants run 状态，都在表达执行可挂起。StAgent 将其收拢进 SDK kernel，并与 `ExecutionRun` 的 pause token 关联，让 SSE/UI 能展示统一的 Continue 体验，同时保持 transcript 与 checkpoint 分表分责。
 
 ## 产品与运维清单
 

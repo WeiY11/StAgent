@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  LeAgent single-node start script (Windows / PowerShell).
+  StAgent single-node start script (Windows / PowerShell).
 
 .DESCRIPTION
   Mirrors start.sh: backend (uv + FastAPI), frontend (Vite or serve in prod),
@@ -81,13 +81,13 @@ if (-not $env:UV_PROJECT_ENVIRONMENT) {
 $BackendPort = if ($env:PORT) { $env:PORT } else { '7860' }
 $FrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { '5173' }
 $HostBind = if ($env:HOST) { $env:HOST } else { '0.0.0.0' }
-$LogDir = if ($env:LEAGENT_LOG_DIR) { $env:LEAGENT_LOG_DIR } else { Join-Path $ScriptDir 'logs' }
+$LogDir = if ($env:StAgent_LOG_DIR) { $env:StAgent_LOG_DIR } else { Join-Path $ScriptDir 'logs' }
 $Mode = 'dev'
 $StreamLogs = $true
 $ForceUvSync = $false
 $UvSyncExtras = if ($env:UV_SYNC_EXTRAS) { $env:UV_SYNC_EXTRAS } else { 'dev browser' }
-$LogRetention = if ($env:LEAGENT_LOG_RETENTION) { [int]$env:LEAGENT_LOG_RETENTION } else { 5 }
-$ShutdownGraceSec = if ($env:LEAGENT_SHUTDOWN_GRACE_SEC) { [int]$env:LEAGENT_SHUTDOWN_GRACE_SEC } else { 5 }
+$LogRetention = if ($env:StAgent_LOG_RETENTION) { [int]$env:StAgent_LOG_RETENTION } else { 5 }
+$ShutdownGraceSec = if ($env:StAgent_SHUTDOWN_GRACE_SEC) { [int]$env:StAgent_SHUTDOWN_GRACE_SEC } else { 5 }
 
 if (-not $env:PYTHONUNBUFFERED) { $env:PYTHONUNBUFFERED = '1' }
 if (-not $env:PYTHONIOENCODING) { $env:PYTHONIOENCODING = 'utf-8' }
@@ -97,7 +97,7 @@ $script:TailJobs = @()
 $script:NODE_BIN = $null
 $script:NPM_BIN = $null
 
-$LockFile = Join-Path $ScriptDir '.leagent.lock'
+$LockFile = Join-Path $ScriptDir '.StAgent.lock'
 
 # ── Helpers ─────────────────────────────────────────────────────
 function Print-Help {
@@ -129,9 +129,9 @@ Requirements:
   git, uv, npm, Node.js 20.19+ or 22.12+ (Vite 7)
 
 Environment:
-  PORT, FRONTEND_PORT, HOST, LEAGENT_LOG_DIR, LEAGENT_LOG_RETENTION,
-  LEAGENT_SHUTDOWN_GRACE_SEC, UV_SYNC_EXTRAS,
-  LEAGENT_SKIP_PLAYWRIGHT_INSTALL, LEAGENT_PLAYWRIGHT_MIRROR, PLAYWRIGHT_DOWNLOAD_HOST,
+  PORT, FRONTEND_PORT, HOST, StAgent_LOG_DIR, StAgent_LOG_RETENTION,
+  StAgent_SHUTDOWN_GRACE_SEC, UV_SYNC_EXTRAS,
+  StAgent_SKIP_PLAYWRIGHT_INSTALL, StAgent_PLAYWRIGHT_MIRROR, PLAYWRIGHT_DOWNLOAD_HOST,
   UV_PROJECT_ENVIRONMENT
 '@ | Write-Host
 }
@@ -146,7 +146,7 @@ function Get-ElapsedSeconds([DateTime] $Start) {
     return '{0:0}s' -f ((Get-Date) - $Start).TotalSeconds
 }
 
-function Get-LeAgentVersion {
+function Get-StAgentVersion {
     $pyproject = Join-Path $BackendDir 'pyproject.toml'
     if (Test-Path $pyproject) {
         $match = Select-String -Path $pyproject -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
@@ -160,7 +160,7 @@ function Print-Banner {
         Write-Host @'
 
   ╭──────────────────────────────────────────────────────────╮
-  │          LeAgent  ──  Production Environment             │
+  │          StAgent  ──  Production Environment             │
   │                                                          │
   │  Backend   FastAPI  HTTP/WS/SSE  QueryEngine             │
   │  Frontend  React 19  Vite  ReactFlow                     │
@@ -171,14 +171,14 @@ function Print-Banner {
         Write-Host @'
 
   ╭──────────────────────────────────────────────────────────╮
-  │          LeAgent  ──  Development Environment            │
+  │          StAgent  ──  Development Environment            │
   │                                                          │
   │  Backend   FastAPI  HTTP/WS/SSE  QueryEngine             │
   │  Frontend  React 19  Vite  ReactFlow                     │
   ╰──────────────────────────────────────────────────────────╯
 '@ -ForegroundColor Cyan
     }
-    Info "version  $(Get-LeAgentVersion)"
+    Info "version  $(Get-StAgentVersion)"
     Info "platform windows   mode $Mode"
     if ($Mode -eq 'prod') {
         Info "app      http://${HostBind}:${BackendPort}  (API + static UI)"
@@ -202,7 +202,7 @@ function Acquire-Lock {
             else {
                 $proc = Get-Process -Id ([int]$lockPid) -ErrorAction SilentlyContinue
                 if ($proc) {
-                    Fail "Another LeAgent instance is running (PID $lockPid). Use '.\start.ps1 stop' first, or remove $LockFile."
+                    Fail "Another StAgent instance is running (PID $lockPid). Use '.\start.ps1 stop' first, or remove $LockFile."
                 }
                 Warn "Stale lock file found (PID $lockPid no longer running) - removing"
                 Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
@@ -270,7 +270,7 @@ function Ensure-LogDir {
 # ── Log rotation ──────────────────────────────────────────────
 # Rotate only when the log exceeds a size threshold (default 50 MB)
 # to avoid unbounded growth between restarts.
-$LogRotateMaxMB = if ($env:LEAGENT_LOG_ROTATE_MAX_MB) { [int]$env:LEAGENT_LOG_ROTATE_MAX_MB } else { 50 }
+$LogRotateMaxMB = if ($env:StAgent_LOG_ROTATE_MAX_MB) { [int]$env:StAgent_LOG_ROTATE_MAX_MB } else { 50 }
 
 function Rotate-Log([string] $LogPath) {
     if (-not (Test-Path $LogPath)) { return }
@@ -440,9 +440,9 @@ function Ensure-BackendSync {
 }
 
 function Ensure-PlaywrightBrowsers {
-    if ($env:LEAGENT_SKIP_PLAYWRIGHT_INSTALL -eq '1') { return }
+    if ($env:StAgent_SKIP_PLAYWRIGHT_INSTALL -eq '1') { return }
     if (" $UvSyncExtras " -notmatch '\s+browser\s+') { return }
-    if (-not $env:PLAYWRIGHT_DOWNLOAD_HOST -and $env:LEAGENT_PLAYWRIGHT_MIRROR -eq '1') {
+    if (-not $env:PLAYWRIGHT_DOWNLOAD_HOST -and $env:StAgent_PLAYWRIGHT_MIRROR -eq '1') {
         $env:PLAYWRIGHT_DOWNLOAD_HOST = 'https://npmmirror.com/mirrors/playwright/'
     }
     $pwMarker = Join-Path $BackendDir '.playwright_chromium_marker'
@@ -464,7 +464,7 @@ function Ensure-PlaywrightBrowsers {
         Success "Playwright Chromium ready ($(Get-ElapsedSeconds $t0))"
     }
     else {
-        Warn 'playwright install chromium failed — set PLAYWRIGHT_DOWNLOAD_HOST or LEAGENT_PLAYWRIGHT_MIRROR=1 and retry'
+        Warn 'playwright install chromium failed — set PLAYWRIGHT_DOWNLOAD_HOST or StAgent_PLAYWRIGHT_MIRROR=1 and retry'
     }
 }
 
@@ -521,7 +521,7 @@ function Build-Frontend {
     Success "Frontend build complete ($(Get-ElapsedSeconds $t0))"
 }
 
-function Start-LeAgentBackgroundCmd {
+function Start-StAgentBackgroundCmd {
     param(
         [string] $Name,
         [string] $LogBase,
@@ -557,7 +557,7 @@ function Wait-StreamLogs {
     if ($script:ChildProcesses.Count -eq 0) {
         return
     }
-    $backlog = if ($env:LEAGENT_LOG_BACKLOG) { [int]$env:LEAGENT_LOG_BACKLOG } else { 200 }
+    $backlog = if ($env:StAgent_LOG_BACKLOG) { [int]$env:StAgent_LOG_BACKLOG } else { 200 }
     $paths = @(
         (Join-Path $LogDir 'monolith.log'),
         (Join-Path $LogDir 'frontend.log')
@@ -630,23 +630,23 @@ function Start-BackendService {
     if ($Mode -eq 'prod') {
         Build-Frontend
         $dist = (Join-Path $ScriptDir 'frontend\dist') -replace '\\', '/'
-        $env:LEAGENT_FRONTEND_DIST = $dist
+        $env:StAgent_FRONTEND_DIST = $dist
         # Default to a single worker (safe for the default SQLite database).
-        # Opt into more workers only via LEAGENT_WORKERS, which the launcher
+        # Opt into more workers only via StAgent_WORKERS, which the launcher
         # validates against the configured database backend before binding.
-        $ProductionWorkers = if ($env:LEAGENT_WORKERS) { [int]$env:LEAGENT_WORKERS } else { 1 }
-        $inner = "`"$uvQ`" run --directory `"$bdQ`" leagent app start --host $HostBind --port $BackendPort --workers $ProductionWorkers --production"
+        $ProductionWorkers = if ($env:StAgent_WORKERS) { [int]$env:StAgent_WORKERS } else { 1 }
+        $inner = "`"$uvQ`" run --directory `"$bdQ`" StAgent app start --host $HostBind --port $BackendPort --workers $ProductionWorkers --production"
     }
     else {
-        $inner = "`"$uvQ`" run --directory `"$bdQ`" leagent app start --host $HostBind --port $BackendPort --reload"
+        $inner = "`"$uvQ`" run --directory `"$bdQ`" StAgent app start --host $HostBind --port $BackendPort --reload"
     }
     $logPath = (Join-Path $LogDir 'monolith.log') -replace '\\', '/'
-    Start-LeAgentBackgroundCmd 'Backend' 'monolith' "$inner >> `"$logPath`" 2>&1"
+    Start-StAgentBackgroundCmd 'Backend' 'monolith' "$inner >> `"$logPath`" 2>&1"
 }
 
 function Start-FrontendService {
     if ($Mode -eq 'prod') {
-        Info 'Production UI is served by the backend (LEAGENT_FRONTEND_DIST)'
+        Info 'Production UI is served by the backend (StAgent_FRONTEND_DIST)'
         Info "Open http://${HostBind}:${BackendPort}  — not :${FrontendPort}"
         return
     }
@@ -660,7 +660,7 @@ function Start-FrontendService {
     $viteWs = if ($env:VITE_WS_PROXY_TARGET) { $env:VITE_WS_PROXY_TARGET } else { "ws://127.0.0.1:$BackendPort" }
     $nodeExe = $script:NODE_BIN -replace '/', '\\'
     $inner = "cd /d `"$fe`" && set VITE_API_PROXY_TARGET=$viteApi&& set VITE_WS_PROXY_TARGET=$viteWs&& set PATH=$nodeDir;%PATH% && `"$nodeExe`" .\node_modules\vite\bin\vite.js --port $FrontendPort --host"
-    Start-LeAgentBackgroundCmd 'Frontend' 'frontend' "$inner >> `"$logPath`" 2>&1"
+    Start-StAgentBackgroundCmd 'Frontend' 'frontend' "$inner >> `"$logPath`" 2>&1"
 }
 
 function Wait-BackendReady {
@@ -689,7 +689,7 @@ function Wait-BackendReady {
 
 # ── Status ─────────────────────────────────────────────────────
 function Show-Status {
-    Step 'LeAgent service status'
+    Step 'StAgent service status'
     $bPids = @(Get-PidsOnPort ([int]$BackendPort))
     $fPids = @(Get-PidsOnPort ([int]$FrontendPort))
 
@@ -729,13 +729,13 @@ function Invoke-SystemCheck {
     if (-not (Test-Path (Join-Path $ScriptDir 'frontend/package.json'))) { Fail 'frontend/package.json missing' }
     Step 'Verifying backend import'
     $uv = Get-UvExe
-    & $uv run --directory $BackendDir python -c "import leagent.main; print('  ✔ leagent.main importable')"
+    & $uv run --directory $BackendDir python -c "import StAgent.main; print('  ✔ StAgent.main importable')"
     if ($LASTEXITCODE -ne 0) { Fail 'backend import check failed' }
     Write-Host ''
     Success 'All checks passed'
 }
 
-function Stop-LeAgentChildren {
+function Stop-StAgentChildren {
     Write-Host ''
     Info "Shutting down (grace period: ${ShutdownGraceSec}s)..."
     Stop-TailJobs
@@ -773,9 +773,9 @@ function Stop-LeAgentChildren {
     Success 'Shutdown complete'
 }
 
-function Stop-LeAgent {
+function Stop-StAgent {
     # Kill a running supervisor (from the lock file) so its log-tail jobs and
-    # streaming are torn down, then free the ports. Mirrors stop_leagent in
+    # streaming are torn down, then free the ports. Mirrors stop_StAgent in
     # start.sh — without this, a `stop` from another shell leaves the streaming
     # supervisor (and its tail jobs) alive.
     if (Test-Path $LockFile) {
@@ -801,7 +801,7 @@ function Stop-LeAgent {
     }
     Kill-Port ([int]$BackendPort)
     Kill-Port ([int]$FrontendPort)
-    Success "Stopped LeAgent processes on ports $BackendPort, $FrontendPort"
+    Success "Stopped StAgent processes on ports $BackendPort, $FrontendPort"
 }
 
 function Register-InterruptHandler {
@@ -810,7 +810,7 @@ function Register-InterruptHandler {
     $handler = [ConsoleCancelEventHandler] {
         param($sender, $e)
         $e.Cancel = $true
-        Stop-LeAgentChildren
+        Stop-StAgentChildren
         [Environment]::Exit(0)
     }
     try {
@@ -872,7 +872,7 @@ switch ($Command) {
     'status' { Show-Status }
     'log' {
         Ensure-LogDir
-        $backlog = if ($env:LEAGENT_LOG_BACKLOG) { [int]$env:LEAGENT_LOG_BACKLOG } else { 200 }
+        $backlog = if ($env:StAgent_LOG_BACKLOG) { [int]$env:StAgent_LOG_BACKLOG } else { 200 }
         if ($LogService) {
             $one = Join-Path $LogDir "$LogService.log"
             Get-Content $one -Tail $backlog -Wait -Encoding UTF8
@@ -898,7 +898,7 @@ switch ($Command) {
         }
     }
     'stop' {
-        Stop-LeAgent
+        Stop-StAgent
     }
     'backend' {
         Print-Banner

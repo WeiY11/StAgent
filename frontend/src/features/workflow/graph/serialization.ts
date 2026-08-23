@@ -6,7 +6,7 @@
  * requires the canonical shape: `nodes` is a `dict[node_id, {class_type,
  * inputs, meta, control}]` and data dependencies are expressed as input link
  * refs `[upstream_node_id, slot_index]` (see
- * `leagent/workflow/io/loader.py` and `engine/graph.py`). We therefore emit
+ * `StAgent/workflow/io/loader.py` and `engine/graph.py`). We therefore emit
  * that exact shape so editor-authored flows are directly runnable, and attach
  * a sibling `ui` block (editor nodes/edges/viewport) so the editor can reload
  * the exact visual layout.

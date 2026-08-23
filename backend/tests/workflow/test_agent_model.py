@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from leagent.runtime import AgentBuilder
-from leagent.workflow.nodes.agent_model import (
+from StAgent.runtime import AgentBuilder
+from StAgent.workflow.nodes.agent_model import (
     apply_model_override,
     parse_agent_model_override,
 )

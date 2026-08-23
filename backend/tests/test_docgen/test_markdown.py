@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from leagent.docgen.markdown import parse_inline, parse_markdown_blocks
-from leagent.docgen.model import (
+from StAgent.docgen.markdown import parse_inline, parse_markdown_blocks
+from StAgent.docgen.model import (
     CalloutBlock,
     ChartBlock,
     CodeBlock,

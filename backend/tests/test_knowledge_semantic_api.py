@@ -10,10 +10,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-import leagent.config.config as runtime_config
-from leagent.api.v1 import knowledge_semantic as semantic_api
-from leagent.config.settings import Settings
-from leagent.services.service_manager import ServiceManager
+import StAgent.config.config as runtime_config
+from StAgent.api.v1 import knowledge_semantic as semantic_api
+from StAgent.config.settings import Settings
+from StAgent.services.service_manager import ServiceManager
 
 
 def test_semantic_router_exposes_all_public_operations() -> None:
@@ -161,14 +161,14 @@ async def test_config_persists_valid_local_model_then_restarts_and_queues_rebuil
             return "semantic-task"
 
     for name in (
-        "LEAGENT_KNOWLEDGE__SEMANTIC__ENABLED",
-        "LEAGENT_KNOWLEDGE_SEMANTIC_ENABLED",
-        "LEAGENT_KNOWLEDGE__SEMANTIC__VECTOR_BACKEND",
-        "LEAGENT_KNOWLEDGE_SEMANTIC_VECTOR_BACKEND",
-        "LEAGENT_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID",
-        "LEAGENT_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID",
-        "LEAGENT_KNOWLEDGE__SEMANTIC__AUTO_REINDEX",
-        "LEAGENT_KNOWLEDGE_SEMANTIC_AUTO_REINDEX",
+        "StAgent_KNOWLEDGE__SEMANTIC__ENABLED",
+        "StAgent_KNOWLEDGE_SEMANTIC_ENABLED",
+        "StAgent_KNOWLEDGE__SEMANTIC__VECTOR_BACKEND",
+        "StAgent_KNOWLEDGE_SEMANTIC_VECTOR_BACKEND",
+        "StAgent_KNOWLEDGE__SEMANTIC__LOCAL_MODEL_ID",
+        "StAgent_KNOWLEDGE_SEMANTIC_LOCAL_MODEL_ID",
+        "StAgent_KNOWLEDGE__SEMANTIC__AUTO_REINDEX",
+        "StAgent_KNOWLEDGE_SEMANTIC_AUTO_REINDEX",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(runtime_config, "CONFIG_PATH", config_path)
@@ -280,7 +280,7 @@ def test_admin_operations_are_forbidden_for_non_admin_when_auth_is_enforced(
     monkeypatch: pytest.MonkeyPatch, method: str, path: str
 ) -> None:
     """The route-level dependency must reject a normal principal before mutation."""
-    from leagent.services.auth import deps
+    from StAgent.services.auth import deps
 
     monkeypatch.setattr(deps, "_auth_enforced", lambda: True)
     monkeypatch.setattr(deps, "_bearer_token", lambda _request: "token")

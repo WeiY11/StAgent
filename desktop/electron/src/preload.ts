@@ -7,7 +7,7 @@ type TitleBarStyle = 'mac' | 'overlay' | 'custom';
 const titleBarStyle: TitleBarStyle =
   process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'overlay' : 'custom';
 
-const leagentBridge = {
+const StAgentBridge = {
   platform: process.platform,
 
   window: {
@@ -47,7 +47,7 @@ const leagentBridge = {
         userData: string;
         logs: string;
         home: string;
-        leagentHome: string;
+        StAgentHome: string;
       }>,
     getMachineFingerprint: () => ipcRenderer.invoke('app:getMachineFingerprint') as Promise<string>,
     openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
@@ -119,4 +119,4 @@ const leagentBridge = {
   },
 };
 
-contextBridge.exposeInMainWorld('leagent', leagentBridge);
+contextBridge.exposeInMainWorld('StAgent', StAgentBridge);

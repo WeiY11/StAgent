@@ -1,3 +1,3 @@
-﻿# Architecture
+# Architecture
 
 TODO: Write architecture guide.

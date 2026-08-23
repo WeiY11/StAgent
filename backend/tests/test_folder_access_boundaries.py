@@ -11,15 +11,15 @@ import pytest_asyncio
 from fastapi import HTTPException
 from starlette.datastructures import UploadFile
 
-from leagent.api.v1 import documents as v1_documents
-from leagent.api.v1 import files as v1_files
-from leagent.api.v1.folder_items import AddItemRequest, add_item_to_folder
-from leagent.api.v1.folders import FolderUpdateRequest, delete_folder, update_folder
-from leagent.config.settings import Settings
-from leagent.db.models.file import File, FileStatus, FileType, LibraryScope
-from leagent.db.models.folder import Folder
-from leagent.db.models.identity_stub import UserStub
-from leagent.db.service import DatabaseService
+from StAgent.api.v1 import documents as v1_documents
+from StAgent.api.v1 import files as v1_files
+from StAgent.api.v1.folder_items import AddItemRequest, add_item_to_folder
+from StAgent.api.v1.folders import FolderUpdateRequest, delete_folder, update_folder
+from StAgent.config.settings import Settings
+from StAgent.db.models.file import File, FileStatus, FileType, LibraryScope
+from StAgent.db.models.folder import Folder
+from StAgent.db.models.identity_stub import UserStub
+from StAgent.db.service import DatabaseService
 
 
 @pytest_asyncio.fixture()

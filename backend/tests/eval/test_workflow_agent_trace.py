@@ -15,11 +15,11 @@ import uuid
 
 import pytest
 
-from leagent.chat_workflow.workflow_embed import validate_workflow_embed
-from leagent.workflow.io import load
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry as get_node_registry
-from leagent.workflow.template_service import TemplateService
+from StAgent.chat_workflow.workflow_embed import validate_workflow_embed
+from StAgent.workflow.io import load
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry as get_node_registry
+from StAgent.workflow.template_service import TemplateService
 from tests.integration.conftest import (
     build_full_tool_registry,
     drive_query_engine,
@@ -103,7 +103,7 @@ async def test_agent_emits_valid_art_workflow_to_canvas(tmp_path) -> None:
 
 
 def build_engine(registry, script, tmp_path):  # noqa: ANN001
-    from leagent.agent.script_agent import build_script_agent_engine
+    from StAgent.agent.script_agent import build_script_agent_engine
 
     return build_script_agent_engine(
         llm=None,

@@ -7,12 +7,12 @@ import {
 describe('desktopSkillsInteropDiscoveryEnv', () => {
   it('disables host-agent skill scanning by default', () => {
     expect(desktopSkillsInteropDiscoveryEnv({})).toBe('0');
-    expect(desktopSkillsInteropDiscoveryEnv({ LEAGENT_SKILLS_INTEROP_DISCOVERY: ' ' })).toBe('0');
+    expect(desktopSkillsInteropDiscoveryEnv({ StAgent_SKILLS_INTEROP_DISCOVERY: ' ' })).toBe('0');
   });
 
   it('preserves an explicit user opt-in or opt-out', () => {
-    expect(desktopSkillsInteropDiscoveryEnv({ LEAGENT_SKILLS_INTEROP_DISCOVERY: '1' })).toBe('1');
-    expect(desktopSkillsInteropDiscoveryEnv({ LEAGENT_SKILLS_INTEROP_DISCOVERY: 'false' })).toBe('false');
+    expect(desktopSkillsInteropDiscoveryEnv({ StAgent_SKILLS_INTEROP_DISCOVERY: '1' })).toBe('1');
+    expect(desktopSkillsInteropDiscoveryEnv({ StAgent_SKILLS_INTEROP_DISCOVERY: 'false' })).toBe('false');
   });
 });
 

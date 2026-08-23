@@ -8,7 +8,7 @@ import {
 } from "react";
 import { translations, type Lang } from "./translations";
 
-const STORAGE_KEY = "leagent-site-language";
+const STORAGE_KEY = "StAgent-site-language";
 const DEFAULT_LANG: Lang = "zh-CN";
 
 function getInitialLang(): Lang {

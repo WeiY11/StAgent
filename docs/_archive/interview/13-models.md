@@ -4,13 +4,13 @@
 
 ## 13.1 GPT-4o 和 Claude 的差异？
 
-面试时不宜回答成简单排行榜，而应先建立比较坐标：任务质量、工具调用可靠性、长上下文、视觉/语音、延迟、成本、安全策略和生态兼容性。
+
 
 - GPT-4o 系列通常强调原生多模态、低延迟交互和 OpenAI 生态兼容性，适合实时聊天、视觉理解、结构化输出及大量采用 OpenAI-compatible API 的工具链。
 - Claude 系列通常在长文阅读、写作、代码修改、遵循复杂约束和长轨迹 Agent 任务上表现突出；其工具使用、提示缓存和 Computer Use 等产品能力也适合 Agent 场景。
 - 真正的生产结论必须按具体版本、区域和任务评测。同一品牌内的旗舰、快速、推理和小型型号差异，可能大于两个品牌之间的平均差异。
 
-在 LeAgent 中，厂商差异应封装在 `backend/leagent/llm/providers/` 的 provider adapter 后面，由统一的 `ChatMessage`、`ToolCall`、`LLMResponse` 契约屏蔽协议差异。上层 `QueryEngine` 不应出现“如果是 Claude 就走另一套 Agent”的分叉；模型选择交给 `ProviderRegistry`、`ModelSpec` 和 `TaskResolver`。
+在 StAgent 中，厂商差异应封装在 `backend/StAgent/llm/providers/` 的 provider adapter 后面，由统一的 `ChatMessage`、`ToolCall`、`LLMResponse` 契约屏蔽协议差异。上层 `QueryEngine` 不应出现“如果是 Claude 就走另一套 Agent”的分叉；模型选择交给 `ProviderRegistry`、`ModelSpec` 和 `TaskResolver`。
 
 ## 13.2 Claude 为什么 Agent 能力强？
 
@@ -22,7 +22,7 @@
 4. **代码与文档能力**：Agent 的大量工作是读写代码、配置和结构化文本，这些能力直接影响端到端成功率。
 5. **产品化支撑**：提示缓存、工具调用、Computer Use 等公开能力降低了构建长时任务的工程摩擦。
 
-但模型只负责“提出下一步动作”。权限检查、参数校验、超时、幂等、审计和恢复仍应由运行时负责。LeAgent 的 `ToolRegistry` 做注册、发现和 schema 生成，`ToolExecutor` 做执行、并发限制、权限预检和超时；这种边界比依赖模型“自觉安全”更可靠。
+但模型只负责“提出下一步动作”。权限检查、参数校验、超时、幂等、审计和恢复仍应由运行时负责。StAgent 的 `ToolRegistry` 做注册、发现和 schema 生成，`ToolExecutor` 做执行、并发限制、权限预检和超时；这种边界比依赖模型“自觉安全”更可靠。
 
 ## 13.3 Gemini 的优势是什么？
 
@@ -34,7 +34,7 @@ Gemini 系列的典型优势是多模态和长上下文能力，以及与 Google
 - 多模态输入会显著增加延迟、成本和数据治理复杂度。
 - 厂商生态集成可能带来便利，也可能形成身份、数据和部署层面的锁定。
 
-LeAgent 的 `ModelCapabilities` 将输入/输出模态、`tool_call`、`reasoning` 和 `context_window` 建模为能力，而不是根据模型名称猜测。`TaskResolver` 在聊天消息包含图像时可升级到 vision binding；没有可用视觉模型时则保留文本路径并引导使用文件工具。这是比“所有请求都发给最强多模态模型”更可控的设计。
+StAgent 的 `ModelCapabilities` 将输入/输出模态、`tool_call`、`reasoning` 和 `context_window` 建模为能力，而不是根据模型名称猜测。`TaskResolver` 在聊天消息包含图像时可升级到 vision binding；没有可用视觉模型时则保留文本路径并引导使用文件工具。这是比“所有请求都发给最强多模态模型”更可控的设计。
 
 ## 13.4 小模型适合 Agent 吗？
 
@@ -48,7 +48,7 @@ LeAgent 的 `ModelCapabilities` 将输入/输出模态、`tool_call`、`reasonin
 - 强模型处理规划、复杂推理、失败恢复和最终审校；
 - 高风险动作无论由哪个模型提出，都经过同一权限与审批平面。
 
-LeAgent 当前的 v2 路由按 `chat`、`fast`、`vision`、`compression`、`title` 等逻辑任务绑定 provider/model。仓库还保留从历史 `tier1/tier2` 配置迁移到任务路由的工具；面试中可把 tier 理解为“能力/成本层级”，但不应把旧配置当成当前唯一真源。
+StAgent 当前的 v2 路由按 `chat`、`fast`、`vision`、`compression`、`title` 等逻辑任务绑定 provider/model。仓库还保留从历史 `tier1/tier2` 配置迁移到任务路由的工具；面试中可把 tier 理解为“能力/成本层级”，但不应把旧配置当成当前唯一真源。
 
 ## 13.5 推理模型适合 Agent 吗？
 
@@ -63,7 +63,7 @@ LeAgent 当前的 v2 路由按 `chat`、`fast`、`vision`、`compression`、`tit
 - 执行后用确定性校验器或独立 critic 验证，而非把“想得更久”当作正确性证明；
 - 设置最大轮数、token/时间/费用预算，并允许降级与人工接管。
 
-LeAgent 的 `QueryEngine` 负责会话内 think-act-observe 状态，统一 `run_loop` 负责事件、hook 和 checkpoint。推理模型只是这个 kernel 的一个可替换决策器，不能取代预算、恢复和执行控制。
+StAgent 的 `QueryEngine` 负责会话内 think-act-observe 状态，统一 `run_loop` 负责事件、hook 和 checkpoint。推理模型只是这个 kernel 的一个可替换决策器，不能取代预算、恢复和执行控制。
 
 ## 13.6 o3/o4/o5 类推理模型特点？
 
@@ -93,7 +93,7 @@ LeAgent 的 `QueryEngine` 负责会话内 think-act-observe 状态，统一 `run
 
 `成功率 ≈ 工具选择 × 参数正确 × 执行可靠 × 观察理解 × 停止判断`
 
-因此模型升级不能掩盖工具工程问题。LeAgent 先由 `ToolRegistry.get_tools_for_llm()`按 deny rule、enabled 状态、上下文提示和数量上限选择 schema，再由 `ToolExecutor` 统一执行和返回结构化结果；`QueryEngine` 把结果作为 observation 送回模型。清晰 schema、紧凑错误、稳定幂等语义往往能带来与换模型同量级的收益。
+因此模型升级不能掩盖工具工程问题。StAgent 先由 `ToolRegistry.get_tools_for_llm()`按 deny rule、enabled 状态、上下文提示和数量上限选择 schema，再由 `ToolExecutor` 统一执行和返回结构化结果；`QueryEngine` 把结果作为 observation 送回模型。清晰 schema、紧凑错误、稳定幂等语义往往能带来与换模型同量级的收益。
 
 ## 13.8 长上下文模型有什么问题？
 
@@ -106,7 +106,7 @@ LeAgent 的 `QueryEngine` 负责会话内 think-act-observe 状态，统一 `run
 - **可复现性下降**：上下文由大量动态内容组成时，难以定位结果变化来自哪一段。
 - **“记忆”错觉**：上下文是本轮工作集，不是经过治理的长期事实库。
 
-LeAgent 将聊天 transcript、checkpoint、运行 trace 和 `AgentMemory` 分开：transcript 是会话真源，checkpoint 用于暂停恢复，trace 用于调试评测，memory 则分 episodic/semantic/procedural 并按相关性召回。正确策略是压缩、检索、去重和分层状态，而不是把所有内容永久塞入 prompt。
+StAgent 将聊天 transcript、checkpoint、运行 trace 和 `AgentMemory` 分开：transcript 是会话真源，checkpoint 用于暂停恢复，trace 用于调试评测，memory 则分 episodic/semantic/procedural 并按相关性召回。正确策略是压缩、检索、去重和分层状态，而不是把所有内容永久塞入 prompt。
 
 ## 13.9 如何做 Model Routing？
 
@@ -121,7 +121,7 @@ LeAgent 将聊天 transcript、checkpoint、运行 trace 和 `AgentMemory` 分�
 
 `score = wq·quality - wc·cost - wl·latency - wr·risk`
 
-权重应由场景和租户策略决定，并记录 `routing_reason` 供追踪。LeAgent 的 `ProviderRegistry` 管理 provider、健康状态和 circuit breaker，`ModelSpec` 描述能力/上下文/价格，`TaskResolver` 解析逻辑任务并校验能力。更进一步可把 trace 中的真实成功率、TTFB、token 和工具错误反馈给路由器，但需用实验分流避免自强化偏差。
+权重应由场景和租户策略决定，并记录 `routing_reason` 供追踪。StAgent 的 `ProviderRegistry` 管理 provider、健康状态和 circuit breaker，`ModelSpec` 描述能力/上下文/价格，`TaskResolver` 解析逻辑任务并校验能力。更进一步可把 trace 中的真实成功率、TTFB、token 和工具错误反馈给路由器，但需用实验分流避免自强化偏差。
 
 ## 13.10 多模型协作如何设计？
 
@@ -135,4 +135,4 @@ LeAgent 将聊天 transcript、checkpoint、运行 trace 和 `AgentMemory` 分�
 
 设计时要防止上下文复制导致成本爆炸、多个模型共享同一错误前提、critic 与生成器高度相关、并发工具产生写冲突。共享的应是版本化任务状态和证据引用，不是无限增长的完整聊天记录。
 
-在 LeAgent 中，可由 task routing 决定每类调用的模型，由 `QueryEngine/run_loop` 保持单一 think-act 语义；确定性并行和依赖关系交给 `WorkflowExecutor`，它验证 DAG、拓扑调度、限制并行度并持有 workflow state；开放式委派再使用子 Agent。所有子运行通过 `run_id/parent_run_id` 关联 trace，关键边界保存 checkpoint，结果沉淀到 `AgentMemory` 前需经过 formation policy。这样模型可以替换，控制面仍保持一致。
+在 StAgent 中，可由 task routing 决定每类调用的模型，由 `QueryEngine/run_loop` 保持单一 think-act 语义；确定性并行和依赖关系交给 `WorkflowExecutor`，它验证 DAG、拓扑调度、限制并行度并持有 workflow state；开放式委派再使用子 Agent。所有子运行通过 `run_id/parent_run_id` 关联 trace，关键边界保存 checkpoint，结果沉淀到 `AgentMemory` 前需经过 formation policy。这样模型可以替换，控制面仍保持一致。

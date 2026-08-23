@@ -9,7 +9,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.templates import (
+from StAgent.docgen.templates import (
     DocTemplate,
     delete_template,
     list_templates,
@@ -21,7 +21,7 @@ from leagent.docgen.templates import (
 
 @pytest.fixture(autouse=True)
 def _isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path))
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path))
     yield
 
 
@@ -151,13 +151,13 @@ def test_save_no_overwrite_guard() -> None:
 
 
 def _ctx():
-    from leagent.tools.base import ToolContext
+    from StAgent.tools.base import ToolContext
 
     return ToolContext(user_id="u", session_id="s")
 
 
 def test_document_template_tool_end_to_end(tmp_path: Path) -> None:
-    from leagent.tools.gen.template_tool import DocumentTemplateTool
+    from StAgent.tools.gen.template_tool import DocumentTemplateTool
 
     tool = DocumentTemplateTool()
     saved = tool.execute_sync(
@@ -201,7 +201,7 @@ def test_document_template_tool_end_to_end(tmp_path: Path) -> None:
 
 def test_document_template_tool_deck_generate(tmp_path: Path) -> None:
     pptx = pytest.importorskip("pptx")
-    from leagent.tools.gen.template_tool import DocumentTemplateTool
+    from StAgent.tools.gen.template_tool import DocumentTemplateTool
 
     tool = DocumentTemplateTool()
     tool.execute_sync(
@@ -241,7 +241,7 @@ def test_document_template_tool_deck_generate(tmp_path: Path) -> None:
 
 
 def test_document_template_tool_unknown_template() -> None:
-    from leagent.tools.gen.template_tool import DocumentTemplateTool
+    from StAgent.tools.gen.template_tool import DocumentTemplateTool
 
     with pytest.raises(ValueError, match="not found"):
         DocumentTemplateTool().execute_sync(

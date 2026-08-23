@@ -1,4 +1,4 @@
-"""Unit + snapshot coverage for :mod:`leagent.prompts`.
+"""Unit + snapshot coverage for :mod:`StAgent.prompts`.
 
 Covers:
 * Registry: front-matter parsing + lookup, falls back through candidate
@@ -17,22 +17,22 @@ from pathlib import Path
 
 import pytest
 
-from leagent.context.budget import minimise
-from leagent.context.types import ContextBlock, RenderTarget
-from leagent.prompts.builder import PromptBuilder
-from leagent.prompts.context import PromptContext
-from leagent.prompts.fingerprint import (
+from StAgent.context.budget import minimise
+from StAgent.context.types import ContextBlock, RenderTarget
+from StAgent.prompts.builder import PromptBuilder
+from StAgent.prompts.context import PromptContext
+from StAgent.prompts.fingerprint import (
     STABLE_SOURCE_IDS,
     full_fingerprint,
     stable_fingerprint,
 )
-from leagent.prompts.registry import (
+from StAgent.prompts.registry import (
     PromptRegistry,
     PromptTemplateNotFound,
     PromptTemplateParseError,
 )
-from leagent.prompts.render import AnthropicRenderer, OpenAIRenderer
-from leagent.prompts.types import LayerResult
+from StAgent.prompts.render import AnthropicRenderer, OpenAIRenderer
+from StAgent.prompts.types import LayerResult
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -88,7 +88,7 @@ def test_registry_falls_back_to_builtin_templates(tmp_path: Path) -> None:
     registry = PromptRegistry(templates_dir=tmp_path)
     variant = registry.get("default_agent")
     assert variant.name == "default_agent"
-    assert "LeAgent" in variant.body
+    assert "StAgent" in variant.body
 
 
 def test_registry_rejects_non_mapping_front_matter(tmp_path: Path) -> None:

@@ -41,9 +41,9 @@ Hook 解决“发生了什么、我要附加什么旁路行为”；Guardrail �
 
 **Hook 默认是观察者；权限检查、审批、超时、调用上限和沙箱才是强制边界。**
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-对应源码：`backend/leagent/agent/hooks.py`、`backend/leagent/sdk/kernel/loop.py`、`backend/leagent/agent/query.py`、`backend/leagent/tools/base.py`、`backend/leagent/tools/executor.py`。
+对应源码：`backend/StAgent/agent/hooks.py`、`backend/StAgent/sdk/kernel/loop.py`、`backend/StAgent/agent/query.py`、`backend/StAgent/tools/base.py`、`backend/StAgent/tools/executor.py`。
 
 `AgentHook` 提供 `on_start`、`on_step`、`on_tool_call`、`on_tool_result`、`on_plan_created`、`on_complete`、`on_error`、`on_cancel`，以及 `on_code_artifact`、`on_pre_compact`、`on_subagent_start/stop`。`HookManager` 按 `priority` 从小到大排序并逐个 `await`，还支持 `filter_by_names()`，让 Agent 定义选择进程级 Hook 集合的子集。
 
@@ -92,7 +92,7 @@ uv run pytest tests/test_approval_flow.py tests/test_kernel_checkpoint.py -v
 
 ## 业内对照
 
-LangChain callbacks、OpenAI Agents tracing processors、Claude Code hooks 和多数 APM instrumentation 更接近观察型 Hook。真正的安全控制更接近 policy enforcement point：工具网关、API 授权、审批工作流或执行沙箱。LeAgent 当前分层与这一实践一致：Hook 负责生命周期扩展，Query/Executor 负责审批与执行约束。与某些框架允许 callback 返回“取消执行”相比，LeAgent 契约更简单，但开发者必须主动避免把 Hook 命名成“安全策略”后给出错误保证。
+LangChain callbacks、OpenAI Agents tracing processors、Claude Code hooks 和多数 APM instrumentation 更接近观察型 Hook。真正的安全控制更接近 policy enforcement point：工具网关、API 授权、审批工作流或执行沙箱。StAgent 当前分层与这一实践一致：Hook 负责生命周期扩展，Query/Executor 负责审批与执行约束。与某些框架允许 callback 返回“取消执行”相比，StAgent 契约更简单，但开发者必须主动避免把 Hook 命名成“安全策略”后给出错误保证。
 
 ## 生产检查表与总结
 
@@ -114,5 +114,5 @@ Hook 让系统可扩展；Guardrail 让系统可控。下一篇讨论错误在�
 - [21｜ToolRegistry 与 ToolExecutor](21-tool-registry-and-executor.md)
 - [30｜Checkpoint、暂停与恢复](30-checkpoint-pause-resume.md)
 - [47｜Agent 安全控制面](47-agent-security-control-plane.md)
-- 源码：[`backend/leagent/agent/hooks.py`](../../../backend/leagent/agent/hooks.py)
+- 源码：[`backend/StAgent/agent/hooks.py`](../../../backend/StAgent/agent/hooks.py)
 - 测试：[`backend/tests/test_agent_hooks.py`](../../../backend/tests/test_agent_hooks.py)

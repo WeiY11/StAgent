@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from uuid import uuid4
 
-from leagent.context import ContextManager
-from leagent.context.types import RenderTarget
+from StAgent.context import ContextManager
+from StAgent.context.types import RenderTarget
 
 
 class _MockVariant:
@@ -22,7 +22,7 @@ class _MockRegistry:
 
 
 class _Settings:
-    project_memory_denylist = ["**/leagent/AGENTS.md", "**/backend/AGENTS.md"]
+    project_memory_denylist = ["**/StAgent/AGENTS.md", "**/backend/AGENTS.md"]
     project_memory_allowlist: list[str] = []
     respect_git_boundary = False
     file_state_max_entries = 64
@@ -38,7 +38,7 @@ class _Settings:
 @pytest.fixture
 def ctx_manager(tmp_path):
     (tmp_path / "AGENTS.md").write_text("Project rules here.")
-    inner = tmp_path / "leagent"
+    inner = tmp_path / "StAgent"
     inner.mkdir()
     (inner / "AGENTS.md").write_text("SECRET INTERNAL DOCS")
     return ContextManager(

@@ -1,11 +1,11 @@
-# LeAgent Execution Topology
+# StAgent Execution Topology
 
 > Status: living contract. See also [`agent_sdk.md`](agent_sdk.md) and
 > [`agent-runtime.md`](agent-runtime.md).
 
 中文版: [`execution-topology_zh.md`](./execution-topology_zh.md)
 
-This document formalizes how requests flow through LeAgent's execution stack,
+This document formalizes how requests flow through StAgent's execution stack,
 which subsystems own state, and the canonical entry paths every caller should use.
 
 ## Layer Model
@@ -28,7 +28,7 @@ Observability (EventManager, OTel)
 
 ## Canonical Agent Path
 
-All agent turns **must** flow through `leagent.sdk.kernel.loop.run_loop`, either
+All agent turns **must** flow through `StAgent.sdk.kernel.loop.run_loop`, either
 directly or via `AgentRuntime.stream()` / `AgentController._run_via_query_engine()`.
 
 | Caller | Entry | Kernel |
@@ -61,7 +61,7 @@ Use `ServiceManager.runtime_context` (lazy singleton) as the single factory for:
 | **Chat embed** | Validated Flow JSON | Preview + Flow API | Graph preview in chat |
 
 Chat step cards compile to linear `WorkflowDocument` instances via
-`leagent.chat_workflow.compile` so step execution shares the engine kernel.
+`StAgent.chat_workflow.compile` so step execution shares the engine kernel.
 
 ## State Ownership
 
@@ -76,7 +76,7 @@ Chat step cards compile to linear `WorkflowDocument` instances via
 
 ## Pause / Resume
 
-Unified `PauseToken` (`leagent.runtime.execution_run`) references:
+Unified `PauseToken` (`StAgent.runtime.execution_run`) references:
 
 - `checkpoint_id` for agent-scope pauses
 - `workflow_execution_id` + `workflow_state_id` for DAG pauses
@@ -111,7 +111,7 @@ Trigger metadata records `manual`, `agent`, `cron`, `chat_step`, or `subworkflow
 
 ## Unified Execution Plane
 
-All ingress surfaces mint an `ExecutionRun` via `leagent.runtime.execution_factory`
+All ingress surfaces mint an `ExecutionRun` via `StAgent.runtime.execution_factory`
 and publish lifecycle signals through `EventManager` with shared correlation keys.
 
 ```
@@ -151,7 +151,7 @@ is passed into `AgentController` via `tool_extra["run_id"]`. Child scopes
 
 ### Chat-step WebSocket bridge
 
-Chat playbook steps compile via `leagent.chat_workflow.compile` and execute through
+Chat playbook steps compile via `StAgent.chat_workflow.compile` and execute through
 `WorkflowService.run_compiled_document()` (not direct `_executor.execute_async`).
 
 Each step run:
@@ -172,10 +172,10 @@ node progress identical to the workflow editor overlay.
 ### Single-process registry note
 
 `ExecutionRunRegistry` is the default, in-process implementation of the
-`RunStore` protocol (`leagent.runtime.run_store`). It is a per-process singleton
+`RunStore` protocol (`StAgent.runtime.run_store`). It is a per-process singleton
 reached everywhere through `get_run_store()`; blocked runs are retained in it
 until resume or explicit `end_execution`, and a throttled, TTL-based lazy sweep
-(`LEAGENT_EXECUTION_RUN_TTL_SECONDS`, default 6h; set `0` to disable) reclaims
+(`StAgent_EXECUTION_RUN_TTL_SECONDS`, default 6h; set `0` to disable) reclaims
 abandoned pauses so a long-lived single-process server stays bounded.
 
 #### Scaling to multiple workers
@@ -190,7 +190,7 @@ work when a chat turn, its sub-agents and its workflow steps land on different
 workers.
 
 `RunStore` is the seam for (b). `RedisRunStore`
-(`leagent.runtime.redis_run_store`) is a drop-in shared backend:
+(`StAgent.runtime.redis_run_store`) is a drop-in shared backend:
 
 - Build it from a **synchronous** redis client and install it once at process
   startup: `set_run_store(build_redis_run_store(redis_client))`. The
@@ -206,7 +206,7 @@ workers.
   change; this is a no-op re-store for the in-process backend.
 
 **Prerequisites / thresholds:** adopt a shared run store only when the
-deployment actually runs `LEAGENT_WORKERS > 1` (or multiple processes) **and**
+deployment actually runs `StAgent_WORKERS > 1` (or multiple processes) **and**
 cannot use sticky routing. It requires a reachable Redis (not provisioned in the
 standalone build, where `ServiceManager.redis` is `None`) and the `redis`
 client dependency. Below that threshold the in-process registry is strictly

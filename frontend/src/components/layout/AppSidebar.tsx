@@ -269,7 +269,7 @@ const AppSidebar = ({ collapsed = false, onCollapsedChange }: AppSidebarProps) =
               <span className="text-white font-bold text-lg">W</span>
             </div>
             <span className="font-bold text-lg text-gray-900 dark:text-white">
-              LeAgent
+              StAgent
             </span>
           </Link>
         )}

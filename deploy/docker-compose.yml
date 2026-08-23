@@ -1,108 +1,108 @@
 # =============================================================================
-# LeAgent — single-container stack.
-# Default persistence is SQLite under LEAGENT_HOME. Set DATABASE_URL to use an
+# StAgent — single-container stack.
+# Default persistence is SQLite under StAgent_HOME. Set DATABASE_URL to use an
 # external PostgreSQL database; Redis/Milvus remain optional and are not required.
-# Data: set LEAGENT_HOME=/app/data (default below) so SQLite + working dirs live on the volume.
+# Data: set StAgent_HOME=/app/data (default below) so SQLite + working dirs live on the volume.
 # =============================================================================
 # Usage (from repo root or this directory):
 #   docker compose -f deploy/docker-compose.yml up -d --build
-#   docker compose -f deploy/docker-compose.yml logs -f leagent
+#   docker compose -f deploy/docker-compose.yml logs -f StAgent
 # =============================================================================
 
-name: leagent
+name: StAgent
 
 services:
-  leagent:
+  StAgent:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
       target: ${BUILD_TARGET:-production}
       args:
-        LEAGENT_VERSION: ${LEAGENT_VERSION:-latest}
-    image: leagent:${LEAGENT_VERSION:-latest}
-    container_name: leagent-backend
+        StAgent_VERSION: ${StAgent_VERSION:-latest}
+    image: StAgent:${StAgent_VERSION:-latest}
+    container_name: StAgent-backend
     restart: unless-stopped
     environment:
-      LEAGENT_HOME: /app/data
-      LEAGENT_PORT: "8000"
-      LEAGENT_HOST: 0.0.0.0
-      LEAGENT_WORKERS: ${LEAGENT_WORKERS:-1}
-      LEAGENT_DEBUG: "false"
-      LEAGENT_LOG_LEVEL: ${LEAGENT_LOG_LEVEL:-INFO}
-      LEAGENT_ENVIRONMENT: production
-      LEAGENT_SECURITY_ENFORCE_AUTH: ${LEAGENT_SECURITY_ENFORCE_AUTH:-true}
-      LEAGENT_SECURITY_RATE_LIMIT_ENABLED: ${LEAGENT_SECURITY_RATE_LIMIT_ENABLED:-true}
-      LEAGENT_RUN_MIGRATIONS: ${LEAGENT_RUN_MIGRATIONS:-true}
-      LEAGENT_MIGRATIONS_REQUIRED: ${LEAGENT_MIGRATIONS_REQUIRED:-true}
+      StAgent_HOME: /app/data
+      StAgent_PORT: "8000"
+      StAgent_HOST: 0.0.0.0
+      StAgent_WORKERS: ${StAgent_WORKERS:-1}
+      StAgent_DEBUG: "false"
+      StAgent_LOG_LEVEL: ${StAgent_LOG_LEVEL:-INFO}
+      StAgent_ENVIRONMENT: production
+      StAgent_SECURITY_ENFORCE_AUTH: ${StAgent_SECURITY_ENFORCE_AUTH:-true}
+      StAgent_SECURITY_RATE_LIMIT_ENABLED: ${StAgent_SECURITY_RATE_LIMIT_ENABLED:-true}
+      StAgent_RUN_MIGRATIONS: ${StAgent_RUN_MIGRATIONS:-true}
+      StAgent_MIGRATIONS_REQUIRED: ${StAgent_MIGRATIONS_REQUIRED:-true}
       DATABASE_URL: ${DATABASE_URL:-}
       DB_DATABASE_URL: ${DB_DATABASE_URL:-}
       DB_SQLITE_PATH: ${DB_SQLITE_PATH:-}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
-      LEAGENT_REDIS_ENABLED: ${LEAGENT_REDIS_ENABLED:-false}
-      LEAGENT_REDIS_URL: ${LEAGENT_REDIS_URL:-}
-      LEAGENT_REDIS_PREFIX: ${LEAGENT_REDIS_PREFIX:-leagent}
-      LEAGENT_OBJECT_STORAGE_ENABLED: ${LEAGENT_OBJECT_STORAGE_ENABLED:-false}
-      LEAGENT_OBJECT_STORAGE_ENDPOINT_URL: ${LEAGENT_OBJECT_STORAGE_ENDPOINT_URL:-}
-      LEAGENT_OBJECT_STORAGE_REGION_NAME: ${LEAGENT_OBJECT_STORAGE_REGION_NAME:-us-east-1}
-      LEAGENT_OBJECT_STORAGE_BUCKET: ${LEAGENT_OBJECT_STORAGE_BUCKET:-}
-      LEAGENT_OBJECT_STORAGE_PREFIX: ${LEAGENT_OBJECT_STORAGE_PREFIX:-leagent}
-      LEAGENT_OBJECT_STORAGE_ACCESS_KEY_ID: ${LEAGENT_OBJECT_STORAGE_ACCESS_KEY_ID:-}
-      LEAGENT_OBJECT_STORAGE_SECRET_ACCESS_KEY: ${LEAGENT_OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
-      LEAGENT_OBJECT_STORAGE_SESSION_TOKEN: ${LEAGENT_OBJECT_STORAGE_SESSION_TOKEN:-}
-      LEAGENT_KNOWLEDGE_INDEX_VERSION: ${LEAGENT_KNOWLEDGE_INDEX_VERSION:-rag-v1}
-      LEAGENT_KNOWLEDGE_OPENSEARCH_URL: ${LEAGENT_KNOWLEDGE_OPENSEARCH_URL:-}
-      LEAGENT_KNOWLEDGE_OPENSEARCH_INDEX: ${LEAGENT_KNOWLEDGE_OPENSEARCH_INDEX:-knowledge_chunks}
-      LEAGENT_KNOWLEDGE_OPENSEARCH_API_KEY: ${LEAGENT_KNOWLEDGE_OPENSEARCH_API_KEY:-}
-      LEAGENT_KNOWLEDGE_OPENSEARCH_TIMEOUT_SECONDS: ${LEAGENT_KNOWLEDGE_OPENSEARCH_TIMEOUT_SECONDS:-5}
-      LEAGENT_KNOWLEDGE_MILVUS_ENABLED: ${LEAGENT_KNOWLEDGE_MILVUS_ENABLED:-false}
-      LEAGENT_KNOWLEDGE_MILVUS_HOST: ${LEAGENT_KNOWLEDGE_MILVUS_HOST:-localhost}
-      LEAGENT_KNOWLEDGE_MILVUS_PORT: ${LEAGENT_KNOWLEDGE_MILVUS_PORT:-19530}
-      LEAGENT_KNOWLEDGE_MILVUS_URI: ${LEAGENT_KNOWLEDGE_MILVUS_URI:-}
-      LEAGENT_KNOWLEDGE_MILVUS_TOKEN: ${LEAGENT_KNOWLEDGE_MILVUS_TOKEN:-}
-      LEAGENT_KNOWLEDGE_RERANK_ENDPOINT: ${LEAGENT_KNOWLEDGE_RERANK_ENDPOINT:-}
-      LEAGENT_KNOWLEDGE_RERANK_API_KEY: ${LEAGENT_KNOWLEDGE_RERANK_API_KEY:-}
-      LEAGENT_KNOWLEDGE_RERANK_TIMEOUT_SECONDS: ${LEAGENT_KNOWLEDGE_RERANK_TIMEOUT_SECONDS:-5}
-      LEAGENT_KNOWLEDGE_QUERY_REWRITE_ENABLED: ${LEAGENT_KNOWLEDGE_QUERY_REWRITE_ENABLED:-false}
-      LEAGENT_KNOWLEDGE_STRICT_EVIDENCE: ${LEAGENT_KNOWLEDGE_STRICT_EVIDENCE:-true}
-      LEAGENT_KNOWLEDGE_MAX_CONTEXT_TOKENS: ${LEAGENT_KNOWLEDGE_MAX_CONTEXT_TOKENS:-6000}
-      LEAGENT_KNOWLEDGE_RECALL_AT_10_TARGET: ${LEAGENT_KNOWLEDGE_RECALL_AT_10_TARGET:-0.90}
-      LEAGENT_KNOWLEDGE_NDCG_AT_10_TARGET: ${LEAGENT_KNOWLEDGE_NDCG_AT_10_TARGET:-0.80}
-      LEAGENT_KNOWLEDGE_CITATION_ACCURACY_TARGET: ${LEAGENT_KNOWLEDGE_CITATION_ACCURACY_TARGET:-0.95}
-      LEAGENT_KNOWLEDGE_HALLUCINATION_RATE_MAX: ${LEAGENT_KNOWLEDGE_HALLUCINATION_RATE_MAX:-0.02}
-      LEAGENT_KNOWLEDGE_RETRIEVAL_P95_MS_TARGET: ${LEAGENT_KNOWLEDGE_RETRIEVAL_P95_MS_TARGET:-5000}
+      StAgent_REDIS_ENABLED: ${StAgent_REDIS_ENABLED:-false}
+      StAgent_REDIS_URL: ${StAgent_REDIS_URL:-}
+      StAgent_REDIS_PREFIX: ${StAgent_REDIS_PREFIX:-StAgent}
+      StAgent_OBJECT_STORAGE_ENABLED: ${StAgent_OBJECT_STORAGE_ENABLED:-false}
+      StAgent_OBJECT_STORAGE_ENDPOINT_URL: ${StAgent_OBJECT_STORAGE_ENDPOINT_URL:-}
+      StAgent_OBJECT_STORAGE_REGION_NAME: ${StAgent_OBJECT_STORAGE_REGION_NAME:-us-east-1}
+      StAgent_OBJECT_STORAGE_BUCKET: ${StAgent_OBJECT_STORAGE_BUCKET:-}
+      StAgent_OBJECT_STORAGE_PREFIX: ${StAgent_OBJECT_STORAGE_PREFIX:-StAgent}
+      StAgent_OBJECT_STORAGE_ACCESS_KEY_ID: ${StAgent_OBJECT_STORAGE_ACCESS_KEY_ID:-}
+      StAgent_OBJECT_STORAGE_SECRET_ACCESS_KEY: ${StAgent_OBJECT_STORAGE_SECRET_ACCESS_KEY:-}
+      StAgent_OBJECT_STORAGE_SESSION_TOKEN: ${StAgent_OBJECT_STORAGE_SESSION_TOKEN:-}
+      StAgent_KNOWLEDGE_INDEX_VERSION: ${StAgent_KNOWLEDGE_INDEX_VERSION:-rag-v1}
+      StAgent_KNOWLEDGE_OPENSEARCH_URL: ${StAgent_KNOWLEDGE_OPENSEARCH_URL:-}
+      StAgent_KNOWLEDGE_OPENSEARCH_INDEX: ${StAgent_KNOWLEDGE_OPENSEARCH_INDEX:-knowledge_chunks}
+      StAgent_KNOWLEDGE_OPENSEARCH_API_KEY: ${StAgent_KNOWLEDGE_OPENSEARCH_API_KEY:-}
+      StAgent_KNOWLEDGE_OPENSEARCH_TIMEOUT_SECONDS: ${StAgent_KNOWLEDGE_OPENSEARCH_TIMEOUT_SECONDS:-5}
+      StAgent_KNOWLEDGE_MILVUS_ENABLED: ${StAgent_KNOWLEDGE_MILVUS_ENABLED:-false}
+      StAgent_KNOWLEDGE_MILVUS_HOST: ${StAgent_KNOWLEDGE_MILVUS_HOST:-localhost}
+      StAgent_KNOWLEDGE_MILVUS_PORT: ${StAgent_KNOWLEDGE_MILVUS_PORT:-19530}
+      StAgent_KNOWLEDGE_MILVUS_URI: ${StAgent_KNOWLEDGE_MILVUS_URI:-}
+      StAgent_KNOWLEDGE_MILVUS_TOKEN: ${StAgent_KNOWLEDGE_MILVUS_TOKEN:-}
+      StAgent_KNOWLEDGE_RERANK_ENDPOINT: ${StAgent_KNOWLEDGE_RERANK_ENDPOINT:-}
+      StAgent_KNOWLEDGE_RERANK_API_KEY: ${StAgent_KNOWLEDGE_RERANK_API_KEY:-}
+      StAgent_KNOWLEDGE_RERANK_TIMEOUT_SECONDS: ${StAgent_KNOWLEDGE_RERANK_TIMEOUT_SECONDS:-5}
+      StAgent_KNOWLEDGE_QUERY_REWRITE_ENABLED: ${StAgent_KNOWLEDGE_QUERY_REWRITE_ENABLED:-false}
+      StAgent_KNOWLEDGE_STRICT_EVIDENCE: ${StAgent_KNOWLEDGE_STRICT_EVIDENCE:-true}
+      StAgent_KNOWLEDGE_MAX_CONTEXT_TOKENS: ${StAgent_KNOWLEDGE_MAX_CONTEXT_TOKENS:-6000}
+      StAgent_KNOWLEDGE_RECALL_AT_10_TARGET: ${StAgent_KNOWLEDGE_RECALL_AT_10_TARGET:-0.90}
+      StAgent_KNOWLEDGE_NDCG_AT_10_TARGET: ${StAgent_KNOWLEDGE_NDCG_AT_10_TARGET:-0.80}
+      StAgent_KNOWLEDGE_CITATION_ACCURACY_TARGET: ${StAgent_KNOWLEDGE_CITATION_ACCURACY_TARGET:-0.95}
+      StAgent_KNOWLEDGE_HALLUCINATION_RATE_MAX: ${StAgent_KNOWLEDGE_HALLUCINATION_RATE_MAX:-0.02}
+      StAgent_KNOWLEDGE_RETRIEVAL_P95_MS_TARGET: ${StAgent_KNOWLEDGE_RETRIEVAL_P95_MS_TARGET:-5000}
       FILES_UPLOAD_DIR: /app/uploads
-      LEAGENT_SECRET_KEY: ${LEAGENT_SECRET_KEY:?Set LEAGENT_SECRET_KEY in .env (openssl rand -hex 32)}
-      LEAGENT_FILES__SIGNED_URL_SECRET: ${LEAGENT_SECRET_KEY}
-      LEAGENT_LLM__DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      LEAGENT_LLM__OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LEAGENT_LLM__ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      LEAGENT_LLM__VLLM_ENDPOINT: ${VLLM_ENDPOINT:-}
-      LEAGENT_LLM__VLLM_MODEL: ${VLLM_MODEL:-}
-      LEAGENT_LLM__VLLM_API_KEY: ${VLLM_API_KEY:-}
-      LEAGENT_LLM__VLLM_TIMEOUT: ${VLLM_TIMEOUT:-120}
-      LEAGENT_LLM__VLLM_ENABLE_AUTO_TOOL_CHOICE: ${VLLM_ENABLE_AUTO_TOOL_CHOICE:-false}
+      StAgent_SECRET_KEY: ${StAgent_SECRET_KEY:?Set StAgent_SECRET_KEY in .env (openssl rand -hex 32)}
+      StAgent_FILES__SIGNED_URL_SECRET: ${StAgent_SECRET_KEY}
+      StAgent_LLM__DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      StAgent_LLM__OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      StAgent_LLM__ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      StAgent_LLM__VLLM_ENDPOINT: ${VLLM_ENDPOINT:-}
+      StAgent_LLM__VLLM_MODEL: ${VLLM_MODEL:-}
+      StAgent_LLM__VLLM_API_KEY: ${VLLM_API_KEY:-}
+      StAgent_LLM__VLLM_TIMEOUT: ${VLLM_TIMEOUT:-120}
+      StAgent_LLM__VLLM_ENABLE_AUTO_TOOL_CHOICE: ${VLLM_ENABLE_AUTO_TOOL_CHOICE:-false}
     ports:
       # Localhost-only by default — use a reverse proxy for LAN exposure.
-      - "127.0.0.1:${LEAGENT_HOST_PORT:-8000}:8000"
+      - "127.0.0.1:${StAgent_HOST_PORT:-8000}:8000"
     volumes:
-      - leagent-data:/app/data
-      - leagent-uploads:/app/uploads
-      - leagent-logs:/app/logs
-      - leagent-cache:/app/cache
+      - StAgent-data:/app/data
+      - StAgent-uploads:/app/uploads
+      - StAgent-logs:/app/logs
+      - StAgent-cache:/app/cache
     healthcheck:
-      test: ["CMD-SHELL", "curl -f \"http://localhost:$${LEAGENT_PORT:-8000}/api/v1/health/ready\""]
+      test: ["CMD-SHELL", "curl -f \"http://localhost:$${StAgent_PORT:-8000}/api/v1/health/ready\""]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 45s
 
 volumes:
-  leagent-data:
+  StAgent-data:
     driver: local
-  leagent-uploads:
+  StAgent-uploads:
     driver: local
-  leagent-logs:
+  StAgent-logs:
     driver: local
-  leagent-cache:
+  StAgent-cache:
     driver: local

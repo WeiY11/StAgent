@@ -8,9 +8,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.exceptions.llm import LLMServiceError
-from leagent.llm.base import LLMResponse
-from leagent.services.chat.auto_title import (
+from StAgent.exceptions.llm import LLMServiceError
+from StAgent.llm.base import LLMResponse
+from StAgent.services.chat.auto_title import (
     _complete_title_llm,
     is_placeholder_session_name,
     maybe_auto_title_session,
@@ -121,19 +121,19 @@ async def test_maybe_auto_title_retries_after_previous_attempt() -> None:
     chat_svc.update_session = AsyncMock(return_value=SimpleNamespace(id=session_id))
     chat_svc.merge_session_metadata = AsyncMock()
     llm = MagicMock()
-    llm.complete = AsyncMock(return_value=LLMResponse(content="LeAgent 快速上手", model="m"))
+    llm.complete = AsyncMock(return_value=LLMResponse(content="StAgent 快速上手", model="m"))
 
     await maybe_auto_title_session(
         chat_svc,
         llm,
         session_id,
         user_id,
-        user_text="介绍 LeAgent",
-        assistant_text="LeAgent 可以帮助你处理知识库、工作流和文件。",
+        user_text="介绍 StAgent",
+        assistant_text="StAgent 可以帮助你处理知识库、工作流和文件。",
     )
 
     chat_svc.update_session.assert_awaited_once_with(
         session_id,
         user_id,
-        name="LeAgent 快速上手",
+        name="StAgent 快速上手",
     )

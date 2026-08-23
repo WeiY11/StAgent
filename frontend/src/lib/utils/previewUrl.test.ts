@@ -7,7 +7,7 @@ import {
 
 const SAMPLE_ID = '21ef7460-a27a-428c-891a-81a34e226925';
 const SAMPLE_TOKEN = 'abc.def';
-const WRONG_ORIGIN = `https://leagent.dev/api/v1/coding-projects/${SAMPLE_ID}/preview/?token=${SAMPLE_TOKEN}`;
+const WRONG_ORIGIN = `https://StAgent.dev/api/v1/coding-projects/${SAMPLE_ID}/preview/?token=${SAMPLE_TOKEN}`;
 const RELATIVE = `/api/v1/coding-projects/${SAMPLE_ID}/preview/?token=${SAMPLE_TOKEN}`;
 
 describe('pickCanvasPreviewPathFromMetadata', () => {

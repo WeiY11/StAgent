@@ -7,7 +7,7 @@ import { getInstallState } from '../config/desktop-config.js';
 import { getBackendServer } from '../server/backend-server.js';
 import { InstallationManager } from '../install/installation-manager.js';
 import { validateInstallation } from '../install/install-validator.js';
-import { userDataDir, resolveLeagentHome } from '../paths/runtime-paths.js';
+import { userDataDir, resolveStAgentHome } from '../paths/runtime-paths.js';
 import { forceOpenApp, retryBootFromMaintenance } from '../app/boot-actions.js';
 import { log } from '../logger.js';
 import { isPathInside } from '../install/path-handlers.js';
@@ -41,7 +41,7 @@ export async function collectDiagnostics(): Promise<Record<string, unknown>> {
     installState: getInstallState(),
     paths: {
       userData: userDataDir(),
-      leagentHome: resolveLeagentHome(),
+      StAgentHome: resolveStAgentHome(),
       logs: path.join(userDataDir(), 'logs'),
     },
     server: {
@@ -60,7 +60,7 @@ export function registerAppIPC(): void {
     userData: app.getPath('userData'),
     logs: path.join(app.getPath('userData'), 'logs'),
     home: app.getPath('home'),
-    leagentHome: resolveLeagentHome(),
+    StAgentHome: resolveStAgentHome(),
   }));
 
   safeRegisterHandle(IPC.APP_OPEN_EXTERNAL, (_event, url: unknown) => {
@@ -76,7 +76,7 @@ export function registerAppIPC(): void {
   safeRegisterHandle(IPC.APP_SHOW_ITEM_IN_FOLDER, (_event, itemPath: unknown) => {
     if (typeof itemPath !== 'string') return;
     const resolved = path.resolve(itemPath);
-    const allowedRoots = [app.getPath('userData'), resolveLeagentHome()];
+    const allowedRoots = [app.getPath('userData'), resolveStAgentHome()];
     if (!allowedRoots.some((root) => isPathInside(root, resolved))) return;
     shell.showItemInFolder(resolved);
   });

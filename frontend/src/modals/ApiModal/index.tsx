@@ -59,11 +59,11 @@ const generateCurlCode = (endpoint: string, flowId: string) => `curl -X POST "${
 
 const generateWidgetCode = (endpoint: string, flowId: string) => `<!-- Add this snippet to your page -->
 <script src="${endpoint}/widget.js"></script>
-<div id="leagent-widget"></div>
+<div id="StAgent-widget"></div>
 <script>
-  LeAgent.init({
+  StAgent.init({
     flowId: "${flowId}",
-    container: "#leagent-widget",
+    container: "#StAgent-widget",
     theme: "auto",
     locale: "en-US"
   });

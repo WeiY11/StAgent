@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from leagent.workflow.io import load, validate
-from leagent.workflow.nodes import bootstrap, get_registry
+from StAgent.workflow.io import load, validate
+from StAgent.workflow.nodes import bootstrap, get_registry
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEMO_DIR = _REPO_ROOT / "config" / "demo-workflows"
@@ -85,9 +85,9 @@ async def test_domain_model_demos_validate_when_nodes_registered(monkeypatch):
     """Domain-model demos validate once local audio nodes are bootstrapped."""
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880")
 
     await bootstrap()
     reg = get_registry()

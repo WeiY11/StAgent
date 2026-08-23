@@ -1,6 +1,6 @@
 import pytest
 
-from leagent.runtime.deployment_topology import (
+from StAgent.runtime.deployment_topology import (
     DeploymentTopologyError,
     validate_deployment_topology,
 )
@@ -34,15 +34,15 @@ def test_postgres_multiworker_keeps_explicit_boundary_warning() -> None:
 
 
 def test_postgres_multiworker_rejects_missing_shared_run_store() -> None:
-    with pytest.raises(DeploymentTopologyError, match="LEAGENT_REDIS_ENABLED"):
+    with pytest.raises(DeploymentTopologyError, match="StAgent_REDIS_ENABLED"):
         validate_deployment_topology(database_backend="postgresql", workers=2)
 
 
 def test_cli_start_rejects_sqlite_multiworker(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`leagent app start --workers 2` must fail before launching a server."""
+    """`StAgent app start --workers 2` must fail before launching a server."""
     from click.testing import CliRunner
 
-    from leagent.cli import app_cmd
+    from StAgent.cli import app_cmd
 
     called = {"uvicorn": False, "gunicorn": False}
     monkeypatch.setattr(
@@ -68,10 +68,10 @@ def _repo_root():
 def test_start_ps1_has_no_hardcoded_four_workers() -> None:
     text = (_repo_root() / "start.ps1").read_text(encoding="utf-8")
     assert "--workers 4" not in text
-    assert "LEAGENT_WORKERS" in text
+    assert "StAgent_WORKERS" in text
 
 
 def test_start_sh_has_no_hardcoded_four_workers() -> None:
     text = (_repo_root() / "start.sh").read_text(encoding="utf-8")
     assert "--workers 4" not in text
-    assert "LEAGENT_WORKERS" in text
+    assert "StAgent_WORKERS" in text

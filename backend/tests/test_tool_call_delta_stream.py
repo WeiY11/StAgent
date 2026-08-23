@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.deps import ModelStreamEvent
-from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
+from StAgent.agent.deps import ModelStreamEvent
+from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
 
 
 @pytest.mark.asyncio

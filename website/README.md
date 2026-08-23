@@ -1,4 +1,4 @@
-# LeAgent Website
+# StAgent Website
 
 Static marketing site built with React 19 + Vite + TypeScript + Tailwind CSS 4.
 
@@ -94,13 +94,13 @@ Legacy hash URLs (`/#/about`) are redirected to path URLs in `index.html`.
 
 - Bilingual: zh-CN (default) and en-US.
 - All copy lives in `src/i18n/translations.ts`.
-- Language toggle persists to `localStorage` key `leagent-site-language`.
+- Language toggle persists to `localStorage` key `StAgent-site-language`.
 - Interview / Agent guides are Chinese-only; en-US shows a notice and zh body.
 
 ## Themes
 
 - Dark (default) and Light themes.
-- Toggle persists to `localStorage` key `leagent-site-theme`.
+- Toggle persists to `localStorage` key `StAgent-site-theme`.
 - CSS tokens in `src/styles/index.css` under `html[data-theme="dark"|"light"]`.
 - Pre-hydration script in `index.html` prevents flash on reload.
 

@@ -4,7 +4,7 @@
 
 有了 Builder，下一步是按业务域设计「完整契约」，而不是只加长系统提示词。本篇假设你已读 [09｜AgentBuilder](09-agent-builder.md)，并理解 `AgentRuntime` 如何把定义物化成 `QueryEngineConfig`。领域 Agent 的目标是：同一份配置能在聊天、后台任务与工作流节点中给出可预期、可审计的行为边界。
 
-权威类型定义在 [`runtime/definition.py`](../../../backend/leagent/runtime/definition.py)；内置领域样例在 [`runtime/registry.py`](../../../backend/leagent/runtime/registry.py) 的 `_builtin_definitions()`（`default_agent` / `coding_agent` / `script_agent` / `subagent`）。这些内置定义本身就是「如何为子域收紧策略」的活教材。
+权威类型定义在 [`runtime/definition.py`](../../../backend/StAgent/runtime/definition.py)；内置领域样例在 [`runtime/registry.py`](../../../backend/StAgent/runtime/registry.py) 的 `_builtin_definitions()`（`default_agent` / `coding_agent` / `script_agent` / `subagent`）。这些内置定义本身就是「如何为子域收紧策略」的活教材。
 
 ## 学习目标
 
@@ -53,7 +53,7 @@ Chatbot 往往只有一段 system prompt。领域 Agent 还必须回答「它能
 ### 第 2 步：落成定义
 
 ```python
-from leagent.sdk import AgentBuilder, AgentDefinition
+from StAgent.sdk import AgentBuilder, AgentDefinition
 
 invoice_agent: AgentDefinition = (
     AgentBuilder("invoice_agent")
@@ -82,7 +82,7 @@ assert invoice_agent.resolved_recipe() == "default_agent"
 ### 第 4 步：注册并运行
 
 ```python
-from leagent.sdk import AgentRuntime, get_agent_registry
+from StAgent.sdk import AgentRuntime, get_agent_registry
 
 reg = get_agent_registry()
 reg.register(invoice_agent, replace=True)
@@ -111,7 +111,7 @@ cd backend && uv run pytest \
 
 ## 业内对照
 
-AutoGen / CrewAI 常把 role 与 tools 绑在实例上；LangGraph 更常把领域逻辑拆进节点函数。LeAgent 选择可序列化的 Pydantic 契约：同一对象既能进 YAML，也能生成工作流节点。OpenAI Assistants 的 instructions + tools 与此类似，但此处把 memory、recipe、runtime profile 一并一等公民化，方便评审「这个域到底被授予了什么」。
+AutoGen / CrewAI 常把 role 与 tools 绑在实例上；LangGraph 更常把领域逻辑拆进节点函数。StAgent 选择可序列化的 Pydantic 契约：同一对象既能进 YAML，也能生成工作流节点。OpenAI Assistants 的 instructions + tools 与此类似，但此处把 memory、recipe、runtime profile 一并一等公民化，方便评审「这个域到底被授予了什么」。
 
 ## 总结与延伸
 

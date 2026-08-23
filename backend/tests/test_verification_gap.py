@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.agent.subagent import (
+from StAgent.agent.subagent import (
     _expected_verify_tokens,
     assess_verification_gap,
 )

@@ -1,5 +1,5 @@
-﻿import asyncio, time
-from leagent.main import _bootstrap_tool_system
+import asyncio, time
+from StAgent.main import _bootstrap_tool_system
 
 async def main():
     for i in range(3):

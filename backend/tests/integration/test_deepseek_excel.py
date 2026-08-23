@@ -48,8 +48,8 @@ async def test_deepseek_analyses_excel(
     deepseek_llm,
     full_tool_registry,
 ) -> None:
-    from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-    from leagent.tools.executor import ToolExecutor
+    from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+    from StAgent.tools.executor import ToolExecutor
 
     manifest = excel_analysis_manifest
     llm = deepseek_llm

@@ -1,5 +1,5 @@
-﻿import asyncio, time
-from leagent.main import create_app, lifespan
+import asyncio, time
+from StAgent.main import create_app, lifespan
 app = create_app()
 async def main():
     for i in range(2):

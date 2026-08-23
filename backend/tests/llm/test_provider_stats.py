@@ -1,6 +1,6 @@
 """Tests for the provider-performance store and its CapabilityRouter bias.
 
-The store (``leagent.llm.capabilities.provider_stats``) records live generation
+The store (``StAgent.llm.capabilities.provider_stats``) records live generation
 outcomes (success/failure, latency, perceptual quality) and the router uses the
 derived reliability score as a *secondary* sort key within a cost tier — a
 lightweight in-process bandit for production self-optimization.
@@ -8,7 +8,7 @@ lightweight in-process bandit for production self-optimization.
 
 from __future__ import annotations
 
-from leagent.llm.capabilities import (
+from StAgent.llm.capabilities import (
     BackendClass,
     CapabilityContract,
     CapabilityProfile,
@@ -17,7 +17,7 @@ from leagent.llm.capabilities import (
     Modality,
     TaskType,
 )
-from leagent.llm.capabilities.provider_stats import (
+from StAgent.llm.capabilities.provider_stats import (
     NEUTRAL_SCORE,
     ProviderStat,
     ProviderStatsStore,

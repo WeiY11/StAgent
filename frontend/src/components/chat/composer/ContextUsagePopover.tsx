@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/utils/queryClient';
@@ -11,9 +11,6 @@ import { cn } from '@/lib/utils/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Button } from '@/components/ui/Button';
 import type { Message } from '@/types/chat';
-
-/** Stable fallback — never use inline ``[]`` in a Zustand selector (new ref every render → infinite loop). */
-const EMPTY_MESSAGES: Message[] = [];
 
 function ContextUsageRing({
   pct,
@@ -126,13 +123,31 @@ export function ContextUsagePopover({
     [modelId, providers, defaultModel],
   );
   const currentSessionId = useChatStore((s) => s.currentSessionId);
-  /** Avoid GET …/prompt-preview before GET /chat/sessions reconciles persisted thread ids (404 spam). */
+  /** Avoid GET → prompt-preview before GET /chat/sessions reconciles persisted thread ids (404 spam). */
   const sessionsSynced = useChatStore((s) => s.synced);
-  const messages = useChatStore((s) => {
+  // Both selectors return stable values (same usage object / a number), so
+  // streaming rAF flushes — which rebuild the messages arrays — no longer
+  // re-render the composer subtree at ~60Hz. The token estimate freezes at
+  // its last non-streaming value (-1 sentinel) while a turn is in flight.
+  const lastAssistantUsage = useChatStore((s) => {
     const sid = s.currentSessionId;
-    if (!sid) return EMPTY_MESSAGES;
-    return s.messages[sid] ?? EMPTY_MESSAGES;
+    const list = sid ? s.messages[sid] : undefined;
+    if (!list) return undefined;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i];
+      if (m && m.role === 'assistant' && m.usage) return m.usage;
+    }
+    return undefined;
   });
+  const liveThreadEstimate = useChatStore((s) => {
+    if (s.isStreaming) return -1;
+    const sid = s.currentSessionId;
+    const list = sid ? s.messages[sid] : undefined;
+    return list && list.length ? approximateThreadTokensFromMessages(list) : 0;
+  });
+  const lastEstimateRef = useRef(0);
+  if (liveThreadEstimate >= 0) lastEstimateRef.current = liveThreadEstimate;
+  const threadEstimate = lastEstimateRef.current;
   const [open, setOpen] = useState(false);
 
   const { data: preview, isLoading: previewLoading } = usePromptPreview({
@@ -140,24 +155,10 @@ export function ContextUsagePopover({
     enabled: Boolean(currentSessionId && sessionsSynced),
   });
 
-  const lastAssistantUsage = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (!m) continue;
-      if (m.role === 'assistant' && m.usage) return m.usage;
-    }
-    return undefined;
-  }, [messages]);
-
   const layerTokens = useMemo(() => {
     if (!preview?.layers?.length) return undefined;
     return preview.layers.reduce((acc, l) => acc + (l.tokens ?? 0), 0);
   }, [preview]);
-
-  const threadEstimate = useMemo(
-    () => approximateThreadTokensFromMessages(messages),
-    [messages],
-  );
 
   const displayMain = useMemo(() => {
     const pt = lastAssistantUsage?.prompt_tokens;

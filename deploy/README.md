@@ -1,4 +1,4 @@
-# LeAgent — Docker (minimal)
+# StAgent — Docker (minimal)
 
 Single **FastAPI** container with SQLite and local files by default. Set
 `DATABASE_URL` to use an external PostgreSQL database. Redis and S3/MinIO are
@@ -14,7 +14,7 @@ optional until you scale workers or need shared managed-file storage.
 ```bash
 cd deploy
 cp .env.example .env
-# Set LEAGENT_SECRET_KEY and at least one LLM API key in .env
+# Set StAgent_SECRET_KEY and at least one LLM API key in .env
 
 docker compose up -d --build
 # API: http://localhost:8000/docs
@@ -31,7 +31,7 @@ Data layout inside the container:
 
 | Path | Purpose |
 |------|---------|
-| `/app/data` | `LEAGENT_HOME` — SQLite `leagent.db`, working dirs, secrets |
+| `/app/data` | `StAgent_HOME` — SQLite `StAgent.db`, working dirs, secrets |
 | `/app/uploads` | Chat attachments (`FILES_UPLOAD_DIR`) |
 | `/app/logs` / `/app/cache` | Logs and cache volumes |
 
@@ -52,8 +52,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile tools u
 ## Image build (CI parity)
 
 ```bash
-cd /path/to/LeAgent   # repository root
-docker build -f deploy/Dockerfile -t leagent:local .
+cd /path/to/StAgent   # repository root
+docker build -f deploy/Dockerfile -t StAgent:local .
 ```
 
 ## Parity with `./start.sh`
@@ -69,30 +69,30 @@ Docker here is for **packaged demos**, **CI**, or hosts where you only want one 
 
 ## Kubernetes / Helm
 
-`helm/leagent` contains the repeatable Kubernetes packaging for the API,
+`helm/StAgent` contains the repeatable Kubernetes packaging for the API,
 health probes, PVCs, secret injection, and optional OpenSearch/Milvus settings:
 
 ```bash
-helm upgrade --install leagent ./helm/leagent --set existingSecret=leagent-secrets
+helm upgrade --install StAgent ./helm/StAgent --set existingSecret=StAgent-secrets
 ```
 
 The chart defaults to one replica. PostgreSQL and
-`LEAGENT_REDIS_ENABLED=true` are prerequisites before increasing workers or
+`StAgent_REDIS_ENABLED=true` are prerequisites before increasing workers or
 replicas; the process refuses multi-worker mode without Redis-backed active
 run state. The chart does not install Redis, S3/MinIO, OpenSearch, or Milvus.
 
 ## Migrations
 
-The container entrypoint runs `python -m leagent.scripts.run_migrations` unless `LEAGENT_RUN_MIGRATIONS=false`. Keep `LEAGENT_MIGRATIONS_REQUIRED=true` in production so startup fails on a failed migration.
+The container entrypoint runs `python -m StAgent.scripts.run_migrations` unless `StAgent_RUN_MIGRATIONS=false`. Keep `StAgent_MIGRATIONS_REQUIRED=true` in production so startup fails on a failed migration.
 
-SQLite is safe with one worker. If `LEAGENT_WORKERS` is greater than `1`,
+SQLite is safe with one worker. If `StAgent_WORKERS` is greater than `1`,
 configure PostgreSQL and Redis first.
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://leagent:password@postgres.example.com:5432/leagent
-LEAGENT_REDIS_ENABLED=true
-LEAGENT_REDIS_URL=redis://redis.example.com:6379/0
-LEAGENT_WORKERS=2
+DATABASE_URL=postgresql+asyncpg://StAgent:password@postgres.example.com:5432/StAgent
+StAgent_REDIS_ENABLED=true
+StAgent_REDIS_URL=redis://redis.example.com:6379/0
+StAgent_WORKERS=2
 ```
 
 ## Production RAG runtime
@@ -102,7 +102,7 @@ contains the Redis, S3-compatible, and Milvus client libraries. For a
 non-Docker installation, run `uv sync --extra production` before enabling
 either shared runtime adapter or Milvus-backed retrieval.
 
-Set `LEAGENT_OBJECT_STORAGE_ENABLED=true`, a bucket, and (for MinIO) an
+Set `StAgent_OBJECT_STORAGE_ENABLED=true`, a bucket, and (for MinIO) an
 endpoint URL to move managed file blobs to S3-compatible storage. Credentials
 can come from the environment, Docker secret injection, or cloud workload
 identity. When Redis is enabled, startup pings both its cache and active-run
@@ -113,30 +113,30 @@ Before raising replicas, run an authenticated upload/retrieve/delete cycle
 against S3/MinIO, a cross-worker pause/resume cycle through Redis, and an
 end-to-end RAG query against OpenSearch, Milvus, and the reranker if enabled.
 
-Set `LEAGENT_KNOWLEDGE_QUERY_REWRITE_ENABLED=true` to use the configured fast
-LLM route before retrieval. For DeepSeek, LeAgent disables thinking for this
+Set `StAgent_KNOWLEDGE_QUERY_REWRITE_ENABLED=true` to use the configured fast
+LLM route before retrieval. For DeepSeek, StAgent disables thinking for this
 small JSON-only request so completion tokens remain available for the rewrite.
 DeepSeek can power query rewrite and answer generation, but not embeddings;
 Milvus still requires a separately configured embedding provider and a live
 vector smoke test. Enable the semantic plane with all of the following values:
 
 ```bash
-LEAGENT_KNOWLEDGE_MILVUS_ENABLED=true
-LEAGENT_KNOWLEDGE_EMBEDDING_ENABLED=true
-LEAGENT_KNOWLEDGE_EMBEDDING_PROVIDER=ollama
-LEAGENT_KNOWLEDGE_EMBEDDING_MODEL=nomic-embed-text
-LEAGENT_KNOWLEDGE_EMBEDDING_DIMENSION=768
+StAgent_KNOWLEDGE_MILVUS_ENABLED=true
+StAgent_KNOWLEDGE_EMBEDDING_ENABLED=true
+StAgent_KNOWLEDGE_EMBEDDING_PROVIDER=ollama
+StAgent_KNOWLEDGE_EMBEDDING_MODEL=nomic-embed-text
+StAgent_KNOWLEDGE_EMBEDDING_DIMENSION=768
 ```
 
 The provider and model must be explicit. If either is absent, unregistered, or
-lacks embedding support, LeAgent leaves the vector index unset and keeps
+lacks embedding support, StAgent leaves the vector index unset and keeps
 SQLite/BM25 retrieval active. The detailed health response reports a safe
 reason code such as `embedding_route_unconfigured` or
 `provider_lacks_embeddings`; it never exposes credentials or endpoint URLs.
 
 ### Rebuild after an index-version change
 
-`LEAGENT_KNOWLEDGE_INDEX_VERSION` is an immutable projection label (letters,
+`StAgent_KNOWLEDGE_INDEX_VERSION` is an immutable projection label (letters,
 numbers, `.`, `_`, and `-`, up to 64 characters). Change it when the embedding
 model, vector dimension, chunking contract, or retrieval schema changes; do
 not overwrite the previous projection in place. After deployment, invoke the
@@ -153,5 +153,5 @@ before directing traffic to the new version.
 
 ```bash
 ./run_docker.sh backup
-./run_docker.sh restore --file ./backups/leagent-YYYY-mm-dd_HHMMSS.db
+./run_docker.sh restore --file ./backups/StAgent-YYYY-mm-dd_HHMMSS.db
 ```

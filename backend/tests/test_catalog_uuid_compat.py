@@ -10,12 +10,12 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.api.v1.documents import list_documents
-from leagent.api.v1.files import search_files
-from leagent.api.v1.folder_items import list_folder_items
-from leagent.api.v1.folders import delete_folder, get_folder_tree, list_folders
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
+from StAgent.api.v1.documents import list_documents
+from StAgent.api.v1.files import search_files
+from StAgent.api.v1.folder_items import list_folder_items
+from StAgent.api.v1.folders import delete_folder, get_folder_tree, list_folders
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
 
 
 @pytest_asyncio.fixture()

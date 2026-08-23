@@ -5,10 +5,10 @@ import logging
 
 import pytest
 
-from leagent.exceptions.llm import LLMServiceError
-from leagent.llm.base import ChatMessage, LLMResponse, StreamChunk, ToolCall, ToolDefinition
-from leagent.llm.providers.custom import CustomOpenAIProvider
-from leagent.llm.providers.openai import OpenAIProvider
+from StAgent.exceptions.llm import LLMServiceError
+from StAgent.llm.base import ChatMessage, LLMResponse, StreamChunk, ToolCall, ToolDefinition
+from StAgent.llm.providers.custom import CustomOpenAIProvider
+from StAgent.llm.providers.openai import OpenAIProvider
 
 
 class TestCustomProviderStreamSanitization:
@@ -347,7 +347,7 @@ class TestCustomProviderParsing:
         }
 
     def test_dict_message_content_stringified(self) -> None:
-        from leagent.llm.providers.custom import _normalize_custom_request_messages
+        from StAgent.llm.providers.custom import _normalize_custom_request_messages
 
         out = _normalize_custom_request_messages([{"role": "user", "content": {"k": 1}}])
         assert out[0]["content"] == '{"k": 1}'
@@ -384,12 +384,12 @@ class TestCustomProviderErrorHandling:
 
 class TestCustomProviderWiring:
     def test_providers_package_exports_custom(self) -> None:
-        from leagent.llm.providers import CustomOpenAIProvider as Exported
+        from StAgent.llm.providers import CustomOpenAIProvider as Exported
 
         assert Exported is CustomOpenAIProvider
 
     def test_provider_config_constructs_custom_provider(self) -> None:
-        from leagent.llm.provider_config import ProviderConfig, ProviderConfigService
+        from StAgent.llm.provider_config import ProviderConfig, ProviderConfigService
 
         pc = ProviderConfig(
             name="acme",

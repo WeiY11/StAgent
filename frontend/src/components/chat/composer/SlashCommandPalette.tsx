@@ -8,6 +8,7 @@ import {
   Sparkles,
   Paperclip,
   Puzzle,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 
@@ -71,6 +72,13 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
     description: 'Attach a file to your message',
     icon: <Paperclip className="w-4 h-4" />,
     command: '/attach',
+  },
+  {
+    id: 'goal',
+    label: 'Start Mission',
+    description: 'Launch an autonomous mission from a goal',
+    icon: <Target className="w-4 h-4" />,
+    command: '/goal',
   },
 ];
 

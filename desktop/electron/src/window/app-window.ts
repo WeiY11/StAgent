@@ -53,7 +53,7 @@ function titleBarOptions(): Electron.BrowserWindowConstructorOptions {
 export function createMainWindow(preloadPath: string): BrowserWindow {
   const { width, height } = getDefaultWindowSize();
   mainWindow = new BrowserWindow({
-    title: 'LeAgent',
+    title: 'StAgent',
     width,
     height,
     minWidth: 1024,

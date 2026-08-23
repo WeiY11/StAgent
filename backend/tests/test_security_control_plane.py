@@ -8,24 +8,24 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.services.auth.secrets import clear_secret_cache
-from leagent.services.auth.service import LOCAL_USER_ID, AuthService, init_auth_service
-from leagent.services.auth.store import reset_security_store_for_tests
+from StAgent.services.auth.secrets import clear_secret_cache
+from StAgent.services.auth.service import LOCAL_USER_ID, AuthService, init_auth_service
+from StAgent.services.auth.store import reset_security_store_for_tests
 
 
 @pytest.fixture()
 def auth_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    home = tmp_path / "leagent-home"
+    home = tmp_path / "StAgent-home"
     home.mkdir()
-    monkeypatch.setenv("LEAGENT_HOME", str(home))
-    monkeypatch.setenv("LEAGENT_SECRET_KEY", "unit-test-secret-key-32bytes-min")
+    monkeypatch.setenv("StAgent_HOME", str(home))
+    monkeypatch.setenv("StAgent_SECRET_KEY", "unit-test-secret-key-32bytes-min")
     clear_secret_cache()
     store = reset_security_store_for_tests(home / "security.json")
     return store
 
 
 def test_effective_enforce_auth_auto_on_open_bind(auth_home) -> None:
-    from leagent.services.auth.policy import effective_enforce_auth
+    from StAgent.services.auth.policy import effective_enforce_auth
 
     class Sec:
         enforce_auth = None
@@ -46,7 +46,7 @@ def test_effective_enforce_auth_auto_on_open_bind(auth_home) -> None:
 
 
 def test_setup_login_roundtrip(auth_home, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LEAGENT_SECURITY_ENFORCE_AUTH", "true")
+    monkeypatch.setenv("StAgent_SECURITY_ENFORCE_AUTH", "true")
     # Re-init settings cache is hard; drive AuthService directly + HTTP with override.
 
     status = client.get("/api/v1/auth/status")
@@ -99,7 +99,7 @@ def test_auth_service_enforced_tokens(auth_home) -> None:
 def test_assert_execution_owner_helper() -> None:
     from fastapi import HTTPException
 
-    from leagent.workflow.server.router import _assert_execution_owner
+    from StAgent.workflow.server.router import _assert_execution_owner
 
     uid = uuid4()
     _assert_execution_owner({"user_id": str(uid)}, uid)

@@ -21,16 +21,16 @@ from typing import Any, AsyncIterator
 
 import pytest
 
-from leagent.agent.deps import ModelStreamEvent, QueryDeps
-from leagent.agent.tool_use_context import ToolUseContext
-from leagent.bootstrap.tools import register_default_tools
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.model_spec import ModelTask
-from leagent.llm.providers.deepseek import DeepSeekProvider
-from leagent.llm.registry import ProviderRegistry
-from leagent.llm.service import LLMService
-from leagent.llm.task_resolver import TaskResolver
-from leagent.tools.registry import ToolRegistry
+from StAgent.agent.deps import ModelStreamEvent, QueryDeps
+from StAgent.agent.tool_use_context import ToolUseContext
+from StAgent.bootstrap.tools import register_default_tools
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_spec import ModelTask
+from StAgent.llm.providers.deepseek import DeepSeekProvider
+from StAgent.llm.registry import ProviderRegistry
+from StAgent.llm.service import LLMService
+from StAgent.llm.task_resolver import TaskResolver
+from StAgent.tools.registry import ToolRegistry
 
 
 def deepseek_api_configured() -> bool:

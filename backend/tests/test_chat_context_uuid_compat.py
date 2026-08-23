@@ -10,13 +10,13 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.api.v1.chat.context_sources import (
+from StAgent.api.v1.chat.context_sources import (
     resolve_folder_context,
     resolve_folder_context_note,
     resolve_knowledge_message_paths,
 )
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
 
 
 @pytest_asyncio.fixture()

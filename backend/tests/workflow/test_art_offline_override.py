@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.nodes.art.base import BaseGenerationNode
+from StAgent.workflow.nodes.art.base import BaseGenerationNode
 
 
 class _StubNode(BaseGenerationNode):
@@ -24,6 +24,6 @@ def test_art_offline_pins_auto_provider():
 
 
 def test_env_art_offline_overrides_explicit_provider(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LEAGENT_ART_OFFLINE", "1")
+    monkeypatch.setenv("StAgent_ART_OFFLINE", "1")
     state = type("S", (), {"metadata": {}})()
     assert _StubNode._force_offline(state, "siliconflow") is True

@@ -8,8 +8,8 @@ These files are **canonical** workflow documents (`nodes` as a map, `class_type`
 | `demo-fx-rates-public.yaml` | Frankfurter ECB FX JSON via `web_scraper` + `json_parser` — “dashboard” style structured output. |
 | `demo-data-analysis.yaml` | Offline data-analysis loop: `data_profile` (dataset profile card) + `data_aggregate` (region/category summary) on an inline demo sales dataset — no API keys. |
 | `demo-local-sdxl-txt2img.yaml` | Text-to-image via the first-class `Art.ImageGen` node (offline fallback — no API key required). |
-| `demo-local-tts.yaml` | Local OpenAI-compatible TTS server via `Model.tts.local` (requires `LEAGENT_LOCAL_TTS_URL`). |
-| `demo-asr-agent-summary.yaml` | Local Whisper transcription (`Model.asr.local`) linked into a Script Agent summary (requires `LEAGENT_LOCAL_ASR_URL`). |
+| `demo-local-tts.yaml` | Local OpenAI-compatible TTS server via `Model.tts.local` (requires `StAgent_LOCAL_TTS_URL`). |
+| `demo-asr-agent-summary.yaml` | Local Whisper transcription (`Model.asr.local`) linked into a Script Agent summary (requires `StAgent_LOCAL_ASR_URL`). |
 | `demo-agent-pause-resume.yaml` | Agent checkpoint lifecycle: pauses for user input, resumes from the saved checkpoint. |
 
 The self-hosted model demos depend on the [domain-model setup guide](../../docs/technical/custom-models.md).

@@ -2,13 +2,13 @@
 
 ## 定位与先修
 
-MCP（Model Context Protocol）把外部服务器上的工具桥进 Agent。桥接实现位于 `backend/leagent/mcp/`，代理类是 `MCPProxyTool`，命名约定为 `mcp__<server>__<tool>`，从而与原生工具并列出现在 `ToolRegistry` 中。本文结合 **OWASP 语境下的 Tool Poisoning / 间接提示注入** 讨论安全：恶意或被供应链污染的工具描述、输入 schema，甚至工具返回文本，都可能诱导模型调用高权限原生工具或外泄会话数据。先修：[19](19-tool-schema-design.md)、[21](21-tool-registry-and-executor.md)；护栏概览见 [43](43-hooks-and-guardrails.md)。
+MCP（Model Context Protocol）把外部服务器上的工具桥进 Agent。桥接实现位于 `backend/StAgent/mcp/`，代理类是 `MCPProxyTool`，命名约定为 `mcp__<server>__<tool>`，从而与原生工具并列出现在 `ToolRegistry` 中。本文结合 **OWASP 语境下的 Tool Poisoning / 间接提示注入** 讨论安全：恶意或被供应链污染的工具描述、输入 schema，甚至工具返回文本，都可能诱导模型调用高权限原生工具或外泄会话数据。先修：[19](19-tool-schema-design.md)、[21](21-tool-registry-and-executor.md)；护栏概览见 [43](43-hooks-and-guardrails.md)。
 
 核心立场只有一句：**MCP 的 description 与 tool result 都是不可信内容，不能当系统策略。**
 
 ## 学习目标
 
-把 MCP 工具视为不可信边界上的内容源；能识别描述投毒、响应投毒、能力放大三类攻击面；在 LeAgent 中设计 allowlist/deny、服务端权限与人工确认的纵深防御；理解“MCP 工具本身只读”并不能关闭对写工具的诱导风险。
+把 MCP 工具视为不可信边界上的内容源；能识别描述投毒、响应投毒、能力放大三类攻击面；在 StAgent 中设计 allowlist/deny、服务端权限与人工确认的纵深防御；理解“MCP 工具本身只读”并不能关闭对写工具的诱导风险。
 
 ## 心智模型：污染首先进入上下文，危险发生在本地工具
 
@@ -81,7 +81,7 @@ uv run pytest tests -k mcp -q --maxfail=5
 
 ## 业内对照
 
-MCP 规范解决互操作，不解决信任。这与浏览器扩展权限模型、OpenAI“模型提议、宿主执行”、OWASP LLM Top 10 中间接注入同一类问题：工具 I/O 是内容，授权在服务端。部分产品选择完全禁止第三方 MCP；LeAgent 选择可插拔接入，并用命名前缀、registry deny、permission/approval、原生沙箱组合降低爆破半径。
+MCP 规范解决互操作，不解决信任。这与浏览器扩展权限模型、OpenAI“模型提议、宿主执行”、OWASP LLM Top 10 中间接注入同一类问题：工具 I/O 是内容，授权在服务端。部分产品选择完全禁止第三方 MCP；StAgent 选择可插拔接入，并用命名前缀、registry deny、permission/approval、原生沙箱组合降低爆破半径。
 
 ## 总结
 

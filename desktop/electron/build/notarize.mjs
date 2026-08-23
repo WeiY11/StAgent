@@ -28,7 +28,7 @@ export default async function afterSign(context) {
   console.log(`Notarizing ${appPath}…`);
 
   await notarize({
-    appBundleId: 'dev.leagent.desktop',
+    appBundleId: 'dev.StAgent.desktop',
     appPath,
     appleId,
     appleIdPassword,

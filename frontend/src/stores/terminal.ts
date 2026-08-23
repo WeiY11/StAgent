@@ -66,7 +66,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         const token = getAccessToken();
         if (token) headers.Authorization = `Bearer ${token}`;
         const fp = getMachineFingerprint();
-        if (fp.length >= 8) headers['x-leagent-machine-fingerprint'] = fp;
+        if (fp.length >= 8) headers['x-StAgent-machine-fingerprint'] = fp;
 
         const resp = await fetch(url, {
           method: 'GET',
@@ -125,6 +125,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   clearSession: (sessionId) => {
     get().disconnect(sessionId);
+    cancelPendingFlush(sessionId);
     set((s) => {
       const chunks = { ...s.chunksBySession };
       delete chunks[sessionId];
@@ -135,28 +136,91 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 }));
 
-function appendChunk(
+// ---------------------------------------------------------------------------
+// rAF-batched ingestion: one SSE frame per subprocess stdout line would
+// otherwise setState (and re-render the dock) per chunk, copying the whole
+// chunk array each time. Buffer per session and flush once per frame.
+// ---------------------------------------------------------------------------
+
+interface PendingFlush {
+  chunks: TerminalChunk[];
+  rafId: number | null;
+  cancel: ((id: number) => void) | null;
+}
+
+const pending = new Map<string, PendingFlush>();
+
+function cancelPendingFlush(sessionId: string): void {
+  const entry = pending.get(sessionId);
+  if (!entry) return;
+  if (entry.rafId != null && entry.cancel) entry.cancel(entry.rafId);
+  entry.chunks = [];
+  entry.rafId = null;
+  entry.cancel = null;
+}
+
+function flushChunks(
   sessionId: string,
-  chunk: TerminalChunk,
   set: (fn: (s: TerminalState) => Partial<TerminalState>) => void,
-) {
+): void {
+  const entry = pending.get(sessionId);
+  if (!entry) return;
+  if (entry.rafId != null && entry.cancel) entry.cancel(entry.rafId);
+  entry.rafId = null;
+  entry.cancel = null;
+  const chunks = entry.chunks;
+  if (chunks.length === 0) return;
+  entry.chunks = [];
+
   set((s) => {
     const prev = s.chunksBySession[sessionId] ?? [];
-    const next = [...prev, chunk];
+    const next = prev.concat(chunks);
     const bounded =
       next.length > MAX_CHUNKS_PER_SESSION
         ? next.slice(next.length - MAX_CHUNKS_PER_SESSION)
         : next;
 
     const live = new Set(s.liveCalls[sessionId] ?? []);
-    if (chunk.done) live.delete(chunk.tool_call_id);
-    else live.add(chunk.tool_call_id);
+    for (const chunk of chunks) {
+      if (chunk.done) live.delete(chunk.tool_call_id);
+      else live.add(chunk.tool_call_id);
+    }
 
     return {
       chunksBySession: { ...s.chunksBySession, [sessionId]: bounded },
       liveCalls: { ...s.liveCalls, [sessionId]: live },
     };
   });
+}
+
+function appendChunk(
+  sessionId: string,
+  chunk: TerminalChunk,
+  set: (fn: (s: TerminalState) => Partial<TerminalState>) => void,
+) {
+  let entry = pending.get(sessionId);
+  if (!entry) {
+    entry = { chunks: [], rafId: null, cancel: null };
+    pending.set(sessionId, entry);
+  }
+  entry.chunks.push(chunk);
+
+  // Terminal-state markers (done/exit_code) flush immediately so the dock's
+  // live-call tracking never lags a frame behind.
+  if (chunk.done) {
+    flushChunks(sessionId, set);
+    return;
+  }
+
+  if (entry.rafId != null) return;
+  const schedule = () => flushChunks(sessionId, set);
+  if (typeof requestAnimationFrame === 'function') {
+    entry.cancel = cancelAnimationFrame;
+    entry.rafId = requestAnimationFrame(schedule);
+  } else {
+    entry.cancel = clearTimeout;
+    entry.rafId = setTimeout(schedule, 16) as unknown as number;
+  }
 }
 
 export function selectSessionChunks(

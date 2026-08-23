@@ -13,7 +13,7 @@ from collections import Counter
 
 import pytest
 
-from leagent.main import app
+from StAgent.main import app
 
 
 def test_critical_routes_are_present() -> None:
@@ -47,18 +47,18 @@ def test_required_router_import_failure_raises(monkeypatch: pytest.MonkeyPatch) 
 
     from fastapi import APIRouter
 
-    from leagent.api.manifest import RouterSpec, mount_router
+    from StAgent.api.manifest import RouterSpec, mount_router
 
     real_import = importlib.import_module
 
     def _boom(name: str, *args: object, **kwargs: object) -> object:
-        if name == "leagent.api.v1.chat":
+        if name == "StAgent.api.v1.chat":
             raise ImportError("simulated broken chat router")
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(importlib, "import_module", _boom)
 
-    spec = RouterSpec(import_path="leagent.api.v1.chat", prefix="/chat", required=True)
+    spec = RouterSpec(import_path="StAgent.api.v1.chat", prefix="/chat", required=True)
     with pytest.raises(RuntimeError, match="required API router failed to load"):
         mount_router(APIRouter(), spec)
 
@@ -71,13 +71,13 @@ def test_optional_router_import_failure_is_skipped(
 
     from fastapi import APIRouter
 
-    from leagent.api.manifest import RouterSpec, mount_router
+    from StAgent.api.manifest import RouterSpec, mount_router
 
     def _boom(name: str, *args: object, **kwargs: object) -> object:
         raise ImportError("simulated broken optional router")
 
     monkeypatch.setattr(importlib, "import_module", _boom)
 
-    spec = RouterSpec(import_path="leagent.api.v1.nonexistent", required=False)
+    spec = RouterSpec(import_path="StAgent.api.v1.nonexistent", required=False)
     # Must not raise.
     mount_router(APIRouter(), spec)

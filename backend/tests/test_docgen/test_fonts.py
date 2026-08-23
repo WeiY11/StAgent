@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from leagent.docgen import fonts as fonts_mod
-from leagent.docgen.fonts import FONT_MANIFEST, FontManager
+from StAgent.docgen import fonts as fonts_mod
+from StAgent.docgen.fonts import FONT_MANIFEST, FontManager
 
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv("LEAGENT_CJK_FONT", raising=False)
-    monkeypatch.delenv("LEAGENT_CJK_FONT_BOLD", raising=False)
-    monkeypatch.delenv("LEAGENT_FONT_AUTO_DOWNLOAD", raising=False)
+    monkeypatch.delenv("StAgent_CJK_FONT", raising=False)
+    monkeypatch.delenv("StAgent_CJK_FONT_BOLD", raising=False)
+    monkeypatch.delenv("StAgent_FONT_AUTO_DOWNLOAD", raising=False)
 
 
 def _no_system_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -27,7 +27,7 @@ def _no_system_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_env_override_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     font = tmp_path / "custom.ttf"
     font.write_bytes(b"x")
-    monkeypatch.setenv("LEAGENT_CJK_FONT", str(font))
+    monkeypatch.setenv("StAgent_CJK_FONT", str(font))
 
     resolved = FontManager(fonts_dir=tmp_path / "managed").resolve(allow_download=False)
     assert resolved.source == "env"
@@ -37,7 +37,7 @@ def test_env_override_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 def test_env_override_missing_file_warns_and_falls_through(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("LEAGENT_CJK_FONT", str(tmp_path / "missing.ttf"))
+    monkeypatch.setenv("StAgent_CJK_FONT", str(tmp_path / "missing.ttf"))
     _no_system_fonts(monkeypatch)
 
     resolved = FontManager(fonts_dir=tmp_path / "managed").resolve(allow_download=False)
@@ -103,7 +103,7 @@ def test_auto_download_disabled_warns(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _no_system_fonts(monkeypatch)
-    monkeypatch.setenv("LEAGENT_FONT_AUTO_DOWNLOAD", "0")
+    monkeypatch.setenv("StAgent_FONT_AUTO_DOWNLOAD", "0")
 
     resolved = FontManager(fonts_dir=tmp_path / "managed").resolve(allow_download=True)
     assert resolved.source == "none"
@@ -140,7 +140,7 @@ def test_download_sha256_match_accepted(
 ) -> None:
     import httpx
 
-    from leagent.docgen.fonts import FontAsset
+    from StAgent.docgen.fonts import FontAsset
 
     body = b"pinned-font-bytes"
     asset = FontAsset(
@@ -167,11 +167,11 @@ def test_download_sha256_match_accepted(
 def test_resolve_caches_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     font = tmp_path / "custom.ttf"
     font.write_bytes(b"x")
-    monkeypatch.setenv("LEAGENT_CJK_FONT", str(font))
+    monkeypatch.setenv("StAgent_CJK_FONT", str(font))
 
     mgr = FontManager(fonts_dir=tmp_path / "managed")
     first = mgr.resolve(allow_download=False)
-    monkeypatch.delenv("LEAGENT_CJK_FONT")
+    monkeypatch.delenv("StAgent_CJK_FONT")
     second = mgr.resolve(allow_download=False)
     assert second is first
     assert mgr.resolve(allow_download=False, refresh=True).source != "env"

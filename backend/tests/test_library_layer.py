@@ -10,9 +10,9 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.library.chunking import chunk_text
-from leagent.library.fts import FTS_DDL, escape_fts_query
-from leagent.library.gc import run_file_gc
+from StAgent.library.chunking import chunk_text
+from StAgent.library.fts import FTS_DDL, escape_fts_query
+from StAgent.library.gc import run_file_gc
 
 
 def test_chunk_text_preserves_offsets() -> None:
@@ -35,9 +35,9 @@ def test_fts_ddl_is_non_empty() -> None:
 
 @pytest.mark.asyncio
 async def test_run_file_gc_removes_orphan_blob(monkeypatch: pytest.MonkeyPatch) -> None:
-    from leagent.config.settings import Settings
-    from leagent.db.models.file import File, FileStatus, FileType, LibraryScope
-    from leagent.db.service import DatabaseService
+    from StAgent.config.settings import Settings
+    from StAgent.db.models.file import File, FileStatus, FileType, LibraryScope
+    from StAgent.db.service import DatabaseService
 
     with tempfile.TemporaryDirectory() as tmp:
         db_path = Path(tmp) / "gc.db"
@@ -46,7 +46,7 @@ async def test_run_file_gc_removes_orphan_blob(monkeypatch: pytest.MonkeyPatch) 
         db = DatabaseService(settings)
         await db.create_tables()
 
-        from leagent.services.auth.service import LOCAL_USER_ID
+        from StAgent.services.auth.service import LOCAL_USER_ID
 
         blob = Path(tmp) / "orphan.bin"
         blob.write_bytes(b"deadbeef")

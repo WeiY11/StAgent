@@ -1,15 +1,15 @@
 # 自定义模型与自定义节点
 
-LeAgent 的工作流系统遵循 ComfyUI 的上手模式：注册一个**领域模型适配器**会自动在工作流面板中生成类型化的 `Model.<task>.<provider>` 节点；注册一个**工作流节点**类会将其加入 `/object_info`，无需改前端。本指南涵盖上述两条路径，以及自托管模型（diffusers、本地 Whisper/TTS）的配置。
+StAgent 的工作流系统遵循 ComfyUI 的上手模式：注册一个**领域模型适配器**会自动在工作流面板中生成类型化的 `Model.<task>.<provider>` 节点；注册一个**工作流节点**类会将其加入 `/object_info`，无需改前端。本指南涵盖上述两条路径，以及自托管模型（diffusers、本地 Whisper/TTS）的配置。
 
 英文版：[custom-models.md](./custom-models.md)
 
 ## 1. 领域模型适配器
 
-*领域模型*指任何非聊天的任务专用能力：图像生成、TTS、ASR，以及未来的 video/upscaling。适配器实现 `leagent.llm.domain_registry` 中的 `DomainModelAdapter` 协议：
+*领域模型*指任何非聊天的任务专用能力：图像生成、TTS、ASR，以及未来的 video/upscaling。适配器实现 `StAgent.llm.domain_registry` 中的 `DomainModelAdapter` 协议：
 
 ```python
-from leagent.llm.domain_registry import (
+from StAgent.llm.domain_registry import (
     DomainModelResult,
     DomainModelSpec,
     DomainParam,
@@ -58,7 +58,7 @@ class MyUpscaleAdapter:
 **编程式**（内置于你的 app/bootstrap）：
 
 ```python
-from leagent.llm.domain_registry import get_domain_registry
+from StAgent.llm.domain_registry import get_domain_registry
 
 get_domain_registry().register(MyUpscaleAdapter())
 ```
@@ -67,7 +67,7 @@ get_domain_registry().register(MyUpscaleAdapter())
 
 ```toml
 # pyproject.toml of your plugin distribution
-[project.entry-points."leagent.domain_models"]
+[project.entry-points."StAgent.domain_models"]
 my_upscale = "my_pkg.adapters:MyUpscaleAdapter"
 ```
 
@@ -76,7 +76,7 @@ my_upscale = "my_pkg.adapters:MyUpscaleAdapter"
 ### 在工作流外调用
 
 ```python
-from leagent.llm.domain_registry import get_domain_registry
+from StAgent.llm.domain_registry import get_domain_registry
 
 result = await get_domain_registry().invoke_task("tts", provider="local", text="hi")
 ```
@@ -95,7 +95,7 @@ uv sync --extra diffusion
 **目录结构**（由你创建；注册时扫描）：
 
 ```
-~/.leagent/models/
+~/.StAgent/models/
 ├── diffusion/          # checkpoints: *.safetensors / *.ckpt (subdirs ok)
 │   ├── dreamshaperXL.safetensors
 │   └── sd15/anything-v5.ckpt
@@ -109,11 +109,11 @@ uv sync --extra diffusion
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
-| `LEAGENT_DIFFUSION_ENABLED` | `1` | 设为 `0` 可在已安装时仍跳过注册 |
-| `LEAGENT_DIFFUSION_MODELS_DIR` | `~/.leagent/models/diffusion` | Checkpoint 扫描目录 |
-| `LEAGENT_DIFFUSION_LORA_DIR` | `~/.leagent/models/lora` | LoRA 扫描目录 |
-| `LEAGENT_DIFFUSION_DEFAULT_MODEL` | `stabilityai/stable-diffusion-xl-base-1.0` | 回退 hub id |
-| `LEAGENT_DIFFUSION_DEVICE` | auto (cuda → mps → cpu) | 强制指定设备 |
+| `StAgent_DIFFUSION_ENABLED` | `1` | 设为 `0` 可在已安装时仍跳过注册 |
+| `StAgent_DIFFUSION_MODELS_DIR` | `~/.StAgent/models/diffusion` | Checkpoint 扫描目录 |
+| `StAgent_DIFFUSION_LORA_DIR` | `~/.StAgent/models/lora` | LoRA 扫描目录 |
+| `StAgent_DIFFUSION_DEFAULT_MODEL` | `stabilityai/stable-diffusion-xl-base-1.0` | 回退 hub id |
+| `StAgent_DIFFUSION_DEVICE` | auto (cuda → mps → cpu) | 强制指定设备 |
 
 节点参数：`prompt`、`model`（COMBO，来自发现结果）、`negative_prompt`、`width`/`height`、`steps`、`cfg_scale`、`seed`（−1 = 随机）、`scheduler`（`euler_a`、`euler`、`dpmpp_2m`、`dpmpp_2m_karras`、`ddim`、`unipc`）、`lora`（COMBO，来自 LoRA 目录 + `none`）、`lora_scale`。
 
@@ -125,10 +125,10 @@ Pipeline 管理器保持单一模型驻留，切换时释放 VRAM，并在锁后
 
 | 节点 | 服务 | 环境变量 |
 |---|---|---|
-| `Model.asr.local` | faster-whisper-server、whisper.cpp、Speaches | `LEAGENT_LOCAL_ASR_URL`（+ `LEAGENT_LOCAL_ASR_MODEL`） |
-| `Model.tts.local` | openedai-speech、Kokoro-FastAPI | `LEAGENT_LOCAL_TTS_URL`（+ `LEAGENT_LOCAL_TTS_MODEL`） |
+| `Model.asr.local` | faster-whisper-server、whisper.cpp、Speaches | `StAgent_LOCAL_ASR_URL`（+ `StAgent_LOCAL_ASR_MODEL`） |
+| `Model.tts.local` | openedai-speech、Kokoro-FastAPI | `StAgent_LOCAL_TTS_URL`（+ `StAgent_LOCAL_TTS_MODEL`） |
 
-若服务需要 token，可设置共享的 `LEAGENT_LOCAL_AUDIO_API_KEY`。URL 可以是服务根路径或包含 `/v1`。设置 URL 即注册节点——未设置则节点不会出现。
+若服务需要 token，可设置共享的 `StAgent_LOCAL_AUDIO_API_KEY`。URL 可以是服务根路径或包含 `/v1`。设置 URL 即注册节点——未设置则节点不会出现。
 
 示例工作流：[`demo-local-tts.yaml`](../../config/demo-workflows/demo-local-tts.yaml)、[`demo-asr-agent-summary.yaml`](../../config/demo-workflows/demo-asr-agent-summary.yaml)。
 
@@ -137,8 +137,8 @@ Pipeline 管理器保持单一模型驻留，切换时释放 VRAM，并在锁后
 对于不适合领域模型 envelope 的逻辑，直接实现 `WorkflowNode`：
 
 ```python
-from leagent.workflow.io import IO, Hidden, HiddenHolder, NodeOutput, Schema
-from leagent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.io import IO, Hidden, HiddenHolder, NodeOutput, Schema
+from StAgent.workflow.nodes.base import WorkflowNode
 
 
 class WordCountNode(WorkflowNode):
@@ -171,7 +171,7 @@ class WordCountNode(WorkflowNode):
         return NodeOutput(values=(len(words), f"{len(words)} words"))
 ```
 
-从 node loader 会导入的模块中注册（内置节点位于 `leagent/workflow/nodes/builtin/`），或通过 `leagent.workflow.nodes` entry-point 组发布。Schema 经 `/object_info` 提供，编辑器自动渲染类型化 socket、颜色与 widget。
+从 node loader 会导入的模块中注册（内置节点位于 `StAgent/workflow/nodes/builtin/`），或通过 `StAgent.workflow.nodes` entry-point 组发布。Schema 经 `/object_info` 提供，编辑器自动渲染类型化 socket、颜色与 widget。
 
 长时间运行的节点可通过 `hidden.progress.update(value=..., max=..., node_id=hidden.unique_id)` 流式上报进度，并应尊重 `hidden.abort_event` 以支持取消。
 

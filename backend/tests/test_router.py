@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-from leagent.llm.base import (
+from StAgent.llm.base import (
     ChatMessage,
     LLMProvider,
     LLMResponse,
     StreamChunk,
     ToolDefinition,
 )
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.registry import ProviderRegistry
-from leagent.llm.service import LLMService
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.registry import ProviderRegistry
+from StAgent.llm.service import LLMService
 
 
 class _RecordingProvider(LLMProvider):

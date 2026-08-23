@@ -19,10 +19,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401 - ensure metadata is loaded
-from leagent.config.settings import get_settings
-from leagent.services.session.manager import SessionManager
-from leagent.services.session.tabular_snapshot import (
+import StAgent.db.models  # noqa: F401 - ensure metadata is loaded
+from StAgent.config.settings import get_settings
+from StAgent.services.session.manager import SessionManager
+from StAgent.services.session.tabular_snapshot import (
     _SKIP_PARSE_BYTES,
     build_tabular_snapshot,
 )

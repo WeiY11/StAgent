@@ -6,15 +6,15 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^backend/leagent/
+        files: ^backend/StAgent/
       - id: ruff-format
-        files: ^backend/leagent/
+        files: ^backend/StAgent/
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
     hooks:
       - id: mypy
-        files: ^backend/leagent/(runtime|sdk|api/router\.py|config|db|file)
+        files: ^backend/StAgent/(runtime|sdk|api/router\.py|config|db|file)
         args: [--config-file=backend/pyproject.toml]
         additional_dependencies:
           - pydantic>=2.10.0

@@ -1,4 +1,4 @@
-; LeAgent NSIS custom installer hooks
+; StAgent NSIS custom installer hooks
 ; Included by electron-builder via nsis.include in electron-builder.yml
 ;
 ; NOTE: Do NOT !include "MUI2.nsh" here — electron-builder's own NSIS
@@ -21,7 +21,7 @@
   ${If} ${Errors}
     ${if} $hasPerUserInstallation == "0"
     ${andif} $hasPerMachineInstallation == "0"
-      StrCpy $INSTDIR "$LOCALAPPDATA\LeAgent"
+      StrCpy $INSTDIR "$LOCALAPPDATA\StAgent"
     ${endif}
   ${EndIf}
 !macroend
@@ -55,9 +55,9 @@
   ; only an interactive full uninstall may ask.
   ${ifNot} ${isUpdated}
     MessageBox MB_YESNO|MB_ICONQUESTION \
-      "Remove LeAgent user data (settings, databases, logs)?$\n$\nUser data location: $APPDATA\LeAgent" \
+      "Remove StAgent user data (settings, databases, logs)?$\n$\nUser data location: $APPDATA\StAgent" \
       /SD IDNO IDNO skip_data_removal
-    RMDir /r "$APPDATA\LeAgent"
+    RMDir /r "$APPDATA\StAgent"
     skip_data_removal:
   ${endif}
 !macroend

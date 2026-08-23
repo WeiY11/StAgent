@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.tools.base import ToolContext
-from leagent.tools.canvas.canvas_publish import load_html_paths_map
+from StAgent.tools.base import ToolContext
+from StAgent.tools.canvas.canvas_publish import load_html_paths_map
 
 
 def test_load_html_paths_map_from_project_root(tmp_path: Path) -> None:

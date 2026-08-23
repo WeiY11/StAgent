@@ -5,8 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 
-from leagent.db import models as _models  # noqa: F401  import all models
-from leagent.db.models.file import File, FileType, FileStatus, LibraryScope, InboxState
+from StAgent.db import models as _models  # noqa: F401  import all models
+from StAgent.db.models.file import File, FileType, FileStatus, LibraryScope, InboxState
 
 
 async def main() -> None:

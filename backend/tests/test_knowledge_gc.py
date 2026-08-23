@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.knowledge.gc import KnowledgeGarbageCollector
+from StAgent.knowledge.gc import KnowledgeGarbageCollector
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_gc_summary_logging_does_not_raise_when_info_is_enabled(
     monkeypatch.setattr(collector, "_collect_orphaned_contents", AsyncMock(return_value=0))
     monkeypatch.setattr(collector, "_collect_stuck_processing", AsyncMock(return_value=0))
     monkeypatch.setattr(collector, "_collect_expired_files", AsyncMock(return_value=0))
-    caplog.set_level(logging.INFO, logger="leagent.knowledge.gc")
+    caplog.set_level(logging.INFO, logger="StAgent.knowledge.gc")
 
     assert (await collector.collect()).to_dict()["errors"] == []
 
@@ -74,7 +74,7 @@ async def test_orphaned_chunk_gc_removes_matching_vector_scopes(
             return 2
 
     monkeypatch.setattr(
-        "leagent.knowledge.vector_index.get_knowledge_vector_index",
+        "StAgent.knowledge.vector_index.get_knowledge_vector_index",
         lambda: _VectorIndex(),
     )
 

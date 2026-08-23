@@ -364,7 +364,7 @@ code, pre, kbd {
   color: var(--color-text-secondary);
 }
 
-/* ── Install card — LeAgent workspace-inspired panel ───────────── */
+/* ── Install card — StAgent workspace-inspired panel ───────────── */
 .workspace-install {
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);

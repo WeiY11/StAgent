@@ -1,8 +1,8 @@
 import { app, BrowserWindow } from 'electron';
 import { initLogger } from './logger.js';
-import { LeAgentDesktopApp, resolvePreloadPath } from './app/leagent-desktop-app.js';
+import { StAgentDesktopApp, resolvePreloadPath } from './app/StAgent-desktop-app.js';
 
-let desktopApp: LeAgentDesktopApp | null = null;
+let desktopApp: StAgentDesktopApp | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -19,7 +19,7 @@ if (!gotLock) {
 
 app.whenReady().then(async () => {
   initLogger();
-  desktopApp = new LeAgentDesktopApp(resolvePreloadPath());
+  desktopApp = new StAgentDesktopApp(resolvePreloadPath());
   await desktopApp.start();
 });
 

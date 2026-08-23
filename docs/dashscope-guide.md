@@ -1,12 +1,12 @@
 # DashScope (Qwen / 通义千问) Integration Guide
 
-> LeAgent developer reference for Alibaba Cloud DashScope (Model Studio /
+> StAgent developer reference for Alibaba Cloud DashScope (Model Studio /
 > 百炼) via the **OpenAI-compatible** Chat Completions API.
 >
 > Canonical API docs (上游参考):
 > <https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions>
 
-LeAgent talks to DashScope through the `/compatible-mode/v1/chat/completions`
+StAgent talks to DashScope through the `/compatible-mode/v1/chat/completions`
 endpoint, so the request/response shape is OpenAI-compatible — every
 DashScope-specific knob is added on top via `extra_body` (Python SDK) or as a
 top-level JSON field (HTTP/Node.js).
@@ -34,10 +34,10 @@ key was issued in.
 
 ## 2. Models
 
-LeAgent's `PROVIDER_CATALOG` (`leagent/llm/provider_config.py`) advertises
+StAgent's `PROVIDER_CATALOG` (`StAgent/llm/provider_config.py`) advertises
 the following Qwen models under provider type `qwen` (alias `dashscope`):
 
-| Model | LeAgent tier | Context window | Tools | Pricing (¥ / 1M tokens, in / out) | Notes |
+| Model | StAgent tier | Context window | Tools | Pricing (¥ / 1M tokens, in / out) | Notes |
 |-------|--------------|----------------|-------|-----------------------------------|-------|
 | `qwen3-max` | tier1 | 128 000 | Yes | 10.00 / 30.00 | Strongest reasoning, supports thinking mode |
 | `qwen3.5-plus` | tier1 | 128 000 | Yes | 2.00 / 8.00 | Balanced performance/cost |
@@ -46,7 +46,7 @@ the following Qwen models under provider type `qwen` (alias `dashscope`):
 | `qwen-long` | tier1 | 1 000 000 | Yes | 0.50 / 2.00 | Long-context, supports file ingestion |
 
 Additional model families exposed by the same endpoint (not pre-registered in
-LeAgent but selectable via the admin UI):
+StAgent but selectable via the admin UI):
 
 - **Vision** — `qwen-vl-plus`, `qwen-vl-max`, `qwen2.5-vl-*`, `qwen3-vl-*`
 - **Reasoning** — `qwq-*`, `qvq-*`
@@ -68,15 +68,15 @@ Authoritative model/pricing list: <https://help.aliyun.com/zh/model-studio/getti
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DASHSCOPE_API_KEY` | *(required)* | API key from 百炼控制台 |
-| `LEAGENT_LLM__DASHSCOPE_API_KEY` | — | Same as above, explicit Settings-prefixed form |
-| `LEAGENT_LLM__DASHSCOPE_MODEL` | `qwen-max` | Default model used when the registry instantiates DashScope |
+| `StAgent_LLM__DASHSCOPE_API_KEY` | — | Same as above, explicit Settings-prefixed form |
+| `StAgent_LLM__DASHSCOPE_MODEL` | `qwen-max` | Default model used when the registry instantiates DashScope |
 
-`leagent/config/env_bootstrap.py` automatically bridges a bare
+`StAgent/config/env_bootstrap.py` automatically bridges a bare
 `DASHSCOPE_API_KEY` to:
 
-- `LEAGENT_LLM__DASHSCOPE_API_KEY`
-- `LEAGENT_LLM__TIER1_API_KEY`
-- `LEAGENT_LLM__TIER2_API_KEY`
+- `StAgent_LLM__DASHSCOPE_API_KEY`
+- `StAgent_LLM__TIER1_API_KEY`
+- `StAgent_LLM__TIER2_API_KEY`
 
 …when those are unset, so a single `.env` line is enough to bring DashScope
 up as the default tier1/tier2 provider.
@@ -84,7 +84,7 @@ up as the default tier1/tier2 provider.
 ### Tier mapping
 
 When DashScope is the only configured cloud key, the registry
-(`leagent/llm/registry.py → create_default_registry()`) wires it as both
+(`StAgent/llm/registry.py → create_default_registry()`) wires it as both
 `tier1` and `tier2` endpoints (defaulting to `qwen-max`). Override with
 `LLM_TIER1_MODEL` / `LLM_TIER2_MODEL` if you want a different split (e.g.
 `qwen3-max` for tier1 and `qwen3.5-flash` for tier2).
@@ -115,7 +115,7 @@ providers:
 ## 4. Basic Usage (OpenAI-compatible)
 
 Because the endpoint is OpenAI-compatible, every official OpenAI SDK works.
-LeAgent uses the Python SDK pattern internally.
+StAgent uses the Python SDK pattern internally.
 
 ### Python (non-stream)
 
@@ -176,12 +176,12 @@ curl -X POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions 
 ## 5. Thinking Mode (`enable_thinking`)
 
 Qwen3 and QwQ-family hybrid models can return a chain-of-thought before
-the final answer. LeAgent's `DashScopeProvider` injects this automatically.
+the final answer. StAgent's `DashScopeProvider` injects this automatically.
 
-### Auto-injection in LeAgent
+### Auto-injection in StAgent
 
 ```python
-# leagent/llm/providers/dashscope.py
+# StAgent/llm/providers/dashscope.py
 _THINKING_CAPABLE_PREFIXES = ("qwen3", "qwq")
 
 def _build_request_body(...):
@@ -202,7 +202,7 @@ provider.complete(..., enable_thinking=False)
 
 Thinking output is surfaced both ways:
 
-| Mode | LeAgent surface |
+| Mode | StAgent surface |
 |------|-----------------|
 | Non-streaming | `LLMResponse.reasoning_content` (extracted from `choices[0].message.reasoning_content`) |
 | Streaming | `StreamChunk.raw_delta["reasoning_content"]` |
@@ -497,17 +497,17 @@ The final chunk (when `stream_options.include_usage=true`) carries an empty
 | `completion_tokens_details.reasoning_tokens` | Thinking-stage tokens (Qwen3 / QwQ) |
 | `cache_creation.ephemeral_5m_input_tokens` | Tokens written into explicit cache |
 
-LeAgent maps these into `TokenUsage` (see
+StAgent maps these into `TokenUsage` (see
 `OpenAIProvider._parse_response` + `DashScopeProvider._parse_response` /
 `_parse_stream_chunk`).
 
 ---
 
-## 12. LeAgent Implementation Details
+## 12. StAgent Implementation Details
 
 ### Provider class
 
-`leagent/llm/providers/dashscope.py` — `DashScopeProvider(OpenAIProvider)`:
+`StAgent/llm/providers/dashscope.py` — `DashScopeProvider(OpenAIProvider)`:
 
 - Pins `base_url` to `https://dashscope.aliyuncs.com/compatible-mode/v1`
   by default, `default_model` to `qwen-plus`.
@@ -522,7 +522,7 @@ LeAgent maps these into `TokenUsage` (see
 
 ### Registry wiring
 
-`leagent/llm/registry.py → create_default_registry()`:
+`StAgent/llm/registry.py → create_default_registry()`:
 
 - Registers `DashScopeProvider` under the name `"dashscope"` whenever
   `settings.llm.dashscope_api_key` is set.
@@ -531,7 +531,7 @@ LeAgent maps these into `TokenUsage` (see
 
 ### Provider config catalog
 
-`leagent/llm/provider_config.py`:
+`StAgent/llm/provider_config.py`:
 
 - `PROVIDER_CATALOG["qwen"]` lists the curated model inventory used by the
   admin UI.
@@ -540,8 +540,8 @@ LeAgent maps these into `TokenUsage` (see
 
 ### Environment bootstrap
 
-`leagent/config/env_bootstrap.py → _bridge_dashscope_key()` ensures a bare
-`DASHSCOPE_API_KEY=...` in `.env` populates the LeAgent-prefixed settings
+`StAgent/config/env_bootstrap.py → _bridge_dashscope_key()` ensures a bare
+`DASHSCOPE_API_KEY=...` in `.env` populates the StAgent-prefixed settings
 and the tier1/tier2 API key slots.
 
 ---
@@ -577,8 +577,8 @@ To smoke-test against the live endpoint:
 DASHSCOPE_API_KEY=sk-... \
   uv run python -c "
 import asyncio
-from leagent.llm.providers.dashscope import DashScopeProvider
-from leagent.llm.base import ChatMessage
+from StAgent.llm.providers.dashscope import DashScopeProvider
+from StAgent.llm.base import ChatMessage
 
 async def main():
     p = DashScopeProvider(api_key='${DASHSCOPE_API_KEY}')
@@ -603,7 +603,7 @@ asyncio.run(main())
 - Model list & pricing:
   <https://help.aliyun.com/zh/model-studio/getting-started/models>
 - 百炼控制台: <https://bailian.console.aliyun.com/>
-- LeAgent provider source: `backend/leagent/llm/providers/dashscope.py`
-- LeAgent model catalog: `backend/leagent/llm/provider_config.py` (`PROVIDER_CATALOG["qwen"]`)
+- StAgent provider source: `backend/StAgent/llm/providers/dashscope.py`
+- StAgent model catalog: `backend/StAgent/llm/provider_config.py` (`PROVIDER_CATALOG["qwen"]`)
 - Sibling provider guide: [`deepseek-guide.md`](./deepseek-guide.md)
 - 中文版: [`dashscope-guide_zh.md`](./dashscope-guide_zh.md)

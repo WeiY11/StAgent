@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
-Set-Location D:\LeAgent\backend
-$env:DATABASE_URL = 'postgresql+asyncpg://leagent:test@127.0.0.1:15432/leagent'
+Set-Location D:\StAgent\backend
+$env:DATABASE_URL = 'postgresql+asyncpg://StAgent:test@127.0.0.1:15432/StAgent'
 Write-Output '=== ALEMBIC UPGRADE HEAD ==='
 uv run alembic upgrade head
 Write-Output '=== PYTEST POSTGRES SMOKE ==='

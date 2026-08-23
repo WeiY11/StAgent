@@ -1,3 +1,3 @@
-﻿# Agent
+# Agent
 
 TODO: Write agent guide.

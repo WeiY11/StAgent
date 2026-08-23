@@ -10,9 +10,9 @@ from uuid import uuid4
 import pytest
 from sqlmodel import select
 
-from leagent.services.auth.service import LOCAL_USER_ID
-from leagent.db.models.workflow_execution import WorkflowExecution
-from leagent.workflow.services import WorkflowService
+from StAgent.services.auth.service import LOCAL_USER_ID
+from StAgent.db.models.workflow_execution import WorkflowExecution
+from StAgent.workflow.services import WorkflowService
 
 
 @pytest.mark.asyncio

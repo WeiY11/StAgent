@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from leagent.config.settings import CacheSettings
-from leagent.services.cache.keys import build_scoped_cache_key
+from StAgent.config.settings import CacheSettings
+from StAgent.services.cache.keys import build_scoped_cache_key
 
 
 def test_scoped_key_is_stable_for_canonical_vary_order() -> None:

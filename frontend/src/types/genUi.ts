@@ -1,4 +1,4 @@
-/** Declarative generative UI (must stay aligned with backend `leagent.services.gen_ui.schema`). */
+/** Declarative generative UI (must stay aligned with backend `StAgent.services.gen_ui.schema`). */
 
 export type GenUiNodeKind =
   // Layout

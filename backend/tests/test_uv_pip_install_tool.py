@@ -1,4 +1,4 @@
-"""Tests for :class:`~leagent.tools.code.uv_pip_install.UvPipInstallTool`."""
+"""Tests for :class:`~StAgent.tools.code.uv_pip_install.UvPipInstallTool`."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ import pytest
 
 
 def test_uv_pip_install_blocks_interrupts_during_environment_mutation() -> None:
-    from leagent.code.packages import UvPipInstallTool
+    from StAgent.code.packages import UvPipInstallTool
 
     assert UvPipInstallTool.interrupt_behavior == "block"
 
 
 @pytest.mark.asyncio
 async def test_uv_pip_install_disabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from leagent.config import settings as settings_module
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig
-    from leagent.code.packages import UvPipInstallTool
+    from StAgent.config import settings as settings_module
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig
+    from StAgent.code.packages import UvPipInstallTool
 
     settings = settings_module.get_settings()
     monkeypatch.setattr(settings, "agent_uv_pip_install_enabled", False)
@@ -36,10 +36,10 @@ async def test_uv_pip_install_disabled(monkeypatch: pytest.MonkeyPatch, tmp_path
 async def test_uv_pip_install_requires_packages_or_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from leagent.config import settings as settings_module
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig
-    from leagent.code.packages import UvPipInstallTool
+    from StAgent.config import settings as settings_module
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig
+    from StAgent.code.packages import UvPipInstallTool
 
     settings = settings_module.get_settings()
     monkeypatch.setattr(settings, "agent_uv_pip_install_enabled", True)
@@ -57,11 +57,11 @@ async def test_uv_pip_install_requires_packages_or_file(
 async def test_uv_pip_install_invokes_run_uv(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from leagent.config import settings as settings_module
-    from leagent.tools.base import ToolContext
-    from leagent.code.execution import CodeExecutionConfig
-    from leagent.code import packages as mod
-    from leagent.code.packages import UvPipInstallTool
+    from StAgent.config import settings as settings_module
+    from StAgent.tools.base import ToolContext
+    from StAgent.code.execution import CodeExecutionConfig
+    from StAgent.code import packages as mod
+    from StAgent.code.packages import UvPipInstallTool
 
     settings = settings_module.get_settings()
     monkeypatch.setattr(settings, "agent_uv_pip_install_enabled", True)
@@ -92,8 +92,8 @@ async def test_uv_pip_install_invokes_run_uv(
 def test_code_execution_tool_uses_resolved_python(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from leagent.code import execution as mod
-    from leagent.code.execution import CodeExecutionConfig, CodeExecutionTool
+    from StAgent.code import execution as mod
+    from StAgent.code.execution import CodeExecutionConfig, CodeExecutionTool
 
     monkeypatch.setattr(mod, "resolve_backend_python_executable", lambda: "/venv/bin/python")
 
@@ -106,7 +106,7 @@ def test_code_execution_tool_uses_resolved_python(
 
 @pytest.mark.asyncio
 async def test_run_uv_pip_install_requires_content() -> None:
-    from leagent.skills.python_deps import run_uv_pip_install
+    from StAgent.skills.python_deps import run_uv_pip_install
 
     out = await run_uv_pip_install(
         python_executable="/usr/bin/python3",

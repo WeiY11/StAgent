@@ -113,7 +113,7 @@ uv run pytest tests/workflow/test_agent_nodes.py tests/workflow/test_executor_re
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-LangGraph 把 LLM 节点与工具节点放进图，state schema 完全自定；LeAgent 用固定六元组降低画布接线歧义与「下游猜字段名」成本。Temporal 等外部编排器常把 Agent 当 activity，暂停靠 workflow 信号；LeAgent 把 kernel `checkpoint_id` 透出到节点输出，使 **DAG 调度** 与 **Agent 暂停** 对齐。AutoGen 少「一节点一 agent 固定输出槽」的可视化约定。统一槽位的代价是扩展新输出需同步改常量、schema 与文档；收益是 Supervisor 图、HITL 恢复与产物节点可以稳定接线，而不必每个项目自定义 JSON 形状。
+LangGraph 把 LLM 节点与工具节点放进图，state schema 完全自定；StAgent 用固定六元组降低画布接线歧义与「下游猜字段名」成本。Temporal 等外部编排器常把 Agent 当 activity，暂停靠 workflow 信号；StAgent 把 kernel `checkpoint_id` 透出到节点输出，使 **DAG 调度** 与 **Agent 暂停** 对齐。AutoGen 少「一节点一 agent 固定输出槽」的可视化约定。统一槽位的代价是扩展新输出需同步改常量、schema 与文档；收益是 Supervisor 图、HITL 恢复与产物节点可以稳定接线，而不必每个项目自定义 JSON 形状。
 
 ## 总结
 

@@ -341,7 +341,7 @@ export const useFlowStore = create<FlowState>()(
       markClean: () => set({ isDirty: false }),
     }),
     {
-      name: 'leagent-flow',
+      name: 'StAgent-flow',
       partialize: (state) => ({
         flowId: state.flowId,
         flowName: state.flowName,

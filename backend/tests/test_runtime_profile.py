@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.agent.runtime_profile import (
+from StAgent.agent.runtime_profile import (
     resolve_chat_conversation_timeout_sec,
     resolve_runtime_budget,
     runtime_budget_tool_extra,

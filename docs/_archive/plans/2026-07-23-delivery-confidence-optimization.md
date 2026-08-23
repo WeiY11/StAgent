@@ -1,8 +1,8 @@
-# LeAgent Delivery Confidence Optimization Implementation Plan
+# StAgent Delivery Confidence Optimization Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 先把 LeAgent 的数据库配置、生产 worker 拓扑、API 装载、质量门禁、压测、容器发布和前端产物收口成同一套可验证事实，再继续扩功能和拆大文件。
+**Goal:** 先把 StAgent 的数据库配置、生产 worker 拓扑、API 装载、质量门禁、压测、容器发布和前端产物收口成同一套可验证事实，再继续扩功能和拆大文件。
 
 **Architecture:** 第一阶段建立一个小型“交付可信度控制面”：配置层给出唯一数据库/worker 语义，API 层对核心路由 fail-fast，CI 对关键契约真正阻断，压测只调用真实路由，发布只消费已经验证的产物。现有单机 SQLite、单进程和本地优先能力保持不变；当前 `RunStore`/Redis 试验不被包装成完整多 worker 能力。
 
@@ -57,8 +57,8 @@
 
 ### New files
 
-- `backend/leagent/runtime/deployment_topology.py`：数据库 backend 与 worker 安全策略。
-- `backend/leagent/api/manifest.py`：核心/可选路由清单。
+- `backend/StAgent/runtime/deployment_topology.py`：数据库 backend 与 worker 安全策略。
+- `backend/StAgent/api/manifest.py`：核心/可选路由清单。
 - `backend/tests/test_deployment_topology.py`：启动拓扑契约。
 - `backend/tests/test_api_manifest.py`：核心路由 fail-fast 和 OpenAPI 唯一性。
 - `backend/tests/test_perf_benchmark.py`：压测报告、SSE 终态和阈值逻辑。
@@ -69,19 +69,19 @@
 
 ### Existing files to modify
 
-- `backend/leagent/config/settings.py`
+- `backend/StAgent/config/settings.py`
 - `backend/pyproject.toml`
 - `backend/uv.lock`
-- `backend/leagent/cli/app_cmd.py`
-- `backend/leagent/server.py`
-- `backend/leagent/services/service_manager.py`
-- `backend/leagent/services/auth/policy.py`
-- `backend/leagent/api/router.py`
-- `backend/leagent/api/v1/coding_projects.py`
-- `backend/leagent/telemetry/trace/recorder.py`
-- `backend/leagent/sdk/kernel/loop.py`
-- `backend/leagent/runtime/runtime.py`
-- `backend/leagent/runtime/registry.py`
+- `backend/StAgent/cli/app_cmd.py`
+- `backend/StAgent/server.py`
+- `backend/StAgent/services/service_manager.py`
+- `backend/StAgent/services/auth/policy.py`
+- `backend/StAgent/api/router.py`
+- `backend/StAgent/api/v1/coding_projects.py`
+- `backend/StAgent/telemetry/trace/recorder.py`
+- `backend/StAgent/sdk/kernel/loop.py`
+- `backend/StAgent/runtime/runtime.py`
+- `backend/StAgent/runtime/registry.py`
 - `backend/tests/test_openapi_schema.py`
 - `backend/scripts/perf_benchmark.py`
 - `backend/scripts/perf_baseline.json`
@@ -114,10 +114,10 @@
 
 ## Execution Context
 
-- Task 1、3、4、5 和 Task 8 Step 1–6 的命令从 `D:\LeAgent\backend` 运行。
-- Task 2 的 pytest 从 `D:\LeAgent\backend` 运行，启动脚本文本检查从 `D:\LeAgent` 运行。
-- Task 6 的版本检查从 `D:\LeAgent\backend` 运行，Docker build context 是 `D:\LeAgent`。
-- Task 7 的命令从 `D:\LeAgent\frontend` 运行。
+- Task 1、3、4、5 和 Task 8 Step 1–6 的命令从 `D:\StAgent\backend` 运行。
+- Task 2 的 pytest 从 `D:\StAgent\backend` 运行，启动脚本文本检查从 `D:\StAgent` 运行。
+- Task 6 的版本检查从 `D:\StAgent\backend` 运行，Docker build context 是 `D:\StAgent`。
+- Task 7 的命令从 `D:\StAgent\frontend` 运行。
 - 每个任务开始前重新进入指定目录，不依赖上一个代码块遗留的当前目录或环境变量。
 
 ---
@@ -125,7 +125,7 @@
 ### Task 1: Make PostgreSQL configuration real and testable
 
 **Files:**
-- Modify: `backend/leagent/config/settings.py`
+- Modify: `backend/StAgent/config/settings.py`
 - Modify: `backend/pyproject.toml`
 - Modify: `backend/uv.lock`
 - Create: `backend/tests/integration/test_postgres_smoke.py`
@@ -150,7 +150,7 @@ def test_documented_database_url_selects_postgresql(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("DB_DATABASE_URL", raising=False)
     monkeypatch.setenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+        "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent",
     )
     db = DatabaseSettings()
     assert db.backend == "postgresql"
@@ -162,7 +162,7 @@ def test_legacy_db_database_url_remains_supported(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv(
         "DB_DATABASE_URL",
-        "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent",
+        "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent",
     )
     assert DatabaseSettings().backend == "postgresql"
 
@@ -177,7 +177,7 @@ def test_non_sqlite_driver_requires_database_url() -> None:
 Run:
 
 ```powershell
-$env:UV_CACHE_DIR='D:\LeAgent\.uv-cache'
+$env:UV_CACHE_DIR='D:\StAgent\.uv-cache'
 uv run pytest tests/test_config.py -k "database_url or non_sqlite_driver" -q
 ```
 
@@ -186,7 +186,7 @@ Expected before implementation: `DATABASE_URL` test resolves to SQLite.
 - [ ] **Step 3: Normalize the database backend in one place**
 
 ```python
-# backend/leagent/config/settings.py
+# backend/StAgent/config/settings.py
 class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DB_",
@@ -261,8 +261,8 @@ import os
 import pytest
 from sqlalchemy import text
 
-from leagent.config.settings import DatabaseSettings
-from leagent.db.engine import make_async_engine
+from StAgent.config.settings import DatabaseSettings
+from StAgent.db.engine import make_async_engine
 
 
 @pytest.mark.integration
@@ -291,18 +291,18 @@ The CI job must run Alembic before this test; a connection-only test does not pr
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: leagent
+          POSTGRES_USER: StAgent
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: leagent
+          POSTGRES_DB: StAgent
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U leagent"
+          --health-cmd "pg_isready -U StAgent"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
+      DATABASE_URL: postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent
       SECRET_KEY: test-secret-key
     steps:
       - uses: actions/checkout@v7
@@ -333,8 +333,8 @@ Run:
 
 ```powershell
 uv run pytest tests/test_config.py -q
-uv run python -c "from leagent.config.settings import DatabaseSettings; print(DatabaseSettings().backend)"
-uv run mypy leagent/config/settings.py leagent/db/engine.py
+uv run python -c "from StAgent.config.settings import DatabaseSettings; print(DatabaseSettings().backend)"
+uv run mypy StAgent/config/settings.py StAgent/db/engine.py
 ```
 
 Expected: tests pass; default prints `sqlite`; Mypy exits 0.
@@ -344,15 +344,15 @@ Expected: tests pass; default prints `sqlite`; Mypy exits 0.
 ### Task 2: Enforce a safe worker topology at every launcher
 
 **Files:**
-- Create: `backend/leagent/runtime/deployment_topology.py`
+- Create: `backend/StAgent/runtime/deployment_topology.py`
 - Create: `backend/tests/test_deployment_topology.py`
-- Modify: `backend/leagent/cli/app_cmd.py`
-- Modify: `backend/leagent/server.py`
-- Modify: `backend/leagent/services/service_manager.py`
-- Modify: `backend/leagent/services/auth/policy.py`
+- Modify: `backend/StAgent/cli/app_cmd.py`
+- Modify: `backend/StAgent/server.py`
+- Modify: `backend/StAgent/services/service_manager.py`
+- Modify: `backend/StAgent/services/auth/policy.py`
 - Modify: `start.sh`
 - Modify: `start.ps1`
-- Modify: `backend/leagent/cli/init_cmd.py`
+- Modify: `backend/StAgent/cli/init_cmd.py`
 - Modify: `backend/README.md`
 - Modify: `docs/technical/execution-topology.md`
 - Modify: `docs/technical/execution-topology_zh.md`
@@ -368,7 +368,7 @@ Expected: tests pass; default prints `sqlite`; Mypy exits 0.
 # backend/tests/test_deployment_topology.py
 import pytest
 
-from leagent.runtime.deployment_topology import (
+from StAgent.runtime.deployment_topology import (
     DeploymentTopologyError,
     validate_deployment_topology,
 )
@@ -395,7 +395,7 @@ def test_postgres_multiworker_keeps_explicit_boundary_warning() -> None:
 - [ ] **Step 2: Implement the topology contract**
 
 ```python
-# backend/leagent/runtime/deployment_topology.py
+# backend/StAgent/runtime/deployment_topology.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -441,7 +441,7 @@ def validate_deployment_topology(
 
 - [ ] **Step 3: Call the validator before Uvicorn/Gunicorn starts**
 
-`leagent app start`, `python -m leagent.server`, and `ServiceManager.start_all` must all call the same validator. CLI arguments are validated directly; service startup validates `settings.workers` as defense in depth.
+`StAgent app start`, `python -m StAgent.server`, and `ServiceManager.start_all` must all call the same validator. CLI arguments are validated directly; service startup validates `settings.workers` as defense in depth.
 
 ```python
 topology = validate_deployment_topology(
@@ -459,8 +459,8 @@ Convert `DeploymentTopologyError` to a Click usage error in `app_cmd.py`; do not
 PowerShell:
 
 ```powershell
-$ProductionWorkers = if ($env:LEAGENT_WORKERS) {
-    [int]$env:LEAGENT_WORKERS
+$ProductionWorkers = if ($env:StAgent_WORKERS) {
+    [int]$env:StAgent_WORKERS
 } else {
     1
 }
@@ -471,16 +471,16 @@ Pass `--workers $ProductionWorkers` in `start.ps1`.
 Bash:
 
 ```bash
-PRODUCTION_WORKERS="${LEAGENT_WORKERS:-1}"
+PRODUCTION_WORKERS="${StAgent_WORKERS:-1}"
 ```
 
 Pass `--workers "$PRODUCTION_WORKERS"` in `start.sh`.
 
-Change `_default_worker_count()` in `backend/leagent/server.py` to return the validated environment override or `1`; remove CPU-count auto-scaling.
+Change `_default_worker_count()` in `backend/StAgent/server.py` to return the validated environment override or `1`; remove CPU-count auto-scaling.
 
 - [ ] **Step 5: Add launcher regression tests**
 
-Use `click.testing.CliRunner` to run `leagent app start --workers 2` with a monkeypatched SQLite `Settings`, stub `_run_gunicorn`, and assert the stub is never called. Add a PowerShell text-contract test that rejects `--workers 4` in `start.ps1` and a matching Bash test for `start.sh`.
+Use `click.testing.CliRunner` to run `StAgent app start --workers 2` with a monkeypatched SQLite `Settings`, stub `_run_gunicorn`, and assert the stub is never called. Add a PowerShell text-contract test that rejects `--workers 4` in `start.ps1` and a matching Bash test for `start.sh`.
 
 - [ ] **Step 6: Reword RunStore documentation**
 
@@ -499,7 +499,7 @@ Run:
 ```powershell
 uv run pytest tests/test_deployment_topology.py tests/test_auth_cmd_cli.py tests/test_execution_run_registry_lifecycle.py tests/test_run_store_redis.py -q
 Set-Location ..
-rg -n -- '--workers 4' start.sh start.ps1 backend/README.md backend/leagent/cli/init_cmd.py
+rg -n -- '--workers 4' start.sh start.ps1 backend/README.md backend/StAgent/cli/init_cmd.py
 ```
 
 Expected: tests pass; `rg` returns no production recommendation or hard-coded launcher.
@@ -509,10 +509,10 @@ Expected: tests pass; `rg` returns no production recommendation or hard-coded la
 ### Task 3: Make core API mounting fail-fast and OpenAPI deterministic
 
 **Files:**
-- Create: `backend/leagent/api/manifest.py`
+- Create: `backend/StAgent/api/manifest.py`
 - Create: `backend/tests/test_api_manifest.py`
-- Modify: `backend/leagent/api/router.py`
-- Modify: `backend/leagent/api/v1/coding_projects.py`
+- Modify: `backend/StAgent/api/router.py`
+- Modify: `backend/StAgent/api/v1/coding_projects.py`
 - Modify: `backend/tests/test_openapi_schema.py`
 
 **Interfaces:**
@@ -529,7 +529,7 @@ from collections import Counter
 
 import pytest
 
-from leagent.main import app
+from StAgent.main import app
 
 
 def test_critical_routes_are_present() -> None:
@@ -560,12 +560,12 @@ def test_openapi_operation_ids_are_unique() -> None:
     assert duplicates == {}
 ```
 
-Add a unit test that monkeypatches `importlib.import_module` to fail for `leagent.api.v1.chat` and asserts a `RuntimeError`, not a warning-and-continue result.
+Add a unit test that monkeypatches `importlib.import_module` to fail for `StAgent.api.v1.chat` and asserts a `RuntimeError`, not a warning-and-continue result.
 
 - [ ] **Step 2: Define the route manifest**
 
 ```python
-# backend/leagent/api/manifest.py
+# backend/StAgent/api/manifest.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -666,7 +666,7 @@ Run:
 
 ```powershell
 uv run pytest tests/test_api_manifest.py tests/test_openapi_schema.py tests/test_router.py tests/test_coding_projects_api.py -q
-uv run python -c "from leagent.main import app; print(len(app.openapi()['paths']))"
+uv run python -c "from StAgent.main import app; print(len(app.openapi()['paths']))"
 ```
 
 Expected: zero warnings, zero duplicate IDs, critical routes present.
@@ -676,16 +676,16 @@ Expected: zero warnings, zero duplicate IDs, critical routes present.
 ### Task 4: Replace decorative quality gates with enforceable fast gates
 
 **Files:**
-- Modify: `backend/leagent/telemetry/trace/recorder.py`
-- Modify: `backend/leagent/sdk/kernel/loop.py`
-- Modify: `backend/leagent/runtime/runtime.py`
-- Modify: `backend/leagent/runtime/registry.py`
-- Modify: `backend/leagent/db/models/file.py`
-- Modify: `backend/leagent/db/sqlite_compat.py`
-- Modify: `backend/leagent/llm/generation/backends/openai_image.py`
-- Modify: `backend/leagent/llm/provider_config.py`
-- Modify: `backend/leagent/llm/registry.py`
-- Modify: `backend/leagent/tools/executor.py`
+- Modify: `backend/StAgent/telemetry/trace/recorder.py`
+- Modify: `backend/StAgent/sdk/kernel/loop.py`
+- Modify: `backend/StAgent/runtime/runtime.py`
+- Modify: `backend/StAgent/runtime/registry.py`
+- Modify: `backend/StAgent/db/models/file.py`
+- Modify: `backend/StAgent/db/sqlite_compat.py`
+- Modify: `backend/StAgent/llm/generation/backends/openai_image.py`
+- Modify: `backend/StAgent/llm/provider_config.py`
+- Modify: `backend/StAgent/llm/registry.py`
+- Modify: `backend/StAgent/tools/executor.py`
 - Modify: `backend/pyproject.toml`
 - Modify: `.github/workflows/ci.yml`
 
@@ -708,7 +708,7 @@ Expected before fix: failure or unraisable warning tied to `TraceRecorder._flush
 - [ ] **Step 2: Create the coroutine only after a loop is available**
 
 ```python
-# backend/leagent/telemetry/trace/recorder.py
+# backend/StAgent/telemetry/trace/recorder.py
 from collections.abc import Callable, Coroutine
 
 
@@ -735,7 +735,7 @@ Make these exact contract corrections:
 Run:
 
 ```powershell
-uv run mypy leagent/runtime leagent/sdk leagent/api/router.py
+uv run mypy StAgent/runtime StAgent/sdk StAgent/api/router.py
 ```
 
 Expected: exit 0.
@@ -745,7 +745,7 @@ Expected: exit 0.
 Run:
 
 ```powershell
-uv run ruff check leagent --select E9,F63,F7,F82
+uv run ruff check StAgent --select E9,F63,F7,F82
 ```
 
 Fix only the reported undefined names:
@@ -765,11 +765,11 @@ Replace the two permissive CI steps with:
 
 ```yaml
       - name: Run fatal Ruff rules
-        run: uv run ruff check leagent --select E9,F63,F7,F82
+        run: uv run ruff check StAgent --select E9,F63,F7,F82
         working-directory: backend
 
       - name: Type-check runtime contracts
-        run: uv run mypy leagent/runtime leagent/sdk leagent/api/router.py
+        run: uv run mypy StAgent/runtime StAgent/sdk StAgent/api/router.py
         working-directory: backend
 ```
 
@@ -802,8 +802,8 @@ This suite currently completes in about 6 seconds locally. Keep the current 3016
 Run:
 
 ```powershell
-uv run ruff check leagent --select E9,F63,F7,F82
-uv run mypy leagent/runtime leagent/sdk leagent/api/router.py
+uv run ruff check StAgent --select E9,F63,F7,F82
+uv run mypy StAgent/runtime StAgent/sdk StAgent/api/router.py
 uv run pytest tests/test_run_store_redis.py tests/test_execution_run_registry_lifecycle.py tests/test_openapi_schema.py -q
 cd ..\frontend
 npm run lint
@@ -908,7 +908,7 @@ The committed 5-request JSON becomes `evidence_kind: illustrative_sample`, not a
 Use:
 
 - `POST /api/v1/chat/stream` with multipart `message` and optional valid `session_id`;
-- `POST /api/v1/workflow/flows/{flow_id}/run` when a seeded `LEAGENT_FLOW_ID` exists;
+- `POST /api/v1/workflow/flows/{flow_id}/run` when a seeded `StAgent_FLOW_ID` exists;
 - `POST /api/v1/files/upload`;
 - `GET /health`.
 
@@ -916,8 +916,8 @@ Remove the nonexistent direct tool invocation task. Fail every non-2xx response 
 
 Replace the hard-coded Locust `p95=750 ms` gate with explicit environment inputs:
 
-- `LEAGENT_PERF_P95_BUDGET_MS`;
-- `LEAGENT_PERF_ERROR_BUDGET`.
+- `StAgent_PERF_P95_BUDGET_MS`;
+- `StAgent_PERF_ERROR_BUDGET`.
 
 If either value is absent, Locust records measurements but does not claim a release gate. The guide must link each configured threshold to a generated baseline report from the same scenario and environment class.
 
@@ -929,7 +929,7 @@ Update `k6_agent.js` to call `/api/v1/chat/stream` with multipart data and set:
 failures.add(!(res.status >= 200 && res.status < 300 && res.body.includes('[DONE]')));
 ```
 
-Delete `k6_llm.js`; `/api/v1/llm/complete` is not a LeAgent route. A future gateway benchmark must live with the gateway that exposes that API.
+Delete `k6_llm.js`; `/api/v1/llm/complete` is not a StAgent route. A future gateway benchmark must live with the gateway that exposes that API.
 
 - [ ] **Step 7: Remove placeholder baseline claims**
 
@@ -970,13 +970,13 @@ Expected: tests pass; help lists new flags; `rg` returns no stale route.
 The script reads:
 
 - `backend/pyproject.toml`;
-- `backend/leagent/__init__.py`;
+- `backend/StAgent/__init__.py`;
 - `frontend/package.json`;
 - `desktop/electron/package.json`;
 - supplied tag without `v` or `desktop-v`.
 
 It prints only mismatched file names and versions, then exits 1. It never rewrites files.
-`leagent.sdk.__version__` remains independently versioned and is intentionally excluded; add a script comment and test so the release check does not force SDK `0.1.0` to match product `1.2.7`.
+`StAgent.sdk.__version__` remains independently versioned and is intentionally excluded; add a script comment and test so the release check does not force SDK `0.1.0` to match product `1.2.7`.
 
 - [ ] **Step 2: Stop installing an editable, unlocked backend in Docker**
 
@@ -987,7 +987,7 @@ ARG UV_VERSION=0.11.6
 RUN pip install --no-cache-dir "uv==$UV_VERSION"
 
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
-COPY backend/leagent/ leagent/
+COPY backend/StAgent/ StAgent/
 COPY backend/alembic.ini ./
 
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
@@ -1018,24 +1018,24 @@ RUN uv sync --frozen --no-editable --extra ocr --extra paddle --extra postgres
 
 Remove every dependency-install fallback. Browser installation failure must fail the image build; do not append `|| true`.
 
-Remove the static Docker label `version="1.1.3"` or inject `ARG LEAGENT_VERSION` from the release job.
+Remove the static Docker label `version="1.1.3"` or inject `ARG StAgent_VERSION` from the release job.
 
 - [ ] **Step 3: Start the built image in CI**
 
 After `docker build`, run the image with:
 
 ```bash
-docker run -d --name leagent-smoke \
+docker run -d --name StAgent-smoke \
   -p 127.0.0.1:18000:8000 \
-  -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
-  -e LEAGENT_SECURITY_ENFORCE_AUTH=false \
-  leagent:test
+  -e StAgent_SECRET_KEY=test-secret-key-with-at-least-32-bytes \
+  -e StAgent_SECURITY_ENFORCE_AUTH=false \
+  StAgent:test
 ```
 
 Poll `/health` and `/api/v1/health/ready`, then run:
 
 ```bash
-docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
+docker exec StAgent-smoke python -c "import StAgent, asyncpg; print(StAgent.__version__)"
 ```
 
 Always print container logs on failure and remove the container in an `if: always()` step.
@@ -1047,7 +1047,7 @@ target: production
 load: true
 ```
 
-Without `load: true`, the following `docker run leagent:test` does not prove the image produced by Buildx.
+Without `load: true`, the following `docker run StAgent:test` does not prove the image produced by Buildx.
 
 - [ ] **Step 4: Build artifacts before creating the GitHub Release**
 
@@ -1075,7 +1075,7 @@ Run:
 
 ```powershell
 uv run python scripts/check_release_versions.py --tag v1.2.7
-docker build --target production -f ..\deploy\Dockerfile -t leagent:test ..
+docker build --target production -f ..\deploy\Dockerfile -t StAgent:test ..
 ```
 
 Then run the local container smoke commands. Expected: version check and health checks pass; `asyncpg` imports inside the image.
@@ -1263,8 +1263,8 @@ Expected: no warning; no missing critical route; no duplicate operation ID.
 - [ ] **Step 3: Run static gates**
 
 ```powershell
-uv run ruff check leagent --select E9,F63,F7,F82
-uv run mypy leagent/runtime leagent/sdk leagent/api/router.py
+uv run ruff check StAgent --select E9,F63,F7,F82
+uv run mypy StAgent/runtime StAgent/sdk StAgent/api/router.py
 ```
 
 Expected: exit 0.
@@ -1307,7 +1307,7 @@ Expected: at least the current 3016-test baseline is collected, including all ne
 
 > **Step 6 status (2026-07-24, Windows local, Docker 29.6.1) — executed; PostgreSQL roundtrip green, two cross-backend defects fixed, one representation defect surfaced for Task 9.**
 >
-> - **Container + roundtrip (green):** `postgres:17-alpine` (`leagent-postgres-contract`, `127.0.0.1:15432`) became healthy; `tests/integration/test_postgres_smoke.py` passes against it (`DATABASE_URL=postgresql+asyncpg://...` → `backend == "postgresql"`, asyncpg connect + `select 1`).
+> - **Container + roundtrip (green):** `postgres:17-alpine` (`StAgent-postgres-contract`, `127.0.0.1:15432`) became healthy; `tests/integration/test_postgres_smoke.py` passes against it (`DATABASE_URL=postgresql+asyncpg://...` → `backend == "postgresql"`, asyncpg connect + `select 1`).
 > - **Defect 1 — in-process migration used a missing driver (fixed):** `main._run_db_migrations._migrate` built a sync engine from `settings.database.sync_url`, which maps PostgreSQL to `psycopg2` (not shipped) → `ModuleNotFoundError: psycopg2`. Fix: for non-SQLite backends `_migrate` now calls `alembic.command.upgrade` with no injected connection, so `env.py` builds its own asyncpg engine (`make_async_engine`) with the already-installed driver. SQLite keeps its in-process sync path.
 > - **Defect 2 — baseline migrations collided with `create_all` (fixed):** the app always runs `SQLModel.metadata.create_all` (the schema owner) then `upgrade head`; migrations `0003`–`0015` guard `op.create_table` with `_has_table`, but `0001`/`0002` did not, so on PostgreSQL they raised `DuplicateTableError` against the create_all-built tables. Fix: guarded `0001`/`0002` the same way. (On SQLite this was masked because migration failure is non-fatal — main.py:101-105.)
 > - **Defect 3 — enum representation diverges SQLite↔PostgreSQL (NOT fixed; promoted to Task 9 #1):** `create_all` builds native PostgreSQL enums whose labels are the Python enum *names* (`pg_enum` shows `libraryscope = WORKSPACE,KNOWLEDGE,ARTIFACT`; same for `filetype`/`filestatus`/`inboxstate`), but migration `0005` and app code (`api/v1/documents.py`, `tools/doc/knowledge_search.py`) write the lowercase *values* (`'knowledge'`). SQLite (TEXT, unvalidated) tolerates this; PostgreSQL rejects it (`invalid input value for enum libraryscope: "knowledge"`). This blocks (a) full `upgrade head` replay at `0005`'s backfill and (b) real app enum writes on PostgreSQL. Fixing it is a cross-cutting model decision (canonical `native_enum=False`/VARCHAR-with-values, or `values_callable` lowercase labels) with SQLite-default risk — a dedicated task, not a proof-run hack (patching `0005` alone would go green while the app write path stayed broken).
@@ -1315,23 +1315,23 @@ Expected: at least the current 3016-test baseline is collected, including all ne
 >
 > **Step 6b status (2026-07-24, Windows local, Docker 29.6.1) — `docker build --target production` attempted; builder stage green, production stage blocked on a sandbox network fault (not a Dockerfile defect).**
 >
-> - **Builder stage (green):** `[builder]` completed end-to-end — `uv sync --frozen --no-dev --no-editable --extra ocr --extra postgres` prepared + installed 122 packages in 5m05s, including `leagent==1.2.7 (from file:///build)`, `asyncpg==0.31.0`, `sqlalchemy==2.0.49`, `alembic==1.18.4`. This proves the lockfile resolves and the non-editable install builds under the pinned image toolchain.
+> - **Builder stage (green):** `[builder]` completed end-to-end — `uv sync --frozen --no-dev --no-editable --extra ocr --extra postgres` prepared + installed 122 packages in 5m05s, including `StAgent==1.2.7 (from file:///build)`, `asyncpg==0.31.0`, `sqlalchemy==2.0.49`, `alembic==1.18.4`. This proves the lockfile resolves and the non-editable install builds under the pinned image toolchain.
 > - **Production stage (environmental failure, not code):** `[production 3/16]` `apt-get install` fetched 100 MB then failed to fetch two LibreOffice archives (`libreoffice-common`, `libreoffice-core-nogui`) — `Connection failed [IP: 198.18.1.103 80]`, sustained throttle 131 kB/s over 12m43s. `198.18.0.0/15` is the RFC 2544 benchmarking range, i.e. the sandbox's transparent proxy dropped the large downloads. `BUILD_EXIT=1`. The Dockerfile is unchanged and valid; the failure is the sandbox's outbound apt mirror, reproducible only here — on CI / a normal network the same layer installs (this is the identical external-infra class that kept the daemon offline earlier).
 > - **Net:** the production image build + container `/health` proof cannot complete inside this sandbox's network; it is code-ready and gated on external infra (CI or a machine with unthrottled `deb.debian.org` access). Step 6 stays unchecked.
 
 Run Alembic plus `tests/integration/test_postgres_smoke.py` against a real local/CI PostgreSQL container:
 
 ```powershell
-$PostgresContainer = 'leagent-postgres-contract'
+$PostgresContainer = 'StAgent-postgres-contract'
 $existing = docker ps -a --filter "name=^/$PostgresContainer$" --format '{{.Names}}'
 if ($existing) { throw "Container already exists: $PostgresContainer" }
 
 docker run -d --name $PostgresContainer `
-  -e POSTGRES_USER=leagent `
+  -e POSTGRES_USER=StAgent `
   -e POSTGRES_PASSWORD=test `
-  -e POSTGRES_DB=leagent `
+  -e POSTGRES_DB=StAgent `
   -p 127.0.0.1:15432:5432 `
-  --health-cmd 'pg_isready -U leagent' `
+  --health-cmd 'pg_isready -U StAgent' `
   --health-interval 2s `
   --health-timeout 2s `
   --health-retries 30 `
@@ -1351,7 +1351,7 @@ try {
   }
   if (-not $postgresReady) { throw 'PostgreSQL container did not become ready' }
 
-  $env:DATABASE_URL = 'postgresql+asyncpg://leagent:test@127.0.0.1:15432/leagent'
+  $env:DATABASE_URL = 'postgresql+asyncpg://StAgent:test@127.0.0.1:15432/StAgent'
   uv run alembic upgrade head
   uv run pytest tests/integration/test_postgres_smoke.py -q
 } finally {
@@ -1365,12 +1365,12 @@ Then build and start the production target:
 
 ```powershell
 Set-Location ..
-docker build --target production -f deploy\Dockerfile -t leagent:test .
-docker run -d --name leagent-smoke `
+docker build --target production -f deploy\Dockerfile -t StAgent:test .
+docker run -d --name StAgent-smoke `
   -p 127.0.0.1:18000:8000 `
-  -e LEAGENT_SECRET_KEY=test-secret-key-with-at-least-32-bytes `
-  -e LEAGENT_SECURITY_ENFORCE_AUTH=false `
-  leagent:test
+  -e StAgent_SECRET_KEY=test-secret-key-with-at-least-32-bytes `
+  -e StAgent_SECURITY_ENFORCE_AUTH=false `
+  StAgent:test
 
 try {
   $ready = $false
@@ -1385,18 +1385,18 @@ try {
       }
     }
   }
-  if (-not $ready) { throw 'LeAgent container did not become ready' }
-  docker exec leagent-smoke python -c "import leagent, asyncpg; print(leagent.__version__)"
+  if (-not $ready) { throw 'StAgent container did not become ready' }
+  docker exec StAgent-smoke python -c "import StAgent, asyncpg; print(StAgent.__version__)"
 } finally {
-  docker logs leagent-smoke
-  docker rm -f leagent-smoke
+  docker logs StAgent-smoke
+  docker rm -f StAgent-smoke
 }
 ```
 
 - [x] **Step 7: Run frontend proof**
 
 ```powershell
-Set-Location D:\LeAgent\frontend
+Set-Location D:\StAgent\frontend
 npm run lint
 npm run type-check
 npm run test -- --run
@@ -1420,7 +1420,7 @@ Expected: 86 test files and 475 tests pass or a larger current count; bundle bud
 Set-Location ..
 git diff --check
 git status --short
-git diff -- .github deploy backend/leagent/config backend/leagent/runtime backend/leagent/api backend/leagent/telemetry frontend
+git diff -- .github deploy backend/StAgent/config backend/StAgent/runtime backend/StAgent/api backend/StAgent/telemetry frontend
 ```
 
 Expected: no secrets, no unrelated rollback, no `continue-on-error` on real gates, no hard-coded SQLite four-worker start, no stale performance route.

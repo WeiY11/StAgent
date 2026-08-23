@@ -65,7 +65,7 @@ Agent 输出是一条随机过程：
 
 建议分片报告：任务成功率、首次成功、恢复成功、带约束成功（预算/安全）、工具错误率、P95 延迟、cost per successful task、审批触发与误放行。运行 `status=completed` 只表示执行正常结束，**不等于业务正确**。
 
-## LeAgent 中可引用的现状（诚实边界）
+## StAgent 中可引用的现状（诚实边界）
 
 **已有：**
 
@@ -107,7 +107,7 @@ uv run pytest tests/test_agent_trace.py -v
 
 ## 业内对照
 
-DeepEval、Ragas、AgentEval、LangSmith evaluators 等提供数据集、Judge 与轨迹可视化。Anthropic / OpenAI 的公开实践强调 grading rubric、工具调用评分与安全红队。LeAgent 对齐的是**同一数据模型**（run 级 span 树、成本、工具名），但在本仓库阶段优先保证可重复的离线 harness；产品化评测平面留给业务叠加。
+DeepEval、Ragas、AgentEval、LangSmith evaluators 等提供数据集、Judge 与轨迹可视化。Anthropic / OpenAI 的公开实践强调 grading rubric、工具调用评分与安全红队。StAgent 对齐的是**同一数据模型**（run 级 span 树、成本、工具名），但在本仓库阶段优先保证可重复的离线 harness；产品化评测平面留给业务叠加。
 
 ## 生产检查表与总结
 

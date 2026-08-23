@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-Agent 一旦能读写路径，安全模型就从“提示词礼貌”变成“路径证明”。本文区分三条常常被口头混称“沙箱”的机制：**文件系统 PathSandbox**、**代码执行 SubprocessSandbox**、**受管文件 FileService / FileRef**。先修：[20](20-build-a-base-tool.md)。请阅读 `backend/leagent/file/sandbox.py`、`file/primitives.py`、`code/sandbox.py`，以及 `BaseTool.path_params` / `_enforce_path_sandbox`。若你只记住一句话：模型给出的字符串永远不是可信路径，只有经过 `resolve_safe` 并落入允许根的绝对路径才是。
+Agent 一旦能读写路径，安全模型就从“提示词礼貌”变成“路径证明”。本文区分三条常常被口头混称“沙箱”的机制：**文件系统 PathSandbox**、**代码执行 SubprocessSandbox**、**受管文件 FileService / FileRef**。先修：[20](20-build-a-base-tool.md)。请阅读 `backend/StAgent/file/sandbox.py`、`file/primitives.py`、`code/sandbox.py`，以及 `BaseTool.path_params` / `_enforce_path_sandbox`。若你只记住一句话：模型给出的字符串永远不是可信路径，只有经过 `resolve_safe` 并落入允许根的绝对路径才是。
 
 ## 学习目标
 
@@ -31,9 +31,9 @@ Agent 一旦能读写路径，安全模型就从“提示词礼貌”变成“�
 
 `BaseTool.run()` 在 Schema 通过后调用 `_enforce_path_sandbox`：对 `path_params` 只读解析（`allow_create=False`），对 `output_path_params` 允许在沙箱内创建。解析成功会**原地改写** params，使 `execute` 直接打开绝对路径，避免工具内再次猜测 cwd。
 
-`PathSandbox.resolve_safe` 先处理 `@file:` / `@knowledge:` 与附件查找表，再组装允许根：环境变量配置的根、上传目录、知识库目录、会话输出目录、`project_roots`、`authorized_roots`。根归属检查统一走 `leagent.file.primitives.is_path_inside`（仓库不变量），禁止各自用 `relative_to` 拼装造成旁路。
+`PathSandbox.resolve_safe` 先处理 `@file:` / `@knowledge:` 与附件查找表，再组装允许根：环境变量配置的根、上传目录、知识库目录、会话输出目录、`project_roots`、`authorized_roots`。根归属检查统一走 `StAgent.file.primitives.is_path_inside`（仓库不变量），禁止各自用 `relative_to` 拼装造成旁路。
 
-代码层 `SubprocessSandbox` 通过 `python -m leagent.code.runner` 与 JSON 信封通信。它适合“干净解释器 + 墙钟超时”，但**不是**完整安全沙箱；高风险能力仍依赖工具是否暴露、permission 审批、以及工作目录是否落在项目允许范围。桌面部署默认根可能更宽，但决策链仍是同一套 allow-list。
+代码层 `SubprocessSandbox` 通过 `python -m StAgent.code.runner` 与 JSON 信封通信。它适合“干净解释器 + 墙钟超时”，但**不是**完整安全沙箱；高风险能力仍依赖工具是否暴露、permission 审批、以及工作目录是否落在项目允许范围。桌面部署默认根可能更宽，但决策链仍是同一套 allow-list。
 
 产出路径上，AGENTS.md 约定：受管 blob 经 `FileService.register` 或 `register_tool_artifact`；不要写临时文件再“碰巧被 UI 扫到”。
 
@@ -94,7 +94,7 @@ uv run pytest tests/test_file -q --maxfail=5
 
 ## 业内对照
 
-Codex / Claude Code 强调 workspace 根与审批；纯浏览器 Agent 常完全禁止本地 FS。LangChain 文件工具若未加根约束极易穿越。云端容器方案用 namespace/seccomp 提供更强隔离，但桌面本地 Agent 往往做不到同等深度。LeAgent 选择“可配置根 + 附件权威 + FileRef 产物 + 代码子进程超时”，在生产力与可控性之间取折中，并把更强隔离留给可选部署形态。
+Codex / Claude Code 强调 workspace 根与审批；纯浏览器 Agent 常完全禁止本地 FS。LangChain 文件工具若未加根约束极易穿越。云端容器方案用 namespace/seccomp 提供更强隔离，但桌面本地 Agent 往往做不到同等深度。StAgent 选择“可配置根 + 附件权威 + FileRef 产物 + 代码子进程超时”，在生产力与可控性之间取折中，并把更强隔离留给可选部署形态。
 
 ## 部署差异提醒
 

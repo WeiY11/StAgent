@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.io import (
+from StAgent.workflow.io import (
     WorkflowDocument,
     WorkflowLoaderError,
     export,
@@ -13,7 +13,7 @@ from leagent.workflow.io import (
     to_json,
     validate,
 )
-from leagent.workflow.io.authoring import to_canonical
+from StAgent.workflow.io.authoring import to_canonical
 
 
 def test_load_accepts_canonical(sample_canonical_document):
@@ -208,7 +208,7 @@ def test_to_canonical_generic_fallback_never_writes_generic_class():
 
 
 async def test_validate_returns_errors_on_missing_targets():
-    from leagent.workflow.nodes import bootstrap
+    from StAgent.workflow.nodes import bootstrap
 
     await bootstrap()
     bad = {

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import leagent.knowledge.query as query_module
+import StAgent.knowledge.query as query_module
 
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ import {
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "leagent-site-theme";
+const STORAGE_KEY = "StAgent-site-theme";
 const DEFAULT_THEME: Theme = "dark";
 
 function getInitialTheme(): Theme {

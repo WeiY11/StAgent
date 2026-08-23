@@ -7,10 +7,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401 - register SQLModel metadata
-from leagent.config.settings import get_settings
-from leagent.services.chat.projects import ChatProjectService
-from leagent.services.chat.service import ChatService
+import StAgent.db.models  # noqa: F401 - register SQLModel metadata
+from StAgent.config.settings import get_settings
+from StAgent.services.chat.projects import ChatProjectService
+from StAgent.services.chat.service import ChatService
 
 
 class _InMemoryDatabase:
@@ -120,9 +120,9 @@ async def test_create_project_creates_shared_folder_and_disk_root(tmp_path, monk
 
     from sqlmodel import select
 
-    from leagent.db.models.folder import Folder
-    from leagent.services.chat import project_files as project_files_mod
-    from leagent.services.chat.project_files import (
+    from StAgent.db.models.folder import Folder
+    from StAgent.services.chat import project_files as project_files_mod
+    from StAgent.services.chat.project_files import (
         CHAT_PROJECTS_ROOT_SENTINEL,
         chat_project_files_root,
     )
@@ -168,8 +168,8 @@ async def test_rename_and_delete_project_sync_folder(tmp_path, monkeypatch) -> N
 
     from sqlmodel import select
 
-    from leagent.db.models.folder import Folder
-    from leagent.services.chat import project_files as project_files_mod
+    from StAgent.db.models.folder import Folder
+    from StAgent.services.chat import project_files as project_files_mod
 
     monkeypatch.setattr(project_files_mod, "WORKING_DIR", Path(tmp_path) / "working")
 
@@ -208,8 +208,8 @@ async def test_rename_and_delete_project_sync_folder(tmp_path, monkeypatch) -> N
 async def test_two_sessions_share_same_project_file_space(tmp_path, monkeypatch) -> None:
     from pathlib import Path
 
-    from leagent.services.chat import project_files as project_files_mod
-    from leagent.services.chat.project_files import resolve_session_project_file_space
+    from StAgent.services.chat import project_files as project_files_mod
+    from StAgent.services.chat.project_files import resolve_session_project_file_space
 
     monkeypatch.setattr(project_files_mod, "WORKING_DIR", Path(tmp_path) / "working")
 
@@ -241,8 +241,8 @@ async def test_two_sessions_share_same_project_file_space(tmp_path, monkeypatch)
 async def test_free_session_has_no_shared_project_file_space(tmp_path, monkeypatch) -> None:
     from pathlib import Path
 
-    from leagent.services.chat import project_files as project_files_mod
-    from leagent.services.chat.project_files import resolve_session_project_file_space
+    from StAgent.services.chat import project_files as project_files_mod
+    from StAgent.services.chat.project_files import resolve_session_project_file_space
 
     monkeypatch.setattr(project_files_mod, "WORKING_DIR", Path(tmp_path) / "working")
 

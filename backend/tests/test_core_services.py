@@ -15,7 +15,7 @@ import pytest
 @pytest.mark.asyncio
 class TestInMemoryCache:
     async def test_set_and_get(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("key1", "value1")
@@ -23,14 +23,14 @@ class TestInMemoryCache:
         assert result == "value1"
 
     async def test_get_missing_key_returns_none(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         result = await cache.get("nonexistent")
         assert result is None
 
     async def test_set_with_ttl_expires(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("short_lived", "data", ttl=100)
@@ -42,7 +42,7 @@ class TestInMemoryCache:
         assert result_expired is None
 
     async def test_delete_existing_key(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("to_delete", "value")
@@ -51,14 +51,14 @@ class TestInMemoryCache:
         assert await cache.get("to_delete") is None
 
     async def test_delete_missing_key_returns_false(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         result = await cache.delete("nonexistent")
         assert result is False
 
     async def test_exists(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("exists_key", 42)
@@ -66,7 +66,7 @@ class TestInMemoryCache:
         assert await cache.exists("missing_key") is False
 
     async def test_lru_eviction(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache(max_size=3)
         for i in range(5):
@@ -74,7 +74,7 @@ class TestInMemoryCache:
         assert cache.size <= 3
 
     async def test_overwrite_key(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("k", "v1")
@@ -82,7 +82,7 @@ class TestInMemoryCache:
         assert await cache.get("k") == "v2"
 
     async def test_clear(self) -> None:
-        from leagent.services.cache.service import InMemoryCache
+        from StAgent.services.cache.service import InMemoryCache
 
         cache = InMemoryCache()
         await cache.set("a", 1)
@@ -99,7 +99,7 @@ class TestInMemoryCache:
 
 class TestAuthService:
     def test_passthrough_auth(self) -> None:
-        from leagent.services.auth.service import LOCAL_USER_ID, AuthService
+        from StAgent.services.auth.service import LOCAL_USER_ID, AuthService
 
         class _S:
             host = "127.0.0.1"
@@ -111,7 +111,7 @@ class TestAuthService:
         assert svc.verify_password("any", "") is True
 
     def test_create_token_pair(self) -> None:
-        from leagent.services.auth.service import AuthService
+        from StAgent.services.auth.service import AuthService
 
         class _S:
             host = "127.0.0.1"
@@ -127,7 +127,7 @@ class TestAuthService:
         assert "." in pair.access_token
 
     def test_enforced_rejects_garbage(self) -> None:
-        from leagent.services.auth.service import AuthService
+        from StAgent.services.auth.service import AuthService
 
         class _S:
             host = "0.0.0.0"
@@ -151,7 +151,7 @@ class TestAuthService:
 @pytest.mark.asyncio
 class TestEventManager:
     def _manager(self):
-        from leagent.services.event.manager import EventManager
+        from StAgent.services.event.manager import EventManager
 
         settings = MagicMock()
         settings.event = MagicMock()
@@ -164,7 +164,7 @@ class TestEventManager:
         async def handler(event) -> None:
             received.append(event)
 
-        from leagent.services.event.manager import EventType
+        from StAgent.services.event.manager import EventType
 
         manager.subscribe(EventType.TASK_CREATED, handler)
         await manager.emit_typed(EventType.TASK_CREATED, source="test", data={"task_id": "t-1"}, wait=True)
@@ -178,7 +178,7 @@ class TestEventManager:
         async def handler(event) -> None:
             received.append(event)
 
-        from leagent.services.event.manager import EventType
+        from StAgent.services.event.manager import EventType
 
         sub_id = manager.subscribe(EventType.TASK_STARTED, handler)
         manager.unsubscribe(sub_id)
@@ -188,7 +188,7 @@ class TestEventManager:
 
     async def test_emit_with_no_subscribers(self) -> None:
         manager = self._manager()
-        from leagent.services.event.manager import EventType
+        from StAgent.services.event.manager import EventType
 
         await manager.emit_typed(EventType.SYSTEM_STARTUP, source="test", data={})
 
@@ -202,7 +202,7 @@ class TestEventManager:
         async def h2(event) -> None:
             calls.append("h2")
 
-        from leagent.services.event.manager import EventType
+        from StAgent.services.event.manager import EventType
 
         manager.subscribe(EventType.AGENT_MESSAGE, h1)
         manager.subscribe(EventType.AGENT_MESSAGE, h2)
@@ -221,7 +221,7 @@ class TestEventManager:
         async def good_handler(event) -> None:
             calls.append("good")
 
-        from leagent.services.event.manager import EventType
+        from StAgent.services.event.manager import EventType
 
         manager.subscribe(EventType.CUSTOM, bad_handler)
         manager.subscribe(EventType.CUSTOM, good_handler)

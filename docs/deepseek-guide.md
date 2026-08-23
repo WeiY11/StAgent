@@ -1,6 +1,6 @@
 # DeepSeek Integration Guide
 
-> LeAgent developer reference for the DeepSeek V4 API.
+> StAgent developer reference for the DeepSeek V4 API.
 > Canonical API docs: <https://api-docs.deepseek.com>
 
 ---
@@ -48,7 +48,7 @@ Override with `LLM_TIER1_MODEL` / `LLM_TIER2_MODEL` if needed.
 
 ### Provider config (Admin UI / providers.yaml)
 
-The `PROVIDER_CATALOG` in `leagent/llm/provider_config.py` lists DeepSeek
+The `PROVIDER_CATALOG` in `StAgent/llm/provider_config.py` lists DeepSeek
 with its model inventory and pricing. The admin can also configure DeepSeek
 via the Settings > Model Providers page.
 
@@ -136,7 +136,7 @@ messages.append({
 })
 ```
 
-LeAgent handles this via `ChatMessage.reasoning_content` and
+StAgent handles this via `ChatMessage.reasoning_content` and
 `AssistantMessage.to_openai()`, which conditionally includes the field.
 
 ---
@@ -158,7 +158,7 @@ for all users with no code changes required.
 
 ### Optimizing for cache hits
 
-To maximize caching in LeAgent:
+To maximize caching in StAgent:
 
 1. Keep the system prompt (layers L0–L4) **stable and deterministic** — do
    not embed timestamps, random values, or volatile state in stable layers.
@@ -203,7 +203,7 @@ response = client.completions.create(
 print(response.choices[0].text)
 ```
 
-In LeAgent, use `DeepSeekProvider.fim_complete()` for programmatic access.
+In StAgent, use `DeepSeekProvider.fim_complete()` for programmatic access.
 
 ---
 
@@ -233,7 +233,7 @@ Returns account availability and balance breakdown. Used by
 ## 8. `user_id` for KV Cache Isolation
 
 The `user_id` request parameter (charset `[a-zA-Z0-9\-_]`, max 512 chars)
-lets DeepSeek partition its KV cache per user. LeAgent injects a sanitized
+lets DeepSeek partition its KV cache per user. StAgent injects a sanitized
 `workspace_id:user_id` via `DeepSeekProvider._build_request_body` when the
 `_deepseek_user_id` context variable is set by the API layer.
 
@@ -250,11 +250,11 @@ Do **not** include PII in `user_id`.
 
 ---
 
-## 10. LeAgent Implementation Details
+## 10. StAgent Implementation Details
 
 ### Provider class
 
-`leagent/llm/providers/deepseek.py` — `DeepSeekProvider(OpenAIProvider)`:
+`StAgent/llm/providers/deepseek.py` — `DeepSeekProvider(OpenAIProvider)`:
 
 - Merges `thinking` / `reasoning_effort` from settings + per-request
   contextvar overrides.
@@ -267,7 +267,7 @@ Do **not** include PII in `user_id`.
 
 ### Context strategy
 
-`leagent/context/strategies/deepseek.py` — `DeepSeekContextStrategy`:
+`StAgent/context/strategies/deepseek.py` — `DeepSeekContextStrategy`:
 
 - Optimizes context ordering for DeepSeek's attention patterns (stable
   prefixes for automatic disk caching, high-priority content at
@@ -276,7 +276,7 @@ Do **not** include PII in `user_id`.
 
 ### Registry wiring
 
-`leagent/llm/registry.py` — `create_default_registry()`:
+`StAgent/llm/registry.py` — `create_default_registry()`:
 
 - Registers `DeepSeekProvider` under `"deepseek"` when API key is set.
 - Auto-aliases as `tier1` (`deepseek-v4-pro`) and `tier2`
@@ -296,7 +296,7 @@ Do **not** include PII in `user_id`.
 | `content: null` streaming delta | DeepSeek quirk before tool-call deltas | Coalesced to empty string by `_parse_stream_chunk` |
 | `finish_reason: insufficient_system_resource` | DeepSeek server overload | Retry with exponential backoff (handled by `max_retries`) |
 | `prompt_cache_hit_tokens` always 0 | System prompt changes between requests | Stabilize L0–L4 prompt layers; cache takes seconds to build |
-| Import errors from `/opt/ros/*` | `PYTHONPATH` includes ROS paths | Set `PYTHONPATH=""` before running LeAgent |
+| Import errors from `/opt/ros/*` | `PYTHONPATH` includes ROS paths | Set `PYTHONPATH=""` before running StAgent |
 
 ---
 
@@ -319,6 +319,6 @@ PYTHONPATH="" DEEPSEEK_API_KEY=sk-... \
 - DeepSeek API docs: <https://api-docs.deepseek.com>
 - DeepSeek V4 announcement: <https://api-docs.deepseek.com/news/news260424>
 - Pricing: <https://api-docs.deepseek.com/quick_start/pricing>
-- LeAgent AGENTS.md: DeepSeek provider section
-- LeAgent context compression guide: `docs/context-compression-and-usage.md`
+- StAgent AGENTS.md: DeepSeek provider section
+- StAgent context compression guide: `docs/context-compression-and-usage.md`
 - 中文版: [`deepseek-guide_zh.md`](./deepseek-guide_zh.md)

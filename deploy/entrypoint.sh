@@ -1,14 +1,14 @@
 #!/bin/bash
 # =============================================================================
-# LeAgent Entrypoint — SQLite by default, optional external PostgreSQL.
+# StAgent Entrypoint — SQLite by default, optional external PostgreSQL.
 # =============================================================================
 
 set -e
 
-export LEAGENT_WORKERS=${LEAGENT_WORKERS:-1}
-export LEAGENT_HOST=${LEAGENT_HOST:-0.0.0.0}
-export LEAGENT_PORT=${LEAGENT_PORT:-8000}
-export LEAGENT_LOG_LEVEL=${LEAGENT_LOG_LEVEL:-INFO}
+export StAgent_WORKERS=${StAgent_WORKERS:-1}
+export StAgent_HOST=${StAgent_HOST:-0.0.0.0}
+export StAgent_PORT=${StAgent_PORT:-8000}
+export StAgent_LOG_LEVEL=${StAgent_LOG_LEVEL:-INFO}
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,23 +49,23 @@ check_runtime_topology() {
         return 0
     fi
     log_info "Database backend: SQLite"
-    if [ "${LEAGENT_WORKERS:-1}" != "1" ]; then
-        log_error "LEAGENT_WORKERS > 1 requires PostgreSQL DATABASE_URL; SQLite must run with one worker"
+    if [ "${StAgent_WORKERS:-1}" != "1" ]; then
+        log_error "StAgent_WORKERS > 1 requires PostgreSQL DATABASE_URL; SQLite must run with one worker"
         return 1
     fi
 }
 
 run_migrations() {
     log_info "Running database migrations..."
-    if [ "${LEAGENT_RUN_MIGRATIONS:-true}" = "false" ]; then
-        log_warning "Database migrations disabled by LEAGENT_RUN_MIGRATIONS=false"
+    if [ "${StAgent_RUN_MIGRATIONS:-true}" = "false" ]; then
+        log_warning "Database migrations disabled by StAgent_RUN_MIGRATIONS=false"
         return 0
     fi
     if [ -f "/app/alembic.ini" ]; then
         cd /app
-        if python -m leagent.scripts.run_migrations; then
+        if python -m StAgent.scripts.run_migrations; then
             log_success "Database migrations completed"
-        elif [ "${LEAGENT_MIGRATIONS_REQUIRED:-true}" = "false" ]; then
+        elif [ "${StAgent_MIGRATIONS_REQUIRED:-true}" = "false" ]; then
             log_warning "Database migrations failed (non-fatal)"
         else
             log_error "Database migrations failed"
@@ -80,7 +80,7 @@ health_check() {
     local max_attempts=60 attempt=1
     log_info "Performing health check..."
     while [ $attempt -le $max_attempts ]; do
-        if curl -sf "http://localhost:${LEAGENT_PORT}/api/v1/health/ready" > /dev/null 2>&1; then
+        if curl -sf "http://localhost:${StAgent_PORT}/api/v1/health/ready" > /dev/null 2>&1; then
             log_success "Health check passed"
             return 0
         fi
@@ -92,11 +92,11 @@ health_check() {
 }
 
 start_server() {
-    log_info "Starting LeAgent (gunicorn + uvicorn workers)..."
-    log_info "Workers: $LEAGENT_WORKERS | Host: $LEAGENT_HOST | Port: $LEAGENT_PORT"
-    exec gunicorn leagent.main:app \
-        --bind "${LEAGENT_HOST}:${LEAGENT_PORT}" \
-        --workers "$LEAGENT_WORKERS" \
+    log_info "Starting StAgent (gunicorn + uvicorn workers)..."
+    log_info "Workers: $StAgent_WORKERS | Host: $StAgent_HOST | Port: $StAgent_PORT"
+    exec gunicorn StAgent.main:app \
+        --bind "${StAgent_HOST}:${StAgent_PORT}" \
+        --workers "$StAgent_WORKERS" \
         --worker-class uvicorn.workers.UvicornWorker \
         --timeout 300 \
         --graceful-timeout 30 \
@@ -110,24 +110,24 @@ start_server() {
 }
 
 start_server_dev() {
-    log_info "Starting LeAgent (uvicorn --reload)..."
-    exec uvicorn leagent.main:app \
-        --host "$LEAGENT_HOST" \
-        --port "$LEAGENT_PORT" \
+    log_info "Starting StAgent (uvicorn --reload)..."
+    exec uvicorn StAgent.main:app \
+        --host "$StAgent_HOST" \
+        --port "$StAgent_PORT" \
         --reload \
-        --reload-dir /app/leagent \
+        --reload-dir /app/StAgent \
         --log-level debug
 }
 
 start_supervisor() {
-    log_info "Starting LeAgent with Supervisor..."
-    exec supervisord -c /etc/supervisor/conf.d/leagent.conf
+    log_info "Starting StAgent with Supervisor..."
+    exec supervisord -c /etc/supervisor/conf.d/StAgent.conf
 }
 
 main() {
     local command="${1:-server}"
     echo "=============================================="
-    echo "  LeAgent"
+    echo "  StAgent"
     echo "  Command: $command"
     echo "=============================================="
 
@@ -157,11 +157,11 @@ main() {
             ;;
         worker)
             log_info "Starting background worker..."
-            exec python -m leagent.cli.main worker
+            exec python -m StAgent.cli.main worker
             ;;
         scheduler)
             log_info "Starting scheduler..."
-            exec python -m leagent.cli.main scheduler
+            exec python -m StAgent.cli.main scheduler
             ;;
         health)
             health_check

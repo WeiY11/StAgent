@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-Recipe 只是「邀请谁上台」；真正把运行时状态变成提示词块的是 `ContextSource`。先修 [13](13-layered-prompts.md)、[14](14-persona-and-context-recipe.md)。协议与句柄见 [`context/sources/base.py`](../../../backend/leagent/context/sources/base.py)；注册表见 [`context/sources/__init__.py`](../../../backend/leagent/context/sources/__init__.py)；块类型见 [`context/types.py`](../../../backend/leagent/context/types.py)。
+Recipe 只是「邀请谁上台」；真正把运行时状态变成提示词块的是 `ContextSource`。先修 [13](13-layered-prompts.md)、[14](14-persona-and-context-recipe.md)。协议与句柄见 [`context/sources/base.py`](../../../backend/StAgent/context/sources/base.py)；注册表见 [`context/sources/__init__.py`](../../../backend/StAgent/context/sources/__init__.py)；块类型见 [`context/types.py`](../../../backend/StAgent/context/types.py)。
 
 写好 Source 的标准是：输入只依赖本轮 `ResolveContext`，输出要么跳过（`None`），要么给出一块可计量、可排序、可审计的 `ContextBlock`。
 
@@ -44,8 +44,8 @@ ResolveContext（本轮只读句柄）
 ### 第 1 步：实现类
 
 ```python
-from leagent.context.sources.base import ResolveContext
-from leagent.context.types import ContextBlock, ContextScope, RenderTarget
+from StAgent.context.sources.base import ResolveContext
+from StAgent.context.types import ContextBlock, ContextScope, RenderTarget
 
 class ReleaseNotesSource:
     id = "release_notes"
@@ -110,7 +110,7 @@ cd backend && uv run pytest \
 
 ## 业内对照
 
-LangChain 常用 runnable 拼装上下文；LlamaIndex 用 node/postprocessor 做投影与过滤。LeAgent 选择显式 Protocol + registry，使每个来源的字符数、跳过原因与是否截断都能进入 `ContextLedger`，利于预览 API 与线上排障。Anthropic 强调工具结果与资料的角色边界，正对应 `render_target` 分流。
+LangChain 常用 runnable 拼装上下文；LlamaIndex 用 node/postprocessor 做投影与过滤。StAgent 选择显式 Protocol + registry，使每个来源的字符数、跳过原因与是否截断都能进入 `ContextLedger`，利于预览 API 与线上排障。Anthropic 强调工具结果与资料的角色边界，正对应 `render_target` 分流。
 
 ## 数据流：Source 在 prepare_turn 中的位置
 

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.rules.base import (
+from StAgent.rules.base import (
     CompositeCondition,
     LogicalOperator,
     Operator,
@@ -20,8 +20,8 @@ from leagent.rules.base import (
     RuleType,
     Severity,
 )
-from leagent.rules.engine import RuleEngine
-from leagent.rules.evaluator import CompareEvaluator, EvaluatorRegistry
+from StAgent.rules.engine import RuleEngine
+from StAgent.rules.evaluator import CompareEvaluator, EvaluatorRegistry
 
 
 # ===========================================================================
@@ -277,7 +277,7 @@ class TestRuleEngine:
         assert result.passed is False
 
     async def test_evaluate_unknown_rule_set(self) -> None:
-        from leagent.exceptions.rule import RuleSetNotFoundError
+        from StAgent.exceptions.rule import RuleSetNotFoundError
         engine = self._engine()
         with pytest.raises(RuleSetNotFoundError):
             await engine.evaluate("nonexistent_set", {})
@@ -320,7 +320,7 @@ rules:
 
 class TestRuleLoader:
     def test_load_from_yaml_file(self, tmp_path: Path) -> None:
-        from leagent.rules.loader import RuleLoader
+        from StAgent.rules.loader import RuleLoader
         yaml_content = """
 id: simple_rules
 name: Simple Rules
@@ -344,8 +344,8 @@ rules:
         assert "simple_rules" in loaded
 
     def test_missing_directory(self) -> None:
-        from leagent.rules.loader import RuleLoader
-        from leagent.exceptions.rule import RuleLoadError
+        from StAgent.rules.loader import RuleLoader
+        from StAgent.exceptions.rule import RuleLoadError
         loader = RuleLoader()
         with pytest.raises(RuleLoadError):
             loader.load_directory("/nonexistent/rules/dir")

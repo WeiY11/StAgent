@@ -9,14 +9,14 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.markdown import parse_inline, parse_markdown_blocks, parse_markdown_document
-from leagent.docgen.mathtext import (
+from StAgent.docgen.markdown import parse_inline, parse_markdown_blocks, parse_markdown_document
+from StAgent.docgen.mathtext import (
     latex_lines,
     latex_to_unicode,
     math_vector_path,
     render_math_png,
 )
-from leagent.docgen.model import (
+from StAgent.docgen.model import (
     DeckSpec,
     DefinitionListBlock,
     DocumentSpec,
@@ -24,7 +24,7 @@ from leagent.docgen.model import (
     MathBlock,
     ParagraphBlock,
 )
-from leagent.docgen.omml import latex_to_omml_xml
+from StAgent.docgen.omml import latex_to_omml_xml
 
 # ---------------------------------------------------------------------------
 # mathtext core
@@ -85,7 +85,7 @@ def test_omml_fraction_and_radical() -> None:
 
 
 def test_omml_nary_operator() -> None:
-    from leagent.docgen.omml import M_NS, latex_to_omml_element
+    from StAgent.docgen.omml import M_NS, latex_to_omml_element
 
     xml = latex_to_omml_xml(r"\sum_{i=1}^{n} x_i")
     assert xml is not None
@@ -182,7 +182,7 @@ def test_front_matter_metadata() -> None:
 def test_front_matter_date_coerced_to_string() -> None:
     import datetime as dt
 
-    from leagent.docgen.model import DocumentSpec
+    from StAgent.docgen.model import DocumentSpec
 
     md = "---\ntitle: Resume\ndate: 2026-07-10\n---\n\n# Section\n"
     meta, blocks = parse_markdown_document(md)
@@ -230,7 +230,7 @@ def _spec(**kwargs) -> DocumentSpec:
 
 
 def test_render_pdf_math_native_vector(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     result = render_pdf(_spec(), tmp_path / "math.pdf")
     assert result["success"] is True
@@ -251,7 +251,7 @@ def test_render_pdf_math_native_vector(tmp_path: Path) -> None:
 
 
 def test_render_pdf_numbered_equation_caption(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = DocumentSpec.model_validate(
         {
@@ -271,7 +271,7 @@ def test_render_pdf_numbered_equation_caption(tmp_path: Path) -> None:
 
 
 def test_render_pdf_invalid_math_degrades_to_code(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = DocumentSpec.model_validate(
         {"title": "Bad", "blocks": [{"type": "math", "latex": "\\frac{1}{"}]}
@@ -286,7 +286,7 @@ def test_render_docx_math_native_omml(tmp_path: Path) -> None:
 
     import docx as docx_lib
 
-    from leagent.docgen.renderers.docx import render_docx
+    from StAgent.docgen.renderers.docx import render_docx
 
     result = render_docx(_spec(), tmp_path / "math.docx")
     assert result["success"] is True
@@ -305,7 +305,7 @@ def test_render_docx_math_native_omml(tmp_path: Path) -> None:
 
 
 def test_render_html_math(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_html
+    from StAgent.docgen.renderers.html import render_html
 
     result = render_html(_spec(), tmp_path / "math.html")
     assert result["success"] is True
@@ -317,7 +317,7 @@ def test_render_html_math(tmp_path: Path) -> None:
 
 
 def test_render_markdown_roundtrip(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.html import render_markdown
+    from StAgent.docgen.renderers.html import render_markdown
 
     result = render_markdown(_spec(), tmp_path / "math.md")
     assert result["success"] is True
@@ -337,7 +337,7 @@ def test_render_pptx_math_native_omml(tmp_path: Path) -> None:
 
     from pptx import Presentation
 
-    from leagent.docgen.renderers.pptx import render_pptx
+    from StAgent.docgen.renderers.pptx import render_pptx
 
     deck = DeckSpec.model_validate(
         {

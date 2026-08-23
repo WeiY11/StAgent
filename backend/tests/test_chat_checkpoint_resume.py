@@ -10,16 +10,16 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from leagent.agent.base import AgentConfig, AgentContext, ConversationContext, NoOpStreamHandler, StreamEvent
-from leagent.agent.controller import AgentController
-from leagent.agent.query_engine import SDKMessage
-from leagent.agent.transitions import TerminalReason
-from leagent.api.schemas.chat import ResumeCheckpointRequest, SessionCancelResponse
-from leagent.api.v1 import chat as chat_api
-from leagent.api.v1.chat.agent_stream import run_agent_stream
-from leagent.sdk.kernel.checkpoint import InMemoryCheckpointStore, create_checkpoint
-from leagent.sdk.kernel.loop import RESUMABLE_CHECKPOINT_REASONS, run_loop
-from leagent.sdk.kernel.state import RunState
+from StAgent.agent.base import AgentConfig, AgentContext, ConversationContext, NoOpStreamHandler, StreamEvent
+from StAgent.agent.controller import AgentController
+from StAgent.agent.query_engine import SDKMessage
+from StAgent.agent.transitions import TerminalReason
+from StAgent.api.schemas.chat import ResumeCheckpointRequest, SessionCancelResponse
+from StAgent.api.v1 import chat as chat_api
+from StAgent.api.v1.chat.agent_stream import run_agent_stream
+from StAgent.sdk.kernel.checkpoint import InMemoryCheckpointStore, create_checkpoint
+from StAgent.sdk.kernel.loop import RESUMABLE_CHECKPOINT_REASONS, run_loop
+from StAgent.sdk.kernel.state import RunState
 
 
 class _FakeConfig:
@@ -70,7 +70,7 @@ async def test_stash_and_wait_session_checkpoint() -> None:
 @pytest.mark.asyncio
 async def test_checkpoint_aborted_turn_persists_and_stashes() -> None:
     """Controller abort helper writes a durable checkpoint and stashes the id."""
-    from leagent.runtime import AgentRuntime, RuntimeContext
+    from StAgent.runtime import AgentRuntime, RuntimeContext
 
     store = InMemoryCheckpointStore()
     sid = uuid4()
@@ -106,7 +106,7 @@ async def test_checkpoint_aborted_turn_persists_and_stashes() -> None:
 @pytest.mark.asyncio
 async def test_controller_rejects_checkpoint_from_another_session() -> None:
     """A checkpoint id must never import a different session's transcript."""
-    from leagent.runtime import AgentRuntime, RuntimeContext
+    from StAgent.runtime import AgentRuntime, RuntimeContext
 
     owner_session_id = uuid4()
     requested_session_id = uuid4()
@@ -155,11 +155,11 @@ async def test_resume_endpoint_rejects_checkpoint_from_another_session(monkeypat
         return None
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: SimpleNamespace(database_service=object()),
     )
     monkeypatch.setattr(
-        "leagent.sdk.kernel.checkpoint.build_checkpoint_store",
+        "StAgent.sdk.kernel.checkpoint.build_checkpoint_store",
         lambda _database: store,
     )
     monkeypatch.setattr(chat_api, "_require_session_project_access", _allow_project_access)

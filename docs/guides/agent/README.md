@@ -1,7 +1,7 @@
-# LeAgent Agent 工程教程
+# StAgent Agent 工程教程
 
 > 一套从基础概念、动手实现到生产工程的中文 Agent 教程。正文以
-> LeAgent 当前代码为参考实现，同时对照 Anthropic、OpenAI Agents SDK、
+> StAgent 当前代码为参考实现，同时对照 Anthropic、OpenAI Agents SDK、
 > LangGraph、Google ADK、AutoGen 与 MCP/OWASP 的公开实践。
 
 这套教程不把 Agent 简化成“一段系统提示词加一次模型调用”。你会沿着
@@ -15,7 +15,7 @@
 - **实践**：准备修改 Agent 行为，继续学习 13 → 30。
 - **进阶**：需要记忆、多 Agent 或工作流，学习 31 → 42。
 - **生产**：准备部署、评测和治理，学习 43 → 48。
-- 每篇都可以独立阅读；遇到不熟悉的 LeAgent 类型，可先查
+- 每篇都可以独立阅读；遇到不熟悉的 StAgent 类型，可先查
   [Agent SDK 技术参考](../../technical/agent_sdk_zh.md) 和
   [执行拓扑](../../technical/execution-topology_zh.md)。
 
@@ -107,7 +107,7 @@ Milvus 或联网工作流的实验会单独注明依赖。
 
 1. 这个机制解决什么问题？
 2. 它在整条 Agent 数据流的哪个位置？
-3. LeAgent 当前由哪些文件和类型实现？
+3. StAgent 当前由哪些文件和类型实现？
 4. 最小实现是什么？
 5. 如何用离线命令验证？
 6. 生产环境还缺哪些条件？
@@ -116,7 +116,7 @@ Milvus 或联网工作流的实验会单独注明依赖。
 
 代码与文档冲突时，以代码和测试为准。尤其注意：
 
-- 新集成应从 `leagent.sdk` 导入公共类型；`leagent.runtime` 仍承担兼容层角色。
+- 新集成应从 `StAgent.sdk` 导入公共类型；`StAgent.runtime` 仍承担兼容层角色。
 - `AgentController` 是会话、SSE 与持久化编排壳，不是第二套 Agent loop。
 - 子 Agent 使用独立 transcript；文件状态是 fork 时复制、结束后合并，并非实时共享。
 - Session transcript、turn checkpoint、长期 memory 和 workflow state 是四类不同状态。
@@ -125,7 +125,7 @@ Milvus 或联网工作流的实验会单独注明依赖。
 ## 相关资料
 
 - [Agent 面试题库](../../interview/README.md)
-- [LeAgent 产品使用教程](../../tutorial_zh.md)
+- [StAgent 产品使用教程](../../tutorial_zh.md)
 - [Agent SDK 技术参考](../../technical/agent_sdk_zh.md)
 - [Agent Runtime 技术参考](../../technical/agent-runtime_zh.md)
 - [执行拓扑](../../technical/execution-topology_zh.md)

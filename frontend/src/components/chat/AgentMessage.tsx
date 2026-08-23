@@ -335,6 +335,13 @@ function AgentMessageInner({
     return idx;
   }, [message.toolCalls]);
 
+  // Segmentation reruns on every streaming frame otherwise (it's inline JSX).
+  const toolCallSegments = useMemo(
+    () => (Array.isArray(message.toolCalls) ? buildToolCallSegments(message.toolCalls) : []),
+    [message.toolCalls],
+  );
+  const createdAtLabel = useMemo(() => formatDate(message.createdAt), [message.createdAt]);
+
   const showAnchoredGenUi =
     Boolean(sessionId) &&
     lastSuccessfulEmitUiTreeIndex >= 0 &&
@@ -456,9 +463,9 @@ function AgentMessageInner({
         <span>{t('chat.roleAssistantShort', { defaultValue: 'Assistant' })}</span>
         <span
           className="chat-msg-time normal-case font-normal tracking-normal tabular-nums"
-          title={formatDate(message.createdAt)}
+          title={createdAtLabel}
         >
-          {formatDate(message.createdAt)}
+          {createdAtLabel}
         </span>
       </div>
 
@@ -477,7 +484,7 @@ function AgentMessageInner({
       {Array.isArray(message.toolCalls) &&
         message.toolCalls.some((tc) => tc.name !== 'emit_pet_bubble') && (
         <div className="space-y-1.5 mb-3">
-          {buildToolCallSegments(message.toolCalls).map((seg, segIdx) =>
+          {toolCallSegments.map((seg, segIdx) =>
             seg.kind === 'tool_strip' ? (
               <ToolCallStrip
                 key={`tool-strip-${message.id}-${segIdx}-${seg.tools[0]?.id ?? segIdx}`}

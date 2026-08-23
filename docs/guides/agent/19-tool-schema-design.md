@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文是工具系统系列的起点，面向需要为 LeAgent 增加或重构工具的开发者。建议先理解 JSON Schema 的 `type`、`properties`、`required`、`enum`，并浏览 `backend/leagent/tools/base.py`、`contract.py` 与 `backend/tests/test_tool_param_invariants.py`。这里讨论的 Schema 不是普通 API 文档：它会直接进入模型上下文，既约束参数，也影响模型是否选择该工具。
+本文是工具系统系列的起点，面向需要为 StAgent 增加或重构工具的开发者。建议先理解 JSON Schema 的 `type`、`properties`、`required`、`enum`，并浏览 `backend/StAgent/tools/base.py`、`contract.py` 与 `backend/tests/test_tool_param_invariants.py`。这里讨论的 Schema 不是普通 API 文档：它会直接进入模型上下文，既约束参数，也影响模型是否选择该工具。
 
 ## 学习目标
 
@@ -25,10 +25,10 @@
 
 ## 真实代码路径
 
-- `backend/leagent/tools/base.py`：`parameters`、`validate_params()`、`to_openai_schema()`、`to_anthropic_schema()`
-- `backend/leagent/tools/contract.py`：未知参数与 operation 条件必填约束
-- `backend/leagent/tools/registry.py`：注册校验、Schema 格式转换与缓存
-- `backend/leagent/tools/executor.py`：模型参数解析、修复和执行入口
+- `backend/StAgent/tools/base.py`：`parameters`、`validate_params()`、`to_openai_schema()`、`to_anthropic_schema()`
+- `backend/StAgent/tools/contract.py`：未知参数与 operation 条件必填约束
+- `backend/StAgent/tools/registry.py`：注册校验、Schema 格式转换与缓存
+- `backend/StAgent/tools/executor.py`：模型参数解析、修复和执行入口
 - `backend/tests/test_registry.py`：OpenAI/Anthropic Schema 及注册约束
 - `backend/tests/test_tool_param_invariants.py`：仓库级参数契约
 
@@ -82,7 +82,7 @@ Schema 负责类型、范围、枚举和结构。`validate_input()` 负责需要
 cd backend
 uv run pytest tests/test_registry.py tests/test_tool_param_invariants.py -q
 uv run python -m pytest tests/test_executor.py -q
-uv run ruff check leagent/tools
+uv run ruff check StAgent/tools
 ```
 
 还可以在测试中直接断言 `tool.validate_params()` 的成功与失败分支，并检查 `registry.get_schemas("openai")` 和 `"anthropic"` 的输出。
@@ -97,7 +97,7 @@ uv run ruff check leagent/tools
 
 ## 业内对照
 
-OpenAI function calling 与 Anthropic tool use 的外层格式不同，但 LeAgent 分别由 `to_openai_schema()` 和 `to_anthropic_schema()` 转换，内部参数都以 JSON Schema 为核心。与普通 REST OpenAPI 相比，Agent 工具更强调简短描述、低歧义字段和可恢复错误；与 LangChain 等框架的自动函数签名推导相比，显式 Schema 更啰嗦，却能稳定控制兼容性、权限标记和多模型表现。
+OpenAI function calling 与 Anthropic tool use 的外层格式不同，但 StAgent 分别由 `to_openai_schema()` 和 `to_anthropic_schema()` 转换，内部参数都以 JSON Schema 为核心。与普通 REST OpenAPI 相比，Agent 工具更强调简短描述、低歧义字段和可恢复错误；与 LangChain 等框架的自动函数签名推导相比，显式 Schema 更啰嗦，却能稳定控制兼容性、权限标记和多模型表现。
 
 ## 总结
 

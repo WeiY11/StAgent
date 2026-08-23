@@ -12,7 +12,7 @@ function parseGithubRepo(repoUrl: string): { owner: string; repo: string } {
     .match(/github\.com[/:]([^/]+)\/([^/#?]+)/i);
   return {
     owner: match?.[1] ?? "vixues",
-    repo: match?.[2] ?? "LeAgent",
+    repo: match?.[2] ?? "StAgent",
   };
 }
 

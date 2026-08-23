@@ -1,6 +1,6 @@
 """Guard: core architectural packages use the canonical logger only.
 
-``leagent.utils.logging.get_logger`` is the single accessor. Raw
+``StAgent.utils.logging.get_logger`` is the single accessor. Raw
 ``logging.getLogger`` / ``structlog.get_logger`` idioms bypass the shared
 pipeline (correlation fields, OTel injection) and are forbidden inside the
 agent/runtime/SDK core. The allowlist below is intentionally narrow — it is
@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 _BACKEND = Path(__file__).resolve().parents[1]
-_PKG = _BACKEND / "leagent"
+_PKG = _BACKEND / "StAgent"
 
 # Directories whose every module must use the canonical logger.
 CLEAN_DIRS = [
@@ -51,7 +51,7 @@ def test_core_uses_canonical_logger():
             if idiom in text:
                 offenders.append(f"{path.relative_to(_BACKEND)}: {idiom}")
     assert not offenders, (
-        "Core modules must use leagent.utils.logging.get_logger; found: "
+        "Core modules must use StAgent.utils.logging.get_logger; found: "
         + "; ".join(offenders)
     )
 

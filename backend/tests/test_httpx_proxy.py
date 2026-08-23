@@ -1,4 +1,4 @@
-"""Tests for :mod:`leagent.utils.httpx_proxy`."""
+"""Tests for :mod:`StAgent.utils.httpx_proxy`."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from leagent.utils import httpx_proxy
+from StAgent.utils import httpx_proxy
 
 
 @pytest.fixture(autouse=True)
@@ -21,7 +21,7 @@ def reset_socks_log_flag():
 
 def test_httpx_trust_env_true_without_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LLM_HTTPX_TRUST_ENV", raising=False)
-    monkeypatch.delenv("LEAGENT_HTTPX_TRUST_ENV", raising=False)
+    monkeypatch.delenv("StAgent_HTTPX_TRUST_ENV", raising=False)
     for key in (
         "ALL_PROXY",
         "all_proxy",
@@ -38,18 +38,18 @@ def test_httpx_trust_env_false_for_socks5(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.delenv("LLM_HTTPX_TRUST_ENV", raising=False)
-    monkeypatch.delenv("LEAGENT_HTTPX_TRUST_ENV", raising=False)
+    monkeypatch.delenv("StAgent_HTTPX_TRUST_ENV", raising=False)
     monkeypatch.setenv("HTTP_PROXY", "socks5://127.0.0.1:9")
     # When socks support is installed (socksio), we should keep trust_env=True so the
     # backend can work behind macOS proxy apps. Otherwise we fall back to trust_env=False.
     try:
         import socksio  # noqa: F401
     except Exception:
-        caplog.set_level(logging.WARNING, logger="leagent.utils.httpx_proxy")
+        caplog.set_level(logging.WARNING, logger="StAgent.utils.httpx_proxy")
         assert httpx_proxy.httpx_trust_env() is False
         assert "SOCKS" in caplog.text
     else:
-        caplog.set_level(logging.INFO, logger="leagent.utils.httpx_proxy")
+        caplog.set_level(logging.INFO, logger="StAgent.utils.httpx_proxy")
         assert httpx_proxy.httpx_trust_env() is True
         assert "SOCKS" in caplog.text
 

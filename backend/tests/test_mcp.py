@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from leagent.mcp.base import (
+from StAgent.mcp.base import (
     MCPCapabilities,
     MCPPrompt,
     MCPResource,
@@ -240,7 +240,7 @@ class TestMCPProxyTool:
         tool_name: str = "read_file",
         server_name: str = "file_server",
     ):
-        from leagent.mcp.proxy_tool import MCPProxyTool
+        from StAgent.mcp.proxy_tool import MCPProxyTool
 
         mcp_tool = MCPTool(
             name=tool_name,
@@ -272,7 +272,7 @@ class TestMCPProxyTool:
 
     @pytest.mark.asyncio
     async def test_execute_success(self) -> None:
-        from leagent.tools.base import ToolContext
+        from StAgent.tools.base import ToolContext
         proxy = self._make_proxy()
         ctx = ToolContext(user_id="u", session_id="s")
         result = await proxy.execute({"path": "/tmp/test.txt"}, ctx)
@@ -280,8 +280,8 @@ class TestMCPProxyTool:
 
     @pytest.mark.asyncio
     async def test_execute_disconnected_returns_error(self) -> None:
-        from leagent.tools.base import ToolContext
-        from leagent.mcp.proxy_tool import MCPProxyTool
+        from StAgent.tools.base import ToolContext
+        from StAgent.mcp.proxy_tool import MCPProxyTool
 
         mcp_tool = MCPTool(name="t", description="d", input_schema={"type": "object"})
         mock_client = MagicMock()

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.prompts.control_agent import (
+from StAgent.prompts.control_agent import (
     compose_control_messages,
     try_parse_json_payload,
 )
-from leagent.workflow.base import WorkflowState
-from leagent.workflow.io import HiddenHolder
-from leagent.workflow.nodes.builtin.control_agent import ControlAgentNode
+from StAgent.workflow.base import WorkflowState
+from StAgent.workflow.io import HiddenHolder
+from StAgent.workflow.nodes.builtin.control_agent import ControlAgentNode
 
 
 def test_compose_control_messages_prompt_generate_mode() -> None:

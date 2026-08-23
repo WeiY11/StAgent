@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.services.file_processing.service import (
+from StAgent.services.file_processing.service import (
     EXTENSION_HANDLER_MAP,
     FileProcessingService,
 )
@@ -220,7 +220,7 @@ async def test_s3_source_is_staged_only_for_path_based_extraction() -> None:
 
     class _Ref:
         filename = "evidence.txt"
-        metadata = {"storage_path": "s3://kb/leagent/evidence.txt"}
+        metadata = {"storage_path": "s3://kb/StAgent/evidence.txt"}
 
     class _FileService:
         async def resolve(self, requested_id):  # noqa: ANN001
@@ -237,7 +237,7 @@ async def test_s3_source_is_staged_only_for_path_based_extraction() -> None:
     path, staged_path = await FileProcessingService._materialize_processing_source(
         _ServiceManager(),
         file_id=str(file_id),
-        storage_path="s3://kb/leagent/evidence.txt",
+        storage_path="s3://kb/StAgent/evidence.txt",
         original_name="evidence.txt",
     )
     try:
@@ -292,7 +292,7 @@ async def test_reindex_removes_stale_vectors_before_upserting_replacements(
     manager = SimpleNamespace(db=_Db())
     service = FileProcessingService()
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: manager,
     )
 
@@ -304,9 +304,9 @@ async def test_reindex_removes_stale_vectors_before_upserting_replacements(
             name="proof.txt",
         )
 
-    monkeypatch.setattr("leagent.db.sqlite_compat.load_entity_by_id", load_file)
+    monkeypatch.setattr("StAgent.db.sqlite_compat.load_entity_by_id", load_file)
     monkeypatch.setattr(
-        "leagent.knowledge.vector_index.get_knowledge_vector_index",
+        "StAgent.knowledge.vector_index.get_knowledge_vector_index",
         lambda: _VectorIndex(),
     )
     monkeypatch.setattr(service, "_set_index_state", AsyncMock())
@@ -360,15 +360,15 @@ async def test_unchanged_content_reindexes_when_index_version_changes(
             return _Session()
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: SimpleNamespace(db=_Db()),
     )
     monkeypatch.setattr(
-        "leagent.db.sqlite_compat.uuid_column_equals",
+        "StAgent.db.sqlite_compat.uuid_column_equals",
         lambda *_args: True,
     )
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: SimpleNamespace(knowledge=SimpleNamespace(index_version="rag-v2")),
     )
 
@@ -398,7 +398,7 @@ async def test_index_state_lookup_failure_does_not_mask_file_processing(
             return _Session()
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: SimpleNamespace(db=_Db()),
     )
 
@@ -440,12 +440,12 @@ async def test_index_lifecycle_records_the_configured_index_version(
         return SimpleNamespace(user_id=user_id)
 
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: SimpleNamespace(db=_Db()),
     )
-    monkeypatch.setattr("leagent.db.sqlite_compat.load_entity_by_id", load_file)
+    monkeypatch.setattr("StAgent.db.sqlite_compat.load_entity_by_id", load_file)
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: SimpleNamespace(knowledge=SimpleNamespace(index_version="rag-v2")),
     )
 

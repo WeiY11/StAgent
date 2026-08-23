@@ -1,7 +1,7 @@
 """Entry-point plugin discovery for LLM providers + context sources.
 
 Verifies the ComfyUI-style "drop-in registration" path: a distribution
-exposing a ``leagent.llm_providers`` / ``leagent.context_sources`` entry
+exposing a ``StAgent.llm_providers`` / ``StAgent.context_sources`` entry
 point is discovered and registered without editing core packages.
 """
 
@@ -25,7 +25,7 @@ class _FakeEntryPoint:
 
 
 def test_llm_provider_plugin_discovery(monkeypatch):
-    from leagent.llm import provider_plugin
+    from StAgent.llm import provider_plugin
 
     def _fake_factory(**kwargs):  # ProviderFactory shape
         return object()
@@ -48,7 +48,7 @@ def test_llm_provider_plugin_discovery(monkeypatch):
 
 
 def test_context_source_plugin_discovery(monkeypatch):
-    from leagent.context import plugin
+    from StAgent.context import plugin
 
     class _FakeSource:
         id = "fake_source"
@@ -69,8 +69,8 @@ def test_context_source_plugin_discovery(monkeypatch):
 
 
 def test_domain_model_plugin_discovery(monkeypatch):
-    from leagent.llm import domain_registry as dr
-    from leagent.llm.domain_registry import DomainModelRegistry, DomainModelResult, DomainModelSpec
+    from StAgent.llm import domain_registry as dr
+    from StAgent.llm.domain_registry import DomainModelRegistry, DomainModelResult, DomainModelSpec
 
     class _PluginAdapter:
         spec = DomainModelSpec(task="upscale", provider="plugin", model="v1")

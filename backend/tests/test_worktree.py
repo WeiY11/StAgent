@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.project.worktree import (
+from StAgent.project.worktree import (
     WorktreeError,
     WorktreeManager,
     WorktreeRegistry,
@@ -45,8 +45,8 @@ def _isolate_git_discovery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 @pytest.fixture()
 def git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A tiny git repo with one commit; worktrees land under tmp LEAGENT_HOME."""
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path / "leagent-home"))
+    """A tiny git repo with one commit; worktrees land under tmp StAgent_HOME."""
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path / "StAgent-home"))
     repo = tmp_path / "repo"
     repo.mkdir()
 
@@ -80,7 +80,7 @@ async def test_create_worktree_and_diff_flow(git_repo: Path):
     info = await manager.create(git_repo, sid)
 
     assert Path(info.worktree_path).is_dir()
-    assert info.branch.startswith("leagent/")
+    assert info.branch.startswith("StAgent/")
     assert info.base_branch == "main"
 
     # No changes yet.
@@ -110,7 +110,7 @@ async def test_merge_into_base(git_repo: Path):
     info = await manager.create(git_repo, str(uuid4()))
     (Path(info.worktree_path) / "merged.txt").write_text("merged\n")
 
-    await manager.merge_into_base(info, message="leagent: test merge")
+    await manager.merge_into_base(info, message="StAgent: test merge")
 
     assert (git_repo / "merged.txt").read_text() == "merged\n"
 
@@ -133,7 +133,7 @@ async def test_merge_conflict_aborts(git_repo: Path):
     )
 
     with pytest.raises(WorktreeError, match="Merge failed"):
-        await manager.merge_into_base(info, message="leagent: conflict")
+        await manager.merge_into_base(info, message="StAgent: conflict")
 
     # Base checkout is left clean after the aborted merge.
     out = subprocess.run(
@@ -145,7 +145,7 @@ async def test_merge_conflict_aborts(git_repo: Path):
 
 @pytest.mark.asyncio
 async def test_create_rejects_non_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LEAGENT_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("StAgent_HOME", str(tmp_path / "home"))
     plain = tmp_path / "not-a-repo"
     plain.mkdir()
     with pytest.raises(WorktreeError, match="not a git repository"):
@@ -175,8 +175,8 @@ async def test_registry_resolve_roundtrip(git_repo: Path):
 
 @pytest.mark.asyncio
 async def test_select_project_root_redirects_to_worktree(git_repo: Path):
-    from leagent.project.fs import select_project_root
-    from leagent.tools.base import ToolContext
+    from StAgent.project.fs import select_project_root
+    from StAgent.tools.base import ToolContext
 
     manager = WorktreeManager()
     sid = str(uuid4())
@@ -194,8 +194,8 @@ async def test_select_project_root_redirects_to_worktree(git_repo: Path):
 
 @pytest.mark.asyncio
 async def test_select_project_root_direct_without_worktree(git_repo: Path):
-    from leagent.project.fs import select_project_root
-    from leagent.tools.base import ToolContext
+    from StAgent.project.fs import select_project_root
+    from StAgent.tools.base import ToolContext
 
     ctx = ToolContext(user_id=None, session_id=str(uuid4()))
     ctx.extra["project_roots"] = [str(git_repo)]

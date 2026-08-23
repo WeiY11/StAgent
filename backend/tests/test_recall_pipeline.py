@@ -20,8 +20,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.memory.recall import RecallOptions, RetrievalPipeline
-from leagent.memory.types import MemoryKind, RecallEntry
+from StAgent.memory.recall import RecallOptions, RetrievalPipeline
+from StAgent.memory.types import MemoryKind, RecallEntry
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ class TestRecallPipeline:
     async def test_file_state_dedup_drops_entries_mentioning_known_paths(
         self,
     ) -> None:
-        open_path = "/tmp/leagent/session-abc/report.pdf"
+        open_path = "/tmp/StAgent/session-abc/report.pdf"
         mentions = _entry(
             kind=MemoryKind.EPISODIC,
             text=f"summarised {open_path} previously",
@@ -307,7 +307,7 @@ class TestRecallPipeline:
         await pipeline.recall(RecallOptions(query="remember"))
         # note_recall is fired as a background task off the per-turn critical
         # path; drain pending tasks before asserting bookkeeping.
-        from leagent.memory import recall as recall_module
+        from StAgent.memory import recall as recall_module
 
         if recall_module._BACKGROUND_NOTE_TASKS:
             await asyncio.gather(*recall_module._BACKGROUND_NOTE_TASKS)

@@ -6,7 +6,7 @@
 - **难度**：★★☆☆☆
 - **先修**：[07 最小 Agent](07-minimal-python-agent.md)、[04 AgentEvent](04-agent-event-stream.md)、[03 单内核](03-one-kernel-many-ingresses.md)
 
-模型提供商会变、传输细节会变，但 Agent 循环需要的契约相对稳定：消息列表、工具 schema、流式增量、用量与终止。本篇说明 LeAgent 如何把「厂商流」折成「产品事件」。
+模型提供商会变、传输细节会变，但 Agent 循环需要的契约相对稳定：消息列表、工具 schema、流式增量、用量与终止。本篇说明 StAgent 如何把「厂商流」折成「产品事件」。
 
 ## 学习目标
 
@@ -47,10 +47,10 @@ run_loop → AgentEvent
 
 相邻篇：[04](04-agent-event-stream.md) 定义事件枚举；[09](09-agent-builder.md) 在定义里写 `model(...)`；[45](45-tracing-and-otel.md) 说明请求日志与 span 如何挂用量。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-- 服务：`backend/leagent/llm/service.py`（`LLMService`）  
-- Provider：`backend/leagent/llm/providers/` + entry-point 插件  
+- 服务：`backend/StAgent/llm/service.py`（`LLMService`）  
+- Provider：`backend/StAgent/llm/providers/` + entry-point 插件  
 - 流：provider 产出 `StreamChunk`；`query()` 消费后再经 `run_loop` 变成 `AgentEvent`  
 - Agent 侧模型策略：`ModelPolicy`（`task` / `provider` / `model` / `temperature` / `max_output_tokens`）在 `_materialize_config` 落地  
 - 用量与请求日志：可挂到 Trace / `llm_request_logs`  
@@ -62,7 +62,7 @@ DeepSeek 等 provider 还有专门的 context strategy 测试（如 `test_deepse
 ## 分步：流式消费
 
 ```python
-from leagent.sdk import AgentRuntime, AgentEventType
+from StAgent.sdk import AgentRuntime, AgentEventType
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -109,7 +109,7 @@ uv run pytest tests/test_tool_call_delta_stream.py tests/test_agent_controller_r
 
 ## 业内对照
 
-OpenAI Responses/Agents 流、Anthropic messages stream、Ollama generate——传输不同，应用层都应归一。LeAgent 选择两层边界：provider chunk → SDK event。这与「单内核多入口」一致：Chat SSE 与 SDK `stream()` 共用翻译结果。
+OpenAI Responses/Agents 流、Anthropic messages stream、Ollama generate——传输不同，应用层都应归一。StAgent 选择两层边界：provider chunk → SDK event。这与「单内核多入口」一致：Chat SSE 与 SDK `stream()` 共用翻译结果。
 
 ## 总结与延伸阅读
 

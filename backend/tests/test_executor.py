@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from leagent.tools.base import SyncTool, ToolCategory, ToolContext, ToolResult
-from leagent.tools.executor import (
+from StAgent.tools.base import SyncTool, ToolCategory, ToolContext, ToolResult
+from StAgent.tools.executor import (
     AggregatedResult,
     ExecutionResult,
     ToolCall,
@@ -23,7 +23,7 @@ from leagent.tools.executor import (
     parse_tool_arguments_str,
     strict_json_loads_error,
 )
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.registry import ToolRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +325,7 @@ class TestToolExecutorSingle:
         assert "Retry with strict JSON" in result.result.error
 
     async def test_document_generate_accepts_recovered_raw_args(self, tmp_path) -> None:
-        from leagent.tools.gen.document_tool import DocumentGenerateTool
+        from StAgent.tools.gen.document_tool import DocumentGenerateTool
 
         reg = _make_registry(DocumentGenerateTool())
         executor = ToolExecutor(registry=reg)

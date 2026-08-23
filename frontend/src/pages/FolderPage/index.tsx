@@ -68,8 +68,10 @@ import FolderProjectRunPanel from './project/FolderProjectRunPanel';
  */
 export default function FolderPage() {
   const { t } = useTranslation();
-  const { selectedFolderId, selectFolder, fetchFolders, getFolderPath } =
-    useFoldersStore();
+  const selectedFolderId = useFoldersStore((s) => s.selectedFolderId);
+  const selectFolder = useFoldersStore((s) => s.selectFolder);
+  const fetchFolders = useFoldersStore((s) => s.fetchFolders);
+  const getFolderPath = useFoldersStore((s) => s.getFolderPath);
 
   const { data: treeData, refetch: refetchTree } = useFolderTree();
   const {

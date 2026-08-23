@@ -8,7 +8,7 @@ export default function TutorialsIndex() {
   const { lang, t } = useI18n();
 
   useDocumentMeta({
-    title: `${t.tutorials.indexTitle} · LeAgent`,
+    title: `${t.tutorials.indexTitle} · StAgent`,
     description: t.tutorials.indexLede,
     path: "/tutorials",
     jsonLd: {
@@ -19,7 +19,7 @@ export default function TutorialsIndex() {
       url: `${SITE_ORIGIN}/tutorials`,
       isPartOf: {
         "@type": "WebSite",
-        name: "LeAgent",
+        name: "StAgent",
         url: SITE_ORIGIN,
       },
       hasPart: TUTORIAL_SECTIONS.map((s) => ({

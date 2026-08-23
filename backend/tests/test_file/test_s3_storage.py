@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from leagent.config.settings import ObjectStorageSettings, Settings
-from leagent.db.service import DatabaseService
-from leagent.file.service import FileService
-from leagent.file.storage.s3 import S3StorageBackend, build_s3_storage_backend
+from StAgent.config.settings import ObjectStorageSettings, Settings
+from StAgent.db.service import DatabaseService
+from StAgent.file.service import FileService
+from StAgent.file.storage.s3 import S3StorageBackend, build_s3_storage_backend
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -62,7 +62,7 @@ class FakeS3Client:
 @pytest.mark.asyncio
 async def test_s3_backend_round_trips_key_without_network() -> None:
     client = FakeS3Client()
-    backend = S3StorageBackend(client, bucket="kb", prefix="leagent")
+    backend = S3StorageBackend(client, bucket="kb", prefix="StAgent")
 
     result = await backend.put(
         b"evidence",
@@ -72,23 +72,23 @@ async def test_s3_backend_round_trips_key_without_network() -> None:
     )
 
     assert result["size"] == len(b"evidence")
-    assert result["storage_path"] == "s3://kb/leagent/docs/a.txt"
-    assert client.objects[("kb", "leagent/docs/a.txt")]["metadata"] == {
+    assert result["storage_path"] == "s3://kb/StAgent/docs/a.txt"
+    assert client.objects[("kb", "StAgent/docs/a.txt")]["metadata"] == {
         "source": "unit-test"
     }
     assert await backend.get("docs/a.txt") == (b"evidence", "text/plain")
     assert await backend.exists("docs/a.txt") is True
     assert await backend.presign("docs/a.txt", expires_in=120) == "https://object.example.test/signed"
-    assert client.presign_calls[0]["Params"] == {"Bucket": "kb", "Key": "leagent/docs/a.txt"}
+    assert client.presign_calls[0]["Params"] == {"Bucket": "kb", "Key": "StAgent/docs/a.txt"}
     assert await backend.delete("docs/a.txt") is True
     assert await backend.exists("docs/a.txt") is False
 
 
 def test_s3_backend_recovers_logical_key_from_its_persisted_uri() -> None:
-    backend = S3StorageBackend(FakeS3Client(), bucket="kb", prefix="leagent")
+    backend = S3StorageBackend(FakeS3Client(), bucket="kb", prefix="StAgent")
 
-    assert backend.key_from_storage_path("s3://kb/leagent/docs/a.txt") == "docs/a.txt"
-    assert backend.key_from_storage_path("s3://other/leagent/docs/a.txt") is None
+    assert backend.key_from_storage_path("s3://kb/StAgent/docs/a.txt") == "docs/a.txt"
+    assert backend.key_from_storage_path("s3://other/StAgent/docs/a.txt") is None
     assert backend.key_from_storage_path("s3://kb/other/docs/a.txt") is None
 
 
@@ -124,7 +124,7 @@ async def test_file_service_reconstructs_s3_ref_after_restart(
     await db.create_tables()
     try:
         client = FakeS3Client()
-        backend = S3StorageBackend(client, bucket="kb", prefix="leagent")
+        backend = S3StorageBackend(client, bucket="kb", prefix="StAgent")
         first = FileService(
             default_backend=backend,
             default_backend_name="s3",
@@ -151,18 +151,18 @@ async def test_file_service_reconstructs_s3_ref_after_restart(
 async def test_file_api_helper_reads_s3_catalog_record_without_local_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.api.v1.files import _read_managed_file_bytes
+    from StAgent.api.v1.files import _read_managed_file_bytes
 
     client = FakeS3Client()
     service = FileService(
-        default_backend=S3StorageBackend(client, bucket="kb", prefix="leagent"),
+        default_backend=S3StorageBackend(client, bucket="kb", prefix="StAgent"),
         default_backend_name="s3",
     )
     ref = await service.register(b"remote catalog evidence", filename="evidence.txt")
     db_marker = object()
     manager = SimpleNamespace(file_service=service, db=db_marker)
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: manager,
     )
     row = SimpleNamespace(
@@ -187,16 +187,16 @@ async def test_file_api_helper_reads_s3_catalog_record_without_local_path(
 async def test_file_gc_deletes_exclusive_s3_blob_through_file_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from leagent.library.gc import _remove_orphaned_blob
+    from StAgent.library.gc import _remove_orphaned_blob
 
     client = FakeS3Client()
-    backend = S3StorageBackend(client, bucket="kb", prefix="leagent")
+    backend = S3StorageBackend(client, bucket="kb", prefix="StAgent")
     service = FileService(default_backend=backend, default_backend_name="s3")
     ref = await service.register(b"expired evidence", filename="expired.txt")
     db_marker = object()
     manager = SimpleNamespace(file_service=service, db=db_marker)
     monkeypatch.setattr(
-        "leagent.services.service_manager.get_service_manager",
+        "StAgent.services.service_manager.get_service_manager",
         lambda: manager,
     )
 

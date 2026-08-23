@@ -3,7 +3,7 @@
   const checksEl = document.getElementById('checks');
   const logTail = document.getElementById('logTail');
   const statusEl = document.getElementById('status');
-  const api = window.leagent;
+  const api = window.StAgent;
 
   // Frameless window controls: native traffic lights (mac) / overlay (win) cover
   // this themselves; Linux ('custom') needs our own buttons to move/close.

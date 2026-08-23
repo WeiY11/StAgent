@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.context.relevance import RelevanceGate
+from StAgent.context.relevance import RelevanceGate
 
 GATE = RelevanceGate(
     name="demo",

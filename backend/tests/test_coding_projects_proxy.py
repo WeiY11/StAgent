@@ -22,7 +22,7 @@ import pytest
 from fastapi import FastAPI
 from starlette.requests import Request
 
-from leagent.project.proxy import forward_http
+from StAgent.project.proxy import forward_http
 
 
 def _free_port() -> int:
@@ -77,7 +77,7 @@ def _fake_request(path: str, method: str = "GET") -> Request:
         "raw_path": path.encode(),
         "query_string": b"",
         "headers": [
-            (b"host", b"leagent.local"),
+            (b"host", b"StAgent.local"),
             (b"x-test", b"yes"),
             (b"connection", b"keep-alive"),  # hop-by-hop, must be stripped
         ],
@@ -138,7 +138,7 @@ async def test_forward_http_strips_hop_by_hop_request_headers() -> None:
 
         echoed = json.loads(body)
         assert "connection" not in {k.lower() for k in echoed}
-        # The browser-facing Host (leagent.local) must not leak through;
+        # The browser-facing Host (StAgent.local) must not leak through;
         # the proxy substitutes the loopback authority so host-checking
         # dev servers (e.g. Vite server.allowedHosts) accept the request.
         assert echoed.get("host") == f"127.0.0.1:{port}"

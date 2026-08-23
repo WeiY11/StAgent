@@ -7,11 +7,11 @@ stable ASCII anchor, then rewrite the file as clean UTF-8 (no BOM, LF).
 
 import subprocess
 
-PATH = "leagent/api/v1/chat/__init__.py"
+PATH = "StAgent/api/v1/chat/__init__.py"
 
 # Read HEAD (correct CJK) as raw bytes -> utf-8.
 head = subprocess.run(
-    ["git", "show", "HEAD:backend/leagent/api/v1/chat/__init__.py"],
+    ["git", "show", "HEAD:backend/StAgent/api/v1/chat/__init__.py"],
     capture_output=True,
     check=True,
 ).stdout.decode("utf-8")

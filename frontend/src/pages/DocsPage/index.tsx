@@ -90,7 +90,7 @@ function DocsToc() {
 
 export default function DocsPage() {
   const { t, i18n } = useTranslation();
-  const raw = import.meta.env.VITE_LEAGENT_REPO_URL as string | undefined;
+  const raw = import.meta.env.VITE_StAgent_REPO_URL as string | undefined;
   const repoUrl = raw?.trim() || REPO_FALLBACK;
 
   const openRepo = () => {

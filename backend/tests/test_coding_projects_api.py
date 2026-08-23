@@ -18,18 +18,18 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from leagent.config.settings import get_settings
-from leagent.db.models import (
+from StAgent.config.settings import get_settings
+from StAgent.db.models import (
     CodingProject,
     CodingProjectRuntimeKind,
     CodingProjectStatus,
 )
-from leagent.project.preview_tokens import (
+from StAgent.project.preview_tokens import (
     PREVIEW_AUDIENCE,
     mint_preview_token,
 )
-from leagent.services.auth.deps import get_current_user_id
-from leagent.services.auth.tokens import mint_token
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.services.auth.tokens import mint_token
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -42,7 +42,7 @@ def app() -> FastAPI:
     These tests patch the project manager and exercise route/request contracts;
     they do not need the full app lifespan, ServiceManager, or tool bootstrap.
     """
-    from leagent.api.v1.coding_projects import router
+    from StAgent.api.v1.coding_projects import router
 
     application = FastAPI()
     application.include_router(router, prefix="/api/v1/coding-projects")
@@ -108,7 +108,7 @@ def fake_manager(
     manager.get_template = _get_template
 
     monkeypatch.setattr(
-        "leagent.project.manager.get_coding_projects_service",
+        "StAgent.project.manager.get_coding_projects_service",
         lambda: manager,
     )
 
@@ -220,7 +220,7 @@ def test_preview_proxy_rejects_when_audience_wrong(
         "exp": 9_999_999_999,
         "aud": "not-our-audience",
     }
-    secret = settings.canvas.preview_signing_secret or "leagent-local-secret"
+    secret = settings.canvas.preview_signing_secret or "StAgent-local-secret"
     bogus = mint_token(payload, secret)
     resp = client.get(
         f"/api/v1/coding-projects/{project_id}/preview/?token={bogus}",
@@ -230,7 +230,7 @@ def test_preview_proxy_rejects_when_audience_wrong(
 
 
 def test_preview_audience_constant_is_unique() -> None:
-    assert PREVIEW_AUDIENCE == "leagent-coding-preview"
+    assert PREVIEW_AUDIENCE == "StAgent-coding-preview"
 
 
 def test_workspace_file_reads_text(
@@ -314,7 +314,7 @@ def test_workspace_git_smoke(
         return {"is_git": False, "git_available": True}
 
     monkeypatch.setattr(
-        "leagent.api.v1.coding_projects.git_snapshot",
+        "StAgent.api.v1.coding_projects.git_snapshot",
         fake_git_snapshot,
     )
 

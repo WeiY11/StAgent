@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.controller import AgentController
+from StAgent.agent.controller import AgentController
 
 
 @pytest.fixture(autouse=True)

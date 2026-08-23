@@ -12,10 +12,10 @@ import pytest_asyncio
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from leagent.api.v1.chat import reviews as reviews_mod
-from leagent.api.v1.chat.reviews import get_change_review_diff, reject_change_review
-from leagent.config.settings import Settings
-from leagent.db.service import DatabaseService
+from StAgent.api.v1.chat import reviews as reviews_mod
+from StAgent.api.v1.chat.reviews import get_change_review_diff, reject_change_review
+from StAgent.config.settings import Settings
+from StAgent.db.service import DatabaseService
 
 
 @pytest_asyncio.fixture()
@@ -63,8 +63,8 @@ async def _insert_dashed_review(
                 "id": str(review_id),
                 "sid": str(session_id),
                 "uid": str(user_id) if user_id is not None else None,
-                "project_root": "D:/LeAgent",
-                "worktree_path": "D:/LeAgent/.worktrees/review",
+                "project_root": "D:/StAgent",
+                "worktree_path": "D:/StAgent/.worktrees/review",
                 "status": status,
             },
         )

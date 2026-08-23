@@ -37,7 +37,7 @@ function installApiFetchStub() {
 
     if (url.includes('/meta') && !url.includes('/templates')) {
       return json({
-        app_name: 'LeAgent',
+        app_name: 'StAgent',
         edition: 'saas',
         version: '0.0.0-test',
         desktop_mode: false,

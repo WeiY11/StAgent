@@ -13,7 +13,7 @@ import pytest
 
 
 def test_runner_listing_emits_modified_files(tmp_path: Path) -> None:
-    from leagent.code.runner import _listing, _scan_files
+    from StAgent.code.runner import _listing, _scan_files
 
     target = tmp_path / "report.xlsx"
     target.write_bytes(b"v1-empty-header")
@@ -29,7 +29,7 @@ def test_runner_listing_emits_modified_files(tmp_path: Path) -> None:
 
 
 def test_runner_listing_skips_unchanged_files(tmp_path: Path) -> None:
-    from leagent.code.runner import _listing, _scan_files
+    from StAgent.code.runner import _listing, _scan_files
 
     target = tmp_path / "stable.txt"
     target.write_text("same")
@@ -40,7 +40,7 @@ def test_runner_listing_skips_unchanged_files(tmp_path: Path) -> None:
 
 def test_assess_xlsx_header_only_fails(tmp_path: Path) -> None:
     openpyxl = pytest.importorskip("openpyxl")
-    from leagent.file.quality import assess_artifact_quality
+    from StAgent.file.quality import assess_artifact_quality
 
     path = tmp_path / "header_only.xlsx"
     wb = openpyxl.Workbook()
@@ -55,7 +55,7 @@ def test_assess_xlsx_header_only_fails(tmp_path: Path) -> None:
 
 def test_assess_xlsx_with_data_passes(tmp_path: Path) -> None:
     openpyxl = pytest.importorskip("openpyxl")
-    from leagent.file.quality import assess_artifact_quality
+    from StAgent.file.quality import assess_artifact_quality
 
     path = tmp_path / "filled.xlsx"
     wb = openpyxl.Workbook()
@@ -70,7 +70,7 @@ def test_assess_xlsx_with_data_passes(tmp_path: Path) -> None:
 
 
 def test_artifact_tracker_marks_spreadsheet_quality_failure() -> None:
-    from leagent.context.artifact_error_tracker import ArtifactErrorTracker
+    from StAgent.context.artifact_error_tracker import ArtifactErrorTracker
 
     tracker = ArtifactErrorTracker()
     tracker.record_from_tool_result(
@@ -88,7 +88,7 @@ def test_artifact_tracker_marks_spreadsheet_quality_failure() -> None:
 
 
 def test_artifact_tracker_code_quality_passed_false() -> None:
-    from leagent.context.artifact_error_tracker import ArtifactErrorTracker
+    from StAgent.context.artifact_error_tracker import ArtifactErrorTracker
 
     tracker = ArtifactErrorTracker()
     tracker.record_from_tool_result(
@@ -107,12 +107,12 @@ async def test_register_external_file_versions_on_content_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Same source_tool_path + different sha256 must mint a new attachment id."""
-    from leagent.config.settings import get_settings
-    from leagent.services.session.manager import SessionManager
-    from leagent.services.session.state import SessionState
+    from StAgent.config.settings import get_settings
+    from StAgent.services.session.manager import SessionManager
+    from StAgent.services.session.state import SessionState
 
     monkeypatch.setattr(
-        "leagent.file.sandbox._get_allowed_roots",
+        "StAgent.file.sandbox._get_allowed_roots",
         lambda: (tmp_path.resolve(),),
     )
 
@@ -195,7 +195,7 @@ async def test_register_external_file_versions_on_content_change(
 
 
 def test_builtin_office_skills_present() -> None:
-    root = Path(__file__).resolve().parents[1] / "leagent" / "skills" / "builtin"
+    root = Path(__file__).resolve().parents[1] / "StAgent" / "skills" / "builtin"
     for name in (
         "attendance-signin-sheet",
         "travel-expense-audit",
@@ -217,12 +217,12 @@ async def test_promote_tool_output_path_and_bytes(
     from typing import Any
     from uuid import UUID, uuid4
 
-    from leagent.config.settings import get_settings
-    from leagent.services.session.manager import SessionManager
-    from leagent.services.session.state import SessionState
+    from StAgent.config.settings import get_settings
+    from StAgent.services.session.manager import SessionManager
+    from StAgent.services.session.state import SessionState
 
     monkeypatch.setattr(
-        "leagent.file.sandbox._get_allowed_roots",
+        "StAgent.file.sandbox._get_allowed_roots",
         lambda: (tmp_path.resolve(),),
     )
 

@@ -12,7 +12,7 @@
 
 1. 区分“生成一条回复”的 Chatbot 与“持续推进任务”的 Agent。
 2. 用目标、状态、动作、观察、终止条件五个要素描述 Agent。
-3. 找到 LeAgent 中公共 SDK、运行门面、查询引擎和会话状态各自的职责。
+3. 找到 StAgent 中公共 SDK、运行门面、查询引擎和会话状态各自的职责。
 4. 解释为什么工具调用只是 Agent 的一个部件，而不是完整定义。
 
 ## 核心心智模型：从函数调用到受控状态机
@@ -48,16 +48,16 @@ while 未达到终止条件:
 
 一个只把天气 API 结果拼进模板的机器人“用了工具”，但未必拥有循环、恢复和状态治理。反过来，一个 Agent 即使某次任务无需工具，也仍通过同一套运行协议完成该轮。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-LeAgent 将上述职责拆成几层，而不是放进一个“万能 Agent 类”：
+StAgent 将上述职责拆成几层，而不是放进一个“万能 Agent 类”：
 
-1. **公共入口**：`backend/leagent/sdk/__init__.py` 暴露 `AgentRuntime`、`AgentSession`、`AgentEvent`、`AgentResult` 等稳定接口。新调用方应优先从 `leagent.sdk` 导入。
-2. **运行门面**：`backend/leagent/runtime/runtime.py` 的 `AgentRuntime` 将 Agent 定义、共享服务和本次调用参数组合成 `QueryEngine`，并提供 `run()`、`stream()`、`resume()`、`session()`。
-3. **会话级编排**：`backend/leagent/agent/query_engine.py` 的 `QueryEngine` 持有可变消息历史、上下文管理器、累计用量和终止映射。每次 `submit_message()` 都会准备上下文和工具 schema。
-4. **Think–Act–Observe 循环**：`backend/leagent/agent/query.py` 的 `query()` 负责流式调用模型、收集工具调用、执行工具、把工具结果放回消息列表，再进入下一轮。
-5. **统一内核包装**：`backend/leagent/sdk/kernel/loop.py` 的 `run_loop()` 把 `QueryEngine` 产生的 `SDKMessage` 转成统一 `AgentEvent`，维护 `RunState`，并在可恢复终止时保存检查点。
-6. **会话持久化**：`backend/leagent/services/session/manager.py` 与 `store.py` 负责持久会话状态；这与单次暂停恢复的 checkpoint 是两个不同概念。
+1. **公共入口**：`backend/StAgent/sdk/__init__.py` 暴露 `AgentRuntime`、`AgentSession`、`AgentEvent`、`AgentResult` 等稳定接口。新调用方应优先从 `StAgent.sdk` 导入。
+2. **运行门面**：`backend/StAgent/runtime/runtime.py` 的 `AgentRuntime` 将 Agent 定义、共享服务和本次调用参数组合成 `QueryEngine`，并提供 `run()`、`stream()`、`resume()`、`session()`。
+3. **会话级编排**：`backend/StAgent/agent/query_engine.py` 的 `QueryEngine` 持有可变消息历史、上下文管理器、累计用量和终止映射。每次 `submit_message()` 都会准备上下文和工具 schema。
+4. **Think–Act–Observe 循环**：`backend/StAgent/agent/query.py` 的 `query()` 负责流式调用模型、收集工具调用、执行工具、把工具结果放回消息列表，再进入下一轮。
+5. **统一内核包装**：`backend/StAgent/sdk/kernel/loop.py` 的 `run_loop()` 把 `QueryEngine` 产生的 `SDKMessage` 转成统一 `AgentEvent`，维护 `RunState`，并在可恢复终止时保存检查点。
+6. **会话持久化**：`backend/StAgent/services/session/manager.py` 与 `store.py` 负责持久会话状态；这与单次暂停恢复的 checkpoint 是两个不同概念。
 
 这套分层说明：模型不是 Agent 的全部，`QueryEngine` 也不是对外 API 的全部。Agent 是模型、上下文、工具、循环、状态和治理共同形成的运行系统。
 
@@ -66,7 +66,7 @@ LeAgent 将上述职责拆成几层，而不是放进一个“万能 Agent 类�
 生产环境通常由 `ServiceManager` 完成依赖装配。最小公共 SDK 用法如下：
 
 ```python
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -85,7 +85,7 @@ print(result.tool_calls)
 第 2 步，改用 `stream()` 观察 Agent 的过程：
 
 ```python
-from leagent.sdk import AgentEventType, AgentRuntime
+from StAgent.sdk import AgentEventType, AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -116,7 +116,7 @@ second = await session.turn("现在找出 Agent 的统一入口。")
 print(session.turn_count, second.text)
 ```
 
-`AgentSession` 会复用同一个 `QueryEngine`；其实现位于 `backend/leagent/sdk/session.py`。它是便捷句柄，不等于持久存储本身。
+`AgentSession` 会复用同一个 `QueryEngine`；其实现位于 `backend/StAgent/sdk/session.py`。它是便捷句柄，不等于持久存储本身。
 
 ## 验证命令
 
@@ -137,7 +137,7 @@ cd backend && uv run pytest tests/test_sdk_surface.py tests/test_runtime_sdk.py 
 
 1. **“用了工具就是 Agent”**：工具只是动作空间；没有观察回流和循环控制，仍可能只是一次编排。
 2. **“Agent 就是超长 Prompt”**：Prompt 定义行为倾向，运行时负责状态、权限、预算、重试和持久化。
-3. **“直接调用 `QueryEngine.submit_message()` 最灵活”**：在 LeAgent 中它保留给内核和测试。业务调用应走 `AgentRuntime`，否则会绕过统一事件、运行关联和 checkpoint。
+3. **“直接调用 `QueryEngine.submit_message()` 最灵活”**：在 StAgent 中它保留给内核和测试。业务调用应走 `AgentRuntime`，否则会绕过统一事件、运行关联和 checkpoint。
 4. **“多轮会话等于模型记住了过去”**：历史由系统保存并重新送入上下文；还要面对压缩、权限和 token 预算。
 5. **“流式事件就是完整思维链”**：事件是产品协议，不应把不可见推理与可观测运行步骤混为一谈。
 
@@ -145,11 +145,11 @@ cd backend && uv run pytest tests/test_sdk_surface.py tests/test_runtime_sdk.py 
 
 - 普通 Chat Completions 风格接口主要完成“消息 → 回复”；Agent SDK 通常在其上增加工具、循环、交接、追踪和状态。
 - Anthropic 的 tool use、OpenAI 的 function calling 都提供模型表达动作意图的机制，但应用仍需决定如何执行、回填与终止。
-- LangGraph 更强调显式图状态与节点迁移；LeAgent 的基础对话路径则以 `query()` 循环为中心，并另有工作流 DAG。两者是架构取向映射，不是 API 等价。
+- LangGraph 更强调显式图状态与节点迁移；StAgent 的基础对话路径则以 `query()` 循环为中心，并另有工作流 DAG。两者是架构取向映射，不是 API 等价。
 
 ## 总结与延伸阅读
 
-Chatbot 的核心产物是一条回复；Agent 的核心产物是一个受控、可观察、可恢复的任务运行。LeAgent 通过 `leagent.sdk` 暴露稳定入口，以 `AgentRuntime → run_loop → QueryEngine → query()` 将“目标—动作—观察—终止”串起来。
+Chatbot 的核心产物是一条回复；Agent 的核心产物是一个受控、可观察、可恢复的任务运行。StAgent 通过 `StAgent.sdk` 暴露稳定入口，以 `AgentRuntime → run_loop → QueryEngine → query()` 将“目标—动作—观察—终止”串起来。
 
 继续阅读：
 
@@ -157,5 +157,5 @@ Chatbot 的核心产物是一条回复；Agent 的核心产物是一个受控、
 - [03｜一个内核，多种入口](03-one-kernel-many-ingresses.md)
 - [Agent SDK 技术参考](../../technical/agent_sdk_zh.md)
 - [执行拓扑](../../technical/execution-topology_zh.md)
-- 源码：[`backend/leagent/sdk/__init__.py`](../../../backend/leagent/sdk/__init__.py)
+- 源码：[`backend/StAgent/sdk/__init__.py`](../../../backend/StAgent/sdk/__init__.py)
 - 测试：[`backend/tests/test_runtime_sdk.py`](../../../backend/tests/test_runtime_sdk.py)

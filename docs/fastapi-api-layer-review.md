@@ -1,7 +1,7 @@
-# LeAgent FastAPI Layer — Professional Review
+# StAgent FastAPI Layer — Professional Review
 
-> Scope: the HTTP/API layer of the LeAgent backend (`backend/leagent/api/`,
-> `backend/leagent/main.py`, exception handlers, middleware, and the
+> Scope: the HTTP/API layer of the StAgent backend (`backend/StAgent/api/`,
+> `backend/StAgent/main.py`, exception handlers, middleware, and the
 > request/response contracts exposed to clients). Evaluated against the
 > conventions of a production-grade FastAPI service.
 >
@@ -64,7 +64,7 @@ post-startup warmup:
 
 ```python
 # main.py (_post_startup_warmup)
-if os.environ.get("LEAGENT_SKIP_LIFESPAN_DEFERRED_ROUTES") != "1":
+if os.environ.get("StAgent_SKIP_LIFESPAN_DEFERRED_ROUTES") != "1":
     deferred_v1_router = APIRouter(prefix="/api/v1")
     deferred_v2_router = APIRouter(prefix="/api/v2")
     mount_v1_deferred_routes(deferred_v1_router)
@@ -79,7 +79,7 @@ Problems:
   progress, so clients may receive `404` for routes that exist but are not yet
   mounted.
 - **Test/production divergence:** tests set
-  `LEAGENT_SKIP_LIFESPAN_DEFERRED_ROUTES=1` and re-mount the same routers in
+  `StAgent_SKIP_LIFESPAN_DEFERRED_ROUTES=1` and re-mount the same routers in
   `conftest.py`. The code path exercised by tests differs from production.
 - **Maintenance cost:** idempotency is tracked with per-router attribute flags
   to avoid double registration (405s).
@@ -90,7 +90,7 @@ all routers once in `create_app()`. Defer only the expensive *initialization*
 
 ### 2.3 [Medium] Schema governance is fragmented
 
-A shared schema module exists (`leagent/schema/api.py` with `PaginatedResponse`,
+A shared schema module exists (`StAgent/schema/api.py` with `PaginatedResponse`,
 `ErrorResponse`, etc.), but most request/response models are defined inline in
 each `api/v1/*.py`. Some types are duplicated across modules (e.g. `MessageRole`
 appears both in `schema/api.py` and inline in `chat.py`).
@@ -100,8 +100,8 @@ models as the canonical client contract, aligned with OpenAPI generation.
 
 ### 2.4 [Medium] `v2` versioning is nominal
 
-`mount_v2_deferred_routes` imports `leagent.api.v2.chat` and
-`leagent.api.v2.agents`, but `api/v2/` contains only an empty `__init__.py`.
+`mount_v2_deferred_routes` imports `StAgent.api.v2.chat` and
+`StAgent.api.v2.agents`, but `api/v2/` contains only an empty `__init__.py`.
 Meanwhile `APIVersionMiddleware` emits `Deprecation`/`Sunset` headers for v1.
 The versioning policy and the implementation are out of sync, which can mislead
 clients.
@@ -144,10 +144,10 @@ async def list_extensions(...) -> dict[str, Any]:
 
 The global handlers define a rich, uniform error structure
 (`error`, `error_code`, `message`, `details`, `recovery`), but route code almost
-never raises the domain `LeAgentError`. Instead it raises `HTTPException`, which
+never raises the domain `StAgentError`. Instead it raises `HTTPException`, which
 the Starlette handler maps to a different shape:
 
-- `LeAgentError` → `{ error, error_code, message, details, recovery }`
+- `StAgentError` → `{ error, error_code, message, details, recovery }`
 - `HTTPException` → `{ error, error_code: "HTTP_<code>", message: str(detail), details: {} }`
 - Some endpoints return ad-hoc bodies (e.g. `{"status": "not_initialized"}`).
 
@@ -176,7 +176,7 @@ that produces `PaginatedResponse[T]`.
 ```python
 # api/deps.py
 def get_service_manager(request: Request) -> "ServiceManager":
-    from leagent.main import get_service_manager as _gsm
+    from StAgent.main import get_service_manager as _gsm
     return _gsm()
 ```
 

@@ -10,7 +10,7 @@ import {
   type FormEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Send,
   Paperclip,
@@ -27,7 +27,11 @@ import {
 } from 'lucide-react';
 import { isChatStreamBusyForSession, useChatStore } from '@/stores/chat';
 import { getQueuedForSession, useSteerQueueStore } from '@/stores/steerQueue';
-import { useChatDraftStore, buildComposerSendParams } from '@/stores/chatDraft';
+import {
+  useChatDraftStore,
+  buildComposerSendParams,
+  resetComposerAfterSend,
+} from '@/stores/chatDraft';
 import { generateId } from '@/lib/utils/utils';
 import type { Message } from '@/types/chat';
 import { useLayoutStore } from '@/stores/layout';
@@ -44,6 +48,7 @@ import {
   useSessionAuthorizedPaths,
 } from '@/hooks/useChat';
 import { useSkillsList } from '@/hooks/useSkills';
+import { useCreateMission } from '@/hooks/useMissions';
 import { buildSkillChatToken } from '@/lib/chat/skillChatToken';
 import { matchComposerTriggerToken } from '@/lib/chat/composerTriggerToken';
 import { normalizeLocalFolderPathForGrant } from '@/lib/utils/localFolderPath';
@@ -61,6 +66,10 @@ import { ContextUsagePopover } from './composer/ContextUsagePopover';
 import { LocalFolderBrowser } from './LocalFolderBrowser';
 
 const MAX_FILE_BYTES = MAX_CHAT_UPLOAD_BYTES;
+
+/** `/goal <text>` — composer shortcut that starts a mission instead of a chat turn. */
+const GOAL_COMMAND_RE = /^\/goal(?:\s+([\s\S]*))?$/;
+const MISSION_GOAL_MAX_LENGTH = 4000;
 
 interface ChatInputProps {
   onSend: (
@@ -90,6 +99,7 @@ export const ChatInput = memo(function ChatInput({
 }: ChatInputProps) {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const setError = useChatStore((state) => state.setError);
   const currentSessionId = useChatStore((state) => state.currentSessionId);
   const currentSessionReady = useChatStore((state) => {
@@ -97,6 +107,7 @@ export const ChatInput = memo(function ChatInput({
     if (!sid) return false;
     return state.sessions.find((session) => session.id === sid)?.isPending !== true;
   });
+  const createMission = useCreateMission();
   const streamBusyForThisSession = useChatStore((s) =>
     isChatStreamBusyForSession(s.currentSessionId, {
       activeStreamSessionId: s.activeStreamSessionId,
@@ -290,8 +301,9 @@ export const ChatInput = memo(function ChatInput({
         }
       } else if (cmd.id === 'workspace') toggleWorkspace();
       else if (cmd.id === 'attach') fileInputRef.current?.click();
+      else if (cmd.id === 'goal') insertAtCaret('/goal ');
     },
-    [adjustHeight, closePicker, pushFileRef, setComposerBody, t, toggleWorkspace],
+    [adjustHeight, closePicker, insertAtCaret, pushFileRef, setComposerBody, t, toggleWorkspace],
   );
 
   const handleMentionSelect = useCallback(
@@ -365,9 +377,67 @@ export const ChatInput = memo(function ChatInput({
     files.length > 0 ||
     composerFileRefs.length > 0;
 
+  /** `/goal <text>` — create + start a mission, linked to the current chat session. */
+  const handleGoalCommand = useCallback(
+    async (goalText: string) => {
+      if (!goalText) {
+        setError(
+          t('chat.goalCommand.empty', {
+            defaultValue: 'Describe a goal after /goal to start a mission.',
+          }),
+        );
+        return;
+      }
+      if (goalText.length > MISSION_GOAL_MAX_LENGTH) {
+        setError(
+          t('chat.goalCommand.tooLong', {
+            defaultValue: 'Mission goal is limited to 4000 characters.',
+          }),
+        );
+        return;
+      }
+      try {
+        const mission = await createMission.mutateAsync({
+          goal: goalText,
+          session_id: currentSessionReady ? (currentSessionId ?? undefined) : undefined,
+          autonomy: 'full',
+          verify_level: 'heuristic',
+        });
+        // Same reset a normal send gets — the draft (files, refs, folder
+        // context) was consumed by the mission, not held for the next message.
+        resetComposerAfterSend();
+        closePicker();
+        navigate(`/missions?select=${encodeURIComponent(mission.id)}`);
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : t('chat.goalCommand.failed', {
+                defaultValue: 'Could not start the mission.',
+              }),
+        );
+      }
+    },
+    [
+      closePicker,
+      createMission,
+      currentSessionId,
+      currentSessionReady,
+      navigate,
+      setError,
+      t,
+    ],
+  );
+
   const handleSend = async () => {
     if (!canSend) return;
     if (streamBusyForThisSession) return;
+
+    const goalMatch = GOAL_COMMAND_RE.exec(content.trim());
+    if (goalMatch) {
+      await handleGoalCommand(goalMatch[1]?.trim() ?? '');
+      return;
+    }
 
     useChatStore.setState({ lastStopWasUserInitiated: false });
 
@@ -405,6 +475,14 @@ export const ChatInput = memo(function ChatInput({
   const handleSteer = useCallback(async () => {
     const text = content.trim();
     if (!text || !currentSessionId) return;
+    if (GOAL_COMMAND_RE.test(text)) {
+      setError(
+        t('chat.goalCommand.busy', {
+          defaultValue: 'A turn is still running — wait for it to finish before starting a mission.',
+        }),
+      );
+      return;
+    }
     try {
       const result = await steer(currentSessionId, text);
       const userMessage: Message = {
@@ -427,6 +505,14 @@ export const ChatInput = memo(function ChatInput({
   const handleQueue = useCallback(async () => {
     const text = content.trim();
     if (!text || !currentSessionId) return;
+    if (GOAL_COMMAND_RE.test(text)) {
+      setError(
+        t('chat.goalCommand.busy', {
+          defaultValue: 'A turn is still running — wait for it to finish before starting a mission.',
+        }),
+      );
+      return;
+    }
     try {
       await queueMessage(currentSessionId, text);
       setComposerBody('');

@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文是记忆系列的入口，适合已经理解一次 agent turn、system prompt、tool call 和会话持久化的读者。先修建议是能区分“模型当前看到的消息”与“应用数据库里保存的数据”。本篇不把 memory 当成万能聊天记录，而是从 LeAgent 的真实边界出发：`TieredSessionStore` 拥有 chat transcript，`AgentMemory` 只负责经过选择的长期认知记忆，`RecallBundle` 只是下一轮上下文的一种候选附件。
+本文是记忆系列的入口，适合已经理解一次 agent turn、system prompt、tool call 和会话持久化的读者。先修建议是能区分“模型当前看到的消息”与“应用数据库里保存的数据”。本篇不把 memory 当成万能聊天记录，而是从 StAgent 的真实边界出发：`TieredSessionStore` 拥有 chat transcript，`AgentMemory` 只负责经过选择的长期认知记忆，`RecallBundle` 只是下一轮上下文的一种候选附件。
 
 ## 目标
 
@@ -67,9 +67,9 @@
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-Google ADK 常把 session state、memory service 和 artifact 分开；这与 LeAgent 强调 transcript 所有权和长期记忆筛选相近，但具体持久化与检索取决于所选 service。Anthropic 的 Messages API 本身是无状态请求接口，跨轮记忆通常由应用保存消息、压缩摘要或检索外部存储；不要把 prompt caching 误认为用户长期记忆。AutoGen 提供 agent/team 上下文与可扩展 memory 组件，开发者仍需决定何时 `add`、何时 `query`、如何清理。LangGraph/类似 checkpoint 方案更擅长保存执行状态，但 checkpoint 也不自动等于可检索的长期事实。
+Google ADK 常把 session state、memory service 和 artifact 分开；这与 StAgent 强调 transcript 所有权和长期记忆筛选相近，但具体持久化与检索取决于所选 service。Anthropic 的 Messages API 本身是无状态请求接口，跨轮记忆通常由应用保存消息、压缩摘要或检索外部存储；不要把 prompt caching 误认为用户长期记忆。AutoGen 提供 agent/team 上下文与可扩展 memory 组件，开发者仍需决定何时 `add`、何时 `query`、如何清理。LangGraph/类似 checkpoint 方案更擅长保存执行状态，但 checkpoint 也不自动等于可检索的长期事实。
 
-LeAgent 的鲜明选择是：transcript、checkpoint、workflow state 与 cognitive memory 分属不同 durable owner，再通过 context source 汇合。好处是边界清楚、可独立治理；代价是应用必须接受“写入”和“可见”之间存在异步、过滤与降级。
+StAgent 的鲜明选择是：transcript、checkpoint、workflow state 与 cognitive memory 分属不同 durable owner，再通过 context source 汇合。好处是边界清楚、可独立治理；代价是应用必须接受“写入”和“可见”之间存在异步、过滤与降级。
 
 ## 总结
 

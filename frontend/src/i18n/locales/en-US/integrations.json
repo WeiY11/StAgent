@@ -374,7 +374,7 @@
       "passwordMismatch": "两次输入的密码不一致"
     },
     "title": "创建账号",
-    "subtitle": "注册一个新的 LeAgent 账号",
+    "subtitle": "注册一个新的 StAgent 账号",
     "username": "用户名",
     "usernamePlaceholder": "请输入用户名",
     "password": "密码",

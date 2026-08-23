@@ -600,16 +600,16 @@ export const TUTORIAL_SECTIONS: TutorialSectionMeta[] = [
       "en-US": "System Overview",
     },
     description: {
-      "zh-CN": "从 README 了解 LeAgent 产品能力、架构与快速开始。",
+      "zh-CN": "从 README 了解 StAgent 产品能力、架构与快速开始。",
       "en-US":
-        "Learn LeAgent capabilities, architecture, and quick start from the README.",
+        "Learn StAgent capabilities, architecture, and quick start from the README.",
     },
     articles: [
       {
         slug: "overview",
         title: {
-          "zh-CN": "LeAgent 系统介绍",
-          "en-US": "LeAgent Overview",
+          "zh-CN": "StAgent 系统介绍",
+          "en-US": "StAgent Overview",
         },
       },
     ],
@@ -622,9 +622,9 @@ export const TUTORIAL_SECTIONS: TutorialSectionMeta[] = [
       "en-US": "Interview Prep",
     },
     description: {
-      "zh-CN": "以 LeAgent 真实架构为主线的 Agent 面试题库。",
+      "zh-CN": "以 StAgent 真实架构为主线的 Agent 面试题库。",
       "en-US":
-        "Agent interview Q&A grounded in LeAgent’s real architecture.",
+        "Agent interview Q&A grounded in StAgent’s real architecture.",
     },
     articles: interviewArticles,
   },

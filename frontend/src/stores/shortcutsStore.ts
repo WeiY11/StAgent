@@ -283,7 +283,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       },
     }),
     {
-      name: 'leagent-shortcuts',
+      name: 'StAgent-shortcuts',
       partialize: (state) => ({
         shortcuts: state.shortcuts,
         isEnabled: state.isEnabled,

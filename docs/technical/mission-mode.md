@@ -4,14 +4,14 @@
 > machine + `run_loop` segment executor + LLM planner + heuristic
 > verifier + bounded continuation + `readonly` scoping); REST/SSE API
 > and UI pending.
-> **Package:** `leagent.mission` · **Persistence:** `agent_missions` /
+> **Package:** `StAgent.mission` · **Persistence:** `agent_missions` /
 > `agent_mission_steps` (migration `0023_agent_missions`)
 
 中文版: [`mission-mode_zh.md`](./mission-mode_zh.md)
 
 ## Overview
 
-Mission mode gives LeAgent a *persistent, goal-scoped execution layer* for
+Mission mode gives StAgent a *persistent, goal-scoped execution layer* for
 long-horizon tasks: the user supplies a goal, the kernel produces a durable
 task graph (with dependencies), executes it step by step through bounded
 context windows (*segments*), gates every step through a verification gate,
@@ -26,9 +26,9 @@ through the canonical `run_loop` (see
 
 | # | Gap | Evidence |
 |---|-----|----------|
-| 1 | No executable task-plan layer | Plan-Execute is dormant (`backend/leagent/agent/controller.py` — "Dormant … not wired"); the dependency graph / topological sort / wave scheduling / replan helpers in `backend/leagent/agent/planner.py` are dead code; `todo_write` is a flat, engine-unaware list (`backend/leagent/tools/util/plan_tools.py`) |
-| 2 | No enforced verification loop | Agent-side verification is prompt-driven (`backend/leagent/prompts/templates/coding_agent.md`) plus a post-hoc heuristic that only *flags* `partial` (`backend/leagent/agent/subagent.py` — `assess_verification_gap`); `recovery.py` retries tools only; workflow `QualityGate`/`IterativeRefine` live in a separate engine |
-| 3 | No autonomous continuation / experience reuse | Checkpoints are saved only on pause reasons and resumed externally (`backend/leagent/sdk/kernel/loop.py`); `max_turns` / token exhaustion is terminal; background agent tasks disable memory (`backend/leagent/tasks/handlers/agent_handler.py`); procedural memory distills success only (`backend/leagent/memory/formation.py`) |
+| 1 | No executable task-plan layer | Plan-Execute is dormant (`backend/StAgent/agent/controller.py` — "Dormant … not wired"); the dependency graph / topological sort / wave scheduling / replan helpers in `backend/StAgent/agent/planner.py` are dead code; `todo_write` is a flat, engine-unaware list (`backend/StAgent/tools/util/plan_tools.py`) |
+| 2 | No enforced verification loop | Agent-side verification is prompt-driven (`backend/StAgent/prompts/templates/coding_agent.md`) plus a post-hoc heuristic that only *flags* `partial` (`backend/StAgent/agent/subagent.py` — `assess_verification_gap`); `recovery.py` retries tools only; workflow `QualityGate`/`IterativeRefine` live in a separate engine |
+| 3 | No autonomous continuation / experience reuse | Checkpoints are saved only on pause reasons and resumed externally (`backend/StAgent/sdk/kernel/loop.py`); `max_turns` / token exhaustion is terminal; background agent tasks disable memory (`backend/StAgent/tasks/handlers/agent_handler.py`); procedural memory distills success only (`backend/StAgent/memory/formation.py`) |
 
 ## Goals / Non-Goals
 
@@ -74,7 +74,7 @@ Ingress (Chat / Cron / SDK / Task) ──► MissionService (create, persist)
                                Task queue (task_type=MISSION, recover_pending_jobs)
                                               │
                                               ▼
-                        ┌── MissionRunner (leagent/mission/runner.py) ──┐
+                        ┌── MissionRunner (StAgent/mission/runner.py) ──┐
                         │  MissionPlanner  ── plan / replan (DAG)        │
                         │  wave scheduling ── persisted wave column      │
                         │  SegmentExecutor ── one run_loop per segment   │
@@ -92,7 +92,7 @@ Ingress (Chat / Cron / SDK / Task) ──► MissionService (create, persist)
 ### File map
 
 ```
-backend/leagent/mission/
+backend/StAgent/mission/
 ├── __init__.py       # public exports
 ├── types.py          # MissionBudget / MissionUsage / MissionPlan / MissionStepState /
 │                     # SegmentResult / VerificationResult (DB-agnostic working shapes)
@@ -104,23 +104,23 @@ backend/leagent/mission/
 └── verifier.py       # HeuristicVerifier — verification gate (assess_verification_gap)
 ```
 
-backend/leagent/db/
+backend/StAgent/db/
 ├── models/mission.py           # Mission / MissionStep SQLModel + enums
 ├── repositories/missions.py    # MissionRepository (protocol + Db implementation)
 └── (models/__init__.py, repositories/__init__.py wiring)
 
-backend/leagent/alembic/versions/0023_agent_missions.py
-backend/leagent/db/models/task.py        # TaskType.MISSION (id prefix "n")
-backend/leagent/db/sqlite_compat.py      # PARENT_ID_TABLES += agent_missions
+backend/StAgent/alembic/versions/0023_agent_missions.py
+backend/StAgent/db/models/task.py        # TaskType.MISSION (id prefix "n")
+backend/StAgent/db/sqlite_compat.py      # PARENT_ID_TABLES += agent_missions
 ```
 
 ### Layering rules
 
-- Persistence lives in `leagent/db` (canonical); `leagent/mission` never
+- Persistence lives in `StAgent/db` (canonical); `StAgent/mission` never
   constructs engines/sessions itself.
 - The runner depends on injected seams (`MissionPlanner`, `SegmentExecutor`,
   `MissionVerifier`, `MissionContinuer`) — kernel wiring happens in the
-  integration layer, keeping `leagent/mission` unit-testable without an LLM.
+  integration layer, keeping `StAgent/mission` unit-testable without an LLM.
 - Every step still flows through `run_loop` via `SegmentExecutor`; the
   runner never drives a `QueryEngine` directly.
 
@@ -184,7 +184,7 @@ source of truth (avoids dual-write drift).
 ### Scheduling (wave persistence)
 
 Wave numbers are computed once by `MissionPlan.waves()` (reusing
-`get_parallel_groups` from `backend/leagent/agent/planner.py`) and
+`get_parallel_groups` from `backend/StAgent/agent/planner.py`) and
 persisted in the `wave` column at plan time. At run time, the runner takes
 the remaining steps of the **lowest wave** as the ready set — no graph
 recomputation, and no false "unknown dependency" errors on steps whose
@@ -233,7 +233,7 @@ CREATE → PLANNING ──plan──► READY ──run──► RUNNING ──�
 ### Continuation (`MissionContinuer`)
 
 When a segment ends with `max_turns` / `token_budget_exceeded` /
-`prompt_too_long` (`CONTINUABLE_SEGMENT_REASONS` in `leagent/mission/types.py`,
+`prompt_too_long` (`CONTINUABLE_SEGMENT_REASONS` in `StAgent/mission/types.py`,
 mirroring the kernel's `RESUMABLE_CHECKPOINT_REASONS`), the runner saves the
 checkpoint (audit) and issues a **fresh segment** with a continuation prompt
 instead of replaying history. The finished segment's text is truncated into
@@ -287,8 +287,10 @@ POST   /api/v1/missions/{id}/abort
 POST   /api/v1/missions/{id}/steps/{no}/approve   {verdict, note}
 ```
 
-Trigger entry points: chat (`/mission <goal>` or button), SDK
-(`AgentRuntime.run_mission`, `leagent.sdk.__version__` → 0.2.0), Cron /
+Trigger entry points: chat (`/goal <goal>` — the composer intercepts the
+command, creates a mission linked to the current `session_id`, and navigates to
+`/missions?select=<id>`; also a "Start Mission" entry in the slash palette),
+SDK (`AgentRuntime.run_mission`, `StAgent.sdk.__version__` → 0.2.0), Cron /
 background task (`task_type=MISSION`).
 
 ## Frontend Design (planned)
@@ -330,7 +332,7 @@ background task (`task_type=MISSION`).
 |---|---|
 | `agent_missions` / `agent_mission_steps` + migration `0023` + `PARENT_ID_TABLES` | ✅ landed, upgrade/downgrade verified |
 | `MissionRepository` + `Repositories.missions` wiring | ✅ landed |
-| `leagent/mission/types.py` (budget/usage/plan/segment/verification shapes) | ✅ landed |
+| `StAgent/mission/types.py` (budget/usage/plan/segment/verification shapes) | ✅ landed |
 | `MissionRunner` state machine + seam protocols + stubs (`StaticPlanner` / `AlwaysPassVerifier` / `IdentityContinuer`) | ✅ landed |
 | `TaskType.MISSION` (+ id prefix `n`) | ✅ landed |
 | Segment executor wired to `run_loop` (`mission/segment.py`, `KernelSegmentExecutor`) | ✅ landed |
@@ -377,5 +379,5 @@ background task (`task_type=MISSION`).
 - [`execution-topology.md`](execution-topology.md) — kernel contract, state ownership, run correlation
 - [`agent_sdk.md`](agent_sdk.md) — `AgentRuntime` / `run_loop` public surface
 - [`agent-runtime.md`](agent-runtime.md) — runtime wiring, `runtime_profile` budgets
-- `backend/leagent/agent/planner.py` — dormant planner + scheduling helpers (reused)
-- `backend/leagent/db/repositories/missions.py` — repository pattern reference
+- `backend/StAgent/agent/planner.py` — dormant planner + scheduling helpers (reused)
+- `backend/StAgent/db/repositories/missions.py` — repository pattern reference

@@ -8,14 +8,14 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.knowledge.evaluation import RetrievalEvaluationCase, evaluate_retriever
-from leagent.knowledge.evidence import EvidenceStatus, build_evidence
-from leagent.knowledge.opensearch import OpenSearchKnowledgeIndex
-from leagent.knowledge.query import DeterministicQueryRewriter
-from leagent.knowledge.rerank import LexicalRerankProvider
-from leagent.knowledge.vector_index import KnowledgeVectorIndex
-from leagent.library.chunking import Chunk
-from leagent.library.retrieval import (
+from StAgent.knowledge.evaluation import RetrievalEvaluationCase, evaluate_retriever
+from StAgent.knowledge.evidence import EvidenceStatus, build_evidence
+from StAgent.knowledge.opensearch import OpenSearchKnowledgeIndex
+from StAgent.knowledge.query import DeterministicQueryRewriter
+from StAgent.knowledge.rerank import LexicalRerankProvider
+from StAgent.knowledge.vector_index import KnowledgeVectorIndex
+from StAgent.library.chunking import Chunk
+from StAgent.library.retrieval import (
     KnowledgeRetrievalPipeline,
     RetrievalResult,
     SearchOptions,
@@ -76,7 +76,7 @@ async def test_vector_index_degraded_paths_do_not_raise_when_logging_is_enabled(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Best-effort vector failures must not be masked by logging failures."""
-    caplog.set_level(logging.DEBUG, logger="leagent.knowledge.vector_index")
+    caplog.set_level(logging.DEBUG, logger="StAgent.knowledge.vector_index")
     file_id = uuid4()
 
     class _EmbeddingFailure:
@@ -132,7 +132,7 @@ def test_knowledge_vector_index_isolates_nondefault_index_versions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A new embedding/index version must not reuse the legacy collection."""
-    import leagent.memory.vector
+    import StAgent.memory.vector
 
     names: list[str] = []
 
@@ -140,7 +140,7 @@ def test_knowledge_vector_index_isolates_nondefault_index_versions(
         def __init__(self, *, name: str, **_kwargs: object) -> None:
             names.append(name)
 
-    monkeypatch.setattr(leagent.memory.vector, "MilvusCollection", _Collection)
+    monkeypatch.setattr(StAgent.memory.vector, "MilvusCollection", _Collection)
     embeddings = SimpleNamespace(dimension=8)
 
     KnowledgeVectorIndex(embeddings=embeddings)

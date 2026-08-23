@@ -18,7 +18,7 @@ export { dedupeMessagesByIdPreserveOrder, isChatStreamBusyForSession } from './c
 // Re-export the ChatStore type for external consumers that need it.
 export type { ChatStore } from './chat/types';
 
-const CHAT_STORE_BASE = 'leagent-chat';
+const CHAT_STORE_BASE = 'StAgent-chat';
 registerNamespacedStore(CHAT_STORE_BASE);
 
 /** Resolve the project id for a session from the current store state. */

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "leagent"
+name = "stagent"
 version = "1.2.12"
-description = "LeAgent — Intelligent Office Agent Platform"
+description = "StAgent — Intelligent Office Agent Platform"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
@@ -69,7 +69,7 @@ dependencies = [
     "xlsxwriter>=3.2.0",
     "tabulate>=0.9.0",
     "markdown>=3.5.0",
-    # Document generation subsystem (leagent.docgen) markdown -> IR parser.
+    # Document generation subsystem (StAgent.docgen) markdown -> IR parser.
     "markdown-it-py>=3.0.0",
     "mdit-py-plugins>=0.4.0",
     "linkify-it-py>=2.1.0",
@@ -148,13 +148,13 @@ dev = [
 ]
 
 [project.scripts]
-leagent = "leagent.cli.main:cli"
+StAgent = "StAgent.cli.main:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["leagent"]
+packages = ["StAgent"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"leagent/extensions/official_registry.json" = "leagent/extensions/official_registry.json"
+"StAgent/extensions/official_registry.json" = "StAgent/extensions/official_registry.json"
 
 [tool.ruff]
 target-version = "py311"
@@ -179,7 +179,7 @@ select = [
 ignore = ["E501", "B008", "RET504"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["leagent"]
+known-first-party = ["StAgent"]
 
 [tool.mypy]
 python_version = "3.11"

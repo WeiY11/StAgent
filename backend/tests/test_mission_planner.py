@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from leagent.db.models.mission import Mission, MissionStep, MissionStepStatus
-from leagent.mission.planner import LLMMissionPlanner
-from leagent.mission.types import MissionStepState
+from StAgent.db.models.mission import Mission, MissionStep, MissionStepStatus
+from StAgent.mission.planner import LLMMissionPlanner
+from StAgent.mission.types import MissionStepState
 
 
 class FakeLLM:
@@ -139,7 +139,7 @@ async def test_replan_without_store_degrades():
 
 
 def test_kind_inference_keywords():
-    from leagent.mission.planner import _infer_kind
+    from StAgent.mission.planner import _infer_kind
 
     assert _infer_kind("进行市场调研", "") == "research"
     assert _infer_kind("分析销售数据", "") == "data"
@@ -149,7 +149,7 @@ def test_kind_inference_keywords():
 
 
 def test_renumber_remaps_dependencies():
-    from leagent.mission.planner import _renumber_steps
+    from StAgent.mission.planner import _renumber_steps
 
     steps = [
         MissionStepState(step_no=5, description="a"),

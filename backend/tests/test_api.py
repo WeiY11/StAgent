@@ -1,4 +1,4 @@
-"""Tests for the LeAgent API endpoints.
+"""Tests for the StAgent API endpoints.
 
 Uses the ``client`` / ``async_client`` fixtures from conftest.py which wrap
 the real FastAPI application.
@@ -43,7 +43,7 @@ class TestRootEndpoint:
         resp = client.get("/")
         if resp.status_code == 200:
             data = resp.json()
-            assert data["name"] == "LeAgent"
+            assert data["name"] == "StAgent"
 
     def test_root_returns_version(self, client: TestClient) -> None:
         resp = client.get("/")
@@ -70,8 +70,8 @@ class TestMiddlewareContract:
 
     def test_content_size_limit_413_on_oversized(self) -> None:
         """ContentSizeLimitMiddleware must return 413 when body exceeds limit."""
-        from leagent.api.middleware import ContentSizeLimitMiddleware
-        from leagent.main import create_app
+        from StAgent.api.middleware import ContentSizeLimitMiddleware
+        from StAgent.main import create_app
 
         app = create_app()
         # Wrap with a very tight size limit for this test
@@ -123,8 +123,8 @@ class TestAPIv1Prefix:
 
 
 class TestExceptionHandlerContract:
-    def test_leagent_error_returns_json(self, client: TestClient) -> None:
-        """LeAgentError subclasses should always produce JSON, never HTML."""
+    def test_StAgent_error_returns_json(self, client: TestClient) -> None:
+        """StAgentError subclasses should always produce JSON, never HTML."""
         # Any 4xx/5xx response from the app should be JSON, not HTML
         resp = client.get("/api/v1/nonexistent")
         ct = resp.headers.get("content-type", "")

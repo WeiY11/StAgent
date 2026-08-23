@@ -98,21 +98,21 @@ export async function validateInstallation(): Promise<ValidationResult> {
       id: 'home_writable',
       label: 'Data directory',
       level: 'error',
-      message: `Cannot write to LEAGENT_HOME: ${home}`,
+      message: `Cannot write to StAgent_HOME: ${home}`,
     });
   } else if (isInsideAppInstallDir(home)) {
     items.push({
       id: 'home_location',
       label: 'Data directory',
       level: 'error',
-      message: 'LEAGENT_HOME must not be inside the application install directory.',
+      message: 'StAgent_HOME must not be inside the application install directory.',
     });
   } else if (isCloudSyncedPath(home)) {
     items.push({
       id: 'home_cloud',
       label: 'Data directory',
       level: 'warning',
-      message: 'LEAGENT_HOME appears to be in a cloud-synced folder — data loss risk.',
+      message: 'StAgent_HOME appears to be in a cloud-synced folder — data loss risk.',
     });
   } else {
     items.push({

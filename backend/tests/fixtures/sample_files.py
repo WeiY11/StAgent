@@ -1,4 +1,4 @@
-"""Programmatic sample-file generation fixtures for LeAgent tests.
+"""Programmatic sample-file generation fixtures for StAgent tests.
 
 Covers every extension in EXTENSION_HANDLER_MAP plus the full image/archive
 sets defined in config/constants.py.  All files are built in a session-scoped
@@ -59,12 +59,12 @@ def sample_pdf(sample_dir: Path) -> Path:
             page = doc.new_page()
             page.insert_text(
                 (72, 72),
-                f"Page {i}\nLeAgent test content – page {i}.\n"
+                f"Page {i}\nStAgent test content – page {i}.\n"
                 f"Fiscal Year 2024 Report\nTotal amount: ¥{i * 12345:,}",
             )
         doc.set_metadata({
             "title": "Test PDF Document",
-            "author": "LeAgent Tests",
+            "author": "StAgent Tests",
             "subject": "Unit Testing",
         })
         doc.save(str(path))
@@ -89,7 +89,7 @@ def sample_docx(sample_dir: Path) -> Path:
         from docx import Document
 
         doc = Document()
-        doc.add_heading("LeAgent Test Document", level=0)
+        doc.add_heading("StAgent Test Document", level=0)
         doc.add_heading("Introduction", level=1)
         doc.add_paragraph("This document is generated programmatically for testing.")
         doc.add_paragraph("Second paragraph with more content and details.")
@@ -119,7 +119,7 @@ def sample_doc(sample_dir: Path) -> Path:
     path.write_bytes(
         b"{\\rtf1\\ansi\\deff0"
         b"{\\fonttbl{\\f0 Times New Roman;}}"
-        b"\\f0\\fs24 LeAgent legacy DOC test content. "
+        b"\\f0\\fs24 StAgent legacy DOC test content. "
         b"This file contains sample text for unit testing.}"
     )
     return path
@@ -221,9 +221,9 @@ def sample_html(sample_dir: Path) -> Path:
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="description" content="LeAgent test HTML document">
-  <meta name="keywords" content="test, leagent, automation">
-  <title>LeAgent Test Page</title>
+  <meta name="description" content="StAgent test HTML document">
+  <meta name="keywords" content="test, StAgent, automation">
+  <title>StAgent Test Page</title>
 </head>
 <body>
   <h1>Annual Report 2024</h1>
@@ -272,7 +272,7 @@ def sample_md(sample_dir: Path) -> Path:
     """Markdown with headings, code blocks, tables, and links."""
     path = sample_dir / "sample.md"
     path.write_text(
-        """# LeAgent Test Document
+        """# StAgent Test Document
 
 ## Introduction
 
@@ -295,8 +295,8 @@ def calculate_total(items: list[dict]) -> float:
 
 ## Links
 
-- [LeAgent Docs](https://docs.leagent.example.com)
-- [GitHub](https://github.com/example/leagent)
+- [StAgent Docs](https://docs.StAgent.example.com)
+- [GitHub](https://github.com/example/StAgent)
 
 ## Nested List
 
@@ -334,8 +334,8 @@ def sample_json(sample_dir: Path) -> Path:
     """Nested JSON config file."""
     path = sample_dir / "config.json"
     data: dict[str, Any] = {
-        "app": {"name": "leagent", "version": "1.0.0", "debug": False},
-        "database": {"host": "localhost", "port": 5432, "name": "leagent_db"},
+        "app": {"name": "StAgent", "version": "1.0.0", "debug": False},
+        "database": {"host": "localhost", "port": 5432, "name": "StAgent_db"},
         "features": ["feature_a", "feature_b", "feature_c"],
         "limits": {"max_upload_mb": 100, "max_sessions": 500},
     }
@@ -349,14 +349,14 @@ def sample_yaml(sample_dir: Path) -> Path:
     path = sample_dir / "config.yaml"
     path.write_text(
         """app:
-  name: leagent
+  name: StAgent
   version: "1.0.0"
   debug: false
 
 database:
   host: localhost
   port: 5432
-  name: leagent_db
+  name: StAgent_db
 
 redis:
   url: "redis://localhost:6379/0"
@@ -377,7 +377,7 @@ def sample_yml(sample_dir: Path) -> Path:
     """.yml alias."""
     path = sample_dir / "config.yml"
     path.write_text(
-        "version: '3.9'\nservices:\n  app:\n    image: leagent:latest\n    ports:\n      - '7860:7860'\n",
+        "version: '3.9'\nservices:\n  app:\n    image: StAgent:latest\n    ports:\n      - '7860:7860'\n",
         encoding="utf-8",
     )
     return path
@@ -389,14 +389,14 @@ def sample_toml(sample_dir: Path) -> Path:
     path = sample_dir / "config.toml"
     path.write_text(
         """[app]
-name = "leagent"
+name = "StAgent"
 version = "1.0.0"
 debug = false
 
 [database]
 host = "localhost"
 port = 5432
-name = "leagent_db"
+name = "StAgent_db"
 
 [llm]
 tier1_model = "Qwen2.5-32B-Instruct"
@@ -416,7 +416,7 @@ def sample_ini(sample_dir: Path) -> Path:
     path = sample_dir / "config.ini"
     path.write_text(
         "[DEFAULT]\nDebug = False\nLogLevel = INFO\n\n"
-        "[Database]\nHost = localhost\nPort = 5432\nName = leagent\n\n"
+        "[Database]\nHost = localhost\nPort = 5432\nName = StAgent\n\n"
         "[Auth]\nJwtAlgorithm = HS256\nTokenExpireMinutes = 1440\n",
         encoding="utf-8",
     )
@@ -428,7 +428,7 @@ def sample_cfg(sample_dir: Path) -> Path:
     """Generic .cfg configuration file."""
     path = sample_dir / "app.cfg"
     path.write_text(
-        "# LeAgent config\n"
+        "# StAgent config\n"
         "[server]\nhost = 0.0.0.0\nport = 7860\nworkers = 4\n\n"
         "[logging]\nlevel = INFO\nformat = json\n",
         encoding="utf-8",
@@ -455,12 +455,12 @@ def sample_log(sample_dir: Path) -> Path:
     """Structured application log file."""
     path = sample_dir / "app.log"
     path.write_text(
-        '2024-01-15 09:00:01 INFO  [leagent.main] Application starting\n'
-        '2024-01-15 09:00:02 INFO  [leagent.db] Database connected\n'
-        '2024-01-15 09:00:03 INFO  [leagent.api] API listening on 0.0.0.0:7860\n'
-        '2024-01-15 09:05:11 WARNING [leagent.auth] Failed login attempt user=unknown ip=192.168.1.100\n'
-        '2024-01-15 09:10:22 ERROR [leagent.tools] Tool pdf_reader failed: file not found path=/tmp/x.pdf\n'
-        '2024-01-15 09:15:30 INFO  [leagent.agent] Task completed task_id=abc-123 duration_ms=2450\n',
+        '2024-01-15 09:00:01 INFO  [StAgent.main] Application starting\n'
+        '2024-01-15 09:00:02 INFO  [StAgent.db] Database connected\n'
+        '2024-01-15 09:00:03 INFO  [StAgent.api] API listening on 0.0.0.0:7860\n'
+        '2024-01-15 09:05:11 WARNING [StAgent.auth] Failed login attempt user=unknown ip=192.168.1.100\n'
+        '2024-01-15 09:10:22 ERROR [StAgent.tools] Tool pdf_reader failed: file not found path=/tmp/x.pdf\n'
+        '2024-01-15 09:15:30 INFO  [StAgent.agent] Task completed task_id=abc-123 duration_ms=2450\n',
         encoding="utf-8",
     )
     return path
@@ -471,7 +471,7 @@ def sample_py(sample_dir: Path) -> Path:
     """Python source file."""
     path = sample_dir / "example.py"
     path.write_text(
-        '"""Example Python module for LeAgent testing."""\n\n'
+        '"""Example Python module for StAgent testing."""\n\n'
         'from __future__ import annotations\n\n'
         'from typing import Any\n\n\n'
         'class ExpenseProcessor:\n'
@@ -493,7 +493,7 @@ def sample_js(sample_dir: Path) -> Path:
     """JavaScript source file."""
     path = sample_dir / "example.js"
     path.write_text(
-        '// LeAgent frontend helper\n\n'
+        '// StAgent frontend helper\n\n'
         'const API_BASE = "http://localhost:7860/api/v1";\n\n'
         'async function runTask(query) {\n'
         '  const res = await fetch(`${API_BASE}/chat/run`, {\n'
@@ -534,8 +534,8 @@ def sample_java(sample_dir: Path) -> Path:
     """Java source file."""
     path = sample_dir / "Example.java"
     path.write_text(
-        'package com.example.leagent;\n\n'
-        '/**\n * Example Java class for LeAgent testing.\n */\n'
+        'package com.example.StAgent;\n\n'
+        '/**\n * Example Java class for StAgent testing.\n */\n'
         'public class Example {\n\n'
         '    private final String name;\n\n'
         '    public Example(String name) {\n'
@@ -545,7 +545,7 @@ def sample_java(sample_dir: Path) -> Path:
         '        return name;\n'
         '    }\n\n'
         '    public static void main(String[] args) {\n'
-        '        System.out.println("LeAgent Java Test");\n'
+        '        System.out.println("StAgent Java Test");\n'
         '    }\n'
         '}\n',
         encoding="utf-8",
@@ -559,7 +559,7 @@ def sample_c(sample_dir: Path) -> Path:
     path = sample_dir / "example.c"
     path.write_text(
         '#include <stdio.h>\n#include <stdlib.h>\n\n'
-        '/* LeAgent C test file */\n\n'
+        '/* StAgent C test file */\n\n'
         'typedef struct {\n'
         '    int id;\n'
         '    double amount;\n'
@@ -595,7 +595,7 @@ def sample_cpp(sample_dir: Path) -> Path:
         '    std::vector<std::pair<std::string, double>> expenses_;\n'
         '};\n\n'
         'int main() {\n'
-        '    std::cout << "LeAgent C++ Test" << std::endl;\n'
+        '    std::cout << "StAgent C++ Test" << std::endl;\n'
         '    return 0;\n'
         '}\n',
         encoding="utf-8",
@@ -608,8 +608,8 @@ def sample_h(sample_dir: Path) -> Path:
     """C header file."""
     path = sample_dir / "example.h"
     path.write_text(
-        '#ifndef LEAGENT_EXAMPLE_H\n'
-        '#define LEAGENT_EXAMPLE_H\n\n'
+        '#ifndef StAgent_EXAMPLE_H\n'
+        '#define StAgent_EXAMPLE_H\n\n'
         '#include <stddef.h>\n\n'
         '/* Maximum expense amount */\n'
         '#define MAX_EXPENSE 100000.0\n\n'
@@ -619,7 +619,7 @@ def sample_h(sample_dir: Path) -> Path:
         '    const char *category;\n'
         '} Expense;\n\n'
         'double calculate_total(const Expense *expenses, size_t count);\n\n'
-        '#endif /* LEAGENT_EXAMPLE_H */\n',
+        '#endif /* StAgent_EXAMPLE_H */\n',
         encoding="utf-8",
     )
     return path
@@ -630,7 +630,7 @@ def sample_rs(sample_dir: Path) -> Path:
     """Rust source file."""
     path = sample_dir / "example.rs"
     path.write_text(
-        '//! LeAgent Rust test module\n\n'
+        '//! StAgent Rust test module\n\n'
         'use std::collections::HashMap;\n\n'
         '#[derive(Debug, Clone)]\n'
         'pub struct Expense {\n'
@@ -647,7 +647,7 @@ def sample_rs(sample_dir: Path) -> Path:
         '    }\n'
         '}\n\n'
         'fn main() {\n'
-        '    println!("LeAgent Rust Test");\n'
+        '    println!("StAgent Rust Test");\n'
         '}\n',
         encoding="utf-8",
     )
@@ -676,7 +676,7 @@ def sample_go(sample_dir: Path) -> Path:
         '}\n\n'
         'func main() {\n'
         '\te := Expense{1, math.Pi * 100, "travel"}\n'
-        '\tfmt.Printf("LeAgent Go Test: %+v\\n", e)\n'
+        '\tfmt.Printf("StAgent Go Test: %+v\\n", e)\n'
         '}\n',
         encoding="utf-8",
     )
@@ -688,7 +688,7 @@ def sample_rb(sample_dir: Path) -> Path:
     """Ruby source file."""
     path = sample_dir / "example.rb"
     path.write_text(
-        '# LeAgent Ruby test\n\n'
+        '# StAgent Ruby test\n\n'
         'class Expense\n'
         '  attr_reader :id, :amount, :category\n\n'
         '  def initialize(id, amount, category)\n'
@@ -701,7 +701,7 @@ def sample_rb(sample_dir: Path) -> Path:
         '  end\n'
         'end\n\n'
         'expense = Expense.new(1, 1200.50, "travel")\n'
-        'puts "LeAgent Ruby Test: #{expense.inspect}"\n',
+        'puts "StAgent Ruby Test: #{expense.inspect}"\n',
         encoding="utf-8",
     )
     return path
@@ -713,10 +713,10 @@ def sample_sh(sample_dir: Path) -> Path:
     path = sample_dir / "deploy.sh"
     path.write_text(
         '#!/usr/bin/env bash\n'
-        '# LeAgent deployment script\n\n'
+        '# StAgent deployment script\n\n'
         'set -euo pipefail\n\n'
-        'APP_NAME="leagent"\n'
-        'DEPLOY_DIR="/opt/leagent"\n\n'
+        'APP_NAME="StAgent"\n'
+        'DEPLOY_DIR="/opt/StAgent"\n\n'
         'echo "Deploying ${APP_NAME}..."\n\n'
         'if [ ! -d "$DEPLOY_DIR" ]; then\n'
         '    mkdir -p "$DEPLOY_DIR"\n'
@@ -724,7 +724,7 @@ def sample_sh(sample_dir: Path) -> Path:
         'echo "Installing dependencies..."\n'
         'pip install -r requirements.txt\n\n'
         'echo "Starting services..."\n'
-        'systemctl restart leagent\n\n'
+        'systemctl restart StAgent\n\n'
         'echo "Deployment complete."\n',
         encoding="utf-8",
     )
@@ -736,7 +736,7 @@ def sample_sql(sample_dir: Path) -> Path:
     """SQL DDL + DML script."""
     path = sample_dir / "schema.sql"
     path.write_text(
-        '-- LeAgent database schema\n\n'
+        '-- StAgent database schema\n\n'
         'CREATE TABLE IF NOT EXISTS expenses (\n'
         '    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n'
         '    submitter   VARCHAR(100) NOT NULL,\n'
@@ -789,7 +789,7 @@ def sample_css(sample_dir: Path) -> Path:
     """CSS stylesheet."""
     path = sample_dir / "styles.css"
     path.write_text(
-        '/* LeAgent UI styles */\n\n'
+        '/* StAgent UI styles */\n\n'
         ':root {\n'
         '  --color-primary: #2563eb;\n'
         '  --color-bg: #f8fafc;\n'

@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.services.gen_ui.schema import list_component_catalog, validate_ui_tree
-from leagent.workflow.io import MediaRef, to_gen_ui_tree
-from leagent.workflow.io.media import KIND_TO_GENUI, KIND_TO_IO_TYPE
-from leagent.workflow.io.types import SOCKET_COLORS
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry
-from leagent.workflow.nodes.art.nodes import (
+from StAgent.services.gen_ui.schema import list_component_catalog, validate_ui_tree
+from StAgent.workflow.io import MediaRef, to_gen_ui_tree
+from StAgent.workflow.io.media import KIND_TO_GENUI, KIND_TO_IO_TYPE
+from StAgent.workflow.io.types import SOCKET_COLORS
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry
+from StAgent.workflow.nodes.art.nodes import (
     ImageGenNode,
     Mesh3DNode,
     UpscaleNode,
@@ -147,7 +147,7 @@ def test_nodes_expose_optional_model_input():
 
 
 def test_node_capability_contract_matches_kind():
-    from leagent.llm.capabilities import Modality, TaskType
+    from StAgent.llm.capabilities import Modality, TaskType
 
     contract = ImageGenNode.capability_contract()
     assert contract.task == TaskType.IMAGE_GEN
@@ -174,7 +174,7 @@ def test_vfx_node_exposes_animation_params():
 
 
 def test_vfx_node_capability_contract():
-    from leagent.llm.capabilities import Modality, TaskType
+    from StAgent.llm.capabilities import Modality, TaskType
 
     contract = VFXGenNode.capability_contract()
     assert contract.task == TaskType.VFX_GEN

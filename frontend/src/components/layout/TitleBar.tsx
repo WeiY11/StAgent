@@ -165,7 +165,7 @@ export function TitleBar() {
       <div className={cn('flex min-w-0 items-center gap-2', NO_DRAG)}>
         <img src="/brand/logo.svg" alt="" className="h-4 w-4 flex-shrink-0" draggable={false} />
         <span className="truncate text-[13px] font-medium tracking-tight text-muted-foreground">
-          LeAgent
+          StAgent
         </span>
       </div>
 

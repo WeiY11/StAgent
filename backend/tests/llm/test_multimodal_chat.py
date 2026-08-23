@@ -9,21 +9,21 @@ from __future__ import annotations
 
 import base64
 
-from leagent.agent.base import ConversationMessage
-from leagent.agent.content_parts import (
+from StAgent.agent.base import ConversationMessage
+from StAgent.agent.content_parts import (
     ATTACHMENT_IMAGE_PATHS_KEY,
     ContentPart,
     MessageContent,
     rebuild_vision_history,
 )
-from leagent.agent.multimodal import (
+from StAgent.agent.multimodal import (
     model_supports_image_input,
     model_supports_output_modality,
     model_supported_input_modalities,
 )
-from leagent.api.v1.chat.attachments import build_assistant_media_event
-from leagent.llm.model_registry import ModelRegistry
-from leagent.llm.model_spec import ModelCapabilities, ModelSpec
+from StAgent.api.v1.chat.attachments import build_assistant_media_event
+from StAgent.llm.model_registry import ModelRegistry
+from StAgent.llm.model_spec import ModelCapabilities, ModelSpec
 
 
 _PNG_1PX = base64.b64decode(

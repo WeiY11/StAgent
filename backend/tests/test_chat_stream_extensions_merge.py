@@ -2,7 +2,7 @@
 
 import json
 
-from leagent.api.v1.chat import (
+from StAgent.api.v1.chat import (
     _companion_sse_events,
     _merge_message_extensions_json,
     _openai_tool_call_from_stream_edata,

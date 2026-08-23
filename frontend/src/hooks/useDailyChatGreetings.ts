@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/api/client';
 
-const LS_KEY = 'leagent.chatDailyGreetings.v1';
-const LS_PET_BUBBLES_KEY = 'leagent.chatDailyPetBubbles.v1';
+const LS_KEY = 'StAgent.chatDailyGreetings.v1';
+const LS_PET_BUBBLES_KEY = 'StAgent.chatDailyPetBubbles.v1';
 
 interface StoredPayload {
   date: string;

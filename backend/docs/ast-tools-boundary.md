@@ -1,6 +1,6 @@
 # AST / LSP tooling vs `project_apply_patch` (boundary note)
 
-LeAgent’s coding toolbox is intentionally centred on **textual, on-disk truth** and **unified diffs**, not on shipping whole projects through the model as opaque blobs.
+StAgent’s coding toolbox is intentionally centred on **textual, on-disk truth** and **unified diffs**, not on shipping whole projects through the model as opaque blobs.
 
 ## What exists today
 

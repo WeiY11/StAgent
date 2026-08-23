@@ -7,12 +7,12 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent.control import (
+from StAgent.agent.control import (
     SessionControlRegistry,
     get_session_control_registry,
     reset_session_control_registry,
 )
-from leagent.agent.query import SteerMessage, _drain_steer_messages
+from StAgent.agent.query import SteerMessage, _drain_steer_messages
 
 
 @pytest.fixture(autouse=True)
@@ -77,10 +77,10 @@ def test_clear_session():
 
 
 def _ctx(session_id):
-    from leagent.agent.tool_use_context import ToolUseContext
-    from leagent.context.file_state import FileState
-    from leagent.tools.executor import ToolExecutor
-    from leagent.tools.registry import ToolRegistry
+    from StAgent.agent.tool_use_context import ToolUseContext
+    from StAgent.context.file_state import FileState
+    from StAgent.tools.executor import ToolExecutor
+    from StAgent.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     return ToolUseContext(
@@ -112,7 +112,7 @@ def test_drain_empty_without_session():
 
 @pytest.mark.asyncio
 async def test_engine_translates_steer_to_user_append():
-    from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
+    from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
 
     engine = QueryEngine(QueryEngineConfig(cwd="."))
     before = list(engine.mutable_messages)

@@ -54,9 +54,9 @@ ledger：谁留下、谁裁切、谁丢弃
 
 相邻篇：[15](15-context-source.md) 写可计量 `ContextBlock`；[17](17-relevance-gated-prompts.md) 先减候选；[18](18-prompt-cache-and-context-hygiene.md) 讲稳定前缀；[28](28-history-compaction.md) 讲 transcript 压缩。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-- 预算：`backend/leagent/context/budget.py`（`minimise`、`enforce_source_hard_budgets`；测试见 `test_budget_cost.py`）  
+- 预算：`backend/StAgent/context/budget.py`（`minimise`、`enforce_source_hard_budgets`；测试见 `test_budget_cost.py`）  
 - 组装：`ContextManager.prepare_turn`（注释写明先硬上限再全局最小化）  
 - Recipe：`max_chars`（如默认 24000 量级，以代码为准）  
 - 历史压缩：session compaction 相关逻辑与 `tests/test_session_compression.py`  
@@ -98,7 +98,7 @@ uv run pytest tests/test_chat_prompt_preview_api.py -v
 
 ## 业内对照
 
-Anthropic compaction / context editing、ADK context compaction、通用「摘要旧轮次」——同属上下文工程。目标：保留任务推进信号，丢掉可再获取的噪声。LeAgent 把成本函数最小化做成显式模块，而不是埋在某一个巨型 prompt builder 里。
+Anthropic compaction / context editing、ADK context compaction、通用「摘要旧轮次」——同属上下文工程。目标：保留任务推进信号，丢掉可再获取的噪声。StAgent 把成本函数最小化做成显式模块，而不是埋在某一个巨型 prompt builder 里。
 
 ## 总结与延伸阅读
 

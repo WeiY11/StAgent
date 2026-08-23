@@ -9,16 +9,16 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.api.v1 import canvas as canvas_api
-from leagent.config.settings import Settings
-from leagent.services.gen_ui.print_renderer import render_print_document_html
-from leagent.services.gen_ui.schema import validate_ui_tree
+from StAgent.api.v1 import canvas as canvas_api
+from StAgent.config.settings import Settings
+from StAgent.services.gen_ui.print_renderer import render_print_document_html
+from StAgent.services.gen_ui.schema import validate_ui_tree
 
 
 @pytest.fixture
 def genui_pdf_auth_header(test_user: dict[str, Any], test_settings: Settings) -> dict[str, str]:
     """Bearer token compatible with gateway TokenPayload (includes exp)."""
-    from leagent.services.auth import AuthService
+    from StAgent.services.auth import AuthService
 
     auth = AuthService(test_settings)
     token = auth.create_access_token(UUID(test_user["user_id"]))

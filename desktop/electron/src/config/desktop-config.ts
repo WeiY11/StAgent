@@ -5,7 +5,7 @@ export type InstallState = 'started' | 'installed' | 'needs_upgrade';
 /** All keys optional — defaults are supplied via Store `defaults`. */
 export interface DesktopConfigSchema {
   installState?: InstallState;
-  leagentHome?: string;
+  StAgentHome?: string;
   serverPort?: number;
   autoUpdate?: boolean;
   windowStyle?: 'native' | 'hidden';
@@ -48,8 +48,13 @@ export function getServerPort(): number {
   return getDesktopConfigStore().get('serverPort', defaults.serverPort);
 }
 
+export function getStAgentHomeOverride(): string | undefined {
+  return getDesktopConfigStore().get('StAgentHome');
+}
+
+/** @deprecated Use getStAgentHomeOverride. */
 export function getLeagentHomeOverride(): string | undefined {
-  return getDesktopConfigStore().get('leagentHome');
+  return getStAgentHomeOverride();
 }
 
 export function isAutoUpdateEnabled(): boolean {

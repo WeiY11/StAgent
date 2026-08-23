@@ -26,8 +26,8 @@ interface AuthState {
   updateProfile: () => Promise<void>;
 }
 
-const TOKEN_KEY = 'leagent_access_token';
-const REFRESH_KEY = 'leagent_refresh_token';
+const TOKEN_KEY = 'StAgent_access_token';
+const REFRESH_KEY = 'StAgent_refresh_token';
 
 function persistTokens(access: string, refresh?: string) {
   try {

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to LeAgent will be documented in this file.
+All notable changes to StAgent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -31,7 +31,7 @@ Patch release: **desktop usability** — macOS reopen without IPC crash, notariz
 - **About “Check for updates”** — Distinguishes “update available” vs “up to date” via `updateAvailable` (previously treated any successful check as an update).
 - **Desktop API base URL** — Packaged builds no longer bake `http://127.0.0.1:7860/api/v1`; SPA uses relative `/api/v1` so custom `serverPort` keeps working.
 - **Backend health / spawn** — Health poll timeout cleared in `finally`; spawn errors surface as `backendExit` for maintenance.
-- **Install paths** — Clearer payload hash failures; LEAGENT_HOME containment and cloud-sync path checks; macOS `uv` uses `aarch64-apple-darwin` archive name.
+- **Install paths** — Clearer payload hash failures; StAgent_HOME containment and cloud-sync path checks; macOS `uv` uses `aarch64-apple-darwin` archive name.
 
 ### Changed
 
@@ -44,7 +44,7 @@ Patch release: **Weixin (personal WeChat) agent channel** with QR hot-start, nat
 
 ### Added
 
-- **Weixin (personal WeChat) agent channel** — iLink Bot long-polling adapter (`leagent/channels/weixin/`) with QR login (`leagent channels login weixin` **or** Channels page scan panel), AES-128-ECB CDN media, `context_token` persistence, typing indicators, DM access policy, and `ChannelManager` + `AgentRuntime` bridge so inbound DMs run the default agent. Confirming a QR code **hot-starts** the poller via `POST /channels/weixin/login/status` / `ensure_weixin_running` — no frontend/backend restart. Distinct from WeChat Work (`wechat_work`). Note: QR-login iLink bot identities are DM-focused; ordinary WeChat groups usually do not deliver events. Guide for OSS readers: [`docs/guides/weixin-agent-from-scratch.md`](docs/guides/weixin-agent-from-scratch.md).
+- **Weixin (personal WeChat) agent channel** — iLink Bot long-polling adapter (`StAgent/channels/weixin/`) with QR login (`StAgent channels login weixin` **or** Channels page scan panel), AES-128-ECB CDN media, `context_token` persistence, typing indicators, DM access policy, and `ChannelManager` + `AgentRuntime` bridge so inbound DMs run the default agent. Confirming a QR code **hot-starts** the poller via `POST /channels/weixin/login/status` / `ensure_weixin_running` — no frontend/backend restart. Distinct from WeChat Work (`wechat_work`). Note: QR-login iLink bot identities are DM-focused; ordinary WeChat groups usually do not deliver events. Guide for OSS readers: [`docs/guides/weixin-agent-from-scratch.md`](docs/guides/weixin-agent-from-scratch.md).
 
 ### Fixed
 
@@ -80,7 +80,7 @@ Patch release: durable **agent running traces**, shared **chat project folders**
 ### Added
 
 - **Agent running trace** — Durable debug/eval plane (`agent_traces` / spans / experiments) separate from checkpoints and chat SSOT. Captures LLM/tool/compact/subagent spans via `run_loop` + `TraceHook`; joins `llm_request_logs.run_id`. APIs for list/detail/JSONL export, by-model stats, and same-prompt multi-model experiments. Chat execution panel waterfall + Admin **Agent Traces** tab. See `docs/technical/agent-trace.md`.
-- **Chat project shared file space** — Creating a chat project also creates a catalog Folder under 「项目」 on the Files page and a disk root at `$LEAGENT_HOME/working/projects/<id>/`. All sessions in the project share that folder and sandbox root; uploads/artifacts attach to the project folder. Disk trees are kept on project delete (folder is soft-deleted).
+- **Chat project shared file space** — Creating a chat project also creates a catalog Folder under 「项目」 on the Files page and a disk root at `$StAgent_HOME/working/projects/<id>/`. All sessions in the project share that folder and sandbox root; uploads/artifacts attach to the project folder. Disk trees are kept on project delete (folder is soft-deleted).
 
 ### Changed
 
@@ -100,7 +100,7 @@ Patch release: **zero-config web search** with a provider registry and `web_fetc
 - **`web_fetch` tool** — Lightweight HTTP extract (no Playwright) with SSRF guards, robots checks, TTL cache, and size-gated summarization/truncation; use before `web_scraper` for static pages.
 - **Playwright as core dependency** — Chromium install runs from `start.sh` by default (required for zero-config Bing search).
 - **`configure_settings` tool** — Inspect → `ask_user` confirm → apply allowlisted env secrets, MCP servers, and outbound channels; Settings UI and agent share one write path. Gated `settings_setup` policy.
-- **MCP YAML persistence** — `MCPClientManager` saves servers to `LEAGENT_HOME/mcp_servers.yaml` so runtime adds survive restart.
+- **MCP YAML persistence** — `MCPClientManager` saves servers to `StAgent_HOME/mcp_servers.yaml` so runtime adds survive restart.
 - **Workflow native input panel** — Typed `WorkflowInputPanel` (including file attachments) for editor and chat embed run forms, replacing GenUI-only operation inputs.
 
 ### Changed
@@ -160,7 +160,7 @@ Patch release: tolerant **custom / vLLM** OpenAI-compatible providers, YAML-firs
 
 ### Added
 
-- **`CustomOpenAIProvider`** (`backend/leagent/llm/providers/custom.py`) — Normalizes dict `function.arguments`, converts `{"name","arguments"}` content payloads into structured tool calls, and rewrites synthetic `call_content_*` history for loose gateways.
+- **`CustomOpenAIProvider`** (`backend/StAgent/llm/providers/custom.py`) — Normalizes dict `function.arguments`, converts `{"name","arguments"}` content payloads into structured tool calls, and rewrites synthetic `call_content_*` history for loose gateways.
 - **Model catalog & provider YAML** — Centralized model metadata, tier routing from `providers.yaml`, and admin UI improvements for provider/model selection.
 
 ### Fixed
@@ -178,7 +178,7 @@ Patch release: task manager lifecycle stability for SQLite-backed tests and loca
 
 ### Fixed — Task lifecycle kill stability — 2026-05-26
 
-- **TaskManager kill flow** (`backend/leagent/services/task_manager.py`) — Wait for cancelled background task runners to unwind before persisting the `KILLED` state, preventing overlapping SQLite sessions from racing during kill commits.
+- **TaskManager kill flow** (`backend/StAgent/services/task_manager.py`) — Wait for cancelled background task runners to unwind before persisting the `KILLED` state, preventing overlapping SQLite sessions from racing during kill commits.
 
 ## [1.1.1] - 2026-05-21
 
@@ -218,20 +218,20 @@ Patch release: **blob ingest** and **canvas capture** improvements, **SQLite tas
 
 ## [1.1.0] - 2026-05-15
 
-LeAgent **1.1.0** is a minor release focused on a **QueryEngine-first** agent stack, a **much larger tool and context surface**, **session-backed memory and prompts**, **GenUI and workflow polish**, and **desktop-grade reliability** (attachments, cron, providers, SQLite). Run `alembic upgrade head`, rebuild the frontend, and skim [`AGENTS.md`](AGENTS.md) for new environment variables before upgrading from **1.0.x**.
+StAgent **1.1.0** is a minor release focused on a **QueryEngine-first** agent stack, a **much larger tool and context surface**, **session-backed memory and prompts**, **GenUI and workflow polish**, and **desktop-grade reliability** (attachments, cron, providers, SQLite). Run `alembic upgrade head`, rebuild the frontend, and skim [`AGENTS.md`](AGENTS.md) for new environment variables before upgrading from **1.0.x**.
 
 ### Release highlights
 
-- **Agent core** — `QueryEngine` orchestration, explicit transitions, injectable `QueryDeps`, streaming tool-call round-trips (incl. DeepSeek `reasoning_content`), unified tool bootstrap, dual-tier code execution, and optional split-service entrypoints (`leagent_core/`, gRPC, Redis-backed workflow and task fan-out).
-- **Context & prompts** — Source-driven `ContextManager` + recipes, layered `leagent.prompts` (L0–L7), budget and fingerprinting, provider-aware render; session compression pipeline, manual `POST …/compact-context`, composer **context-usage ring** and KV cache telemetry where supported.
+- **Agent core** — `QueryEngine` orchestration, explicit transitions, injectable `QueryDeps`, streaming tool-call round-trips (incl. DeepSeek `reasoning_content`), unified tool bootstrap, dual-tier code execution, and optional split-service entrypoints (`StAgent_core/`, gRPC, Redis-backed workflow and task fan-out).
+- **Context & prompts** — Source-driven `ContextManager` + recipes, layered `StAgent.prompts` (L0–L7), budget and fingerprinting, provider-aware render; session compression pipeline, manual `POST …/compact-context`, composer **context-usage ring** and KV cache telemetry where supported.
 - **Memory & skills** — Cognitive three-store `AgentMemory`, signed attachment URLs, non-null `File.session_id`, **Agent Skills v1.0** (`SKILL.md`, HTTP registry, progressive-disclosure tools); pluggable extensions and RTSP proxy for canvas.
 - **Tools (80+)** — New categories: chart, image, code (`code_execution`, `syntax_validator`), db, canvas (GenUI emit/publish), project / coding_project, skills, workflow tools; PPTX/style registry enhancements; path sandbox for file-touching tools.
-- **Product & workspace** — RBAC v2, workspaces and JWT claims, notifications and todos, folder **code-project** mode with git APIs, knowledge root under `LEAGENT_HOME/knowledge`, authorized session directories; SMTP defaults and **`/api/v1/settings/mail`**.
+- **Product & workspace** — RBAC v2, workspaces and JWT claims, notifications and todos, folder **code-project** mode with git APIs, knowledge root under `StAgent_HOME/knowledge`, authorized session directories; SMTP defaults and **`/api/v1/settings/mail`**.
 - **Long-running coding** — Runtime profiles (`coding_long` / `coding_extended`), **`POST /api/v1/tasks/agent-runs`** with JSONL logs, task timeouts and subprocess reap; Tasks UI launcher.
 - **Web & Playwright** — Polite outbound HTTP, robots checks, scholarly `web_search` modes, lazy `BrowserPool`, extension-pack `playwright install`, env secrets for `WEB_*` keys; default `start.sh` browser extra.
 - **GenUI** — Inline floating toolbar, full-area PNG capture, print-emulation PDF (A4 / slides), PPTX export server route.
 - **UX** — Floating NavRail, chat right-panel chrome, workflow template gallery (`TPL-01`…`TPL-10`) with input schema defaults, Settings **Python packages** tab and **`/api/v1/python-env`**, provider `api_key_set` accuracy, chat authorized-folder paste/drag UX.
-- **CJK** — Shared font discovery cache, subprocess env injection, matplotlib + chart hooks, `LEAGENT_CJK_FONT` docs.
+- **CJK** — Shared font discovery cache, subprocess env injection, matplotlib + chart hooks, `StAgent_CJK_FONT` docs.
 - **Session artifacts** — Unified registration so tool outputs map to managed attachments with stable preview/download URLs in follow-up turns.
 - **Fixes** — Chat history attachment re-signing and authenticated preview; SQLite-safe hard delete of sessions; cron UI ↔ API parity; Flow schedule modal `mode="create"`; model provider cards when API keys live only in env.
 
@@ -255,7 +255,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - **`deepseek_fim` tool** (`tools/code/deepseek_fim.py`, `bootstrap/tools.py`, `tools/code/__init__.py`) — DeepSeek `/beta/completions` FIM plus session-scoped `buffer_*` protocol; whitelisted for `script_agent` / `coding_agent` (`agent/script_agent.py`, `agent/coding_agent.py`).
 - **Syntax engine** (`services/syntax_validation.py`) — **YAML** (`safe_load`), **JSONC** (BOM strip, whole-line `//`, trailing commas), improved `auto` detection (`.yaml`/`.yml`/`.jsonc`, `---` / `%YAML` heuristics), JSON BOM strip.
 - **`syntax_validator` tool** (`tools/code/syntax_validator.py`, v1.1.0) — `jsonc` / `yaml` modes, `hint_filename` for inline auto-detect, `max_content_chars` cap + `input_too_large`, UTF-8-SIG file reads.
-- **SMTP / outbound mail** (`config/settings.py`, `services/smtp_defaults.py`, `api/v1/settings_mail.py`, `api/v1/settings_tokens.py`, `api/router_deferred.py`, `tools/integration/email_send.py`) — `LEAGENT_SMTP_*` settings and token allowlist; `merge_smtp_defaults` fills `email_send` tool args from server config; **GET/POST `/api/v1/settings/mail`** status and connection or test-send endpoints.
+- **SMTP / outbound mail** (`config/settings.py`, `services/smtp_defaults.py`, `api/v1/settings_mail.py`, `api/v1/settings_tokens.py`, `api/router_deferred.py`, `tools/integration/email_send.py`) — `StAgent_SMTP_*` settings and token allowlist; `merge_smtp_defaults` fills `email_send` tool args from server config; **GET/POST `/api/v1/settings/mail`** status and connection or test-send endpoints.
 - **Chat authorized folders** (`frontend/src/lib/localFolderPath.ts`, `ChatInput.tsx`, `chat.json` en/zh) — Normalize pasted/dropped `file://` paths, quotes, multi-line clips, and bidi marks before granting; drag-and-drop onto the path field; updated help copy.
 - **Tests** — `test_deepseek_fim_tool.py`; expanded `test_syntax_validation.py`, `test_code_execution.py`, `test_subagent.py`, `test_project_tools.py`, `test_tools.py`; `frontend/src/lib/localFolderPath.test.ts`.
 
@@ -265,7 +265,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Changed — Playwright defaults, extension packs, polite web outbound & settings env tokens — 2026-05-13
 
-- **`start.sh`** — Default `UV_SYNC_EXTRAS` includes **`browser`**; **`ensure_playwright_browsers`** runs `playwright install chromium` (optional `install-deps` on Linux); env **`LEAGENT_SKIP_PLAYWRIGHT_INSTALL`**, **`LEAGENT_PLAYWRIGHT_MIRROR`**, **`PLAYWRIGHT_DOWNLOAD_HOST`** documented in `--help`.
+- **`start.sh`** — Default `UV_SYNC_EXTRAS` includes **`browser`**; **`ensure_playwright_browsers`** runs `playwright install chromium` (optional `install-deps` on Linux); env **`StAgent_SKIP_PLAYWRIGHT_INSTALL`**, **`StAgent_PLAYWRIGHT_MIRROR`**, **`PLAYWRIGHT_DOWNLOAD_HOST`** documented in `--help`.
 - **Extension packs** (`extensions/manager.py`, `official_registry.json`) — Browser pack runs **`playwright install`** (and optional **`install-deps`**) after `uv`/`pip` install; install API returns **`playwright_install_ok`** and **`needs_backend_restart: false`** when lazy-import path applies.
 - **`web_search` tool** (`tools/web/web_search_tool.py`, `tools/web/web_search/`) — API-first scholarly modes (**arxiv**, **wikipedia**, **crossref**, **pubmed**); general search via **DuckDuckGo lite**, **SearxNG**, or **Bing**; **`trust_env`** for proxies; graceful degradation when keys or hosts fail (**`degraded`**, **`degraded_reasons`**, **`next_step`**).
 - **Polite outbound HTTP** (`tools/web/polite_http.py`) — Per-host lock, minimum interval + jitter, limited **429/5xx** retries with **`Retry-After`** / backoff; shared **`public_fetch_user_agent`** (**`WEB_FETCH_USER_AGENT`** / **`WEB_SEARCH_USER_AGENT`**).
@@ -293,19 +293,19 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Added — CJK font discovery cache, subprocess env, and generation prompt hint — 2026-05-13
 
-- **`leagent/utils/cjk_font_discovery.py`** — Broader OS font roots (incl. macOS, `XDG_DATA_HOME/fonts`), process-level discovery cache, `resolve_cjk_bold_path`, and `build_cjk_generation_turn_extra` for PDF/DOCX/PPTX/chart/code tools.
-- **Code execution** (`subprocess_sandbox.py`) — Allowlists `LEAGENT_CJK_FONT` / `LEAGENT_CJK_FONT_BOLD` and injects resolved font via `ExecutionPolicy.extra_env`.
+- **`StAgent/utils/cjk_font_discovery.py`** — Broader OS font roots (incl. macOS, `XDG_DATA_HOME/fonts`), process-level discovery cache, `resolve_cjk_bold_path`, and `build_cjk_generation_turn_extra` for PDF/DOCX/PPTX/chart/code tools.
+- **Code execution** (`subprocess_sandbox.py`) — Allowlists `StAgent_CJK_FONT` / `StAgent_CJK_FONT_BOLD` and injects resolved font via `ExecutionPolicy.extra_env`.
 - **Query engine** (`agent/query_engine.py`) — Appends CJK generation guidance to turn extras when relevant tools are registered.
 - **Matplotlib** (`matplotlib_cjk.py`, `runner.py`) — Still registers discovered or env font and sets `font.sans-serif` / `axes.unicode_minus` when user code references matplotlib.
 - **Chart tool** (`chart_generator.py`) — Generated scripts call the same CJK hook after `Agg` backend selection.
-- **Docs / deploy** — `document_fonts` policy and deploy env examples note `LEAGENT_CJK_FONT` for PDF and matplotlib.
+- **Docs / deploy** — `document_fonts` policy and deploy env examples note `StAgent_CJK_FONT` for PDF and matplotlib.
 - **Tests** — `backend/tests/test_matplotlib_cjk.py` (cache, subprocess env, turn-extra gating).
 
 ### Changed — Unified session artifact path management — 2026-05-13
 
-- **Artifact registration** (`backend/leagent/services/session/artifacts.py`) — Added a shared extractor/registrar for tool outputs, code-execution files, `file://` artifacts, nested `result.saved_to`, and subagent-style `produced_files`, converting internal paths into managed session attachments.
-- **Session paths** (`backend/leagent/services/session/paths.py`) — Centralized session upload directory resolution and reused it across uploads, path sandboxing, code-execution scan roots, image generation/download, and screenshot output.
-- **Agent runtimes** (`backend/leagent/agent/query_engine.py`, `backend/leagent/agent/controller.py`) — Both QueryEngine and AgentController now use the same artifact registrar; tool results are augmented with `managed_artifacts` so follow-up assistant turns cite signed `preview_url` / `download_url` instead of relative filenames.
+- **Artifact registration** (`backend/StAgent/services/session/artifacts.py`) — Added a shared extractor/registrar for tool outputs, code-execution files, `file://` artifacts, nested `result.saved_to`, and subagent-style `produced_files`, converting internal paths into managed session attachments.
+- **Session paths** (`backend/StAgent/services/session/paths.py`) — Centralized session upload directory resolution and reused it across uploads, path sandboxing, code-execution scan roots, image generation/download, and screenshot output.
+- **Agent runtimes** (`backend/StAgent/agent/query_engine.py`, `backend/StAgent/agent/controller.py`) — Both QueryEngine and AgentController now use the same artifact registrar; tool results are augmented with `managed_artifacts` so follow-up assistant turns cite signed `preview_url` / `download_url` instead of relative filenames.
 - **Chat media** (`frontend/src/components/chat/media/*`, `frontend/src/components/canvas/genUi/GenUiImage.tsx`) — Unified managed-file preview parsing: UUID preview paths fetch authenticated blobs, signed URLs render directly, and non-UUID `/files/name/preview` links fail clearly instead of silently rendering broken images.
 - **Tests** — `backend/tests/test_session_artifacts.py` and `frontend/src/components/chat/media/chatMediaUtils.test.ts`.
 
@@ -320,27 +320,27 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Added — Long-running Coding Agent runtime — 2026-05-11
 
-- **Runtime profiles** (`leagent/agent/runtime_profile.py`, `leagent/config/settings.py`) — Added explicit `standard`, `coding_long`, and `coding_extended` budgets for agent turn limits, task deadlines, tool timeouts, stream drain windows, and code-execution ceilings.
-- **Background Agent runs** (`leagent/api/v1/tasks.py`, `leagent/tasks/handlers/agent_handler.py`) — New `POST /api/v1/tasks/agent-runs` entrypoint starts coding agents as DB-backed tasks, returns a `task_id`, and streams JSONL progress through the existing task output endpoint.
-- **Task lifecycle hardening** (`leagent/services/task_manager.py`) — Enforces task-level `timeout_seconds`, records `TIMEOUT`, separates cooperative cancel from forced kill, and reaps active code-execution subprocesses by task/session.
-- **Code execution** (`leagent/tools/code/execution.py`) — Honors long runtime profiles for per-call `timeout_sec` validation while preserving finite hard limits.
+- **Runtime profiles** (`StAgent/agent/runtime_profile.py`, `StAgent/config/settings.py`) — Added explicit `standard`, `coding_long`, and `coding_extended` budgets for agent turn limits, task deadlines, tool timeouts, stream drain windows, and code-execution ceilings.
+- **Background Agent runs** (`StAgent/api/v1/tasks.py`, `StAgent/tasks/handlers/agent_handler.py`) — New `POST /api/v1/tasks/agent-runs` entrypoint starts coding agents as DB-backed tasks, returns a `task_id`, and streams JSONL progress through the existing task output endpoint.
+- **Task lifecycle hardening** (`StAgent/services/task_manager.py`) — Enforces task-level `timeout_seconds`, records `TIMEOUT`, separates cooperative cancel from forced kill, and reaps active code-execution subprocesses by task/session.
+- **Code execution** (`StAgent/tools/code/execution.py`) — Honors long runtime profiles for per-call `timeout_sec` validation while preserving finite hard limits.
 - **Tasks UI** (`frontend/src/pages/TasksPage/index.tsx`, `frontend/src/hooks/useTasks.ts`) — Added a Long-running Coding Agent launcher with `coding_long` / `coding_extended` selection, task log polling, and existing cancel/kill controls.
 - **Tests** — `backend/tests/test_task_manager_lifecycle.py`, `backend/tests/test_task_handlers.py`, and `backend/tests/test_code_execution.py` cover task timeouts, runtime-profile propagation, and long code-execution budgets.
 
 ### Added — Composer context usage ring & session transcript compression — 2026-05-13
 
 - **Composer** (`frontend/src/components/chat/composer/ContextUsagePopover.tsx`, `ChatInput.tsx`) — **Circular progress ring** (reference **128k-token** budget) for context pressure; popover with **prompt-layer breakdown** (`usePromptPreview`), **last-turn prompt tokens**, **DeepSeek KV cache hit/miss** when present, and **Compress context** action. **Stable Zustand selector** (`EMPTY_MESSAGES`) avoids infinite re-renders from inline `[]` fallbacks.
-- **Backend pipeline** (`leagent/context/session_compression.py`) — **`microcompact`** → **`ProgressiveCompressor`** → optional **`apply_forced_autocompact`** (tier2 summariser, `<compacted_history>`); **`POST /api/v1/chat/sessions/{session_id}/compact-context`** with optional `{ "force_llm": true }`.
-- **Persistence** (`leagent/services/chat/service.py`) — **`replace_session_transcript`** replaces **`messages`** rows after compaction; **`merge_compressed_with_session_tail`** preserves trailing **`SessionMessage`** IDs when suffix matches.
-- **Compaction core** (`leagent/memory/compact.py`) — **`apply_forced_autocompact`** for manual threshold bypass.
-- **Usage / cache telemetry** (`leagent/llm/base.py`, `agent/deps.py`, `llm/providers/openai.py`, `llm/providers/deepseek.py`, `agent/controller.py`) — **`prompt_cache_hit_tokens`**, **`prompt_cache_miss_tokens`** (and OpenAI **`prompt_tokens_details.cached_tokens`** where applicable) flow through streaming **`context_usage`** and assistant **`token_usage`**.
+- **Backend pipeline** (`StAgent/context/session_compression.py`) — **`microcompact`** → **`ProgressiveCompressor`** → optional **`apply_forced_autocompact`** (tier2 summariser, `<compacted_history>`); **`POST /api/v1/chat/sessions/{session_id}/compact-context`** with optional `{ "force_llm": true }`.
+- **Persistence** (`StAgent/services/chat/service.py`) — **`replace_session_transcript`** replaces **`messages`** rows after compaction; **`merge_compressed_with_session_tail`** preserves trailing **`SessionMessage`** IDs when suffix matches.
+- **Compaction core** (`StAgent/memory/compact.py`) — **`apply_forced_autocompact`** for manual threshold bypass.
+- **Usage / cache telemetry** (`StAgent/llm/base.py`, `agent/deps.py`, `llm/providers/openai.py`, `llm/providers/deepseek.py`, `agent/controller.py`) — **`prompt_cache_hit_tokens`**, **`prompt_cache_miss_tokens`** (and OpenAI **`prompt_tokens_details.cached_tokens`** where applicable) flow through streaming **`context_usage`** and assistant **`token_usage`**.
 - **Types & i18n** (`frontend/src/types/chat.ts`, `locales/*/chat.json`) — Extended **`MessageUsage`**; **`contextUsage*`** strings (zh/en parity).
 - **Tests** — `backend/tests/test_session_compression.py`.
 - **Documentation** — [`docs/context-compression-and-usage.md`](docs/context-compression-and-usage.md) (architecture, Mermaid diagrams, operational notes).
 
 ### Fixed — Chat session hard delete (SQLite foreign keys) — 2026-05-11
 
-- **Backend** (`leagent/services/chat/service.py`) — Hard delete and expired-session cleanup remove **`agent_episodes`** and session-scoped **`files`** before **`chat_sessions`**, matching FK constraints (`agent_episodes.session_id`, `files.session_id`). Resolves `FOREIGN KEY constraint failed` on `DELETE FROM chat_sessions`.
+- **Backend** (`StAgent/services/chat/service.py`) — Hard delete and expired-session cleanup remove **`agent_episodes`** and session-scoped **`files`** before **`chat_sessions`**, matching FK constraints (`agent_episodes.session_id`, `files.session_id`). Resolves `FOREIGN KEY constraint failed` on `DELETE FROM chat_sessions`.
 - **Tests** — `backend/tests/test_chat_delete_session_hard.py` seeds `AgentEpisode` and `File` rows to guard regressions.
 
 ### Changed — GenUI inline: floating toolbar, full-area capture, print-quality PDF — 2026-05-09
@@ -348,20 +348,20 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - **Floating modal** (`GenUiInline.tsx`, `GenUiInlineToolbar.tsx`) — Toolbar mirrors inline (**PDF**, **screenshot**, **camera**); **Enlarge** and **expand/chevron** are hidden in the modal (`showExpandToggle={false}`) since the shell is already full-height. Modal body always **`flex-1 overflow-auto`** (no secondary collapsed height).
 - **PNG capture** — **`genUiCaptureDom.ts`** (`expandScrollContainersForCapture`) temporarily clears scroll clipping so long tables and **ScrollArea** export fully; **`genUiExportDimensions.ts`** measures document trees at full **`scrollWidth` / `scrollHeight`**; **SlideDeck** PNG uses at least **1280×720** and grows with content.
 - **PDF client defaults** (`useGenUiExportPdf.ts`) — **`mode: document`** → **A4 + portrait**; **`mode: deck`** → **Slide16x9 + landscape** when paper options are omitted.
-- **Backend GenUI PDF** (`leagent/api/v1/canvas.py`) — **`emulate_media('print')`**; **A4/Letter**: margins, **footer** (page / total pages), **`outline`** and **`tagged`** PDFs; **Slide16x9**: dynamic **width/height** from layout (min 1280×720), viewport resize; **`wait_until="load"`**, fonts ready; Chromium **`--use-gl=swiftshader`** (no **`--disable-gpu`**).
-- **Print HTML theme** (`leagent/services/gen_ui/print_renderer.py`) — Typography-driven stylesheet (variables, heading scale, tables with header bands / zebra, quotes, cards), **`lang="zh-CN"`** + **`<article class="print-root">`**, broader node coverage (**Icon**, **Badge**, **Stat**, **Card**, …). Slide deck slides use improved slide chrome vs bare print defaults.
+- **Backend GenUI PDF** (`StAgent/api/v1/canvas.py`) — **`emulate_media('print')`**; **A4/Letter**: margins, **footer** (page / total pages), **`outline`** and **`tagged`** PDFs; **Slide16x9**: dynamic **width/height** from layout (min 1280×720), viewport resize; **`wait_until="load"`**, fonts ready; Chromium **`--use-gl=swiftshader`** (no **`--disable-gpu`**).
+- **Print HTML theme** (`StAgent/services/gen_ui/print_renderer.py`) — Typography-driven stylesheet (variables, heading scale, tables with header bands / zebra, quotes, cards), **`lang="zh-CN"`** + **`<article class="print-root">`**, broader node coverage (**Icon**, **Badge**, **Stat**, **Card**, …). Slide deck slides use improved slide chrome vs bare print defaults.
 - **Tests** — `backend/tests/test_genui_pdf_export.py`; `frontend/src/components/canvas/genUi/useGenUiExportPdf.test.ts`.
 
 ### Changed — Workflow template gallery & execution defaults — 2026-05-09
 
 - **`config/workflows/templates/`** — Replaced the previous enterprise-style `F-*.yaml` set with **10 runnable demos** (`TPL-01` … `TPL-10`): script sandbox, `date_calculator`, `json_parser`, `text_splitter`, `rule_matcher`, `syntax_validator`, chained scripts/tools, `notification` (admin channel), and JSON→rules chaining. Each template uses only supported node types and registered tools, with **`workflow.inputs[].default`** where the UI sends empty `input_data`.
-- **Built-in Python templates** (`leagent/workflow/templates/__init__.py`) — **`BUILTIN_TEMPLATES` is empty** so the gallery count stays **10** (YAML-only); `SCRIPT_EXAMPLE_WORKFLOW` remains in the module for direct imports.
-- **`WorkflowExecutor.execute_async`** (`leagent/workflow/engine/executor.py`) — Merges **schema defaults** from `WorkflowDocument.inputs` with caller-supplied inputs (**user keys win**), so **`POST .../workflow/flows/{id}/run`** with `{}` still receives demo defaults.
+- **Built-in Python templates** (`StAgent/workflow/templates/__init__.py`) — **`BUILTIN_TEMPLATES` is empty** so the gallery count stays **10** (YAML-only); `SCRIPT_EXAMPLE_WORKFLOW` remains in the module for direct imports.
+- **`WorkflowExecutor.execute_async`** (`StAgent/workflow/engine/executor.py`) — Merges **schema defaults** from `WorkflowDocument.inputs` with caller-supplied inputs (**user keys win**), so **`POST .../workflow/flows/{id}/run`** with `{}` still receives demo defaults.
 - **Tests** — `backend/tests/workflow/test_templates_execute.py` runs every catalog template with **`inputs={}`** to `COMPLETED`; `backend/tests/test_cron_executor_task_target.py` adds **`CronExecutor._execute_workflow`** coverage with a mocked executor and registry.
 
 ### Fixed — Model providers (admin API & UI) — 2026-05-13
 
-- **Backend** (`leagent/api/v1/models.py`) — `GET /models/providers` (and related provider payloads) include **`requires_api_key`** from provider presets. **`api_key_set`** is computed with **`_compute_api_key_set()`**: resolved YAML / `${ENV}` values first, then matching **global LLM settings** (e.g. DeepSeek, OpenAI, Anthropic, DashScope, **`tier1`** / **`tier2`** names). Avoids false “API key not configured” when the key exists only in environment.
+- **Backend** (`StAgent/api/v1/models.py`) — `GET /models/providers` (and related provider payloads) include **`requires_api_key`** from provider presets. **`api_key_set`** is computed with **`_compute_api_key_set()`**: resolved YAML / `${ENV}` values first, then matching **global LLM settings** (e.g. DeepSeek, OpenAI, Anthropic, DashScope, **`tier1`** / **`tier2`** names). Avoids false “API key not configured” when the key exists only in environment.
 - **Settings page** — Provider cards use **`api_key_set`** for the masked key line instead of inferring from **`is_healthy`**. Providers that do not use keys (preset) show **no API key required** and skip inline key editing.
 - **Admin → Providers** — Detail panel shows three states for API keys (**not required** / **configured** / **not configured**); **Edit** and **Test connection** use **`Button` `leftIcon`** so icons and labels stay on one line.
 - **Tests** — `backend/tests/test_models_api_key_set.py` exercises API key resolution.
@@ -369,7 +369,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 ### Added — Settings: backend Python environment management — 2026-05-13
 
 - **Settings page** (`frontend/src/pages/SettingsPage/index.tsx`) — New **Python 包管理 / Python packages** tab: lists packages in the environment used by the running backend, install by PyPI requirement string, uninstall by distribution name; shows interpreter path and whether `uv` is available.
-- **REST API** (`leagent/api/v1/python_env.py`, mounted at `/api/v1/python-env` from `router_deferred.py`) — `GET /info`, `GET /packages`, `POST /install` with body `{ "spec": "..." }`, `POST /uninstall` with body `{ "package": "..." }`. **`PythonEnvManager`** (`leagent/services/python_env/manager.py`) invokes `uv pip` when present, otherwise `python -m pip`, using the backend project root as working directory (aligned with official extension pack installs).
+- **REST API** (`StAgent/api/v1/python_env.py`, mounted at `/api/v1/python-env` from `router_deferred.py`) — `GET /info`, `GET /packages`, `POST /install` with body `{ "spec": "..." }`, `POST /uninstall` with body `{ "package": "..." }`. **`PythonEnvManager`** (`StAgent/services/python_env/manager.py`) invokes `uv pip` when present, otherwise `python -m pip`, using the backend project root as working directory (aligned with official extension pack installs).
 
 ### Changed — Settings: extension packs copy & Python packages tab — 2026-05-13
 
@@ -402,7 +402,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   line/column diagnostics.
 - **New `tools/db/` category** — `DatabaseTool` for real RDBMS access
   (SQLite by default; PostgreSQL/MySQL gated behind
-  `LEAGENT_DATABASE_TOOL_REMOTE=1`). Operations: `create_sqlite`,
+  `StAgent_DATABASE_TOOL_REMOTE=1`). Operations: `create_sqlite`,
   `query` (read-only), `execute` (DML/DDL with destructive confirm),
   `list_tables`, `describe_table`, `test_connection`. Accompanied by
   `sql_guard.py`, `inspector_ops.py`, `connection.py` helpers.
@@ -479,7 +479,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - **`POST /canvas/genui/export/pptx`** endpoint in
   `api/v1/canvas.py` (`GenUiExportPptxRequest`) — server-side PPTX
   export complementing the existing PDF export path.
-- **Extensions system** (`leagent/extensions/`) — pluggable
+- **Extensions system** (`StAgent/extensions/`) — pluggable
   extension registry and manager for third-party integrations.
 - **RTSP proxy** (`services/rtsp_proxy.py`) — RTSP→MJPEG proxy for
   live camera feeds in canvas `LiveCamera` components.
@@ -504,9 +504,9 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Added — Knowledge storage, session path grants, and local attachment paths — 2026-05-07
 
-- **`FilesSettings.knowledge_storage_dir`** (env `LEAGENT_KNOWLEDGE_DIR` / `FILES_KNOWLEDGE_STORAGE_DIR`) with default **`LEAGENT_HOME/knowledge`**. Indexed knowledge documents are written under **`<that root>/documents/`** instead of `upload_dir/documents/`. The path sandbox always merges this knowledge root. **`leagent init`** creates `KNOWLEDGE_DIR`; migrate old blobs with a one-time copy from ``<FILES_UPLOAD_DIR>/documents/`` to ``<resolved knowledge root>/documents/`` if you had files there before upgrading.
+- **`FilesSettings.knowledge_storage_dir`** (env `StAgent_KNOWLEDGE_DIR` / `FILES_KNOWLEDGE_STORAGE_DIR`) with default **`StAgent_HOME/knowledge`**. Indexed knowledge documents are written under **`<that root>/documents/`** instead of `upload_dir/documents/`. The path sandbox always merges this knowledge root. **`StAgent init`** creates `KNOWLEDGE_DIR`; migrate old blobs with a one-time copy from ``<FILES_UPLOAD_DIR>/documents/`` to ``<resolved knowledge root>/documents/`` if you had files there before upgrading.
 - **Session authorized directories**: `GET/POST/DELETE /api/v1/chat/sessions/{session_id}/authorized-paths` stores grants in `chat_sessions.session_metadata` under `authorized_roots` and injects them as **`ToolContext.extra["authorized_roots"]`** for the agent (same directory semantics as `project_roots`).
-- **Single-machine UI**: SSE attachment payloads may include **`local_path`** (resolved absolute storage path) when `LEAGENT_DESKTOP` or `LEAGENT_LOCAL` is enabled so the chat UI can show on-disk locations.
+- **Single-machine UI**: SSE attachment payloads may include **`local_path`** (resolved absolute storage path) when `StAgent_DESKTOP` or `StAgent_LOCAL` is enabled so the chat UI can show on-disk locations.
 - **Coding scaffolds**: after template copy, **`git init`** runs when `git` is on `PATH` and `.git` is absent.
 
 ### Added — Folder code-project mode (Coding Agent integration) — 2026-05-07
@@ -520,10 +520,10 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   absolute prefixes) on `FilesSettings`. Empty = unrestricted
   (single-user / dev default); multi-tenant deployments should
   pin it to a managed projects directory.
-- **`leagent.services.coding_projects.paths`** — `validate_project_path`,
+- **`StAgent.services.coding_projects.paths`** — `validate_project_path`,
   `assert_folder_owner`, `resolve_owned_project_folder`. Pure helpers
   shared between the HTTP layer and the chat plumbing.
-- **`leagent.services.coding_projects.git`** — async `git` subprocess
+- **`StAgent.services.coding_projects.git`** — async `git` subprocess
   wrapper (`run_git`, `git_log`, `git_show_file`, `git_diff_for_commit`,
   `git_diff_worktree`, `git_status_porcelain`, `git_init`,
   `is_git_repo`). `shell=False` argv, fixed timeouts, structured
@@ -532,7 +532,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   static-project service package and consolidated path safety,
   git helpers, binary allow-listing, scaffolding, runtime supervision,
   preview proxying, and template management under
-  `leagent.services.coding_projects`. No DB tables, REST URLs,
+  `StAgent.services.coding_projects`. No DB tables, REST URLs,
   settings names, agent tool names, or frontend routes changed.
 - **New folder project endpoints** under `/api/v1/folders/{id}/project/...`:
   - `PATCH /project` — toggle / re-target project mode.
@@ -551,7 +551,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - **`AgentController.run` / `run_stream` and `_run_via_query_engine`
   accept `project_roots: list[str]`**. When set, `QueryEngine.cwd`
   anchors to the project root so L4 `project_memory` walks discover
-  the project's `AGENTS.md` / `.leagent/memory.md` files.
+  the project's `AGENTS.md` / `.StAgent/memory.md` files.
 - **New L4 context source `active_project`** (registered in the
   `default_agent` and `coding_agent` recipes) renders an
   `<active_project>` block so the LLM sees the absolute root.
@@ -581,13 +581,13 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 - **Script agent rename** — the subprocess compute delegation path formerly
   exposed as `code_agent` / `CodeAgentNode` is now `script_agent` /
-  `ScriptAgentNode` (`leagent.agent.script_agent`, `register_script_agent_tool`,
+  `ScriptAgentNode` (`StAgent.agent.script_agent`, `register_script_agent_tool`,
   template `script_agent.md`). The `code_agent` tool name remains a registered
   alias for backward compatibility; workflow YAML may still use `type: code_agent`.
 
-### Added — Layered prompt management package (`leagent/prompts/`) — 2026-04-24
+### Added — Layered prompt management package (`StAgent/prompts/`) — 2026-04-24
 
-- **`leagent.prompts` package** — a dedicated prompt management and
+- **`StAgent.prompts` package** — a dedicated prompt management and
   generation module that centralises all system-prompt assembly into
   eight composable layers, replacing the scattered inline prompt logic
   that was previously duplicated across `AgentController`,
@@ -602,7 +602,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   | L1 | `capabilities` | stable | Tool listing + skill catalogue with resource/script hints |
   | L2 | `policies` | stable | Composable policy snippets (e.g. `file_access`) |
   | L3 | `environment` | stable | System facts (date, CWD, git, env) |
-  | L4 | `project_memory` | stable | Project `.leagent/*.md` memory files |
+  | L4 | `project_memory` | stable | Project `.StAgent/*.md` memory files |
   | L5 | `recall` | volatile | `RecallHandle` results (replaces the old `<recalled_memory>` injection) |
   | L6 | `session_state` | volatile | Attachment manifest, recent file reads, tool history |
   | L7 | `turn_extras` | volatile | Caller-supplied extras, workflow hints |
@@ -634,7 +634,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
     `rule_judge.md`, `compact_summariser.md`, `policies/file_access.md`.
 
 - **`PromptSettings`** added to `config/settings.py` (env prefix
-  `LEAGENT_PROMPT_`) with `templates_dir`, `hot_reload`,
+  `StAgent_PROMPT_`) with `templates_dir`, `hot_reload`,
   `max_total_chars`, `per_layer_budget_chars`, and
   `enable_cache_boundaries`. Wired into `get_prompt_builder()` and
   `get_prompt_registry()` singletons.
@@ -693,7 +693,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Added — Session management, cognitive memory redesign & file handling — 2026-04-24
 
-- **`SessionManager` + `TieredSessionStore`** (`leagent/services/session/`)
+- **`SessionManager` + `TieredSessionStore`** (`StAgent/services/session/`)
   replace ad-hoc conversation persistence with a production-grade tiered
   store: LRU in-memory → Redis → PostgreSQL, with per-session
   `asyncio.Lock` for concurrency safety. `SessionState` carries
@@ -701,7 +701,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `AgentController._load_conversation` / `_save_conversation` now
   delegate entirely to the session manager.
 
-- **Cognitive agent memory redesign** (`leagent/memory/`) — the legacy
+- **Cognitive agent memory redesign** (`StAgent/memory/`) — the legacy
   `MemoryManager`, `ShortTermMemory`, `BaseMemory`, and
   `MemorySystem` are deleted (no backward compatibility). Replaced by:
   - `AgentMemory` facade with a 4-method public API:
@@ -728,10 +728,10 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   **non-nullable** FK. Upload endpoints (`/files/upload`,
   `/documents/upload`, chat file ingestion) require `session_id`.
   Upload directory consolidated to `settings.files.upload_dir` (reads
-  from `leagent.config.constants.UPLOAD_DIR`); the sandbox
+  from `StAgent.config.constants.UPLOAD_DIR`); the sandbox
   `_DEFAULT_ROOTS` reads the same setting.
 
-- **HMAC-signed attachment URLs** (`leagent/services/auth/signed_url.py`)
+- **HMAC-signed attachment URLs** (`StAgent/services/auth/signed_url.py`)
   — short-lived preview/download tokens so the frontend can embed
   `<img src="/api/v1/files/{id}/preview?token=...">` without
   shipping a JWT. New `GET /files/{id}/preview` and updated
@@ -785,7 +785,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   alias.
 - `MemoryCompactionHook` — functionality absorbed by
   `SessionManager` + `AgentMemory`.
-- Hardcoded `/tmp/leagent/files` upload paths — replaced by
+- Hardcoded `/tmp/StAgent/files` upload paths — replaced by
   `settings.files.upload_dir`.
 
 ### Fixed — SQLite `create_all` and test collection after memory hook removal — 2026-04-24
@@ -806,7 +806,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `compatibility`, `metadata`, `allowed-tools`) plus three optional
   bundled subdirectories (`references/`, `assets/`, `scripts/`).
   Legacy `skill.yaml` / `skill.json` manifests are no longer
-  loaded; run `leagent skills migrate --apply` to convert them
+  loaded; run `StAgent skills migrate --apply` to convert them
   in place (the original YAML is archived next to the generated
   `SKILL.md`).
 - **Four-tier progressive disclosure** —
@@ -820,18 +820,18 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   4. New `run_skill_script` tool executes bundled `scripts/`
      entries via `asyncio.create_subprocess_exec` — argv-only, no
      shell, cwd = skill dir, bounded timeout. Opt-in behind
-     `LEAGENT_SKILL_SCRIPTS_ENABLED` **and** a matching
+     `StAgent_SKILL_SCRIPTS_ENABLED` **and** a matching
      `allowed-tools` entry in the skill manifest.
-- **Cross-agent discovery** (`leagent/skills/discovery.py`) —
-  project roots (`.leagent/`, `.claude/`, `.cursor/`,
+- **Cross-agent discovery** (`StAgent/skills/discovery.py`) —
+  project roots (`.StAgent/`, `.claude/`, `.cursor/`,
   `.codex/`, `.gemini/`, `.opencode/`, `.kiro/`, `.windsurf/`,
-  `.github/`) and user roots (`$LEAGENT_HOME`, `~/.claude`,
+  `.github/`) and user roots (`$StAgent_HOME`, `~/.claude`,
   `~/.cursor`, `~/.codex`, `~/.gemini`, `~/.config/opencode`,
   `~/.kiro`, `~/.codeium/windsurf`, `~/.copilot`) are scanned
   alongside the bundled skill directory. A deterministic
   precedence order means a project-local skill shadows the
   user-scoped or bundled copy without any file shuffling.
-- **Pluggable registry** (`leagent/skills/registry.py`) —
+- **Pluggable registry** (`StAgent/skills/registry.py`) —
   `SkillRegistry` Protocol with two built-in implementations:
   `DisabledRegistry` (default; returns `501 Not configured`) and
   `HTTPSkillRegistry`. The HTTP registry supports `search`,
@@ -839,10 +839,10 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   optional SHA-256, extracts safely with traversal checks,
   validates with the loader, performs an atomic filesystem swap
   with rollback) and `uninstall`. Configure via
-  `LEAGENT_SKILLS_REGISTRY_URL` env var or the `skills.registry.url`
-  key in `~/.leagent/config.yaml`.
+  `StAgent_SKILLS_REGISTRY_URL` env var or the `skills.registry.url`
+  key in `~/.StAgent/config.yaml`.
 - **New & updated tools in the curated bootstrap**
-  (`leagent/bootstrap/tools.py`) — `SkillTool` refactored to
+  (`StAgent/bootstrap/tools.py`) — `SkillTool` refactored to
   remove the `skill.config["_prompt_content"]` back-channel;
   `SkillResourceTool` and `SkillScriptTool` registered alongside
   it so the LLM can discover them.
@@ -859,16 +859,16 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
     `POST /{name}/scripts/{path}/run` (env-gated),
     `GET /hub/search`, `POST /hub/install/{name}`,
     `DELETE /{name}`.
-- **CLI** (`leagent/cli/skills_cmd.py`) —
-  - New subcommands: `leagent skills migrate [--apply]`,
-    `leagent skills lint`, `leagent skills validate <path>`,
-    `leagent skills init <name>`.
+- **CLI** (`StAgent/cli/skills_cmd.py`) —
+  - New subcommands: `StAgent skills migrate [--apply]`,
+    `StAgent skills lint`, `StAgent skills validate <path>`,
+    `StAgent skills init <name>`.
   - `install` accepts `--source <path-or-url>` for local / git
     installs; registry-based installs require a configured URL
     and fail loudly otherwise.
   - `list`, `show`, `enable`, `disable`, `uninstall`, `search`
     updated to the new models.
-- **Bundled skills** (`leagent/skills/builtin/`) — the three
+- **Bundled skills** (`StAgent/skills/builtin/`) — the three
   shipped skills (`data-analyzer`, `document-processor`,
   `workflow-helper`) now use strict v1.0 frontmatter: `when_to_use`
   folded into `description`, `allowed-tools` space-delimited,
@@ -911,20 +911,20 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - Legacy skill models: `SkillTool`, `SkillPrompt`, `SkillMCPServer`
   (and their YAML/JSON parsing paths).
 - The stubbed `DEFAULT_HUB_URL` pointing at
-  `raw.githubusercontent.com/leagent/skills-registry` — replaced
+  `raw.githubusercontent.com/StAgent/skills-registry` — replaced
   by the pluggable registry described above.
 - `skill.config["_prompt_content"]` back-channel (skills now read
   their body lazily from disk via `Skill.read_body()`).
 
 ### Security — Tool filesystem sandbox & conversation persistence — 2026-04-24
 
-- **Path sandbox for all file-touching tools** (`leagent/tools/_sandbox/paths.py`).
+- **Path sandbox for all file-touching tools** (`StAgent/tools/_sandbox/paths.py`).
   Every tool that accepts a filesystem path now declares `path_params` /
   `output_path_params` class attributes on `BaseTool`. Before execution,
   `BaseTool.run()` validates each declared parameter through
   `PathSandbox.resolve_safe()`, which rejects any resolved path outside the
-  configured allow-list. Default root: `/tmp/leagent/files` (the upload
-  directory). Override via the `LEAGENT_TOOL_FILE_ROOTS` environment
+  configured allow-list. Default root: `/tmp/StAgent/files` (the upload
+  directory). Override via the `StAgent_TOOL_FILE_ROOTS` environment
   variable (comma-separated).
   - **Per-request attachment allow-list**: `ToolContext.extra["attachments"]`
     carries user-uploaded file paths, which are also permitted by the sandbox.
@@ -939,7 +939,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
     **integration** (`email_send`).
 
 - **Fixed `ShortTermMemory` missing `load_session` / `save_session`**
-  (`leagent/memory/short_term.py`). `AgentController._load_conversation`
+  (`StAgent/memory/short_term.py`). `AgentController._load_conversation`
   and `_save_conversation` called these methods on every turn, but they
   did not exist on `ShortTermMemory`, causing silent `AttributeError`s
   logged as `conversation_load_failed` / `conversation_save_failed`. The
@@ -948,7 +948,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   instead of exception when Redis is unavailable).
 
 - **Hardened agent system prompt** — `SYSTEM_PROMPT_TEMPLATE` in
-  `leagent/agent/controller.py` now includes a "File access policy
+  `StAgent/agent/controller.py` now includes a "File access policy
   (strict)" block that instructs the LLM to only touch user-attached
   files and task outputs. `file_manager.description` and
   `text_processor.description` carry inline boundary reminders visible
@@ -960,7 +960,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `ShortTermSessionPersistence` tests in   `tests/test_memory.py`.
 
 ### Added — QueryEngine, modular context/memory, DeepSeek integration — 2026-04-22
-- **`QueryEngine` session orchestrator** (`leagent/agent/query_engine.py`)
+- **`QueryEngine` session orchestrator** (`StAgent/agent/query_engine.py`)
   ported from the `QueryEngine.ts` reference design. Owns
   session-scoped state (`mutable_messages`, `FileStateCache`,
   `token_usage`, `cwd`, `session_id`) and exposes a streaming
@@ -968,44 +968,44 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   (`stream_delta` / `assistant` / `tool_use` / `tool_result` /
   `system` / `result`). Caller-owned `system_prompt` — no hardcoded
   prompts inside the engine or in `code_agent.py`.
-- **Per-turn `query_loop()`** (`leagent/agent/query.py`) with an
+- **Per-turn `query_loop()`** (`StAgent/agent/query.py`) with an
   explicit pre-API pipeline (tool-result budgeting → microcompact →
   autocompact → memory prefetch drain), streaming, partitioned tool
   dispatch, and recovery/terminal transitions.
-- **Structured transitions** (`leagent/agent/transitions.py`):
+- **Structured transitions** (`StAgent/agent/transitions.py`):
   `Terminal(reason=completed | max_turns | aborted | model_error |
   max_tool_calls)` and `Continue(reason=next_turn | recovered)`, plus
   `QueryState` / `AutoCompactTrackingState` in
-  `leagent/agent/state.py`. Control flow is value-shaped, not
+  `StAgent/agent/state.py`. Control flow is value-shaped, not
   exception-smuggled.
-- **DI seam for LLM I/O** (`leagent/agent/deps.py`): `QueryDeps`
+- **DI seam for LLM I/O** (`StAgent/agent/deps.py`): `QueryDeps`
   Protocol abstracts `call_model` / `microcompact` / `autocompact`.
   `production_deps(llm_service, memory_manager)` wires the real
   services in; tests inject scripted stubs.
   `call_model` adapts `LLMService.chat_stream` into
   `ModelStreamEvent`s and coalesces OpenAI-compatible tool-call
   deltas per call id.
-- **`ToolUseContext`** (`leagent/agent/tool_use_context.py`) — single
+- **`ToolUseContext`** (`StAgent/agent/tool_use_context.py`) — single
   handle carrying abort signal, registry/executor,
   `FileStateCache`, and `MemoryPrefetchHandle` through `query_loop` and
   into tools.
-- **Modular context assembly** — `leagent/context/` split into
+- **Modular context assembly** — `StAgent/context/` split into
   single-purpose files: `system.py` (date / CWD / env / git),
-  `user.py` (project `.leagent/*.md` memory files),
+  `user.py` (project `.StAgent/*.md` memory files),
   `file_state_cache.py` (`FileStateCache` + `FileReadRecord`),
   `attachments.py` (`AttachmentMessage` + rendering/dedup), `api.py`
   (`append_system_context` / `prepend_user_context`). `system_context.py`
   is kept as a back-compat facade.
 - **Memory prefetch + compaction** —
-  `leagent/memory/prefetch.py::build_prefetch` starts a non-blocking
+  `StAgent/memory/prefetch.py::build_prefetch` starts a non-blocking
   long-term retrieval at turn start; `MemoryPrefetchHandle.results()`
   drains completed hits and dedups against `FileStateCache`.
-  `leagent/memory/compact.py` exports
+  `StAgent/memory/compact.py` exports
   `build_microcompact(memory_manager)` and
   `build_autocompact(llm_service, tier="tier2")`. New
   `MemoryManager.retrieve_attachments()` returns structured
   `AttachmentMessage`s instead of raw strings.
-- **DeepSeek provider** (`leagent/llm/providers/deepseek.py`) —
+- **DeepSeek provider** (`StAgent/llm/providers/deepseek.py`) —
   inherits `OpenAIProvider`, overrides `_parse_stream_chunk` to
   surface `reasoning_content` on `StreamChunk.raw_delta` without
   polluting the text channel. `llm/registry.py` auto-registers it
@@ -1036,16 +1036,16 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   offline, <1s.
 
 ### Changed — AgentController compat shim over QueryEngine — 2026-04-22
-- `leagent/agent/controller.py` is now a **compat shim** over
+- `StAgent/agent/controller.py` is now a **compat shim** over
   `QueryEngine`. `AgentConfig.use_query_engine` (default `True`)
   routes `run` / `run_stream` through the engine and re-maps its
   `SDKMessage`s onto the legacy `StreamEvent` stream. Hooks, workflow
   matching, and abort semantics preserved.
-- `leagent/api/v1/chat.py` — `/chat`, `/chat/stream`, and the
+- `StAgent/api/v1/chat.py` — `/chat`, `/chat/stream`, and the
   WebSocket all drive a `QueryEngine` via
   `_build_agent_controller_with_memory()`, with a shared
   `MemoryManager` instance per app.
-- `leagent/agent/code_agent.py` — removed hardcoded Excel-analysis
+- `StAgent/agent/code_agent.py` — removed hardcoded Excel-analysis
   prompt and default tool list. Now exposes
   `build_code_agent_engine(system_prompt=..., tools=..., ...)` as a
   prompt-agnostic builder that returns a preconfigured `QueryEngine`
@@ -1075,7 +1075,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   (`admin`, `dept_head`, `staff`, `readonly`) are marked `is_system`
   and cannot be deleted.
 - **`PermissionChecker` FastAPI dependency** in
-  `leagent.services.auth.deps` enforces permissions consistently;
+  `StAgent.services.auth.deps` enforces permissions consistently;
   superusers short-circuit. A CI audit script
   (`scripts/audit_router_auth.py`) fails the build if any `/api/v1/*`
   route forgets to declare an auth dep.
@@ -1117,7 +1117,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   fallback; it will be removed once the flag is flipped in prod.
 
 ### Added — Scalable microservices platform — 2026-04-22
-- **Shared core library `leagent_core/`** consumed by every runtime:
+- **Shared core library `StAgent_core/`** consumed by every runtime:
   `schema`, `proto`, `queue` (Redis Streams with consumer groups, DLQ,
   idempotency, exponential backoff), `events` (unified Pub/Sub + in-memory
   bus), `cache` (`RedisCache`, `CacheAside`, stampede lock),
@@ -1128,8 +1128,8 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   and `rpc` (gRPC server/client + auth/trace interceptors).
 - **gRPC contracts** for every service under `backend/protos/*.proto`
   (`common`, `agent`, `workflow`, `llm`, `tool`) and a
-  `python -m leagent_core.proto.build` generator.
-- **Per-service entrypoints** under `leagent/apps/`:
+  `python -m StAgent_core.proto.build` generator.
+- **Per-service entrypoints** under `StAgent/apps/`:
   - `gateway/` — FastAPI app factory (`app.py`, `main.py`) with DDD
     layering (`domain/`, `application/ports.py`, `infrastructure/`,
     `interfaces/`), `RequestContextMiddleware` (request id, tenant,
@@ -1157,15 +1157,15 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `request_id`, `user_id`, `tenant_id`, `service.name`.
 - **Deployment artefacts**:
   - Single multi-stage `backend/deploy/services/Dockerfile` + dispatcher
-    `entrypoint.sh` keyed on `LEAGENT_SERVICE`.
+    `entrypoint.sh` keyed on `StAgent_SERVICE`.
   - `backend/deploy/docker-compose.microservices.yml` for dev/staging
     with gateway×1, agent×1, wf-dispatcher×1, wf-worker×2,
     llm-gateway×1, tool-worker×2 and the full observability stack.
-  - Helm chart under `backend/deploy/k8s/charts/leagent/` with
+  - Helm chart under `backend/deploy/k8s/charts/StAgent/` with
     per-service HPAs (CPU for gateway/agent/LLM/tool, Redis queue depth
     for workflow-worker), PodDisruptionBudgets, readiness/liveness/
     startup probes, and a pre-install Alembic Job.
-  - `leagent/scripts/run_migrations.py` runs Alembic once, guarded by
+  - `StAgent/scripts/run_migrations.py` runs Alembic once, guarded by
     a Postgres advisory lock, so any replica can safely invoke it on
     startup.
 - **Load-test harness** at `backend/tests/load/`:
@@ -1176,14 +1176,14 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `baselines/monolith.json`.
 - **Updated docs**: `backend/README.md` now documents the service
   topology, entrypoint table, and 6-step phased migration runbook;
-  `leagent/AGENTS.md` repo map expanded to cover `apps/`,
-  `leagent_core/`, and `deploy/` subtrees plus the topology invariants.
+  `StAgent/AGENTS.md` repo map expanded to cover `apps/`,
+  `StAgent_core/`, and `deploy/` subtrees plus the topology invariants.
 
 ### Changed — Concurrency & performance — 2026-04-22
 - **Redis-first defaults**: `queue_backend` switched from `memory` to
   `redis`; workflow `_prompt_to_execution` moved from an in-process dict
   to a Redis-backed `PromptExecutionMap` with TTL
-  (`leagent/workflow/prompt_map.py`).
+  (`StAgent/workflow/prompt_map.py`).
 - **Unified event bus**: the previous parallel `ExecutionEventBus` and
   `get_event_bus` singletons now resolve through a single shared bus
   populated by `ServiceManager`.
@@ -1192,7 +1192,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `DistributedTaskRegistry` (Redis HASH + Pub/Sub) so any Gateway
   replica can push to any client or cancel any task.
 - **Auth path hardening**: `services/auth/deps.py` now routes API-key
-  auth through `leagent_core.auth.ApiKeyVerifier` (Redis cache +
+  auth through `StAgent_core.auth.ApiKeyVerifier` (Redis cache +
   `api_keys.rate_limit` enforcement) and `RoleChecker` through a
   DB-backed, cache-fronted `RoleCheckerFactory`.
 - **Rate limiting**: `RateLimitMiddleware` with Lua token-bucket
@@ -1203,7 +1203,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   is no longer referenced; `_get_tool_registry()` is used consistently.
 
 ### Added — Unified tool bootstrap & code execution — 2026-04-22
-- **Unified tool bootstrap** (`leagent.bootstrap.tools`): single
+- **Unified tool bootstrap** (`StAgent.bootstrap.tools`): single
   async entrypoint that handles tool discovery, curated-util registration,
   builtin workflow nodes, and the per-tool `Tool.<name>` factory. Used
   by the HTTP server, CLI, and workflow worker so every process gets the
@@ -1213,7 +1213,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
     small Python snippets inside workflows (no external dependencies
     beyond pure-Python `RestrictedPython`).
   - `code_execution` tool — professional out-of-process sandbox
-    (`leagent.services.code_execution`) with per-session workspace,
+    (`StAgent.services.code_execution`) with per-session workspace,
     rlimit/SIGALRM resource caps, and JSON-envelope runner protocol.
   - `CodeExecutionAgent` + `CodeAgentTool` + `CodeAgentNode` — a
     restricted ReAct agent dedicated to compute-heavy turns, exposed
@@ -1222,7 +1222,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
   `workflow/io/schema_bridge.py` (JSON Schema → typed IO inputs) and
   `workflow/nodes/tool_factory.py` (auto-generated `Tool.<name>` node
   subclass per registered tool).
-- **Data processing primitives** in `leagent/tools/_data/`
+- **Data processing primitives** in `StAgent/tools/_data/`
   (`ArtifactRef`, `TabularSchema`, `emit_records`, `load_records`,
   spill-to-disk) with `sql_query`, `vector_search`, `data_clean`,
   `data_transform`, `data_merge`, `data_aggregate`, and `data_validate`
@@ -1230,7 +1230,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Changed — ToolExecutor consolidation and workflow agent shim — 2026-04-22
 - Consolidated the two previous tool executors into a single
-  `leagent.tools.executor.ToolExecutor` that natively accepts both
+  `StAgent.tools.executor.ToolExecutor` that natively accepts both
   `AgentContext` and `ToolContext` and carries the `ServiceManager`;
   removed the `AgentToolAdapter` shim.
 - `WorkflowExecutor` now exposes the parent `AgentController` to nodes
@@ -1239,7 +1239,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 ### Deprecated — Legacy per-process utility tool registration — 2026-04-22
 - `main._register_utility_tools` and the legacy copy in
-  `cli/bootstrap.py` — replaced by `leagent.bootstrap.register_default_tools`.
+  `cli/bootstrap.py` — replaced by `StAgent.bootstrap.register_default_tools`.
 
 ## [1.0.0] - 2026-03-07
 
@@ -1300,12 +1300,12 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 - RBAC authorization
 
 #### CLI
-- `leagent app` - Run server
-- `leagent init` - Initialize configuration
-- `leagent models` - Manage LLM providers
-- `leagent channels` - Configure channels
-- `leagent skills` - Manage skills
-- `leagent cron` - Manage scheduled jobs
+- `StAgent app` - Run server
+- `StAgent init` - Initialize configuration
+- `StAgent models` - Manage LLM providers
+- `StAgent channels` - Configure channels
+- `StAgent skills` - Manage skills
+- `StAgent cron` - Manage scheduled jobs
 
 #### Deployment
 - Multi-stage Dockerfile
@@ -1362,7 +1362,7 @@ _Subsections below keep `— YYYY-MM-DD` on each heading for maintainers (commit
 
 1. **Database migration** — `cd backend && alembic upgrade head` (new tables/columns for sessions, memory, workspaces, tasks, etc., depending on your starting revision).
 2. **Frontend** — `cd frontend && npm ci && npm run build` (or your CI image rebuild); clear the browser app cache if you see stale bundles.
-3. **Configuration** — review [`AGENTS.md`](AGENTS.md) for new env vars (Playwright install skips/mirrors, `WEB_FETCH_*`, `LEAGENT_CJK_FONT`, mail/SMTP, skills registry, knowledge directory). Extension packs may run `playwright install` on install.
+3. **Configuration** — review [`AGENTS.md`](AGENTS.md) for new env vars (Playwright install skips/mirrors, `WEB_FETCH_*`, `StAgent_CJK_FONT`, mail/SMTP, skills registry, knowledge directory). Extension packs may run `playwright install` on install.
 
 ### Upgrading from 0.9.x to 1.0.0
 

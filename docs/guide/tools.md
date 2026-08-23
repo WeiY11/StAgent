@@ -1,3 +1,3 @@
-﻿# Tools Reference
+# Tools Reference
 
 TODO: Write tools reference.

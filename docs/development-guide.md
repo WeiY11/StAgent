@@ -1,8 +1,8 @@
-# LeAgent 项目开发文�?
+# StAgent 项目开发文�?
 
 ## 项目概述
 
-LeAgent 是一个开源的桌面 AI 代理平台，专注于实际工作执行而非简单对话。它融合了三个核心能力：流式代理运行时、代理视觉工作流和生成式 UI 层，提供 100+ 内置离线工具的完整自托管解决方案�?
+StAgent 是一个开源的桌面 AI 代理平台，专注于实际工作执行而非简单对话。它融合了三个核心能力：流式代理运行时、代理视觉工作流和生成式 UI 层，提供 100+ 内置离线工具的完整自托管解决方案�?
 
 ### 核心特�?
 
@@ -54,7 +54,7 @@ LeAgent 是一个开源的桌面 AI 代理平台，专注于实际工作执行�
 
 #### 1. 代理运行�?(Agent Runtime)
 
-**位置**: `backend/leagent/runtime/`
+**位置**: `backend/StAgent/runtime/`
 
 **职责**: 统一的代理执�?SDK，提供声明式代理定义和执行门面�?
 
@@ -67,7 +67,7 @@ LeAgent 是一个开源的桌面 AI 代理平台，专注于实际工作执行�
 **使用示例**:
 
 ```python
-from leagent.runtime import AgentBuilder
+from StAgent.runtime import AgentBuilder
 
 support = (
     AgentBuilder("support_agent")
@@ -87,7 +87,7 @@ result = await runtime.run("support_agent", "Help with issue", session_id=sid)
 
 #### 2. 执行拓扑 (Execution Topology)
 
-**核心原则**: 所有代理调用必须通过 `leagent.sdk.kernel.loop.run_loop`�?
+**核心原则**: 所有代理调用必须通过 `StAgent.sdk.kernel.loop.run_loop`�?
 
 **执行路径**:
 
@@ -101,7 +101,7 @@ result = await runtime.run("support_agent", "Help with issue", session_id=sid)
 
 #### 3. 工作流引�?(Workflow Engine)
 
-**位置**: `backend/leagent/workflow/`
+**位置**: `backend/StAgent/workflow/`
 
 **支持模型**:
 
@@ -119,7 +119,7 @@ result = await runtime.run("support_agent", "Help with issue", session_id=sid)
 
 #### 4. 工具系统 (Tool System)
 
-**位置**: `backend/leagent/tools/`
+**位置**: `backend/StAgent/tools/`
 
 **工具类别**:
 
@@ -133,7 +133,7 @@ result = await runtime.run("support_agent", "Help with issue", session_id=sid)
 **工具注册**:
 
 ```python
-from leagent.tools import ToolRegistry
+from StAgent.tools import ToolRegistry
 
 registry = ToolRegistry()
 registry.register_tool("web_search", WebSearchTool)
@@ -151,7 +151,7 @@ registry.register_tool("knowledge_query", KnowledgeQueryTool)
 **配置策略**:
 
 ```python
-from leagent.runtime import MemoryPolicy
+from StAgent.runtime import MemoryPolicy
 
 memory = MemoryPolicy(
     enabled=True,
@@ -165,12 +165,12 @@ memory = MemoryPolicy(
 **认证机制**:
 
 - **实例访问密码**: PBKDF2 哈希存储�?`$LEAGENT_HOME/security.json`
-- **会话 JWT**: 通过 `LEAGENT_SECRET_KEY` HMAC 签名
+- **会话 JWT**: 通过 `StAgent_SECRET_KEY` HMAC 签名
 - **多用户支�?*: 命名用户表和权限管理
 
 **安全策略**:
 
-- 强制认证: `LEAGENT_SECURITY_ENFORCE_AUTH`
+- 强制认证: `StAgent_SECURITY_ENFORCE_AUTH`
 - 速率限制: 自动启用认证�?
 - OpenAPI 文档保护: 认证时禁�?
 - 工作流所有权验证
@@ -200,7 +200,7 @@ uv shell
 uv run python -m pytest tests/ -v
 
 # 启动开发服务器
-uv run uvicorn leagent.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn StAgent.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 前端开发环�?
@@ -247,7 +247,7 @@ cd backend
 uv sync --extra postgres
 
 # 配置环境变量
-export DATABASE_URL="postgresql+asyncpg://user:password@localhost/leagent"
+export DATABASE_URL="postgresql+asyncpg://user:password@localhost/StAgent"
 ```
 
 ### 环境变量
@@ -256,20 +256,20 @@ export DATABASE_URL="postgresql+asyncpg://user:password@localhost/leagent"
 
 ```bash
 # 应用配置
-LEAGENT_HOME=/path/to/leagent/home
-LEAGENT_SECRET_KEY=your-secret-key
-LEAGENT_DEBUG=true
+StAgent_HOME=/path/to/StAgent/home
+StAgent_SECRET_KEY=your-secret-key
+StAgent_DEBUG=true
 
 # 模型配置
 DEEPSEEK_API_KEY=your-deepseek-key
 OPENAI_API_KEY=your-openai-key
 
 # 安全配置
-LEAGENT_SECURITY_ENFORCE_AUTH=true
-LEAGENT_SECURITY_RATE_LIMIT_PER_MINUTE=60
+StAgent_SECURITY_ENFORCE_AUTH=true
+StAgent_SECURITY_RATE_LIMIT_PER_MINUTE=60
 
 # 数据库配�?
-DATABASE_URL=sqlite+aiosqlite:///./leagent.db
+DATABASE_URL=sqlite+aiosqlite:///./StAgent.db
 
 # 工作进程
 LEAGENT_WORKERS=1  # SQLite 使用 1，PostgreSQL 可增�?
@@ -281,7 +281,7 @@ LEAGENT_WORKERS=1  # SQLite 使用 1，PostgreSQL 可增�?
 
 ```
 backend/
-├── leagent/
+├── StAgent/
 �?  ├── runtime/          # 代理运行�?SDK
 �?  ├── sdk/              # 核心 SDK 和内�?
 �?  ├── tools/            # 工具实现
@@ -315,8 +315,8 @@ desktop/
 1. **创建工具�?*:
 
 ```python
-# backend/leagent/tools/my_tool.py
-from leagent.tools import Tool, ToolResult
+# backend/StAgent/tools/my_tool.py
+from StAgent.tools import Tool, ToolResult
 from pydantic import BaseModel
 
 class MyToolInput(BaseModel):
@@ -335,7 +335,7 @@ class MyTool(Tool):
 2. **注册工具**:
 
 ```python
-# backend/leagent/tools/registry.py
+# backend/StAgent/tools/registry.py
 from .my_tool import MyTool
 
 def register_custom_tools(registry: ToolRegistry):
@@ -345,7 +345,7 @@ def register_custom_tools(registry: ToolRegistry):
 3. **更新代理定义**:
 
 ```python
-from leagent.runtime import AgentBuilder
+from StAgent.runtime import AgentBuilder
 
 agent = (
     AgentBuilder("my_agent")
@@ -375,10 +375,10 @@ Example usage scenarios.
 
 ```bash
 # 官方技�?
-backend/leagent/extensions/skills/official/my_skill/SKILL.md
+backend/StAgent/extensions/skills/official/my_skill/SKILL.md
 
 # 用户技�?
-$LEAGENT_HOME/skills/my_skill/SKILL.md
+$StAgent_HOME/skills/my_skill/SKILL.md
 ```
 
 3. **技能自动发�?*:
@@ -390,8 +390,8 @@ $LEAGENT_HOME/skills/my_skill/SKILL.md
 1. **定义节点类型**:
 
 ```python
-# backend/leagent/workflow/nodes/my_node.py
-from leagent.workflow import Node, NodeResult
+# backend/StAgent/workflow/nodes/my_node.py
+from StAgent.workflow import Node, NodeResult
 
 class MyNode(Node):
     node_type = "my_node"
@@ -405,7 +405,7 @@ class MyNode(Node):
 2. **注册节点**:
 
 ```python
-# backend/leagent/workflow/registry.py
+# backend/StAgent/workflow/registry.py
 from .nodes.my_node import MyNode
 
 def register_custom_nodes(registry: NodeRegistry):
@@ -419,7 +419,7 @@ def register_custom_nodes(registry: NodeRegistry):
 ```python
 # tests/test_my_tool.py
 import pytest
-from leagent.tools.my_tool import MyTool, MyToolInput
+from StAgent.tools.my_tool import MyTool, MyToolInput
 
 @pytest.mark.asyncio
 async def test_my_tool():
@@ -435,7 +435,7 @@ async def test_my_tool():
 ```python
 # tests/integration/test_agent_flow.py
 import pytest
-from leagent.runtime import AgentRuntime
+from StAgent.runtime import AgentRuntime
 
 @pytest.mark.integration
 async def test_agent_with_tool():
@@ -463,24 +463,24 @@ uv run python -m pytest tests/test_my_tool.py -v
 
 ```bash
 # 使用 ruff 进行代码检�?
-uv run ruff check backend/leagent/
+uv run ruff check backend/StAgent/
 
 # 自动修复
-uv run ruff check --fix backend/leagent/
+uv run ruff check --fix backend/StAgent/
 ```
 
 **类型检�?*:
 
 ```bash
 # 使用 mypy 进行类型检�?
-uv run mypy backend/leagent/
+uv run mypy backend/StAgent/
 ```
 
 **格式�?*:
 
 ```bash
 # 使用 ruff 进行格式�?
-uv run ruff format backend/leagent/
+uv run ruff format backend/StAgent/
 ```
 
 ## API 文档
@@ -546,7 +546,7 @@ POST   /api/v1/tools/{name}/execute    # 执行工具
 **构建镜像**:
 
 ```bash
-docker build -t leagent:latest .
+docker build -t StAgent:latest .
 ```
 
 **运行容器**:
@@ -554,10 +554,10 @@ docker build -t leagent:latest .
 ```bash
 docker run -d \
   -p 8000:8000 \
-  -v leagent_data:/app/data \
-  -e LEAGENT_SECRET_KEY=your-secret-key \
+  -v StAgent_data:/app/data \
+  -e StAgent_SECRET_KEY=your-secret-key \
   -e DEEPSEEK_API_KEY=your-api-key \
-  leagent:latest
+  StAgent:latest
 ```
 
 ### 生产环境配置
@@ -573,7 +573,7 @@ uv run alembic upgrade head
 
 ```bash
 # 使用 gunicorn
-uv run gunicorn leagent.main:app \
+uv run gunicorn StAgent.main:app \
   --workers 4 \
   --worker-class uvicorn.workers.UvicornWorker \
   --bind 0.0.0.0:8000
@@ -607,7 +607,7 @@ server {
 
 **日志位置**:
 - 开发环�? `logs/` 目录
-- 生产环境: `$LEAGENT_HOME/logs/`
+- 生产环境: `$StAgent_HOME/logs/`
 
 **指标端点**:
 - Prometheus: `http://localhost:8000/metrics`
@@ -616,7 +616,7 @@ server {
 **调试模式**:
 
 ```bash
-export LEAGENT_DEBUG=true
+export StAgent_DEBUG=true
 ```
 
 ## 贡献指南
@@ -662,7 +662,7 @@ test: add integration tests for workflow engine
 ### 数据库优�?
 
 **SQLite**:
-- 保持 `LEAGENT_WORKERS=1`
+- 保持 `StAgent_WORKERS=1`
 - 定期执行 `VACUUM`
 - 使用 WAL 模式
 
@@ -676,7 +676,7 @@ test: add integration tests for workflow engine
 **内存缓存**:
 
 ```python
-from leagent.cache import CacheConfig
+from StAgent.cache import CacheConfig
 
 cache_config = CacheConfig(
     enabled=True,
@@ -697,7 +697,7 @@ export REDIS_URL=redis://localhost:6379
 **成本分层路由**:
 
 ```python
-from leagent.runtime import ModelPolicy
+from StAgent.runtime import ModelPolicy
 
 model = ModelPolicy(
     task="chat",
@@ -736,14 +736,14 @@ model = ModelPolicy(
 **启用详细日志**:
 
 ```bash
-export LEAGENT_DEBUG=true
-export LEAGENT_LOG_LEVEL=debug
+export StAgent_DEBUG=true
+export StAgent_LOG_LEVEL=debug
 ```
 
 **代理追踪**:
 
 ```python
-from leagent.runtime import AgentRuntime
+from StAgent.runtime import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 async for event in runtime.stream("default_agent", "test"):
@@ -764,8 +764,8 @@ POST /api/v1/workflows/flows/{id}/export
 **添加 MCP 服务�?*:
 
 ```python
-# backend/leagent/mcp/my_server.py
-from leagent.mcp import MCPServer
+# backend/StAgent/mcp/my_server.py
+from StAgent.mcp import MCPServer
 
 class MyMCPServer(MCPServer):
     server_name = "my_server"
@@ -780,8 +780,8 @@ class MyMCPServer(MCPServer):
 **添加新模型提供商**:
 
 ```python
-# backend/leagent/llm/my_provider.py
-from leagent.llm import LLMProvider
+# backend/StAgent/llm/my_provider.py
+from StAgent.llm import LLMProvider
 
 class MyLLMProvider(LLMProvider):
     provider_name = "my_provider"
@@ -796,8 +796,8 @@ class MyLLMProvider(LLMProvider):
 **创建插件**:
 
 ```python
-# backend/leagent/plugins/my_plugin.py
-from leagent.plugins import Plugin
+# backend/StAgent/plugins/my_plugin.py
+from StAgent.plugins import Plugin
 
 class MyPlugin(Plugin):
     plugin_name = "my_plugin"

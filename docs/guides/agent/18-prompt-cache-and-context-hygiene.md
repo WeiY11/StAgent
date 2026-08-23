@@ -46,10 +46,10 @@ Identity +  thrifty policies（always-on 薄层）
 
 相邻篇：[24](24-mcp-and-tool-poisoning.md) 讲 MCP 描述投毒；[47](47-agent-security-control-plane.md) 讲控制面；[16](16-context-budget-and-compaction.md) 讲体积；[28](28-history-compaction.md) 提醒压缩不要重写稳定前缀。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
-- Prompt 包装与指纹：`backend/leagent/prompts/`（`test_prompts_package.py` 覆盖 registry、budget、fingerprint、renderer）  
-- 组装：`backend/leagent/context/manager.py` 分区 system / attachments  
+- Prompt 包装与指纹：`backend/StAgent/prompts/`（`test_prompts_package.py` 覆盖 registry、budget、fingerprint、renderer）  
+- 组装：`backend/StAgent/context/manager.py` 分区 system / attachments  
 - 门控减少「每轮都变」的重政策 → 提高稳定前缀比例  
 - Artifact / tool 错误以结构化方式注入，而不是无界粘贴  
 - 安全控制面与路径沙箱：在执行层否决，不只靠「请勿…」  
@@ -59,7 +59,7 @@ Identity +  thrifty policies（always-on 薄层）
 
 ### 两类缓存必须区分
 
-- **Provider prompt-prefix cache（厂商前缀缓存）**：由模型厂商（Anthropic/OpenAI）在其侧按稳定请求前缀计价的**计费优化**，LeAgent 不拥有其存储与失效，只能通过「稳定前缀」提高命中概率。
+- **Provider prompt-prefix cache（厂商前缀缓存）**：由模型厂商（Anthropic/OpenAI）在其侧按稳定请求前缀计价的**计费优化**，StAgent 不拥有其存储与失效，只能通过「稳定前缀」提高命中概率。
 - **Application result cache（应用结果缓存）**：进程内、有界、按 owner/resource/generation/variant 隔离的 `CacheService`（见 [缓存架构](../../technical/cache-architecture.md)），是本仓库控制面内的缓存。
 
 二者**都不是 ACL**：权限、审批、密钥判定一律在工具执行层 enforce，绝不因命中任一缓存而被跳过。应用结果缓存默认进程内、非持久（`backend=memory`、`persistent=false`），不依赖 Redis。
@@ -95,7 +95,7 @@ uv run pytest tests/test_context/test_manager.py -q
 
 ## 业内对照
 
-Anthropic / OpenAI 均提供前缀缓存计价；上下文工程文章强调「stable prefix + volatile tail」。OWASP LLM Top 10 将间接注入列为核心风险——卫生与权限要并重。LeAgent 用 recipe/gate/budget/render_target 把这些原则落成可测模块。
+Anthropic / OpenAI 均提供前缀缓存计价；上下文工程文章强调「stable prefix + volatile tail」。OWASP LLM Top 10 将间接注入列为核心风险——卫生与权限要并重。StAgent 用 recipe/gate/budget/render_target 把这些原则落成可测模块。
 
 ## 总结与延伸阅读
 

@@ -1,4 +1,4 @@
-# LeAgent Benchmark Guide
+# StAgent Benchmark Guide
 
 This guide documents the lightweight chat streaming benchmark in
 `scripts/perf_benchmark.py`.
@@ -105,7 +105,7 @@ uv run python ../scripts/perf_benchmark.py \
 - `--slow-consumer-ms`, `--session-id`, `--new-session-per-request`,
   `--timeout`, `--message`, `--output`: unchanged from before.
 - `--token`: bearer token sent as `Authorization` on every request (also read
-  from `LEAGENT_PERF_TOKEN`). Required when the backend enforces auth.
+  from `StAgent_PERF_TOKEN`). Required when the backend enforces auth.
 - `--warmup N`: fire `N` throwaway streamed requests before timing so
   cold-start cost never lands in the measured window. Recorded as
   `environment.warmup`.
@@ -114,7 +114,7 @@ uv run python ../scripts/perf_benchmark.py \
   sample is a failure with `error="missing_terminal_event"`. Opt out only when
   deliberately measuring a non-terminating endpoint.
 - `--provider`, `--model`: recorded in `environment` (also read from
-  `LEAGENT_PERF_PROVIDER` / `LEAGENT_PERF_MODEL`) so a report cannot be
+  `StAgent_PERF_PROVIDER` / `StAgent_PERF_MODEL`) so a report cannot be
   mistaken for a different configuration.
 - `--min-success-rate` (default `0.99`) and `--baseline-output PATH`: see
   *Trusted baselines* below.
@@ -138,7 +138,7 @@ temp file + `os.replace`). A produced baseline carries
 cd backend
 uv run python scripts/perf_benchmark.py \
   --requests 120 --concurrency 8 --new-session-per-request \
-  --token "$LEAGENT_PERF_TOKEN" --warmup 5 \
+  --token "$StAgent_PERF_TOKEN" --warmup 5 \
   --provider deepseek --model deepseek-chat \
   --min-success-rate 0.99 \
   --baseline-output scripts/perf_baseline.measured.json
@@ -212,10 +212,10 @@ Example result from a local run:
   rising share signals the backend is past its stable concurrency.
 
 For deeper diagnosis, compare benchmark output with Prometheus metrics such as
-`leagent_llm_stream_ttfb_seconds`,
-`leagent_agent_turn_phase_duration_seconds`,
-`leagent_db_query_duration_seconds`, and
-`leagent_agent_stream_queue_depth_observed`.
+`StAgent_llm_stream_ttfb_seconds`,
+`StAgent_agent_turn_phase_duration_seconds`,
+`StAgent_db_query_duration_seconds`, and
+`StAgent_agent_stream_queue_depth_observed`.
 
 ## Notes
 

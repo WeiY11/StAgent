@@ -6,15 +6,15 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.services.session.state import (
+from StAgent.services.session.state import (
     SessionState,
     SessionTodo,
     enforce_single_in_progress_todos,
     session_todos_from_tool_dicts,
     session_todos_to_tool_dicts,
 )
-from leagent.tools.base import ToolContext
-from leagent.tools.util.plan_tools import TodoReadTool, TodoWriteTool
+from StAgent.tools.base import ToolContext
+from StAgent.tools.util.plan_tools import TodoReadTool, TodoWriteTool
 
 
 def test_tool_todos_fall_back_for_invalid_status_and_order() -> None:
@@ -58,7 +58,7 @@ def test_session_todos_to_tool_dicts_sorted_by_order() -> None:
 
 
 def test_parse_todos_from_session_metadata() -> None:
-    from leagent.db.models.message import parse_todos_from_session_metadata
+    from StAgent.db.models.message import parse_todos_from_session_metadata
 
     raw = (
         '{"session_state_v1": {"todos": ['
@@ -92,7 +92,7 @@ async def test_todo_write_persists_via_session_manager(monkeypatch: pytest.Monke
     class _FakeSM:
         session_manager = _FakeSessionManager()
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -124,7 +124,7 @@ async def test_todo_read_hydrates_from_session(monkeypatch: pytest.MonkeyPatch) 
     class _FakeSM:
         session_manager = _FakeSessionManager()
 
-    import leagent.main as main_mod
+    import StAgent.main as main_mod
 
     monkeypatch.setattr(main_mod, "get_service_manager", lambda: _FakeSM())
 
@@ -137,8 +137,8 @@ async def test_todo_read_hydrates_from_session(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.asyncio
 async def test_update_todo_status_demotes_other_in_progress(tmp_path) -> None:
-    from leagent.config.settings import get_settings
-    from leagent.services.session.manager import SessionManager
+    from StAgent.config.settings import get_settings
+    from StAgent.services.session.manager import SessionManager
 
     settings = get_settings()
     settings.files.upload_dir = str(tmp_path / "uploads")
@@ -166,8 +166,8 @@ async def test_update_todo_status_demotes_other_in_progress(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_session_todos_reject_non_owner(tmp_path) -> None:
-    from leagent.config.settings import get_settings
-    from leagent.services.session.manager import SessionManager
+    from StAgent.config.settings import get_settings
+    from StAgent.services.session.manager import SessionManager
 
     settings = get_settings()
     settings.files.upload_dir = str(tmp_path / "uploads")

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# LeAgent installer (Unix / Git Bash)
+# StAgent installer (Unix / Git Bash)
 # Usage:
 #   curl -fsSL https://vixues.com.cn/install.sh | bash
 #   bash scripts/install.sh --help
 #
 # Environment (flags override when passed):
-#   LEAGENT_GIT_URL       Clone URL (default: https://github.com/WeiY11/StAgent.git)
-#   LEAGENT_CLONE_DIR     Install directory (default: $HOME/leagent-desktop)
-#   LEAGENT_REF           Branch or tag (default: main)
-#   LEAGENT_SKIP_START    1 = clone + sync only, do not run start.sh
-#   LEAGENT_DRY_RUN       1 = print actions only
-#   LEAGENT_RUN_CHECK     1 = run ./start.sh check before start (default: 1)
-#   LEAGENT_SKIP_INIT     1 = skip ./start.sh sync-python + leagent init --defaults
+#   StAgent_GIT_URL       Clone URL (default: https://github.com/WeiY11/StAgent.git)
+#   StAgent_CLONE_DIR     Install directory (default: $HOME/StAgent-desktop)
+#   StAgent_REF           Branch or tag (default: main)
+#   StAgent_SKIP_START    1 = clone + sync only, do not run start.sh
+#   StAgent_DRY_RUN       1 = print actions only
+#   StAgent_RUN_CHECK     1 = run ./start.sh check before start (default: 1)
+#   StAgent_SKIP_INIT     1 = skip ./start.sh sync-python + StAgent init --defaults
 #   UV_SYNC_EXTRAS        uv extras for backend (default: dev browser); see also --extras
 #   UV_PROJECT_ENVIRONMENT  Passed through to start.sh (default backend/.venv)
 
@@ -29,20 +29,20 @@ else
     BOLD="" GREEN="" YELLOW="" RED="" CYAN="" RESET=""
 fi
 
-info()  { printf "${GREEN}[leagent]${RESET} %s\n" "$*"; }
-warn()  { printf "${YELLOW}[leagent]${RESET} %s\n" "$*"; }
-error() { printf "${RED}[leagent]${RESET} %s\n" "$*" >&2; }
+info()  { printf "${GREEN}[StAgent]${RESET} %s\n" "$*"; }
+warn()  { printf "${YELLOW}[StAgent]${RESET} %s\n" "$*"; }
+error() { printf "${RED}[StAgent]${RESET} %s\n" "$*" >&2; }
 die()   { error "$@"; exit 1; }
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-LEAGENT_GIT_URL="${LEAGENT_GIT_URL:-https://github.com/WeiY11/StAgent.git}"
-LEAGENT_CLONE_DIR="${LEAGENT_CLONE_DIR:-$HOME/leagent-desktop}"
-LEAGENT_REF="${LEAGENT_REF:-main}"
-LEAGENT_SKIP_START="${LEAGENT_SKIP_START:-0}"
-LEAGENT_DRY_RUN="${LEAGENT_DRY_RUN:-0}"
-LEAGENT_RUN_CHECK="${LEAGENT_RUN_CHECK:-1}"
-LEAGENT_SKIP_INIT="${LEAGENT_SKIP_INIT:-0}"
-MAX_RETRIES="${LEAGENT_INSTALL_RETRIES:-3}"
+StAgent_GIT_URL="${StAgent_GIT_URL:-https://github.com/WeiY11/StAgent.git}"
+StAgent_CLONE_DIR="${StAgent_CLONE_DIR:-$HOME/StAgent-desktop}"
+StAgent_REF="${StAgent_REF:-main}"
+StAgent_SKIP_START="${StAgent_SKIP_START:-0}"
+StAgent_DRY_RUN="${StAgent_DRY_RUN:-0}"
+StAgent_RUN_CHECK="${StAgent_RUN_CHECK:-1}"
+StAgent_SKIP_INIT="${StAgent_SKIP_INIT:-0}"
+MAX_RETRIES="${StAgent_INSTALL_RETRIES:-3}"
 
 FROM_SOURCE=false
 SOURCE_DIR=""
@@ -71,28 +71,28 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --git-url)
-            LEAGENT_GIT_URL="$2"
+            StAgent_GIT_URL="$2"
             shift 2 ;;
         --dir)
-            LEAGENT_CLONE_DIR="$2"
+            StAgent_CLONE_DIR="$2"
             shift 2 ;;
         --ref|--version)
-            LEAGENT_REF="$2"
+            StAgent_REF="$2"
             shift 2 ;;
         --extras)
             export UV_SYNC_EXTRAS="$2"
             shift 2 ;;
         --skip-start)
-            LEAGENT_SKIP_START=1
+            StAgent_SKIP_START=1
             shift ;;
         --skip-init)
-            LEAGENT_SKIP_INIT=1
+            StAgent_SKIP_INIT=1
             shift ;;
         --dry-run)
-            LEAGENT_DRY_RUN=1
+            StAgent_DRY_RUN=1
             shift ;;
         --no-check)
-            LEAGENT_RUN_CHECK=0
+            StAgent_RUN_CHECK=0
             shift ;;
         --from-source)
             FROM_SOURCE=true
@@ -103,32 +103,32 @@ while [[ $# -gt 0 ]]; do
             shift ;;
         -h|--help)
             cat <<EOF
-LeAgent installer — clones the repo (or uses a local tree), ensures uv + Node.js,
+StAgent installer — clones the repo (or uses a local tree), ensures uv + Node.js,
 then runs ./start.sh (local dev stack).
 
 Usage: bash install.sh [OPTIONS]
 
 Options:
   --git-url <URL>     Git clone URL
-  --dir <PATH>        Clone / install directory (default: \$HOME/leagent-desktop)
+  --dir <PATH>        Clone / install directory (default: \$HOME/StAgent-desktop)
   --ref <REF>         Branch or tag (default: main)
   --version <REF>     Same as --ref
   --from-source <DIR> Use an existing checkout at DIR (skips git clone/update)
   --extras <NAMES>    uv sync extras, e.g. "dev browser" (default: dev browser)
   --skip-start        Clone/deps only; do not run ./start.sh
-  --skip-init         Skip ./start.sh sync-python + leagent init --defaults
+  --skip-init         Skip ./start.sh sync-python + StAgent init --defaults
   --dry-run           Print planned steps only
   --no-check          Skip ./start.sh check before start
 
 Environment:
-  LEAGENT_GIT_URL  LEAGENT_CLONE_DIR  LEAGENT_REF  LEAGENT_SKIP_START
-  LEAGENT_DRY_RUN  LEAGENT_RUN_CHECK  LEAGENT_SKIP_INIT
-  LEAGENT_INSTALL_RETRIES  UV_SYNC_EXTRAS  UV_INDEX_URL  UV_VENV_CLEAR
+  StAgent_GIT_URL  StAgent_CLONE_DIR  StAgent_REF  StAgent_SKIP_START
+  StAgent_DRY_RUN  StAgent_RUN_CHECK  StAgent_SKIP_INIT
+  StAgent_INSTALL_RETRIES  UV_SYNC_EXTRAS  UV_INDEX_URL  UV_VENV_CLEAR
 
 Examples:
   curl -fsSL https://vixues.com.cn/install.sh | bash
   curl -fsSL https://vixues.com.cn/install.sh | bash -s -- --skip-start
-  bash install.sh --from-source "\$HOME/src/LeAgent" --skip-start
+  bash install.sh --from-source "\$HOME/src/StAgent" --skip-start
 EOF
             exit 0 ;;
         *)
@@ -141,7 +141,7 @@ if [[ "$FROM_SOURCE" == true && -z "$SOURCE_DIR" ]]; then
 fi
 
 if [[ "$FROM_SOURCE" == true ]]; then
-    LEAGENT_CLONE_DIR="$SOURCE_DIR"
+    StAgent_CLONE_DIR="$SOURCE_DIR"
 fi
 
 need_cmd() {
@@ -192,7 +192,7 @@ ensure_uv() {
         fi
     done
 
-    if [ "$LEAGENT_DRY_RUN" = "1" ]; then
+    if [ "$StAgent_DRY_RUN" = "1" ]; then
         info "[dry-run] would install uv via https://astral.sh/uv/install.sh"
         return 0
     fi
@@ -231,7 +231,7 @@ retry() {
 
 clone_or_update() {
     local url="$1" dir="$2" ref="$3"
-    if [ "$LEAGENT_DRY_RUN" = "1" ]; then
+    if [ "$StAgent_DRY_RUN" = "1" ]; then
         info "[dry-run] clone/update $url -> $dir @ $ref"
         return 0
     fi
@@ -257,50 +257,50 @@ main() {
     ensure_node
     ensure_uv
 
-    printf "\n${GREEN}[leagent]${RESET} Installing into ${BOLD}%s${RESET}\n" "$LEAGENT_CLONE_DIR"
-    info "repository: $LEAGENT_GIT_URL"
-    info "ref:        $LEAGENT_REF"
+    printf "\n${GREEN}[StAgent]${RESET} Installing into ${BOLD}%s${RESET}\n" "$StAgent_CLONE_DIR"
+    info "repository: $StAgent_GIT_URL"
+    info "ref:        $StAgent_REF"
     info "PyPI index: $UV_INDEX_URL"
     echo ""
 
     if [ "$FROM_SOURCE" = true ]; then
         info "Using local source tree (--from-source)"
-        [ -f "$LEAGENT_CLONE_DIR/start.sh" ] || die "start.sh not found in $LEAGENT_CLONE_DIR"
+        [ -f "$StAgent_CLONE_DIR/start.sh" ] || die "start.sh not found in $StAgent_CLONE_DIR"
     else
-        clone_or_update "$LEAGENT_GIT_URL" "$LEAGENT_CLONE_DIR" "$LEAGENT_REF"
+        clone_or_update "$StAgent_GIT_URL" "$StAgent_CLONE_DIR" "$StAgent_REF"
     fi
 
-    if [ "$LEAGENT_DRY_RUN" = "1" ]; then
+    if [ "$StAgent_DRY_RUN" = "1" ]; then
         info "[dry-run] done."
         exit 0
     fi
 
-    cd "$LEAGENT_CLONE_DIR"
-    [ -f ./start.sh ] || die "start.sh not found in $LEAGENT_CLONE_DIR"
+    cd "$StAgent_CLONE_DIR"
+    [ -f ./start.sh ] || die "start.sh not found in $StAgent_CLONE_DIR"
     chmod +x start.sh
 
-    if [ "$LEAGENT_SKIP_INIT" != "1" ]; then
-        info "Running ./start.sh sync-python and leagent init --defaults ..."
+    if [ "$StAgent_SKIP_INIT" != "1" ]; then
+        info "Running ./start.sh sync-python and StAgent init --defaults ..."
         ./start.sh sync-python
-        uv run --directory backend leagent init --defaults
+        uv run --directory backend StAgent init --defaults
     fi
 
-    if [ "$LEAGENT_RUN_CHECK" = "1" ]; then
+    if [ "$StAgent_RUN_CHECK" = "1" ]; then
         info "Running ./start.sh check ..."
         ./start.sh check
     fi
 
-    if [ "$LEAGENT_SKIP_START" = "1" ]; then
+    if [ "$StAgent_SKIP_START" = "1" ]; then
         info "Skip start requested — not launching services."
         echo ""
-        printf "${GREEN}${BOLD}LeAgent install finished.${RESET}\n"
-        printf "  Directory: ${BOLD}%s${RESET}\n" "$LEAGENT_CLONE_DIR"
+        printf "${GREEN}${BOLD}StAgent install finished.${RESET}\n"
+        printf "  Directory: ${BOLD}%s${RESET}\n" "$StAgent_CLONE_DIR"
         echo ""
-        echo "Next: cd \"$LEAGENT_CLONE_DIR\" && ./start.sh"
+        echo "Next: cd \"$StAgent_CLONE_DIR\" && ./start.sh"
         exit 0
     fi
 
-    info "Starting LeAgent (./start.sh all) ..."
+    info "Starting StAgent (./start.sh all) ..."
     exec ./start.sh all
 }
 

@@ -9,11 +9,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.services.auth.deps import get_current_user_id
-from leagent.services.chat.service import get_chat_service
-from leagent.db.models.message import ChatSession
-from leagent.db.service import get_database_service
-from leagent.services.session.state import SessionAttachment
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.services.chat.service import get_chat_service
+from StAgent.db.models.message import ChatSession
+from StAgent.db.service import get_database_service
+from StAgent.services.session.state import SessionAttachment
 
 
 def _session_for_user(session_id: UUID, user_id: UUID) -> ChatSession:
@@ -95,7 +95,7 @@ class TestSessionAttachmentsEndpoint:
         app.dependency_overrides[get_chat_service] = lambda: mock_chat
         app.dependency_overrides[get_database_service] = lambda: MagicMock()
         try:
-            with patch("leagent.main.get_service_manager", return_value=sm):
+            with patch("StAgent.main.get_service_manager", return_value=sm):
                 resp = await async_client.get(f"/api/v1/chat/sessions/{sid}/attachments")
         finally:
             app.dependency_overrides.clear()

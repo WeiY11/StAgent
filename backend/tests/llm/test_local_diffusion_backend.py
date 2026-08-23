@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.llm.generation.backends.local_diffusion import LocalDiffusionBackend
+from StAgent.llm.generation.backends.local_diffusion import LocalDiffusionBackend
 
 
 def _patch_adapter(monkeypatch: pytest.MonkeyPatch, result: SimpleNamespace) -> None:
-    from leagent.llm.domain_models.diffusion import adapter
+    from StAgent.llm.domain_models.diffusion import adapter
 
     class _Adapter:
         async def invoke(self, **_params: object) -> SimpleNamespace:

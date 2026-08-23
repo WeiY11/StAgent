@@ -28,13 +28,13 @@ def isolated_extensions(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path
 }""",
         encoding="utf-8",
     )
-    monkeypatch.setattr("leagent.extensions.manager._REGISTRY_PATH", reg)
-    monkeypatch.setattr("leagent.extensions.manager._INSTALLED_PATH", tmp_path / "installed.json")
+    monkeypatch.setattr("StAgent.extensions.manager._REGISTRY_PATH", reg)
+    monkeypatch.setattr("StAgent.extensions.manager._INSTALLED_PATH", tmp_path / "installed.json")
     return tmp_path
 
 
 def test_browser_pack_triggers_playwright_install(monkeypatch: pytest.MonkeyPatch, isolated_extensions: Path) -> None:
-    from leagent.extensions import manager as mgr_mod
+    from StAgent.extensions import manager as mgr_mod
 
     calls: list[list[str]] = []
 
@@ -59,7 +59,7 @@ def test_browser_pack_triggers_playwright_install(monkeypatch: pytest.MonkeyPatc
 
 
 def test_normalize_focus_arxiv_id() -> None:
-    from leagent.tools.web.web_search.core import _normalize_focus
+    from StAgent.tools.web.web_search.core import _normalize_focus
 
     assert _normalize_focus("2401.12345", "auto") == "arxiv"
     assert _normalize_focus("arxiv:2401.12345", "auto") == "arxiv"

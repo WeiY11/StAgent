@@ -16,14 +16,14 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.LEAGENT_BASE_URL || 'http://localhost:8000';
-const TOKEN = __ENV.LEAGENT_TOKEN || '';
+const BASE_URL = __ENV.StAgent_BASE_URL || 'http://localhost:8000';
+const TOKEN = __ENV.StAgent_TOKEN || '';
 
 export default function () {
   const res = http.post(
     `${BASE_URL}/api/v1/llm/complete`,
     JSON.stringify({
-      model: __ENV.LEAGENT_MODEL || 'gpt-4o-mini',
+      model: __ENV.StAgent_MODEL || 'gpt-4o-mini',
       messages: [
         { role: 'system', content: 'Reply with a single word.' },
         { role: 'user', content: 'ping' },

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.memory.vector import MilvusCollection, MilvusConnectionConfig
+from StAgent.memory.vector import MilvusCollection, MilvusConnectionConfig
 
 
 @pytest.mark.asyncio

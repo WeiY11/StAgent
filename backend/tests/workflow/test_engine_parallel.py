@@ -7,11 +7,11 @@ import time
 
 import pytest
 
-from leagent.workflow.base import WorkflowStatus
-from leagent.workflow.engine import WorkflowExecutor, build_cache_set
-from leagent.workflow.io import IO, Hidden, NodeOutput, Schema
-from leagent.workflow.nodes import bootstrap, get_registry
-from leagent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.base import WorkflowStatus
+from StAgent.workflow.engine import WorkflowExecutor, build_cache_set
+from StAgent.workflow.io import IO, Hidden, NodeOutput, Schema
+from StAgent.workflow.nodes import bootstrap, get_registry
+from StAgent.workflow.nodes.base import WorkflowNode
 
 
 # ---------------------------------------------------------------------------

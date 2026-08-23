@@ -12,7 +12,7 @@
 
 1. 用 `ExecutionRun` 解释一次 chat turn、workflow、task、tool_only 的关联模型。
 2. 说明 `ExecutionRunRegistry` 是进程内单例，对多 worker 意味着什么。
-3. 区分 durable `leagent.telemetry.trace` 与可选 OTLP 导出。
+3. 区分 durable `StAgent.telemetry.trace` 与可选 OTLP 导出。
 4. 在日志与 span 中用 `run_id` / `parent_run_id` 串起父子作用域。
 5. 避免把 Trace、transcript、checkpoint 三类数据混为一谈。
 
@@ -36,14 +36,14 @@
 | `prompt_id` | 工作流/prompt 入口索引 | transcript id |
 | `checkpoint_id` | 暂停恢复句柄 | 长期记忆键 |
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
 ### ExecutionRun 与 Registry
 
-`backend/leagent/runtime/execution_run.py` 定义 `ExecutionScope`（`chat_turn` / `workflow` / `task` / `tool_only`）、`ExecutionRun` 与统一 `PauseToken`。`backend/leagent/runtime/execution_registry.py` 的 `ExecutionRunRegistry` 在进程内保存 `run_id → ExecutionRun`，并维护 `prompt_id` 索引；可按 session 列出，或取最近活跃 chat turn。
+`backend/StAgent/runtime/execution_run.py` 定义 `ExecutionScope`（`chat_turn` / `workflow` / `task` / `tool_only`）、`ExecutionRun` 与统一 `PauseToken`。`backend/StAgent/runtime/execution_registry.py` 的 `ExecutionRunRegistry` 在进程内保存 `run_id → ExecutionRun`，并维护 `prompt_id` 索引；可按 session 列出，或取最近活跃 chat turn。
 
 ```python
-from leagent.runtime.execution_registry import get_execution_run_registry
+from StAgent.runtime.execution_registry import get_execution_run_registry
 
 reg = get_execution_run_registry()
 active = reg.get_active_chat_turn(session_id)
@@ -51,11 +51,11 @@ active = reg.get_active_chat_turn(session_id)
 
 **重要边界**：注册表是进程内单例。Gunicorn / uvicorn 多 worker 时，worker A 登记的暂停 run，worker B 可能看不见。默认部署应 `LEAGENT_WORKERS=1`；若必须多进程，需 sticky sessions，或未来的 durable run store。阻塞 run 会留在注册表直到 resume 或显式结束。
 
-铸造位置集中在 `leagent.runtime.execution_factory`：聊天 SSE、SDK、后台任务、子 Agent、工作流 agent 节点都应走同一关联约定，而不是各自发明 id。
+铸造位置集中在 `StAgent.runtime.execution_factory`：聊天 SSE、SDK、后台任务、子 Agent、工作流 agent 节点都应走同一关联约定，而不是各自发明 id。
 
 ### 持久 Agent Trace
 
-`backend/leagent/telemetry/trace/`（`recorder.py`、`store.py`、`models.py`、`context.py`）提供 best-effort、追加式运行轨迹：
+`backend/StAgent/telemetry/trace/`（`recorder.py`、`store.py`、`models.py`、`context.py`）提供 best-effort、追加式运行轨迹：
 
 - 热路径 **fire-and-forget**，尽量不 await 进入 agent loop；
 - 可合并 create / span / counter 到一次 flush；
@@ -66,7 +66,7 @@ active = reg.get_active_chat_turn(session_id)
 
 ### OpenTelemetry
 
-`backend/leagent/telemetry/otel.py`：未配置 `OTEL_EXPORTER_OTLP_ENDPOINT`（或 `TelemetryConfig.otlp_endpoint`）时，setup 为 no-op；未安装 `opentelemetry-*` 时 `get_tracer()` 返回空实现，调用方无需条件导入。配置后走 OTLP gRPC BatchSpanProcessor，可选 metrics。`instrument_all()` 可对 FastAPI / SQLAlchemy / Redis 做自动埋点（依赖对应 instrumentation 包）。
+`backend/StAgent/telemetry/otel.py`：未配置 `OTEL_EXPORTER_OTLP_ENDPOINT`（或 `TelemetryConfig.otlp_endpoint`）时，setup 为 no-op；未安装 `opentelemetry-*` 时 `get_tracer()` 返回空实现，调用方无需条件导入。配置后走 OTLP gRPC BatchSpanProcessor，可选 metrics。`instrument_all()` 可对 FastAPI / SQLAlchemy / Redis 做自动埋点（依赖对应 instrumentation 包）。
 
 OTel 适合接入公司统一 APM；仓库内 durable trace 更适合 Agent 特有的工具树、审批与成本归因。两者通过 `run_id` / `parent_run_id` 对齐，而不是互相替代。
 
@@ -95,7 +95,7 @@ uv run pytest tests/eval/test_workflow_agent_trace.py -v
 
 ## 业内对照
 
-OpenAI Agents SDK / Codex 类产品强调 append-only rollout 或 session transcript 供回放与评测；OpenTelemetry 则是跨语言通用信号。LeAgent 同时保留产品向 durable agent trace 与可选 OTLP：前者懂 tool/approval/subagent 语义，后者接入现有 SRE 栈。LangSmith、Phoenix、Langfuse 等偏“追踪即产品”；本仓库选择“追踪是一等公民遥测，但与聊天 SSOT 解耦”。
+OpenAI Agents SDK / Codex 类产品强调 append-only rollout 或 session transcript 供回放与评测；OpenTelemetry 则是跨语言通用信号。StAgent 同时保留产品向 durable agent trace 与可选 OTLP：前者懂 tool/approval/subagent 语义，后者接入现有 SRE 栈。LangSmith、Phoenix、Langfuse 等偏“追踪即产品”；本仓库选择“追踪是一等公民遥测，但与聊天 SSOT 解耦”。
 
 ## 生产检查表与总结
 
@@ -114,4 +114,4 @@ OpenAI Agents SDK / Codex 类产品强调 append-only rollout 或 session transc
 - [46｜Agent 轨迹评测与回归测试](46-trajectory-evaluation.md)
 - [执行拓扑](../../technical/execution-topology_zh.md)
 - [Agent Trace 技术说明](../../technical/agent-trace_zh.md)
-- 源码：[`backend/leagent/runtime/execution_registry.py`](../../../backend/leagent/runtime/execution_registry.py)、[`backend/leagent/telemetry/`](../../../backend/leagent/telemetry/)
+- 源码：[`backend/StAgent/runtime/execution_registry.py`](../../../backend/StAgent/runtime/execution_registry.py)、[`backend/StAgent/telemetry/`](../../../backend/StAgent/telemetry/)

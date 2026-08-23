@@ -26,7 +26,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
   }, [open, onOpenChange]);
 
   const onCheckUpdates = async () => {
-    const updater = window.leagent?.updater;
+    const updater = window.StAgent?.updater;
     if (!updater) {
       setUpdateMsg(t('about.updateNone'));
       return;

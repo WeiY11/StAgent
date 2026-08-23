@@ -10,11 +10,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import leagent.db.models  # noqa: F401
-from leagent.db.models import LLMRequestLog
-from leagent.llm.base import LLMResponse, TokenUsage
-from leagent.llm.service import LLMService
-from leagent.utils.logging import (
+import StAgent.db.models  # noqa: F401
+from StAgent.db.models import LLMRequestLog
+from StAgent.llm.base import LLMResponse, TokenUsage
+from StAgent.llm.service import LLMService
+from StAgent.utils.logging import (
     bind_turn_log_context,
     current_llm_call_kind,
     next_llm_call_index,
@@ -90,7 +90,7 @@ def test_bind_turn_log_context_resets_call_index() -> None:
 async def test_record_request_log_persists_linkage(monkeypatch: pytest.MonkeyPatch) -> None:
     db = _CaptureDB()
     await db.start()
-    monkeypatch.setattr("leagent.db.get_database_service", lambda: db)
+    monkeypatch.setattr("StAgent.db.get_database_service", lambda: db)
 
     bind_turn_log_context(
         session_id="sess-abc",
@@ -139,7 +139,7 @@ async def test_record_request_log_persists_linkage(monkeypatch: pytest.MonkeyPat
 async def test_record_failed_request_log_persists_error(monkeypatch: pytest.MonkeyPatch) -> None:
     db = _CaptureDB()
     await db.start()
-    monkeypatch.setattr("leagent.db.get_database_service", lambda: db)
+    monkeypatch.setattr("StAgent.db.get_database_service", lambda: db)
 
     bind_turn_log_context(session_id="s1", user_message_id="m1")
     svc = LLMService(MagicMock(), MagicMock())

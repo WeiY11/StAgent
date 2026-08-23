@@ -49,7 +49,7 @@ def _is_canonical(raw: Any) -> bool:
 
 def _legacy_upgrade(raw: dict[str, Any]) -> dict[str, Any]:
     """Convert legacy/authoring dict into canonical shape via shared converter."""
-    from leagent.workflow.io.authoring import to_canonical
+    from StAgent.workflow.io.authoring import to_canonical
 
     if "workflow" in raw and isinstance(raw["workflow"], dict):
         raw = raw["workflow"]
@@ -74,12 +74,12 @@ async def _run(
 ) -> int:
     from sqlmodel import select
 
-    from leagent.config import get_settings
-    from leagent.db.service import init_database_service
-    from leagent.db.models.flow import Flow
-    from leagent.workflow.io import load, to_json, validate
-    from leagent.workflow.layout import layout_document
-    from leagent.workflow.nodes import bootstrap as bootstrap_nodes
+    from StAgent.config import get_settings
+    from StAgent.db.service import init_database_service
+    from StAgent.db.models.flow import Flow
+    from StAgent.workflow.io import load, to_json, validate
+    from StAgent.workflow.layout import layout_document
+    from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
 
     settings = get_settings()
     db = init_database_service(settings)

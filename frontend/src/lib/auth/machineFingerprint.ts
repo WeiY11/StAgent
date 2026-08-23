@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'leagent-machine-fingerprint-v1';
-const SESSION_RESOLVED = 'leagent-machine-fingerprint-resolved';
+const STORAGE_KEY = 'StAgent-machine-fingerprint-v1';
+const SESSION_RESOLVED = 'StAgent-machine-fingerprint-resolved';
 
 /**
  * Resolve stable machine id from Electron (async). Cached in ``sessionStorage``
@@ -9,7 +9,7 @@ export async function resolveMachineFingerprint(): Promise<string> {
   if (typeof window === 'undefined') {
     return '';
   }
-  const desk = window.leagent;
+  const desk = window.StAgent;
   try {
     const v = await desk?.app?.getMachineFingerprint?.();
     if (v && v.length >= 8) {

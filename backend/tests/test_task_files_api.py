@@ -7,9 +7,9 @@ from uuid import uuid4
 import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.api.v1.tasks import get_task_files
-from leagent.db.models.file import File, FileType
-from leagent.db.models.task import Task, TaskStatus, TaskType
+from StAgent.api.v1.tasks import get_task_files
+from StAgent.db.models.file import File, FileType
+from StAgent.db.models.task import Task, TaskStatus, TaskType
 
 
 class _DB:

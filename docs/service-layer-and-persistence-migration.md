@@ -1,6 +1,6 @@
-# LeAgent Service-Layer & Data-Persistence Migration Spec
+# StAgent Service-Layer & Data-Persistence Migration Spec
 
-> Scope: backend topology (`backend/leagent/`), the managed-blob ingress
+> Scope: backend topology (`backend/StAgent/`), the managed-blob ingress
 > (`FileService`), the structured-data layer (`DatabaseService`), and the
 > architectural invariants enforced by `backend/tests/test_file/test_invariants.py`.
 >
@@ -50,7 +50,7 @@ routers get thin.
 ├──────────┴──────────┴──────────┴──────────┴───────────────────┤
 │  file/   │  code/   │  project/ │  tools/                      │  ← capability layer
 ├──────────┴──────────┴───────────┴──────────────────────────────┤
-│  db/   │  auth/   │  config/   │  leagent_core/                │  ← infrastructure
+│  db/   │  auth/   │  config/   │  StAgent_core/                │  ← infrastructure
 └──────────────────────────────────────────────────────────────┘
             dependencies flow downward only
 ```
@@ -59,13 +59,13 @@ routers get thin.
 
 | Current location | Target | Rationale | Mechanism |
 |---|---|---|---|
-| `services/database/` | `leagent/db/` (service, models, sqlite_compat, repositories) | DB is infrastructure, not an application service; `DatabaseService` does not even subclass `Service` | Physical move + re-export shim |
-| `services/coding_projects/` | `leagent/project/` | Already migrated; shim re-exports | Keep shim, delete after callers move |
-| `services/code_execution/` | `leagent/code/` | Already migrated; shim re-exports | Keep shim, delete after callers move |
-| `services/file_manager/`, `services/file_store/` | `leagent/file/` (`FileService`) | LUFS consolidation | Migrate callers, then delete |
-| `services/gen_ui/` | `leagent/services/canvas/renderers/` or `leagent/rendering/` | Pure renderers, no lifecycle | Optional, P2 |
-| `services/file_processing/` | `leagent/file/processing/` | Post-ingest pipeline belongs with `file/` | Optional, P2 |
-| `services/diagnostics_parsers/` | `leagent/code/` or `tools/` | Parsing helpers, no lifecycle | Optional, P2 |
+| `services/database/` | `StAgent/db/` (service, models, sqlite_compat, repositories) | DB is infrastructure, not an application service; `DatabaseService` does not even subclass `Service` | Physical move + re-export shim |
+| `services/coding_projects/` | `StAgent/project/` | Already migrated; shim re-exports | Keep shim, delete after callers move |
+| `services/code_execution/` | `StAgent/code/` | Already migrated; shim re-exports | Keep shim, delete after callers move |
+| `services/file_manager/`, `services/file_store/` | `StAgent/file/` (`FileService`) | LUFS consolidation | Migrate callers, then delete |
+| `services/gen_ui/` | `StAgent/services/canvas/renderers/` or `StAgent/rendering/` | Pure renderers, no lifecycle | Optional, P2 |
+| `services/file_processing/` | `StAgent/file/processing/` | Post-ingest pipeline belongs with `file/` | Optional, P2 |
+| `services/diagnostics_parsers/` | `StAgent/code/` or `tools/` | Parsing helpers, no lifecycle | Optional, P2 |
 
 ### 1.3 What stays in `services/`
 
@@ -97,8 +97,8 @@ Each persistence domain has **exactly one ingress**. Everything else delegates.
 
 | Domain | Single ingress | Backend(s) | Boundary rule |
 |---|---|---|---|
-| Managed blobs (Tier A) | `FileService.register()` (`backend/leagent/file/service.py`) | `StorageBackend` (Local now, S3/GCS later) | No `open(..., 'wb')` / `write_bytes` outside `StorageBackend` impls |
-| Structured data | `DatabaseService.session()` (`backend/leagent/db/service.py` post-move) | SQLite (default) / PostgreSQL | API handlers do not hand-roll engines; use repositories |
+| Managed blobs (Tier A) | `FileService.register()` (`backend/StAgent/file/service.py`) | `StorageBackend` (Local now, S3/GCS later) | No `open(..., 'wb')` / `write_bytes` outside `StorageBackend` impls |
+| Structured data | `DatabaseService.session()` (`backend/StAgent/db/service.py` post-move) | SQLite (default) / PostgreSQL | API handlers do not hand-roll engines; use repositories |
 | Project workspace (Tier B) | `project.fs.resolve_in_project()` + direct write | Local FS | Never creates a `File` DB row; never calls `FileService.register()` |
 | Code sandbox (Tier B) | `code.workspace` write helpers | Local FS | Promotes artifacts to Tier A only via explicit `register()` |
 | Vector memory | `memory/*Store.record()` | Milvus (optional) | DB row first, vector best-effort |
@@ -131,10 +131,10 @@ flowchart LR
 
 ### 3.1 Storage-backend contract
 
-The `StorageBackend` protocol (`backend/leagent/file/storage/backend.py`) is the
+The `StorageBackend` protocol (`backend/StAgent/file/storage/backend.py`) is the
 correct seam and must be preserved as the only filesystem-aware surface:
 
-```19:38:backend/leagent/file/storage/backend.py
+```19:38:backend/StAgent/file/storage/backend.py
     async def put(
         self,
         data: bytes | BinaryIO,
@@ -174,7 +174,7 @@ Contract requirements (graduating the LUFS plan §13 into rules):
 ### 3.2 Metadata lifecycle
 
 `FileService.register()` already implements the canonical sequence
-(`backend/leagent/file/service.py`): sanitize → size-check → `backend.put()` →
+(`backend/StAgent/file/service.py`): sanitize → size-check → `backend.put()` →
 build `FileRef` → cache → `_persist_db_row()`. Harden it as the contract:
 
 ```
@@ -196,13 +196,13 @@ storage_path, checksum, mime, size) from **post-processing state**
 updates the latter asynchronously; `register()` only writes identity.
 
 `resolve()` must fall through **in-memory → cache → DB** (already present at
-`backend/leagent/file/service.py` `_resolve_from_db`). The in-memory `_refs`
+`backend/StAgent/file/service.py` `_resolve_from_db`). The in-memory `_refs`
 dict is an L1 cache only and must never be the source of truth.
 
 ### 3.3 Session / output scoping
 
 Adopt the closed scope set from `FileScope`
-(`backend/leagent/file/primitives.py`) as the only namespace authority:
+(`backend/StAgent/file/primitives.py`) as the only namespace authority:
 
 | Scope | Disk layout | Semantics | Lifetime |
 |---|---|---|---|
@@ -225,7 +225,7 @@ the `session_state_v1` JSON blob in `chat_sessions.session_metadata`, and the
 `messages` table. Designate the JSON blob as the durable SSOT and the `messages`
 table as a query/index projection written solely by `ChatService.add_message`.
 This removes the user/assistant double-write hazard already documented in
-`backend/leagent/services/session/store.py`.
+`backend/StAgent/services/session/store.py`.
 
 ---
 
@@ -235,7 +235,7 @@ Goal: **every managed-blob creation goes through `FileService.register()`**, not
 ad-hoc `open(..., 'wb')` / `write_bytes()` / `write_text()`.
 
 The audit below classifies every blob-write call site found in
-`backend/leagent/` into three buckets.
+`backend/StAgent/` into three buckets.
 
 ### 4.1 VIOLATIONS — production managed-blob paths to migrate
 
@@ -313,7 +313,7 @@ Exit criteria: no `open(..., 'wb')` in `services/session/`, `api/v1/files.py`,
 
 1. Convert artifact-producing tools to return `FileRef` via
    `ToolResult.produced_files` (the field already exists at
-   `backend/leagent/tools/base.py:81`).
+   `backend/StAgent/tools/base.py:81`).
 2. Collapse double-write tools (`image_generate`, `screenshot`,
    `image_download`) to a single `register()`.
 3. Begin retiring the heuristic `ArtifactRegistrar` path-scraping for tools that
@@ -324,13 +324,13 @@ covers legacy tools.
 
 ### Phase 2 — structural convergence
 
-1. Move `services/database/` → `leagent/db/` with a re-export shim; update
+1. Move `services/database/` → `StAgent/db/` with a re-export shim; update
    `alembic/env.py`.
-2. Consolidate engine creation onto `leagent_core/db/make_async_engine()`
+2. Consolidate engine creation onto `StAgent_core/db/make_async_engine()`
    (removes the duplicate SQLite-WAL / PG-pool setup).
 3. Introduce per-domain repositories (`ChatRepository`, `FileRepository`,
    `TaskRepository`, `WorkflowExecutionRepository`) modeled on the existing
-   `JobRepository` protocol in `backend/leagent/cron/repository.py`.
+   `JobRepository` protocol in `backend/StAgent/cron/repository.py`.
 4. Resolve P2 doc-tool writes (scope decision per call site).
 5. Decide session-state SSOT (§3.3) and remove the double-write path.
 

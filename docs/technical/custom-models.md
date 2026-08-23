@@ -1,6 +1,6 @@
 # Custom Models & Custom Nodes
 
-LeAgent's workflow system follows the ComfyUI onboarding model: registering a
+StAgent's workflow system follows the ComfyUI onboarding model: registering a
 **domain-model adapter** automatically produces a typed `Model.<task>.<provider>`
 node in the workflow palette, and registering a **workflow node** class adds it
 to `/object_info` with no frontend changes. This guide covers both paths plus
@@ -12,10 +12,10 @@ the self-hosted model setup (diffusers, local Whisper/TTS).
 
 A *domain model* is any task-specific capability that isn't chat: image
 generation, TTS, ASR, future video/upscaling. Adapters implement the
-`DomainModelAdapter` protocol from `leagent.llm.domain_registry`:
+`DomainModelAdapter` protocol from `StAgent.llm.domain_registry`:
 
 ```python
-from leagent.llm.domain_registry import (
+from StAgent.llm.domain_registry import (
     DomainModelResult,
     DomainModelSpec,
     DomainParam,
@@ -67,7 +67,7 @@ Every adapter's node returns the uniform 5-slot envelope:
 **Programmatic** (built into your app/bootstrap):
 
 ```python
-from leagent.llm.domain_registry import get_domain_registry
+from StAgent.llm.domain_registry import get_domain_registry
 
 get_domain_registry().register(MyUpscaleAdapter())
 ```
@@ -76,7 +76,7 @@ get_domain_registry().register(MyUpscaleAdapter())
 
 ```toml
 # pyproject.toml of your plugin distribution
-[project.entry-points."leagent.domain_models"]
+[project.entry-points."StAgent.domain_models"]
 my_upscale = "my_pkg.adapters:MyUpscaleAdapter"
 ```
 
@@ -88,7 +88,7 @@ or frontend code required.
 ### Invoking outside workflows
 
 ```python
-from leagent.llm.domain_registry import get_domain_registry
+from StAgent.llm.domain_registry import get_domain_registry
 
 result = await get_domain_registry().invoke_task("tts", provider="local", text="hi")
 ```
@@ -108,7 +108,7 @@ uv sync --extra diffusion
 **Directory layout** (created by you; scanned at registration):
 
 ```
-~/.leagent/models/
+~/.StAgent/models/
 ├── diffusion/          # checkpoints: *.safetensors / *.ckpt (subdirs ok)
 │   ├── dreamshaperXL.safetensors
 │   └── sd15/anything-v5.ckpt
@@ -124,11 +124,11 @@ HuggingFace hub ids also work (e.g. `stabilityai/stable-diffusion-xl-base-1.0`).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LEAGENT_DIFFUSION_ENABLED` | `1` | Set `0` to skip registration even when installed |
-| `LEAGENT_DIFFUSION_MODELS_DIR` | `~/.leagent/models/diffusion` | Checkpoint scan dir |
-| `LEAGENT_DIFFUSION_LORA_DIR` | `~/.leagent/models/lora` | LoRA scan dir |
-| `LEAGENT_DIFFUSION_DEFAULT_MODEL` | `stabilityai/stable-diffusion-xl-base-1.0` | Fallback hub id |
-| `LEAGENT_DIFFUSION_DEVICE` | auto (cuda → mps → cpu) | Force a device |
+| `StAgent_DIFFUSION_ENABLED` | `1` | Set `0` to skip registration even when installed |
+| `StAgent_DIFFUSION_MODELS_DIR` | `~/.StAgent/models/diffusion` | Checkpoint scan dir |
+| `StAgent_DIFFUSION_LORA_DIR` | `~/.StAgent/models/lora` | LoRA scan dir |
+| `StAgent_DIFFUSION_DEFAULT_MODEL` | `stabilityai/stable-diffusion-xl-base-1.0` | Fallback hub id |
+| `StAgent_DIFFUSION_DEVICE` | auto (cuda → mps → cpu) | Force a device |
 
 Node parameters: `prompt`, `model` (COMBO from discovery), `negative_prompt`,
 `width`/`height`, `steps`, `cfg_scale`, `seed` (−1 = random), `scheduler`
@@ -146,10 +146,10 @@ server works:
 
 | Node | Servers | Env |
 |---|---|---|
-| `Model.asr.local` | faster-whisper-server, whisper.cpp, Speaches | `LEAGENT_LOCAL_ASR_URL` (+ `LEAGENT_LOCAL_ASR_MODEL`) |
-| `Model.tts.local` | openedai-speech, Kokoro-FastAPI | `LEAGENT_LOCAL_TTS_URL` (+ `LEAGENT_LOCAL_TTS_MODEL`) |
+| `Model.asr.local` | faster-whisper-server, whisper.cpp, Speaches | `StAgent_LOCAL_ASR_URL` (+ `StAgent_LOCAL_ASR_MODEL`) |
+| `Model.tts.local` | openedai-speech, Kokoro-FastAPI | `StAgent_LOCAL_TTS_URL` (+ `StAgent_LOCAL_TTS_MODEL`) |
 
-Optional shared `LEAGENT_LOCAL_AUDIO_API_KEY` if your server requires a token.
+Optional shared `StAgent_LOCAL_AUDIO_API_KEY` if your server requires a token.
 URLs may be the server root or include `/v1`. Setting the URL is what
 registers the node — unset means the node simply doesn't appear.
 
@@ -163,8 +163,8 @@ For logic that doesn't fit the domain-model envelope, implement a
 `WorkflowNode` directly:
 
 ```python
-from leagent.workflow.io import IO, Hidden, HiddenHolder, NodeOutput, Schema
-from leagent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.io import IO, Hidden, HiddenHolder, NodeOutput, Schema
+from StAgent.workflow.nodes.base import WorkflowNode
 
 
 class WordCountNode(WorkflowNode):
@@ -198,8 +198,8 @@ class WordCountNode(WorkflowNode):
 ```
 
 Register it from a module the node loader imports (built-ins live in
-`leagent/workflow/nodes/builtin/`), or ship it via the
-`leagent.workflow.nodes` entry-point group. The schema is served through
+`StAgent/workflow/nodes/builtin/`), or ship it via the
+`StAgent.workflow.nodes` entry-point group. The schema is served through
 `/object_info`, so the editor renders typed sockets, colours, and widgets
 automatically.
 

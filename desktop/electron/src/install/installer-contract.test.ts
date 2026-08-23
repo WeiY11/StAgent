@@ -11,7 +11,7 @@ describe('NSIS installation-directory contract', () => {
 
     expect(installer).toContain('${if} $hasPerUserInstallation == "0"');
     expect(installer).toContain('${andif} $hasPerMachineInstallation == "0"');
-    expect(installer).toContain('StrCpy $INSTDIR "$LOCALAPPDATA\\LeAgent"');
+    expect(installer).toContain('StrCpy $INSTDIR "$LOCALAPPDATA\\StAgent"');
   });
 
   it('does not overwrite an explicit /D install directory in unattended installs', () => {

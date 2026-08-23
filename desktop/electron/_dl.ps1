@@ -1,6 +1,6 @@
 $env:ELECTRON_MIRROR = 'https://registry.npmmirror.com/-/binary/electron/'
 $env:ELECTRON_CUSTOM_DIR = '{{ version }}'
-Set-Location 'd:\LeAgent\desktop\electron'
+Set-Location 'd:\StAgent\desktop\electron'
 'Downloading Electron binary via npmmirror...'
 & node 'node_modules\electron\install.js'
 'INSTALL_EXITCODE=' + $LASTEXITCODE

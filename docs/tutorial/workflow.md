@@ -1,3 +1,3 @@
-﻿# Workflow Builder
+# Workflow Builder
 
 TODO: Write workflow builder tutorial.

@@ -7,17 +7,17 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from leagent.api.v1 import chat as chat_api
-from leagent.api.v1.chat.paths import (
+from StAgent.api.v1 import chat as chat_api
+from StAgent.api.v1.chat.paths import (
     attachment_local_path_for_sse,
     dedupe_resolved_paths,
 )
-from leagent.file.attachment_context import (
+from StAgent.file.attachment_context import (
     build_attachment_lookup,
     normalise_attachment_alias,
     normalize_attachment_paths,
 )
-from leagent.services.session.state import SessionAttachment
+from StAgent.services.session.state import SessionAttachment
 
 
 @pytest.mark.asyncio
@@ -47,7 +47,7 @@ async def test_resolve_request_attachment_paths_maps_id_and_name(monkeypatch, tm
             return [att]
 
     fake_sm = SimpleNamespace(session_manager=_SessionManager())
-    monkeypatch.setattr("leagent.main.get_service_manager", lambda: fake_sm)
+    monkeypatch.setattr("StAgent.main.get_service_manager", lambda: fake_sm)
 
     resolved = await chat_api._resolve_request_attachment_paths(
         session_id,
@@ -89,7 +89,7 @@ async def test_resolve_request_attachment_paths_preserves_authorized_s3_uri(
             return [att]
 
     monkeypatch.setattr(
-        "leagent.main.get_service_manager",
+        "StAgent.main.get_service_manager",
         lambda: SimpleNamespace(session_manager=_SessionManager()),
     )
 
@@ -118,7 +118,7 @@ async def test_resolve_request_attachment_paths_rejects_unknown_local_path(
             return []
 
     monkeypatch.setattr(
-        "leagent.main.get_service_manager",
+        "StAgent.main.get_service_manager",
         lambda: SimpleNamespace(session_manager=_SessionManager()),
     )
 

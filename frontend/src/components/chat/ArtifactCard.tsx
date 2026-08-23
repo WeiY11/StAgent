@@ -36,7 +36,9 @@ interface ArtifactCardProps {
 
 export function ArtifactCard({ artifact, className }: ArtifactCardProps) {
   const { t } = useTranslation();
-  const { openArtifact } = useArtifactStore();
+  // Select only the action (stable reference) — subscribing to the whole
+  // artifact store would re-render every mounted card on each artifact patch.
+  const openArtifact = useArtifactStore((s) => s.openArtifact);
 
   const handleOpen = () => {
     openArtifact(artifact.id);

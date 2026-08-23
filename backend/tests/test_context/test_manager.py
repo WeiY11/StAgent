@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.context import ContextManager
-from leagent.context.types import RenderTarget
+from StAgent.context import ContextManager
+from StAgent.context.types import RenderTarget
 
 
 class _MockVariant:

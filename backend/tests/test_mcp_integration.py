@@ -13,9 +13,9 @@ import pytest
 from tests.fixtures.mcp_mock_http import mcp_rpc_http_server
 from tests.fixtures.mcp_mock_protocol import handle_mcp_message
 
-from leagent.mcp.base import MCPServer, MCPTransport
-from leagent.mcp.client import MCPClient, MCPConnectionError, MCPProtocolError
-from leagent.mcp.manager import MCPClientManager
+from StAgent.mcp.base import MCPServer, MCPTransport
+from StAgent.mcp.client import MCPClient, MCPConnectionError, MCPProtocolError
+from StAgent.mcp.manager import MCPClientManager
 
 
 def _stdio_mock_args() -> list[str]:
@@ -154,8 +154,8 @@ async def test_mcp_api_stdio_connect_and_tools(
 ) -> None:
     """Smoke REST ``/api/v1/mcp`` against the process-wide manager (same as ServiceManager)."""
     # Lifespan may skip auth when DB/bootstrap fails; MCP routes still need ``get_auth_service()``.
-    from leagent.services.auth.service import init_auth_service
-    from leagent.services.auth import AuthService
+    from StAgent.services.auth.service import init_auth_service
+    from StAgent.services.auth import AuthService
 
     init_auth_service(test_settings)
     token = AuthService(test_settings).create_access_token(UUID(test_user["user_id"]))

@@ -1,4 +1,4 @@
-"""Tests for :mod:`leagent.agent.subagent` (fork_subagent + AgentTool).
+"""Tests for :mod:`StAgent.agent.subagent` (fork_subagent + AgentTool).
 
 These tests validate the refactor where ``fork_subagent`` sits on top of
 ``QueryEngine.fork()`` instead of owning its own think-act loop. We stub
@@ -15,16 +15,16 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from leagent.agent.query_engine import QueryEngine
-from leagent.agent.subagent import (
+from StAgent.agent.query_engine import QueryEngine
+from StAgent.agent.subagent import (
     AgentTool,
     fork_subagent,
     _filter_registry,
     _paths_from_unified_diff,
     _run_engine,
 )
-from leagent.tools.base import BaseTool, ToolCategory, ToolContext
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.base import BaseTool, ToolCategory, ToolContext
+from StAgent.tools.registry import ToolRegistry
 
 
 # ---------------------------------------------------------------------------

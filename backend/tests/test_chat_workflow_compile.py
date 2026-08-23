@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from leagent.chat_workflow.compile import compile_chat_workflow_to_document
-from leagent.chat_workflow.runner import run_chat_workflow_step_via_engine
-from leagent.chat_workflow.schema import ChatWorkflowSpec, ChatWorkflowStep, ChatWorkflowToolAction
-from leagent.tools.base import ToolContext
-from leagent.workflow.base import WorkflowResult, WorkflowStatus
+from StAgent.chat_workflow.compile import compile_chat_workflow_to_document
+from StAgent.chat_workflow.runner import run_chat_workflow_step_via_engine
+from StAgent.chat_workflow.schema import ChatWorkflowSpec, ChatWorkflowStep, ChatWorkflowToolAction
+from StAgent.tools.base import ToolContext
+from StAgent.workflow.base import WorkflowResult, WorkflowStatus
 
 
 def test_compile_linear_document() -> None:
@@ -40,7 +40,7 @@ def test_compile_linear_document() -> None:
 def test_runner_imports_workflow_service_path() -> None:
     """Runner module must delegate to WorkflowService, not WorkflowExecutor."""
     runner_path = (
-        Path(__file__).resolve().parents[1] / "leagent" / "chat_workflow" / "runner.py"
+        Path(__file__).resolve().parents[1] / "StAgent" / "chat_workflow" / "runner.py"
     )
     source = runner_path.read_text(encoding="utf-8")
     assert "run_compiled_document" in source

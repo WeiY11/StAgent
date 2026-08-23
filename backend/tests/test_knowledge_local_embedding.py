@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from leagent.memory.embeddings import LocalSentenceTransformerEmbeddingProvider
+from StAgent.memory.embeddings import LocalSentenceTransformerEmbeddingProvider
 
 
 class _Model:

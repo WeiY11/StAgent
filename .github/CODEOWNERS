@@ -1,8 +1,8 @@
-# LeAgent Code Owners
+# StAgent Code Owners
 # Default owner for all files
 * @vixues
 
 # Architectural invariants — changes (esp. INV-1 allowlist additions) require review.
 /backend/tests/test_file/test_invariants.py @vixues
-/backend/leagent/db/ @vixues
-/backend/leagent/file/ @vixues
+/backend/StAgent/db/ @vixues
+/backend/StAgent/file/ @vixues

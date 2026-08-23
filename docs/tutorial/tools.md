@@ -1,3 +1,3 @@
-﻿# Tools
+# Tools
 
 TODO: Write tools tutorial.

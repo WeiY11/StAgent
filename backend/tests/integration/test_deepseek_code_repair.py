@@ -48,7 +48,7 @@ async def test_live_deepseek_script_repair_via_workspace_edit(
     full_tool_registry,
     tmp_path,
 ) -> None:
-    from leagent.agent.script_agent import build_script_agent_engine
+    from StAgent.agent.script_agent import build_script_agent_engine
 
     engine = build_script_agent_engine(
         llm=deepseek_llm,

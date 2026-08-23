@@ -15,15 +15,15 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 
-from leagent.api.v1.chat import (
+from StAgent.api.v1.chat import (
     SessionUpdateRequest,
     _format_frontend_event,
     _format_openai_chunk,
     _merge_stream_thinking_for_persist,
     _run_agent_stream,
 )
-from leagent.services.chat.service import ChatService
-from leagent.db.models.message import (
+from StAgent.services.chat.service import ChatService
+from StAgent.db.models.message import (
     ChatSession,
     Message,
     MessageRead,
@@ -219,8 +219,8 @@ class TestSessionEndpointsDelegation:
 
     @pytest.mark.asyncio
     async def test_create_session_delegates(self) -> None:
-        from leagent.api.v1.chat import create_session
-        from leagent.db.models.message import SessionCreate
+        from StAgent.api.v1.chat import create_session
+        from StAgent.db.models.message import SessionCreate
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -229,7 +229,7 @@ class TestSessionEndpointsDelegation:
         svc.create_session.return_value = fake
 
         with patch(
-            "leagent.api.v1.chat._require_project_access",
+            "StAgent.api.v1.chat._require_project_access",
             new_callable=AsyncMock,
         ):
             result = await create_session(SessionCreate(name="My Chat"), uid, svc, db)
@@ -239,7 +239,7 @@ class TestSessionEndpointsDelegation:
 
     @pytest.mark.asyncio
     async def test_get_session_delegates(self) -> None:
-        from leagent.api.v1.chat import get_session
+        from StAgent.api.v1.chat import get_session
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -249,7 +249,7 @@ class TestSessionEndpointsDelegation:
         svc.get_session.return_value = fake
 
         with patch(
-            "leagent.api.v1.chat._require_session_project_access",
+            "StAgent.api.v1.chat._require_session_project_access",
             new_callable=AsyncMock,
         ):
             result = await get_session(sid, uid, svc, db)
@@ -258,7 +258,7 @@ class TestSessionEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_get_session_not_found_raises(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import get_session
+        from StAgent.api.v1.chat import get_session
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -270,7 +270,7 @@ class TestSessionEndpointsDelegation:
 
     @pytest.mark.asyncio
     async def test_delete_session_delegates(self) -> None:
-        from leagent.api.v1.chat import delete_session
+        from StAgent.api.v1.chat import delete_session
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -282,7 +282,7 @@ class TestSessionEndpointsDelegation:
         svc.get_session.return_value = fake
 
         with patch(
-            "leagent.api.v1.chat._require_session_project_access",
+            "StAgent.api.v1.chat._require_session_project_access",
             new_callable=AsyncMock,
         ):
             await delete_session(sid, uid, svc, db)
@@ -291,7 +291,7 @@ class TestSessionEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_delete_session_not_found_raises(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import delete_session
+        from StAgent.api.v1.chat import delete_session
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -303,8 +303,8 @@ class TestSessionEndpointsDelegation:
 
     @pytest.mark.asyncio
     async def test_update_session_delegates(self) -> None:
-        from leagent.api.v1.chat import update_session
-        from leagent.db.models.message import chat_session_to_read
+        from StAgent.api.v1.chat import update_session
+        from StAgent.db.models.message import chat_session_to_read
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -318,7 +318,7 @@ class TestSessionEndpointsDelegation:
 
         body = SessionUpdateRequest(name="Updated")
         with patch(
-            "leagent.api.v1.chat._require_session_project_access",
+            "StAgent.api.v1.chat._require_session_project_access",
             new_callable=AsyncMock,
         ):
             result = await update_session(sid, body, uid, svc, db)
@@ -329,7 +329,7 @@ class TestSessionEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_update_session_not_found_raises(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import update_session
+        from StAgent.api.v1.chat import update_session
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -343,7 +343,7 @@ class TestSessionEndpointsDelegation:
 class TestMessageEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_get_messages_delegates(self) -> None:
-        from leagent.api.v1.chat import get_session_messages
+        from StAgent.api.v1.chat import get_session_messages
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -359,7 +359,7 @@ class TestMessageEndpointsDelegation:
         )
 
         with patch(
-            "leagent.api.v1.chat._require_session_project_access",
+            "StAgent.api.v1.chat._require_session_project_access",
             new_callable=AsyncMock,
         ):
             result = await get_session_messages(sid, uid, svc, db, page=1, page_size=50)
@@ -370,7 +370,7 @@ class TestMessageEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_get_messages_session_not_found(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import get_session_messages
+        from StAgent.api.v1.chat import get_session_messages
 
         svc = _mock_chat_service()
         db = _mock_db()
@@ -383,7 +383,7 @@ class TestMessageEndpointsDelegation:
     @pytest.mark.asyncio
     async def test_send_message_inactive_session(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import send_message, SendMessageRequest
+        from StAgent.api.v1.chat import send_message, SendMessageRequest
 
         svc = _mock_chat_service()
         uid = uuid4()
@@ -404,7 +404,7 @@ class TestCompletionEndpointDelegation:
     @pytest.mark.asyncio
     async def test_empty_messages_raises_400(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import create_chat_completion, ChatCompletionRequest
+        from StAgent.api.v1.chat import create_chat_completion, ChatCompletionRequest
 
         svc = _mock_chat_service()
         req = ChatCompletionRequest(messages=[], stream=False)
@@ -417,7 +417,7 @@ class TestCompletionEndpointDelegation:
     @pytest.mark.asyncio
     async def test_creates_session_when_missing(self) -> None:
         from fastapi import HTTPException
-        from leagent.api.v1.chat import (
+        from StAgent.api.v1.chat import (
             create_chat_completion,
             ChatCompletionRequest,
             ChatCompletionMessage,
@@ -434,7 +434,7 @@ class TestCompletionEndpointDelegation:
         )
         mock_db = MagicMock()
 
-        with patch("leagent.api.v1.chat.openai_compat.build_agent_controller", return_value=None):
+        with patch("StAgent.api.v1.chat.openai_compat.build_agent_controller", return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 await create_chat_completion(req, uid, svc, mock_db)
             assert exc_info.value.status_code == 503
@@ -473,7 +473,7 @@ class TestChatServiceUpdateSession:
         svc._db = mock_db
         svc._cache = None
         with patch(
-            "leagent.services.chat.service.load_chat_session_by_id",
+            "StAgent.services.chat.service.load_chat_session_by_id",
             new=AsyncMock(return_value=None),
         ):
             result = await svc.update_session(uuid4(), uuid4(), name="x")

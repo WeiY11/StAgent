@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { getCachedPetBubbleGreeting } from './useDailyChatGreetings';
 
-const LS_KEY = 'leagent.chatDailyPetBubbles.v1';
+const LS_KEY = 'StAgent.chatDailyPetBubbles.v1';
 
 describe('getCachedPetBubbleGreeting', () => {
   beforeEach(() => localStorage.clear());

@@ -1,3 +1,3 @@
-﻿# Adding Channels
+# Adding Channels
 
 TODO: Write adding channels guide.

@@ -14,7 +14,7 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from leagent.docgen.model import DocumentSpec
+from StAgent.docgen.model import DocumentSpec
 
 
 def _pdf_text_pages(path: Path) -> list[str]:
@@ -39,7 +39,7 @@ def _spec(**overrides: Any) -> DocumentSpec:
 
 
 def test_footer_placeholders_resolve(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         footer={"text": "{title} — {page}/{pages}", "alignment": "center"},
@@ -60,7 +60,7 @@ def test_footer_placeholders_resolve(tmp_path: Path) -> None:
 
 
 def test_running_section_header(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         section_pages=True,
@@ -85,7 +85,7 @@ def test_running_section_header(tmp_path: Path) -> None:
 
 
 def test_show_page_number_without_placeholders_still_works(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         footer={"text": "Confidential", "show_page_number": True},
@@ -102,7 +102,7 @@ def test_show_page_number_without_placeholders_still_works(tmp_path: Path) -> No
 
 
 def test_numbered_figures_and_tables(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         numbered_figures=True,
@@ -137,7 +137,7 @@ def test_numbered_figures_and_tables(tmp_path: Path) -> None:
 
 
 def test_numbered_figures_chinese_labels(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         title="年度战略评估",
@@ -167,7 +167,7 @@ def test_numbered_figures_chinese_labels(tmp_path: Path) -> None:
 
 
 def test_columns_block_renders_side_by_side(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         justify=True,
@@ -202,8 +202,8 @@ def test_columns_block_renders_side_by_side(tmp_path: Path) -> None:
 
 def test_columns_fallbacks_html_docx_markdown(tmp_path: Path) -> None:
     docx = pytest.importorskip("docx")
-    from leagent.docgen.renderers.docx import render_docx
-    from leagent.docgen.renderers.html import render_html, render_markdown
+    from StAgent.docgen.renderers.docx import render_docx
+    from StAgent.docgen.renderers.html import render_html, render_markdown
 
     spec = _spec(
         numbered_figures=True,
@@ -253,14 +253,14 @@ def test_columns_fallbacks_html_docx_markdown(tmp_path: Path) -> None:
 
 def test_cover_band_with_logo(tmp_path: Path) -> None:
     pil = pytest.importorskip("PIL.Image")
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     logo = tmp_path / "logo.png"
     pil.new("RGBA", (120, 48), (255, 255, 255, 255)).save(logo)
 
     spec = _spec(
         subtitle="Deep-dive 2026",
-        cover={"organization": "LeAgent Consulting", "logo_path": str(logo)},
+        cover={"organization": "StAgent Consulting", "logo_path": str(logo)},
         blocks=[{"type": "paragraph", "text": "Body content."}],
     )
     out = tmp_path / "cover.pdf"
@@ -271,7 +271,7 @@ def test_cover_band_with_logo(tmp_path: Path) -> None:
 
     pages = _pdf_text_pages(out)
     assert "Annual Strategy Review" in pages[0]
-    assert "LeAgent Consulting" in pages[0]
+    assert "StAgent Consulting" in pages[0]
     assert "Deep-dive 2026" in pages[0]
     assert "Advisory Team" in pages[0]
     # No footer/header decoration on the cover page.
@@ -279,7 +279,7 @@ def test_cover_band_with_logo(tmp_path: Path) -> None:
 
 
 def test_cover_missing_logo_warns(tmp_path: Path) -> None:
-    from leagent.docgen.renderers.pdf import render_pdf
+    from StAgent.docgen.renderers.pdf import render_pdf
 
     spec = _spec(
         cover={"logo_path": str(tmp_path / "missing.png")},

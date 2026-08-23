@@ -65,7 +65,7 @@ if str(REPO_BACKEND) not in sys.path:
 
 def _sandbox_uploads() -> Path:
     """Resolve the sandbox uploads directory from application settings."""
-    from leagent.config.settings import get_settings
+    from StAgent.config.settings import get_settings
 
     return Path(get_settings().files.upload_dir)
 
@@ -168,11 +168,11 @@ def _stage_in_sandbox(src: Path) -> Path:
 
 
 def _build_llm_service():
-    from leagent.llm.model_registry import ModelRegistry
-    from leagent.llm.providers.deepseek import DeepSeekProvider
-    from leagent.llm.registry import ProviderRegistry
-    from leagent.llm.service import LLMService
-    from leagent.llm.task_resolver import TaskResolver
+    from StAgent.llm.model_registry import ModelRegistry
+    from StAgent.llm.providers.deepseek import DeepSeekProvider
+    from StAgent.llm.registry import ProviderRegistry
+    from StAgent.llm.service import LLMService
+    from StAgent.llm.task_resolver import TaskResolver
 
     api_key = os.environ.get("DEEPSEEK_API_KEY")
     if not api_key:
@@ -210,8 +210,8 @@ def _build_llm_service():
 
 
 def _build_tool_registry():
-    from leagent.bootstrap.tools import register_default_tools
-    from leagent.tools.registry import ToolRegistry
+    from StAgent.bootstrap.tools import register_default_tools
+    from StAgent.tools.registry import ToolRegistry
 
     registry = ToolRegistry()
     register_default_tools(registry=registry)
@@ -239,9 +239,9 @@ async def _run(
     stage_in_sandbox: bool,
     style: _Style,
 ) -> int:
-    from leagent.agent.query_engine import QueryEngine, QueryEngineConfig
-    from leagent.file.sandbox import PathSandbox, _get_allowed_roots
-    from leagent.tools.executor import ToolExecutor
+    from StAgent.agent.query_engine import QueryEngine, QueryEngineConfig
+    from StAgent.file.sandbox import PathSandbox, _get_allowed_roots
+    from StAgent.tools.executor import ToolExecutor
 
     llm, model = _build_llm_service()
     registry = _build_tool_registry()

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from leagent.docgen.images import extract_file_id, resolve_image
-from leagent.docgen.markdown import parse_markdown_blocks
-from leagent.docgen.model import ImageBlock
+from StAgent.docgen.images import extract_file_id, resolve_image
+from StAgent.docgen.markdown import parse_markdown_blocks
+from StAgent.docgen.model import ImageBlock
 
 if TYPE_CHECKING:
     pass
@@ -61,7 +61,7 @@ def test_resolve_image_file_id_from_uploads(
 ) -> None:
     import base64
 
-    from leagent.config import constants
+    from StAgent.config import constants
 
     upload_root = tmp_path / "uploads"
     session_dir = upload_root / "sess-1"

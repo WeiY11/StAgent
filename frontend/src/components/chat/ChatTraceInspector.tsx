@@ -101,7 +101,7 @@ function buildTraceJsonlFromDetail(detail: TraceDetail): string {
   const lines: string[] = [
     JSON.stringify({
       type: 'manifest',
-      schema: 'leagent.agent_trace.v1',
+      schema: 'StAgent.agent_trace.v1',
       trace: detail.trace,
     }),
   ];

@@ -241,7 +241,7 @@ export const translations: Record<Lang, Translation> = {
       eyebrow: "文档",
       indexTitle: "教程与技术资料",
       indexLede:
-        "面试题库、系统介绍、技术参考与 Agent 工程教程——以 LeAgent 真实实现为对照，按专业文档站方式阅读。",
+        "面试题库、系统介绍、技术参考与 Agent 工程教程——以 StAgent 真实实现为对照，按专业文档站方式阅读。",
       hubLink: "教程首页",
       readSection: "进入阅读",
       openToc: "目录",
@@ -261,7 +261,7 @@ export const translations: Record<Lang, Translation> = {
       releases: "版本发布",
       license: "Apache-2.0 许可证",
       security: "安全",
-      copyright: `© ${new Date().getFullYear()} LeAgent 贡献者`,
+      copyright: `© ${new Date().getFullYear()} StAgent 贡献者`,
       tao: "易简",
       taoSub: "少则得",
     },
@@ -284,7 +284,7 @@ export const translations: Record<Lang, Translation> = {
       heroLine1: "真正完成工作的",
       heroLine2: "开源桌面 AI 智能体",
       heroSub:
-        "LeAgent 不止于对话。它在统一的智能体循环中自主规划、调用工具并自我纠错，亲手设计并运行可视化工作流，把可交互界面实时流式渲染进聊天——内置 100+ 工具，开源、可自托管。",
+        "StAgent 不止于对话。它在统一的智能体循环中自主规划、调用工具并自我纠错，亲手设计并运行可视化工作流，把可交互界面实时流式渲染进聊天——内置 100+ 工具，开源、可自托管。",
       overviewEyebrow: "产品概述",
       overviewTitle: "一套技术栈，完整的智能体能力",
       overviewLede:
@@ -398,12 +398,12 @@ export const translations: Record<Lang, Translation> = {
         { title: "自纠错闭环", description: "质量门控配合有界自纠错循环，让美术资产等输出在不达标时自动重生成。" },
         { title: "可移植与可复用", description: "YAML 导出、Cron / Webhook 触发与模板库，便于版本管理与跨环境复用。" },
       ],
-      ctaTitle: "把你的流程搬进 LeAgent",
+      ctaTitle: "把你的流程搬进 StAgent",
       ctaSub: "下载即可在本地搭建第一条工作流，或查看源码了解引擎实现。",
     },
     business: {
       title: "定制开发\n与私有化交付",
-      sub: "面向企业或团队的 LeAgent 定制实施：在开源核心之上扩展业务流程、专用工具与系统集成，并提供部署与维护支持。",
+      sub: "面向企业或团队的 StAgent 定制实施：在开源核心之上扩展业务流程、专用工具与系统集成，并提供部署与维护支持。",
       useCasesEyebrow: "服务范围",
       useCasesTitle: "可交付的定制方向",
       capabilitiesEyebrow: "实施能力",
@@ -412,7 +412,7 @@ export const translations: Record<Lang, Translation> = {
       ctaSub: "可通过联系页沟通场景、合规要求与交付周期；标准版亦可自行下载部署。",
     },
     downloadPage: {
-      title: "获取 LeAgent",
+      title: "获取 StAgent",
       sub: "选择平台后按脚本安装，或使用源码构建。",
       windowsButton: "下载 Windows 版",
       macosButton: "下载 macOS 版",
@@ -439,7 +439,7 @@ export const translations: Record<Lang, Translation> = {
       title: "桌面宠物 · 知音",
       sub: "一只住在桌面上的小伙伴。会动、可换、能下载 — 给屏幕添点氛围。",
       introTitle: "这位小家伙是谁",
-      introP1: "LeAgent 自带一个轻量的桌面伙伴：常驻在屏幕一角，安静陪着你。消息来了、任务结束了、出错了 — 它会换个神态告诉你。像古时候候在桌旁的童子，知意而不打扰。",
+      introP1: "StAgent 自带一个轻量的桌面伙伴：常驻在屏幕一角，安静陪着你。消息来了、任务结束了、出错了 — 它会换个神态告诉你。像古时候候在桌旁的童子，知意而不打扰。",
       introP2: "全程本地运行 — 没有云资源，也没有遥测。所有动画和壁纸都是离线静态文件，你想换随时可以换。",
       featuresTitle: "它是怎么陪你的",
       features: [
@@ -451,7 +451,7 @@ export const translations: Record<Lang, Translation> = {
         { title: "省电模式", description: "60 秒没动作就化成一帧水墨静画，CPU 占用接近于零。" },
       ],
       wallpapersTitle: "壁纸合集",
-      wallpapersSub: "六张手绘风景壁纸，从黄昏小镇到浮空幻境，给 LeAgent 桌面换换心情。点一下就能下载。",
+      wallpapersSub: "六张手绘风景壁纸，从黄昏小镇到浮空幻境，给 StAgent 桌面换换心情。点一下就能下载。",
       wallpapers: [
         { title: "小镇黄昏", tag: "暖暮", swatch: "linear-gradient(135deg, #3a2418 0%, #8a5030 50%, #d4a060 100%)" },
         { title: "浮空幻境", tag: "云海", swatch: "linear-gradient(160deg, #1a2848 0%, #4a68a8 50%, #a8c8f0 100%)" },
@@ -516,7 +516,7 @@ export const translations: Record<Lang, Translation> = {
     useCases: [
       {
         title: "私有化部署",
-        description: "在内网或专属服务器部署 LeAgent，对接企业身份、网络策略与数据留存要求。",
+        description: "在内网或专属服务器部署 StAgent，对接企业身份、网络策略与数据留存要求。",
       },
       {
         title: "业务流程定制",
@@ -529,7 +529,7 @@ export const translations: Record<Lang, Translation> = {
     ],
     capabilities: [
       { title: "需求分析与方案设计", description: "梳理业务目标、数据边界与模型选型，输出可落地的架构与里程碑计划。" },
-      { title: "专用工具开发", description: "在 LeAgent 工具框架内实现领域解析、接口调用与结果校验逻辑。" },
+      { title: "专用工具开发", description: "在 StAgent 工具框架内实现领域解析、接口调用与结果校验逻辑。" },
       { title: "模型与供应商适配", description: "配置 DeepSeek、OpenAI、通义、Ollama、vLLM 等提供商及路由策略。" },
       { title: "工作流与规则编排", description: "设计可视化流程、Cron/Webhook 触发与声明式规则，覆盖重复性任务。" },
       { title: "部署与运维支持", description: "提供安装脚本、容器化与升级路径，协助监控、备份与版本迁移。" },
@@ -545,29 +545,29 @@ export const translations: Record<Lang, Translation> = {
       linux: {
         label: "Linux",
         steps: `curl -fsSL ${INSTALL_SH_URL} | bash
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 ./start.sh`,
       },
       macos: {
         label: "macOS",
         steps: `curl -fsSL ${INSTALL_SH_URL} | bash
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 ./start.sh`,
       },
       windows: {
         label: "Windows",
         steps: `# PowerShell（如需要请以管理员身份运行）
 iwr -useb ${INSTALL_PS1_URL} | iex
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 .\\start.ps1`,
       },
     },
@@ -588,7 +588,7 @@ cd LeAgent
       eyebrow: "Docs",
       indexTitle: "Tutorials & technical docs",
       indexLede:
-        "Interview prep, system overview, technical references, and Agent engineering guides — grounded in LeAgent’s real implementation.",
+        "Interview prep, system overview, technical references, and Agent engineering guides — grounded in StAgent’s real implementation.",
       hubLink: "Tutorials home",
       readSection: "Read section",
       openToc: "Contents",
@@ -609,7 +609,7 @@ cd LeAgent
       releases: "Releases",
       license: "Apache-2.0 License",
       security: "Security",
-      copyright: `\u00A9 ${new Date().getFullYear()} LeAgent contributors`,
+      copyright: `\u00A9 ${new Date().getFullYear()} StAgent contributors`,
       tao: "Simplicity",
       taoSub: "Less is gain",
     },
@@ -632,7 +632,7 @@ cd LeAgent
       heroLine1: "The open-source desktop",
       heroLine2: "AI agent that gets work done",
       heroSub:
-        "LeAgent doesn't just chat. It plans, calls tools, and self-corrects in one think-act loop, designs and runs visual workflows, and streams live interactive UI into the chat — with 100+ built-in tools, open-source and self-hostable.",
+        "StAgent doesn't just chat. It plans, calls tools, and self-corrects in one think-act loop, designs and runs visual workflows, and streams live interactive UI into the chat — with 100+ built-in tools, open-source and self-hostable.",
       overviewEyebrow: "Overview",
       overviewTitle: "One stack, a complete agent platform",
       overviewLede:
@@ -746,7 +746,7 @@ cd LeAgent
         { title: "Self-correcting loop", description: "A quality gate plus a bounded self-correction loop regenerates outputs like art assets automatically when they miss the bar." },
         { title: "Portable and reusable", description: "YAML export, Cron / Webhook triggers, and a template library for versioning and reuse across environments." },
       ],
-      ctaTitle: "Bring your process into LeAgent",
+      ctaTitle: "Bring your process into StAgent",
       ctaSub: "Download to build your first workflow locally, or read the source to see how the engine works.",
     },
     business: {
@@ -760,7 +760,7 @@ cd LeAgent
       ctaSub: "Reach out via the contact page for scope, compliance, and timeline. The standard edition remains available for self-service download.",
     },
     downloadPage: {
-      title: "Get LeAgent",
+      title: "Get StAgent",
       sub: "Install via script for your platform, or build from source.",
       windowsButton: "Download for Windows",
       macosButton: "Download for macOS",
@@ -787,7 +787,7 @@ cd LeAgent
       title: "Desktop Pets · Quiet Companions",
       sub: "A tiny companion that lives on your desktop. Animated, swappable, easy to download — set the mood of your screen.",
       introTitle: "Who is this little thing",
-      introP1: "LeAgent comes with a small desktop companion that quietly sits in a corner of your screen. When something happens — a message arrives, a task wraps up, something breaks — it changes mood to let you know. Think of it as a gentle witness to your work.",
+      introP1: "StAgent comes with a small desktop companion that quietly sits in a corner of your screen. When something happens — a message arrives, a task wraps up, something breaks — it changes mood to let you know. Think of it as a gentle witness to your work.",
       introP2: "Everything runs locally — no cloud, no telemetry. The animations and wallpapers are plain files on your disk. Swap any of them whenever you’d like.",
       featuresTitle: "How it shows up",
       features: [
@@ -877,7 +877,7 @@ cd LeAgent
     ],
     capabilities: [
       { title: "Requirements and architecture", description: "Scope, data boundaries, model selection, and a phased delivery plan." },
-      { title: "Custom tool development", description: "Domain parsers, API connectors, and validation within the LeAgent tool framework." },
+      { title: "Custom tool development", description: "Domain parsers, API connectors, and validation within the StAgent tool framework." },
       { title: "Model provider setup", description: "DeepSeek, OpenAI, Anthropic, DashScope, Ollama, vLLM routing and configuration." },
       { title: "Workflow and rules", description: "Visual flows, Cron/Webhook triggers, and declarative rules for recurring tasks." },
       { title: "Deployment and operations", description: "Install scripts, containers, upgrades, monitoring, and backup guidance." },
@@ -893,29 +893,29 @@ cd LeAgent
       linux: {
         label: "Linux",
         steps: `curl -fsSL ${INSTALL_SH_URL} | bash
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 ./start.sh`,
       },
       macos: {
         label: "macOS",
         steps: `curl -fsSL ${INSTALL_SH_URL} | bash
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 ./start.sh`,
       },
       windows: {
         label: "Windows",
         steps: `# PowerShell (run as Administrator if needed)
 iwr -useb ${INSTALL_PS1_URL} | iex
-leagent init
-leagent app`,
+StAgent init
+StAgent app`,
         fromSource: `git clone ${REPO_URL}.git
-cd LeAgent
+cd StAgent
 .\\start.ps1`,
       },
     },

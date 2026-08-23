@@ -6,12 +6,12 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.context import ContextManager
-from leagent.prompts.playbooks import (
+from StAgent.context import ContextManager
+from StAgent.prompts.playbooks import (
     playbook_ids_from_context,
     playbook_ids_from_message_extensions,
 )
-from leagent.prompts.registry import get_prompt_registry
+from StAgent.prompts.registry import get_prompt_registry
 
 
 def test_playbook_ids_from_context_dedupes() -> None:

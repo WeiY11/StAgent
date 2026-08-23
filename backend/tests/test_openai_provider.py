@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.llm.base import ChatMessage, StreamChunk, TokenUsage, ToolCall, ToolDefinition
-from leagent.llm.providers.openai import OpenAIProvider, _context_retry_max_tokens
-from leagent.exceptions.llm import (
+from StAgent.llm.base import ChatMessage, StreamChunk, TokenUsage, ToolCall, ToolDefinition
+from StAgent.llm.providers.openai import OpenAIProvider, _context_retry_max_tokens
+from StAgent.exceptions.llm import (
     LLMRateLimitError,
     LLMServiceError,
     LLMTimeoutError,
@@ -318,7 +318,7 @@ class TestOpenAIStreamParsing:
         assert resp.content == "<think>official provider text</think>\nFinal answer"
 
     def test_deepseek_does_not_enable_think_tag_parser(self) -> None:
-        from leagent.llm.providers.deepseek import DeepSeekProvider
+        from StAgent.llm.providers.deepseek import DeepSeekProvider
 
         p = DeepSeekProvider(api_key="k")
         data = {

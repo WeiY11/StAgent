@@ -1,14 +1,14 @@
 $ErrorActionPreference = 'Stop'
-$PostgresContainer = 'leagent-postgres-contract'
+$PostgresContainer = 'StAgent-postgres-contract'
 $existing = docker ps -a --filter "name=^/$PostgresContainer$" --format '{{.Names}}'
 if ($existing) { docker rm -f $PostgresContainer | Out-Null }
 
 docker run -d --name $PostgresContainer `
-  -e POSTGRES_USER=leagent `
+  -e POSTGRES_USER=StAgent `
   -e POSTGRES_PASSWORD=test `
-  -e POSTGRES_DB=leagent `
+  -e POSTGRES_DB=StAgent `
   -p 127.0.0.1:15432:5432 `
-  --health-cmd 'pg_isready -U leagent' `
+  --health-cmd 'pg_isready -U StAgent' `
   --health-interval 2s `
   --health-timeout 2s `
   --health-retries 30 `

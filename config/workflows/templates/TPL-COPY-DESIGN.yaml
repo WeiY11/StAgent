@@ -16,7 +16,7 @@ inputs:
   type: string
   description: 产品/功能名称
   required: false
-  default: LeAgent Workflows
+  default: StAgent Workflows
 - name: audience
   type: string
   description: 目标受众（角色/行业/场景）

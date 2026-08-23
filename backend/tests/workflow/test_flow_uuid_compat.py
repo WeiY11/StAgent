@@ -13,13 +13,13 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from leagent.config.settings import Settings
-from leagent.db import get_database_service
-from leagent.db.service import DatabaseService
-from leagent.services.auth.deps import get_current_user_id
-from leagent.workflow.registry import FlowWorkflowRegistry
-from leagent.workflow.server.router import router as workflow_router
-from leagent.workflow.worker import make_db_flow_loader
+from StAgent.config.settings import Settings
+from StAgent.db import get_database_service
+from StAgent.db.service import DatabaseService
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.workflow.registry import FlowWorkflowRegistry
+from StAgent.workflow.server.router import router as workflow_router
+from StAgent.workflow.worker import make_db_flow_loader
 
 
 @pytest_asyncio.fixture()
@@ -111,7 +111,7 @@ async def test_workflow_http_flow_routes_match_and_update_dashed_sqlite_ids(
     flow_db: DatabaseService,
     sample_canonical_document: dict,
 ) -> None:
-    from leagent.workflow.nodes import bootstrap
+    from StAgent.workflow.nodes import bootstrap
 
     await bootstrap()
     flow_id = uuid4()

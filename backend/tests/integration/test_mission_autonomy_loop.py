@@ -1,7 +1,7 @@
 """Mission autonomy-loop integration tests (SQLite store, scripted runtime).
 
 End-to-end coverage of the mission loop over the real
-:class:`~leagent.db.repositories.missions.DbMissionRepository` with a
+:class:`~StAgent.db.repositories.missions.DbMissionRepository` with a
 scripted segment runtime (no LLM, no network): multi-step wave execution,
 bounded continuation on budget exhaustion, the ``readonly`` autonomy tool
 whitelist, and the verify-fail → invalid-replan → pause path.
@@ -14,16 +14,16 @@ from typing import TYPE_CHECKING, Any
 
 import pytest_asyncio
 
-from leagent.config.settings import Settings
-from leagent.db.models.mission import (
+from StAgent.config.settings import Settings
+from StAgent.db.models.mission import (
     Mission,
     MissionAutonomy,
     MissionStatus,
     MissionStep,
     MissionStepStatus,
 )
-from leagent.db.service import DatabaseService
-from leagent.mission import (
+from StAgent.db.service import DatabaseService
+from StAgent.mission import (
     MissionPlan,
     MissionRunner,
     MissionStepState,
@@ -32,8 +32,8 @@ from leagent.mission import (
     StaticPlanner,
     VerificationResult,
 )
-from leagent.mission.segment import KernelSegmentExecutor
-from leagent.sdk.events import AgentEvent
+from StAgent.mission.segment import KernelSegmentExecutor
+from StAgent.sdk.events import AgentEvent
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -173,7 +173,7 @@ async def test_three_step_mission_with_continuation_completes(repo_db):
 
 
 async def test_readonly_mission_scopes_tool_allowlist(repo_db, monkeypatch):
-    from leagent.tools import registry as registry_module
+    from StAgent.tools import registry as registry_module
 
     class FakeRegistry:
         def get_enabled_tools(self) -> list[SimpleNamespace]:

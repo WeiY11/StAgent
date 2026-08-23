@@ -1,6 +1,6 @@
 # Demo: transcribe audio with a self-hosted Whisper server, then have the
 # Script Agent summarise the transcript. Configure:
-#   LEAGENT_LOCAL_ASR_URL=http://localhost:8000  (faster-whisper / whisper.cpp / Speaches)
+#   StAgent_LOCAL_ASR_URL=http://localhost:8000  (faster-whisper / whisper.cpp / Speaches)
 id: demo_asr_agent_summary
 name: "Demo: ASR transcript -> agent summary"
 description: >-

@@ -1,4 +1,4 @@
-"""Tests for the LeAgent tool system.
+"""Tests for the StAgent tool system.
 
 Covers ToolResult, ToolContext, BaseTool contract, and all new attributes
 introduced in the latest architecture (safety flags, concurrency, interrupt
@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from leagent.tools.base import (
+from StAgent.tools.base import (
     BaseTool,
     ToolCategory,
     ToolContext,
@@ -162,7 +162,7 @@ class TestToolResult:
 
 
 def test_serialize_tool_result_failure_includes_detail_json() -> None:
-    from leagent.agent.query import _serialize_result
+    from StAgent.agent.query import _serialize_result
 
     r = ToolResult.fail("main", data={"stderr": "e", "returncode": 1})
     s = _serialize_result(r)

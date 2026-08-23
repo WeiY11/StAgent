@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Lightweight LeAgent performance benchmark harness.
+"""Lightweight StAgent performance benchmark harness.
 
 Targets a running backend and measures chat streaming latency under load:
 request upload, time to first SSE event, total stream time, success rate,
@@ -166,7 +166,7 @@ def _summarize(samples: list[Sample], *, elapsed_ms: float | None = None) -> dic
 
 
 def _encode_multipart(fields: dict[str, str]) -> tuple[bytes, str]:
-    boundary = f"----leagent-perf-{uuid4().hex}"
+    boundary = f"----StAgent-perf-{uuid4().hex}"
     body = bytearray()
     for name, value in fields.items():
         if value == "":
@@ -368,8 +368,8 @@ def _environment(args: argparse.Namespace) -> dict[str, Any]:
     """Provenance so a report cannot be mistaken for a different build/host."""
     return {
         "git_sha": _git_sha(),
-        "provider": args.provider or os.environ.get("LEAGENT_PERF_PROVIDER", ""),
-        "model": args.model or os.environ.get("LEAGENT_PERF_MODEL", ""),
+        "provider": args.provider or os.environ.get("StAgent_PERF_PROVIDER", ""),
+        "model": args.model or os.environ.get("StAgent_PERF_MODEL", ""),
         "python": platform.python_version(),
         "platform": platform.platform(),
         "warmup": args.warmup,
@@ -442,7 +442,7 @@ async def _run(args: argparse.Namespace) -> tuple[dict[str, Any], list[Sample]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run LeAgent chat stream benchmarks.")
+    parser = argparse.ArgumentParser(description="Run StAgent chat stream benchmarks.")
     parser.add_argument("--base-url", default="http://localhost:7860/api/v1")
     parser.add_argument("--requests", type=int, default=20)
     parser.add_argument("--concurrency", type=int, default=5)
@@ -481,7 +481,7 @@ def main() -> None:
     parser.add_argument("--output", default="")
     parser.add_argument(
         "--token",
-        default=os.environ.get("LEAGENT_PERF_TOKEN", ""),
+        default=os.environ.get("StAgent_PERF_TOKEN", ""),
         help="Bearer token sent as Authorization header on every request.",
     )
     parser.add_argument("--provider", default="", help="Provider name recorded in the report.")

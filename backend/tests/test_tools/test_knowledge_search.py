@@ -9,15 +9,15 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.config.settings import Settings
-from leagent.db.models.file import File, FileStatus, FileType, LibraryScope
-from leagent.db.models.identity_stub import UserStub
-from leagent.db.service import DatabaseService
-from leagent.library.chunking import chunk_text
-from leagent.services.auth.service import LOCAL_USER_ID
-from leagent.tools.base import SyncTool, ToolCategory, ToolContext, ToolResult
-from leagent.tools.doc.knowledge_search import KnowledgeSearchTool
-from leagent.tools.registry import ToolRegistry
+from StAgent.config.settings import Settings
+from StAgent.db.models.file import File, FileStatus, FileType, LibraryScope
+from StAgent.db.models.identity_stub import UserStub
+from StAgent.db.service import DatabaseService
+from StAgent.library.chunking import chunk_text
+from StAgent.services.auth.service import LOCAL_USER_ID
+from StAgent.tools.base import SyncTool, ToolCategory, ToolContext, ToolResult
+from StAgent.tools.doc.knowledge_search import KnowledgeSearchTool
+from StAgent.tools.registry import ToolRegistry
 
 
 @pytest.fixture()
@@ -28,7 +28,7 @@ async def kb_db(monkeypatch: pytest.MonkeyPatch):
         settings = Settings()
         db = DatabaseService(settings)
         await db.create_tables()
-        monkeypatch.setattr("leagent.db.get_database_service", lambda: db)
+        monkeypatch.setattr("StAgent.db.get_database_service", lambda: db)
         yield db
         await db.dispose()
 

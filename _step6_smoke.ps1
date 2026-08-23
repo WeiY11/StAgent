@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
-Set-Location D:\LeAgent\backend
-$env:DATABASE_URL = 'postgresql+asyncpg://leagent:test@127.0.0.1:15432/leagent'
+Set-Location D:\StAgent\backend
+$env:DATABASE_URL = 'postgresql+asyncpg://StAgent:test@127.0.0.1:15432/StAgent'
 try {
     uv run pytest tests/integration/test_postgres_smoke.py -q
     Write-Output "SMOKE_EXIT=$LASTEXITCODE"

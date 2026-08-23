@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-本文讲委派时的能力边界与交接契约，是子 Agent 系列的「权限 + 协议」篇。先修 [37](37-when-to-use-subagents.md)、[38](38-delegation-context-isolation.md)。核心不变量：**模型看得到的工具 schema** 与 **executor 真正能执行的工具** 必须来自同一 `ToolRegistry.scoped` 结果。Handoff 在 LeAgent 里主要是 **结构化任务包（prompt）+ 结构化返回 envelope**，而不是默认移交整段父对话控制权。
+本文讲委派时的能力边界与交接契约，是子 Agent 系列的「权限 + 协议」篇。先修 [37](37-when-to-use-subagents.md)、[38](38-delegation-context-isolation.md)。核心不变量：**模型看得到的工具 schema** 与 **executor 真正能执行的工具** 必须来自同一 `ToolRegistry.scoped` 结果。Handoff 在 StAgent 里主要是 **结构化任务包（prompt）+ 结构化返回 envelope**，而不是默认移交整段父对话控制权。
 
 ## 目标
 
@@ -33,7 +33,7 @@ Handoff 契约：
   图 → 下游：AGENT_OUTPUT_NAMES 六元组（见 41）
 ```
 
-若只过滤「系统提示里的可用工具描述」却不换 executor，模型仍可能通过规范名或别名调到父工具——LeAgent 用 **同一 scoped registry 驱动 schema 与执行** 堵住这条缝。Handoff 也不是第二套消息总线：没有自动把父 transcript 摘要塞进子级，也没有把子全程消息并回父 transcript。
+若只过滤「系统提示里的可用工具描述」却不换 executor，模型仍可能通过规范名或别名调到父工具——StAgent 用 **同一 scoped registry 驱动 schema 与执行** 堵住这条缝。Handoff 也不是第二套消息总线：没有自动把父 transcript 摘要塞进子级，也没有把子全程消息并回父 transcript。
 
 ## 读写数据流
 
@@ -75,7 +75,7 @@ result = await runtime.delegate(
     "subagent",
     (
         "目标：汇总 workflow agent_exec 的暂停与 resume 标签。\n"
-        "输入：backend/leagent/workflow/nodes/agent_exec.py\n"
+        "输入：backend/StAgent/workflow/nodes/agent_exec.py\n"
         "禁止：写文件、shell、code_execution。\n"
         "输出：要点列表 + 证据行号 + 相关测试文件名。"
     ),
@@ -98,7 +98,7 @@ for step in result.get("activity") or []:
 ## 常见误区
 
 - **「deny 写在 system prompt 就够了。」** 不够；必须 scoped + child executor，否则 schema/执行分裂。
-- **「handoff = 把会话转交另一个 agent 接着聊。」** LeAgent 默认是任务委派 + envelope，不是控制权移交。
+- **「handoff = 把会话转交另一个 agent 接着聊。」** StAgent 默认是任务委派 + envelope，不是控制权移交。
 - **「返回 text 成功即业务成功。」** 查 envelope、测试与 `verification_gap`。
 - **「子级会继承父级全部工具除非写 deny。」** 还受 definition.allow、AgentTool 默认 deny 与 scoped exact 匹配影响。
 - **「read_only 只是 UI 提示。」** 节点层会收紧 allow 列表，与 executor 同源。
@@ -106,7 +106,7 @@ for step in result.get("activity") or []:
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-OpenAI handoff 强调对话控制权转移，可用 `input_filter` 改写可见历史；LeAgent 强调任务包与 envelope。MCP 用 server 边界隔离工具集合——类似 scoped registry，但 LeAgent 在单进程内用 registry 切片。LangGraph 常用独立 node + 显式 state 字段传交接；AutoGen 靠 chat 消息约定工人输出。LeAgent 把 **工具集合** 与 **返回 envelope** 提为一等契约，历史默认不分享，适合审计型桌面 Agent 与可复现工作流。
+OpenAI handoff 强调对话控制权转移，可用 `input_filter` 改写可见历史；StAgent 强调任务包与 envelope。MCP 用 server 边界隔离工具集合——类似 scoped registry，但 StAgent 在单进程内用 registry 切片。LangGraph 常用独立 node + 显式 state 字段传交接；AutoGen 靠 chat 消息约定工人输出。StAgent 把 **工具集合** 与 **返回 envelope** 提为一等契约，历史默认不分享，适合审计型桌面 Agent 与可复现工作流。
 
 ## 总结
 

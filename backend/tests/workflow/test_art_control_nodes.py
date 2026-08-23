@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.io.types import SOCKET_COLORS
-from leagent.workflow.nodes import bootstrap as bootstrap_nodes
-from leagent.workflow.nodes import get_registry
-from leagent.workflow.nodes.art.control_nodes import CameraControlNode, PoseControlNode
-from leagent.workflow.nodes.art.nodes import ImageGenNode
+from StAgent.workflow.io.types import SOCKET_COLORS
+from StAgent.workflow.nodes import bootstrap as bootstrap_nodes
+from StAgent.workflow.nodes import get_registry
+from StAgent.workflow.nodes.art.control_nodes import CameraControlNode, PoseControlNode
+from StAgent.workflow.nodes.art.nodes import ImageGenNode
 
 
 @pytest.fixture(scope="module")

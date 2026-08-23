@@ -1,5 +1,5 @@
 # ruff: noqa: E402, I001
-"""Shared pytest fixtures for the LeAgent test suite.
+"""Shared pytest fixtures for the StAgent test suite.
 
 Intentional skips elsewhere (do not remove without product scope):
 
@@ -16,27 +16,27 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Before any ``import leagent.*``: ``leagent.config.constants`` snapshots
-# ``LEAGENT_HOME`` at import time; default ``~/.leagent`` breaks CI / parallel
+# Before any ``import StAgent.*``: ``StAgent.config.constants`` snapshots
+# ``StAgent_HOME`` at import time; default ``~/.StAgent`` breaks CI / parallel
 # runs and can hit permission / lock issues on Windows.
 _backend_root = Path(__file__).resolve().parent.parent
-_wa_pytest = _backend_root / ".pytest_leagent_home"
+_wa_pytest = _backend_root / ".pytest_StAgent_home"
 _wa_pytest.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("LEAGENT_HOME", str(_wa_pytest.resolve()))
+os.environ.setdefault("StAgent_HOME", str(_wa_pytest.resolve()))
 # Pin the permissive test profile (loopback + auth off) at the env level so a
 # ``get_settings.cache_clear()`` inside a test (e.g. to pick up monkeypatched
 # SMTP vars) rebuilds Settings without flipping auth enforcement to on
 # (fresh defaults bind 0.0.0.0 → effective_enforce_auth() → 401 everywhere).
-os.environ.setdefault("LEAGENT_HOST", "127.0.0.1")
-os.environ.setdefault("LEAGENT_SECURITY_ENFORCE_AUTH", "false")
-os.environ.setdefault("LEAGENT_SECURITY_RATE_LIMIT_ENABLED", "false")
+os.environ.setdefault("StAgent_HOST", "127.0.0.1")
+os.environ.setdefault("StAgent_SECURITY_ENFORCE_AUTH", "false")
+os.environ.setdefault("StAgent_SECURITY_RATE_LIMIT_ENABLED", "false")
 # TestClient startup uses ``SQLModel.metadata.create_all`` via DatabaseService;
 # dedicated migration tests exercise Alembic directly. Skipping lifespan
 # migrations keeps combined API batches deterministic on Windows.
-os.environ.setdefault("LEAGENT_SKIP_STARTUP_MIGRATIONS", "true")
-# Deterministic routing: a developer ``LEAGENT_FRONTEND_DIST`` would mount StaticFiles
+os.environ.setdefault("StAgent_SKIP_STARTUP_MIGRATIONS", "true")
+# Deterministic routing: a developer ``StAgent_FRONTEND_DIST`` would mount StaticFiles
 # before API routes (405/404). Tests mount SPA last via ``mount_frontend_spa_if_configured``.
-os.environ.pop("LEAGENT_FRONTEND_DIST", None)
+os.environ.pop("StAgent_FRONTEND_DIST", None)
 
 pytest_plugins = [
     "tests.fixtures.sample_files",
@@ -53,22 +53,22 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from leagent.services.auth.service import LOCAL_USER_ID
+from StAgent.services.auth.service import LOCAL_USER_ID
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.agent.base import AgentConfig, AgentContext, AgentMode, AgentState
-from leagent.config.settings import Settings, get_settings
-from leagent.main import create_app, mount_frontend_spa_if_configured
+from StAgent.agent.base import AgentConfig, AgentContext, AgentMode, AgentState
+from StAgent.config.settings import Settings, get_settings
+from StAgent.main import create_app, mount_frontend_spa_if_configured
 
 # Force-import every model module so SQLModel.metadata sees the full schema
 # (the test DB is created via ``SQLModel.metadata.create_all``). Forgetting a
 # model here leads to confusing "no such table" failures in tests that only
 # indirectly touch the missing entity — explicit is better than implicit.
-import leagent.db.models  # noqa: F401
-from leagent.tools.base import ToolContext
-from leagent.tools.registry import ToolRegistry
+import StAgent.db.models  # noqa: F401
+from StAgent.tools.base import ToolContext
+from StAgent.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -188,19 +188,19 @@ TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 @pytest.fixture(autouse=True, scope="session")
 def _widen_sandbox_for_tests():
     """Allow /tmp and system temp during tests so tmp_path works with the sandbox."""
-    from leagent.file.sandbox import reset_roots
+    from StAgent.file.sandbox import reset_roots
 
-    old = os.environ.get("LEAGENT_TOOL_FILE_ROOTS")
+    old = os.environ.get("StAgent_TOOL_FILE_ROOTS")
     system_tmp = str(Path(tempfile.gettempdir()).resolve())
-    os.environ["LEAGENT_TOOL_FILE_ROOTS"] = (
-        f"/tmp,/tmp/leagent/files,{system_tmp}"
+    os.environ["StAgent_TOOL_FILE_ROOTS"] = (
+        f"/tmp,/tmp/StAgent/files,{system_tmp}"
     )
     reset_roots()
     yield
     if old is None:
-        os.environ.pop("LEAGENT_TOOL_FILE_ROOTS", None)
+        os.environ.pop("StAgent_TOOL_FILE_ROOTS", None)
     else:
-        os.environ["LEAGENT_TOOL_FILE_ROOTS"] = old
+        os.environ["StAgent_TOOL_FILE_ROOTS"] = old
     reset_roots()
 
 
@@ -222,7 +222,7 @@ def test_settings() -> Settings:
 def app(test_settings: Settings):  # type: ignore[no-untyped-def]
     """Create a FastAPI application instance for testing.
 
-    ``create_app()`` registers every router eagerly (see ``leagent.api.router``),
+    ``create_app()`` registers every router eagerly (see ``StAgent.api.router``),
     so no deferred mounting is needed. SPA static files mount last via
     ``mount_frontend_spa_if_configured`` so they cannot shadow API routes.
     """
@@ -235,6 +235,23 @@ def app(test_settings: Settings):  # type: ignore[no-untyped-def]
     application.state.post_startup_warmup = ev
 
     return application
+
+
+@pytest.fixture(autouse=True)
+def _isolate_knowledge_pipeline_singleton():
+    """Snapshot/restore the module-level retrieval-pipeline singleton.
+
+    App-lifespan tests wire it to the app DB; without restoring, later tests
+    that construct their own DatabaseService silently query the stale app DB
+    through the tool fallback path (order-dependent failures).
+    """
+    from StAgent.library import retrieval as _retrieval
+
+    saved = _retrieval._pipeline
+    try:
+        yield
+    finally:
+        _retrieval._pipeline = saved
 
 
 @pytest.fixture(scope="session")

@@ -2,7 +2,7 @@
 
 ## 定位、难度与先修
 
-- **定位**：脱离框架，亲手写一个教学用 think-act 循环；再映射回 LeAgent。
+- **定位**：脱离框架，亲手写一个教学用 think-act 循环；再映射回 StAgent。
 - **难度**：★★☆☆☆
 - **先修**：[02 Think-Act Loop](02-think-act-loop.md)、[01 Agent 与 Chatbot](01-agent-vs-chatbot.md)
 
@@ -13,7 +13,7 @@
 ## 学习目标
 
 1. 用约 80 行 Python 写出「调用模型 → 解析工具 → 执行 → 回填 → 终止」循环。  
-2. 对照理解 LeAgent 为何拆出 Runtime、QueryEngine、Executor。  
+2. 对照理解 StAgent 为何拆出 Runtime、QueryEngine、Executor。  
 3. 认清最小实现缺失的安全、预算、持久化与可观测能力。  
 4. 能解释 `tool_call_id` 与 `max_turns` 为何从第一天就不可省。
 
@@ -127,9 +127,9 @@ SCHEMA = [
 2. 去掉 `max_turns`，对总失败工具形成死循环。  
 3. 在工具里执行「任意路径写文件」，体会为何生产要沙箱。
 
-## 映射到 LeAgent
+## 映射到 StAgent
 
-| 教学部件 | LeAgent 生产对应 |
+| 教学部件 | StAgent 生产对应 |
 |----------|------------------|
 | `run_min_agent` | `query()` + `run_loop` |
 | `tools` dict | `ToolRegistry` + `BaseTool` |
@@ -140,7 +140,7 @@ SCHEMA = [
 公共集成面：
 
 ```python
-from leagent.sdk import AgentRuntime
+from StAgent.sdk import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 result = await runtime.run("default_agent", "用 echo 思路理解工具链后直接回答：你好")
@@ -170,7 +170,7 @@ uv run pytest tests/test_runtime_sdk.py tests/test_tool_bootstrap_and_factory.py
 
 ## 业内对照
 
-几乎所有入门教程（OpenAI function calling、LangGraph ReAct、ADK quickstart）都从同类最小循环起步，再引入 Session、Memory、Guardrail。LeAgent 把「下一步」标准化进 SDK，并坚持单内核多入口。
+几乎所有入门教程（OpenAI function calling、LangGraph ReAct、ADK quickstart）都从同类最小循环起步，再引入 Session、Memory、Guardrail。StAgent 把「下一步」标准化进 SDK，并坚持单内核多入口。
 
 ## 总结与延伸阅读
 

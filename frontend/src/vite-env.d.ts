@@ -7,7 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_WS_URL: string;
   readonly VITE_API_BASE_URL?: string;
   /** Public GitHub (or doc site) URL for in-app "full documentation" link; optional. */
-  readonly VITE_LEAGENT_REPO_URL?: string;
+  readonly VITE_StAgent_REPO_URL?: string;
   /** Set to "true" by the desktop build to enable Electron-specific behaviour. */
   readonly VITE_DESKTOP?: string;
 }
@@ -17,14 +17,14 @@ interface ImportMeta {
 }
 
 /** How window controls are rendered in the desktop shell. */
-type LeAgentTitleBarStyle = 'mac' | 'overlay' | 'custom';
+type StAgentTitleBarStyle = 'mac' | 'overlay' | 'custom';
 
 /** Exposed by ``desktop/electron/src/preload.ts`` when running in the Electron shell. */
-interface LeAgentDesktopBridge {
+interface StAgentDesktopBridge {
   readonly platform: NodeJS.Platform;
 
   window: {
-    readonly style: LeAgentTitleBarStyle;
+    readonly style: StAgentTitleBarStyle;
     minimize: () => Promise<void>;
     maximizeToggle: () => Promise<boolean>;
     close: () => Promise<void>;
@@ -40,7 +40,7 @@ interface LeAgentDesktopBridge {
 
   app: {
     getVersion: () => Promise<string>;
-    getPaths: () => Promise<{ userData: string; logs: string; home: string; leagentHome: string }>;
+    getPaths: () => Promise<{ userData: string; logs: string; home: string; StAgentHome: string }>;
     getMachineFingerprint: () => Promise<string>;
     openExternal: (url: string) => Promise<void>;
     openLogsDir: () => Promise<void>;
@@ -76,5 +76,5 @@ interface LeAgentDesktopBridge {
 }
 
 interface Window {
-  leagent?: LeAgentDesktopBridge;
+  StAgent?: StAgentDesktopBridge;
 }

@@ -5,10 +5,10 @@
  *
  * Desktop startup should not depend on the size or validity of unrelated
  * Codex, Claude, or Cursor skill directories on the host. Users who want
- * that interoperability can opt in with LEAGENT_SKILLS_INTEROP_DISCOVERY=1.
+ * that interoperability can opt in with StAgent_SKILLS_INTEROP_DISCOVERY=1.
  */
 export function desktopSkillsInteropDiscoveryEnv(env: NodeJS.ProcessEnv): string {
-  return env.LEAGENT_SKILLS_INTEROP_DISCOVERY?.trim() || '0';
+  return env.StAgent_SKILLS_INTEROP_DISCOVERY?.trim() || '0';
 }
 
 /** Return a non-empty build version for the backend health and metadata APIs. */

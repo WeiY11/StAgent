@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from leagent.llm.generation import config as cfg
-from leagent.llm.generation.config import ImageGenConfigStore
+from StAgent.llm.generation import config as cfg
+from StAgent.llm.generation.config import ImageGenConfigStore
 
 _BASE = "/api/v1/models/image-gen"
 

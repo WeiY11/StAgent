@@ -1,7 +1,7 @@
 {
   "home": {
     "welcome": "Welcome back",
-    "subtitle": "Start automating your workflows with LeAgent",
+    "subtitle": "Start automating your workflows with StAgent",
     "recentFlows": "Recent Workflows",
     "noFlows": "No workflows yet",
     "createFirstFlow": "Create your first workflow",
@@ -21,7 +21,7 @@
     },
     "tips": {
       "title": "Getting Started",
-      "description": "Learn how to use LeAgent to boost your productivity",
+      "description": "Learn how to use StAgent to boost your productivity",
       "learnMore": "View Documentation"
     }
   },

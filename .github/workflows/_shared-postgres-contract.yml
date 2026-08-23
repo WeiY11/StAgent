@@ -16,18 +16,18 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: leagent
+          POSTGRES_USER: StAgent
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: leagent
+          POSTGRES_DB: StAgent
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U leagent"
+          --health-cmd "pg_isready -U StAgent"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      DATABASE_URL: postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent
+      DATABASE_URL: postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent
       SECRET_KEY: test-secret-key
     steps:
       - uses: actions/checkout@v7

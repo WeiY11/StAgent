@@ -28,7 +28,7 @@ def _make_app() -> FastAPI:
 
 class TestRequestIDMiddleware:
     def _app(self) -> TestClient:
-        from leagent.api.middleware import RequestIDMiddleware
+        from StAgent.api.middleware import RequestIDMiddleware
 
         app = _make_app()
         app.add_middleware(RequestIDMiddleware)
@@ -69,7 +69,7 @@ class TestRequestIDMiddleware:
 
 class TestAccessLogMiddleware:
     def _app(self) -> TestClient:
-        from leagent.api.middleware import AccessLogMiddleware
+        from StAgent.api.middleware import AccessLogMiddleware
 
         app = _make_app()
         app.add_middleware(AccessLogMiddleware)
@@ -87,7 +87,7 @@ class TestAccessLogMiddleware:
         assert resp.status_code == 200
 
     def test_custom_exclude_paths(self) -> None:
-        from leagent.api.middleware import AccessLogMiddleware
+        from StAgent.api.middleware import AccessLogMiddleware
 
         app = _make_app()
         app.add_middleware(AccessLogMiddleware, exclude_paths={"/hello"})
@@ -103,7 +103,7 @@ class TestAccessLogMiddleware:
 
 class TestContentSizeLimitMiddleware:
     def _app(self, max_size: int = 1024) -> TestClient:
-        from leagent.api.middleware import ContentSizeLimitMiddleware
+        from StAgent.api.middleware import ContentSizeLimitMiddleware
 
         app = _make_app()
 
@@ -141,7 +141,7 @@ class TestContentSizeLimitMiddleware:
     @pytest.mark.asyncio
     async def test_headerless_stream_over_limit_is_rejected_before_handler(self) -> None:
         """Chunked bodies cannot reach application code after crossing the cap."""
-        from leagent.api.middleware import ContentSizeLimitMiddleware
+        from StAgent.api.middleware import ContentSizeLimitMiddleware
 
         app_calls = 0
         sent: list[dict] = []

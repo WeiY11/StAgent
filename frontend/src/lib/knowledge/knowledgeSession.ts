@@ -1,6 +1,6 @@
 import { apiClient, HttpError } from '@/api/client';
 
-const KNOWLEDGE_SESSION_KEY = 'leagent-knowledge-session-id';
+const KNOWLEDGE_SESSION_KEY = 'StAgent-knowledge-session-id';
 
 let inFlight: Promise<string> | null = null;
 

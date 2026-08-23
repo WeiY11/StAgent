@@ -45,7 +45,7 @@ We take security seriously. If you discover a security vulnerability, please fol
 
 ## Security Best Practices
 
-When deploying LeAgent, follow these guidelines:
+When deploying StAgent, follow these guidelines:
 
 ### Authentication & Authorization
 
@@ -54,11 +54,11 @@ Compulsory instance access password + JWT (see
 
 ```bash
 # Strong signing secret (required for Docker / LAN)
-export LEAGENT_SECRET_KEY="$(openssl rand -hex 32)"
+export StAgent_SECRET_KEY="$(openssl rand -hex 32)"
 
 # Auto-enforced when binding non-loopback; force on/off explicitly if needed:
-# export LEAGENT_SECURITY_ENFORCE_AUTH=true
-# export LEAGENT_SECURITY_ENFORCE_AUTH=false
+# export StAgent_SECURITY_ENFORCE_AUTH=true
+# export StAgent_SECURITY_ENFORCE_AUTH=false
 
 # First browser visit → /login setup screen, or:
 curl -X POST http://127.0.0.1:7860/api/v1/auth/setup \
@@ -73,25 +73,25 @@ Named users (admin-only): `GET/POST /api/v1/admin/users`.
 ```yaml
 # docker-compose.yml
 services:
-  leagent:
+  StAgent:
     # Prefer localhost-only publish; use a reverse proxy for LAN/WAN
     ports:
       - "127.0.0.1:8000:8000"
 ```
 
-When intentionally exposing the API on a LAN, keep `LEAGENT_HOST=0.0.0.0`,
+When intentionally exposing the API on a LAN, keep `StAgent_HOST=0.0.0.0`,
 complete `/auth/setup`, and set explicit CORS origins:
 
 ```bash
-export LEAGENT_SECURITY_CORS_ALLOW_ORIGINS="http://192.168.1.10:5173"
-export LEAGENT_SECURITY_RATE_LIMIT_ENABLED=true
+export StAgent_SECURITY_CORS_ALLOW_ORIGINS="http://192.168.1.10:5173"
+export StAgent_SECURITY_RATE_LIMIT_ENABLED=true
 ```
 
 ### Database Security
 
 ```yaml
 # Use strong passwords
-DATABASE_URL: postgresql+asyncpg://user:STRONG_PASSWORD@postgres:5432/leagent
+DATABASE_URL: postgresql+asyncpg://user:STRONG_PASSWORD@postgres:5432/StAgent
 
 # Enable SSL in production
 DATABASE_SSL: true
@@ -121,7 +121,7 @@ max_request_size_mb: 10
 docker secret create jwt_secret ./jwt_secret.txt
 
 # Kubernetes secrets
-kubectl create secret generic leagent-secrets \
+kubectl create secret generic StAgent-secrets \
   --from-literal=jwt-secret=xxx \
   --from-literal=db-password=xxx
 ```
@@ -197,7 +197,7 @@ Subscribe to security announcements:
 
 ## Compliance
 
-LeAgent is designed to support compliance with:
+StAgent is designed to support compliance with:
 - GDPR (data protection)
 - SOC 2 (security controls)
 - ISO 27001 (information security)

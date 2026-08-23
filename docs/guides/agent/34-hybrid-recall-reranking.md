@@ -104,7 +104,7 @@ uv run pytest tests/test_recall_pipeline.py tests/test_lexical_backend.py -v
 
 ## 与 ADK、Anthropic、AutoGen 等方案对照
 
-向量产品常标榜 hybrid BM25+dense；LeAgent 默认不引入独立 BM25 服务，用 SQL `ilike`/tsvector 做可移植兜底。LangChain/LlamaIndex 可接 cross-encoder reranker；LeAgent 用确定性 boost，可测、无额外模型费用。Mem0 等托管记忆把 recall 外包；LeAgent pipeline 与 `FileState`、身份 scope 同进程，降级路径清晰。Anthropic 无内置三库 recall；应用需自建 RAG 或 memory tool。
+向量产品常标榜 hybrid BM25+dense；StAgent 默认不引入独立 BM25 服务，用 SQL `ilike`/tsvector 做可移植兜底。LangChain/LlamaIndex 可接 cross-encoder reranker；StAgent 用确定性 boost，可测、无额外模型费用。Mem0 等托管记忆把 recall 外包；StAgent pipeline 与 `FileState`、身份 scope 同进程，降级路径清晰。Anthropic 无内置三库 recall；应用需自建 RAG 或 memory tool。
 
 ## 总结
 

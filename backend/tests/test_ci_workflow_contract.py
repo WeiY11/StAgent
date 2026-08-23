@@ -238,12 +238,12 @@ def test_release_postgres_contract_gates_artifacts() -> None:
     assert "continue-on-error" not in str(caller)
     assert job["services"]["postgres"]["image"] == "postgres:17-alpine"
     assert job["services"]["postgres"]["env"] == {
-        "POSTGRES_USER": "leagent",
+        "POSTGRES_USER": "StAgent",
         "POSTGRES_PASSWORD": "test",
-        "POSTGRES_DB": "leagent",
+        "POSTGRES_DB": "StAgent",
     }
-    assert "pg_isready -U leagent" in str(job["services"]["postgres"]["options"])
-    assert job["env"]["DATABASE_URL"] == "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent"
+    assert "pg_isready -U StAgent" in str(job["services"]["postgres"]["options"])
+    assert job["env"]["DATABASE_URL"] == "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent"
     assert job["env"]["SECRET_KEY"] == "test-secret-key"
 
     run_steps = [step for step in job["steps"] if step.get("run")]
@@ -264,8 +264,8 @@ def test_ci_postgres_contract_runs_explicit_live_bootstrap_smoke() -> None:
     assert "continue-on-error" not in str(caller)
     assert "continue-on-error" not in str(job)
     assert job["services"]["postgres"]["image"] == "postgres:17-alpine"
-    assert job["env"]["DATABASE_URL"] == "postgresql+asyncpg://leagent:test@127.0.0.1:5432/leagent"
-    assert "pg_isready -U leagent" in str(job["services"]["postgres"]["options"])
+    assert job["env"]["DATABASE_URL"] == "postgresql+asyncpg://StAgent:test@127.0.0.1:5432/StAgent"
+    assert "pg_isready -U StAgent" in str(job["services"]["postgres"]["options"])
 
     run_steps = [step for step in job["steps"] if step.get("run")]
     assert [step["run"] for step in run_steps] == [
@@ -336,8 +336,8 @@ def test_release_docker_smoke_reuses_ci_runtime_probe() -> None:
 
     cleanup = _step(job, "Container logs and cleanup")
     assert cleanup["if"] == "always()"
-    assert "docker logs leagent-smoke" in cleanup["run"]
-    assert "docker rm -f leagent-smoke" in cleanup["run"]
+    assert "docker logs StAgent-smoke" in cleanup["run"]
+    assert "docker rm -f StAgent-smoke" in cleanup["run"]
 
     for job_name in ("build-wheel", "desktop-linux", "desktop-macos", "desktop-windows"):
         assert "docker-smoke" in _needs(release_jobs[job_name]), job_name

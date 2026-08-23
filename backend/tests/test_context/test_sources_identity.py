@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.context.sources.base import ResolveContext
-from leagent.context.sources.identity import IdentitySource
-from leagent.context.sources.capabilities import CapabilitiesSource
-from leagent.context.sources.environment import EnvironmentSource
-from leagent.context.types import RenderTarget
+from StAgent.context.sources.base import ResolveContext
+from StAgent.context.sources.identity import IdentitySource
+from StAgent.context.sources.capabilities import CapabilitiesSource
+from StAgent.context.sources.environment import EnvironmentSource
+from StAgent.context.types import RenderTarget
 
 
 class _MockVariant:

@@ -32,9 +32,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tests.test_coding_projects_manager import FakeDB  # type: ignore[no-redef]
 
-from leagent.config.settings import Settings, get_settings
-from leagent.project.manager import CodingProjectManager
-from leagent.project.runtime import DevServerSupervisor
+from StAgent.config.settings import Settings, get_settings
+from StAgent.project.manager import CodingProjectManager
+from StAgent.project.runtime import DevServerSupervisor
 
 
 def _free_port() -> int:
@@ -118,7 +118,7 @@ async def test_vanilla_html_dev_server_boots(
                     f"{running.port}; supervisor running={server.is_running(project.id)}\n"
                     f"---logs---\n{pretty}"
                 )
-        assert "Hello from LeAgent" in resp.text
+        assert "Hello from StAgent" in resp.text
     finally:
         await manager.stop(project_id=project.id, user_id=project.user_id)
     assert not server.is_running(project.id)

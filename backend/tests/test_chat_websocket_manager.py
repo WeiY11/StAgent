@@ -10,8 +10,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.api.v1.chat import websocket as chat_websocket
-from leagent.api.v1.chat.websocket import ConnectionManager
+from StAgent.api.v1.chat import websocket as chat_websocket
+from StAgent.api.v1.chat.websocket import ConnectionManager
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
@@ -85,7 +85,7 @@ async def test_websocket_releases_knowledge_lease_when_agent_stream_raises(
 
     monkeypatch.setattr(chat_websocket, "manager", turn_manager)
     monkeypatch.setattr(
-        "leagent.services.auth.get_auth_service",
+        "StAgent.services.auth.get_auth_service",
         lambda: SimpleNamespace(verify_access_token=lambda _token: user_id),
     )
     monkeypatch.setattr(
@@ -95,7 +95,7 @@ async def test_websocket_releases_knowledge_lease_when_agent_stream_raises(
     )
     monkeypatch.setattr(chat_websocket, "build_agent_controller", lambda: object())
     monkeypatch.setattr(
-        "leagent.services.chat.pet_personality.apply_pet_personality_to_agent",
+        "StAgent.services.chat.pet_personality.apply_pet_personality_to_agent",
         AsyncMock(),
     )
     monkeypatch.setattr(

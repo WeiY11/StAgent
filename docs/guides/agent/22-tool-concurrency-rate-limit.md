@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-同一轮模型回复里经常带多个 `tool_calls`。是否并行、并行多少、是否被用户级限流挡住，直接决定延迟与副作用安全。先修：[20](20-build-a-base-tool.md)、[21](21-tool-registry-and-executor.md)。请阅读 `BaseTool.is_concurrency_safe`、`ToolExecutor.partition_calls` / `execute_partitioned`、`backend/leagent/tools/rate_limit.py`，以及 `pipeline.py` 里的限流中间件。本文关心的不是“怎么让 gather 更快”，而是**何时并行是正确的**。
+同一轮模型回复里经常带多个 `tool_calls`。是否并行、并行多少、是否被用户级限流挡住，直接决定延迟与副作用安全。先修：[20](20-build-a-base-tool.md)、[21](21-tool-registry-and-executor.md)。请阅读 `BaseTool.is_concurrency_safe`、`ToolExecutor.partition_calls` / `execute_partitioned`、`backend/StAgent/tools/rate_limit.py`，以及 `pipeline.py` 里的限流中间件。本文关心的不是“怎么让 gather 更快”，而是**何时并行是正确的**。
 
 ## 学习目标
 
@@ -51,7 +51,7 @@ is_concurrency_safe = False
 
 ```bash
 # 每用户每分钟最多 120 次工具执行（进程内计数，非分布式集群配额）
-export LEAGENT_TOOL_RATE_LIMIT_PER_MINUTE=120
+export StAgent_TOOL_RATE_LIMIT_PER_MINUTE=120
 ```
 
 自检分区逻辑可用假调用列表调用 `partition_calls`，确认写工具落入 serial 列表。压力场景下观察并行组是否受信号量钳制，而不是无限创建 task。
@@ -61,7 +61,7 @@ export LEAGENT_TOOL_RATE_LIMIT_PER_MINUTE=120
 ```bash
 cd backend
 uv run pytest tests/test_executor.py -q
-uv run python -c "from leagent.tools.rate_limit import tool_rate_limit_from_env; print(tool_rate_limit_from_env())"
+uv run python -c "from StAgent.tools.rate_limit import tool_rate_limit_from_env; print(tool_rate_limit_from_env())"
 ```
 
 建议补单测：同一假工具标记为安全时并行路径被调度；标记为不安全时完成顺序与提交顺序一致；开启限流后超额调用返回明确错误。
@@ -77,7 +77,7 @@ uv run python -c "from leagent.tools.rate_limit import tool_rate_limit_from_env;
 
 ## 业内对照
 
-Claude / Cursor 类产品对 shell、文件类工具偏串行或强审批；纯检索可以并行。OpenAI 并行 function calling 把调度交给宿主应用。某些 Agent 框架默认 `asyncio.gather` 全部工具，延迟好看但事故率更高。LeAgent 用显式布尔加执行器分区，把策略从“框架魔法”变成可代码审查的属性。
+Claude / Cursor 类产品对 shell、文件类工具偏串行或强审批；纯检索可以并行。OpenAI 并行 function calling 把调度交给宿主应用。某些 Agent 框架默认 `asyncio.gather` 全部工具，延迟好看但事故率更高。StAgent 用显式布尔加执行器分区，把策略从“框架魔法”变成可代码审查的属性。
 
 ## 调参建议
 

@@ -1,6 +1,6 @@
 """Tests for edit/patch did-you-mean helpers."""
 
-from leagent.project.tools.edit_hints import find_closest_lines, format_no_match_hint
+from StAgent.project.tools.edit_hints import find_closest_lines, format_no_match_hint
 
 
 def test_find_closest_lines_single_line() -> None:

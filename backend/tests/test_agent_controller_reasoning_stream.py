@@ -9,8 +9,8 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.agent import query_engine as qe_mod
-from leagent.agent.base import (
+from StAgent.agent import query_engine as qe_mod
+from StAgent.agent.base import (
     AgentConfig,
     AgentContext,
     AgentMode,
@@ -18,8 +18,8 @@ from leagent.agent.base import (
     AgentState,
     ConversationContext,
 )
-from leagent.agent.controller import AgentController
-from leagent.agent.query_engine import SDKMessage
+from StAgent.agent.controller import AgentController
+from StAgent.agent.query_engine import SDKMessage
 
 
 class _FakeEngineBase:
@@ -293,7 +293,7 @@ async def test_run_stream_waits_for_agent_cleanup_after_complete(
     # this stub (class-level patches + cached settings singletons have caused flakes).
     monkeypatch.setattr(controller, "run", MethodType(fake_run, controller))
     monkeypatch.setattr(
-        "leagent.config.settings.get_settings",
+        "StAgent.config.settings.get_settings",
         lambda: SimpleNamespace(agent=SimpleNamespace(stream_drain_timeout_sec=300)),
     )
 

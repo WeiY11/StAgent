@@ -2,7 +2,7 @@
 
 ## 定位与先修
 
-常驻 prompt 应保持瘦身；Canvas/GenUI、图表、文档字体、邮件、艺术资产手册等「重型说明书」应按需注入。先修 [13](13-layered-prompts.md)–[16](16-context-budget-and-compaction.md)。核心类型：[`context/relevance.py`](../../../backend/leagent/context/relevance.py)；消费者：[`context/sources/gated_policy.py`](../../../backend/leagent/context/sources/gated_policy.py)、`art_playbook` 等。
+常驻 prompt 应保持瘦身；Canvas/GenUI、图表、文档字体、邮件、艺术资产手册等「重型说明书」应按需注入。先修 [13](13-layered-prompts.md)–[16](16-context-budget-and-compaction.md)。核心类型：[`context/relevance.py`](../../../backend/StAgent/context/relevance.py)；消费者：[`context/sources/gated_policy.py`](../../../backend/StAgent/context/sources/gated_policy.py)、`art_playbook` 等。
 
 ## 学习目标
 
@@ -43,7 +43,7 @@ Recipe 仍需包含对应 source id（如 `canvas_guide`）；否则 gate 开了
 ### 第 1 步：定义 Gate
 
 ```python
-from leagent.context.relevance import RelevanceGate
+from StAgent.context.relevance import RelevanceGate
 
 GATE = RelevanceGate(
     name="canvas_guide",
@@ -126,8 +126,8 @@ Recipe.source_ids 是否邀请该 source？
 
 ### 路径速查
 
-- `backend/leagent/context/relevance.py`  
-- `backend/leagent/context/sources/gated_policy.py`  
+- `backend/StAgent/context/relevance.py`  
+- `backend/StAgent/context/sources/gated_policy.py`  
 - 艺术手册同模式：`art_playbook` source（经同一 `RelevanceGate` 思想）
 
 ## 总结与延伸

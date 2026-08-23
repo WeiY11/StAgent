@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────
-# LeAgent — single-node start script (macOS / Ubuntu / Debian)
+# StAgent — single-node start script (macOS / Ubuntu / Debian)
 # ─────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -22,13 +22,13 @@ export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$BACKEND_DIR/.venv}"
 BACKEND_PORT="${PORT:-7860}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 HOST="${HOST:-0.0.0.0}"
-LOG_DIR="${LEAGENT_LOG_DIR:-$SCRIPT_DIR/logs}"
+LOG_DIR="${StAgent_LOG_DIR:-$SCRIPT_DIR/logs}"
 MODE="dev"
 STREAM_LOGS=1
 FORCE_UV_SYNC=0
 UV_SYNC_EXTRAS="${UV_SYNC_EXTRAS:-dev browser}"
-LOG_RETENTION="${LEAGENT_LOG_RETENTION:-5}"
-SHUTDOWN_GRACE_SEC="${LEAGENT_SHUTDOWN_GRACE_SEC:-5}"
+LOG_RETENTION="${StAgent_LOG_RETENTION:-5}"
+SHUTDOWN_GRACE_SEC="${StAgent_SHUTDOWN_GRACE_SEC:-5}"
 
 export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
 export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
@@ -70,7 +70,7 @@ _elapsed() {
     echo "$(( now - start ))s"
 }
 
-_leagent_version() {
+_StAgent_version() {
     local ver=""
     if [ -f "$BACKEND_DIR/pyproject.toml" ]; then
         ver="$(grep -m1 '^version' "$BACKEND_DIR/pyproject.toml" \
@@ -85,7 +85,7 @@ print_banner() {
     if [ "$MODE" = "prod" ]; then
         cat <<'BANNER'
   ╭──────────────────────────────────────────────────────────╮
-  │          LeAgent  ──  Production Environment             │
+  │          StAgent  ──  Production Environment             │
   │                                                          │
   │  Backend   FastAPI  HTTP/WS/SSE  QueryEngine             │
   │  Frontend  React 19  Vite  ReactFlow                     │
@@ -94,7 +94,7 @@ BANNER
     else
         cat <<'BANNER'
   ╭──────────────────────────────────────────────────────────╮
-  │          LeAgent  ──  Development Environment            │
+  │          StAgent  ──  Development Environment            │
   │                                                          │
   │  Backend   FastAPI  HTTP/WS/SSE  QueryEngine             │
   │  Frontend  React 19  Vite  ReactFlow                     │
@@ -102,7 +102,7 @@ BANNER
 BANNER
     fi
     printf "${NC}"
-    info "version  ${BOLD}$(_leagent_version)${NC}"
+    info "version  ${BOLD}$(_StAgent_version)${NC}"
     info "platform ${BOLD}${PLATFORM}${NC}   mode ${BOLD}${MODE}${NC}"
     if [ "$MODE" = "prod" ]; then
         info "app      ${DIM}http://${HOST}:${BACKEND_PORT}${NC}  ${DIM}(API + static UI)${NC}"
@@ -128,7 +128,7 @@ Commands:
   sync-python    Lock + sync Python dependencies
   build-frontend Build the frontend for production (npm run build)
   log [name]     Tail logs (all services, or single service)
-  stop           Kill running LeAgent processes on configured ports
+  stop           Kill running StAgent processes on configured ports
 
 Options:
   --dev          Development mode (default)
@@ -144,27 +144,27 @@ Environment:
   PORT                    Backend port          (default: 7860)
   FRONTEND_PORT           Frontend port         (default: 5173)
   HOST                    Backend bind address  (default: 0.0.0.0)
-  LEAGENT_LOG_DIR         Log directory         (default: ./logs)
-  LEAGENT_LOG_RETENTION   Rotated log copies    (default: 5)
-  LEAGENT_SHUTDOWN_GRACE_SEC  SIGTERM grace period (default: 5)
+  StAgent_LOG_DIR         Log directory         (default: ./logs)
+  StAgent_LOG_RETENTION   Rotated log copies    (default: 5)
+  StAgent_SHUTDOWN_GRACE_SEC  SIGTERM grace period (default: 5)
   UV_SYNC_EXTRAS          uv extras             (default: dev browser)
-  LEAGENT_SKIP_PLAYWRIGHT_INSTALL  set to 1 to skip `playwright install` after uv sync
+  StAgent_SKIP_PLAYWRIGHT_INSTALL  set to 1 to skip `playwright install` after uv sync
   (markers: backend/.playwright_chromium_marker, backend/.playwright_system_deps_marker)
-  LEAGENT_PLAYWRIGHT_MIRROR        set to 1 to use a common npm mirror for browser downloads (China-friendly)
+  StAgent_PLAYWRIGHT_MIRROR        set to 1 to use a common npm mirror for browser downloads (China-friendly)
   PLAYWRIGHT_DOWNLOAD_HOST         optional explicit Playwright download host URL (overrides mirror flag)
   UV_PROJECT_ENVIRONMENT  Python virtualenv dir (default: backend/.venv)
 EOF
 }
 
 # ── Lock file (prevents concurrent starts) ──────────────────────
-LOCK_FILE="$SCRIPT_DIR/.leagent.lock"
+LOCK_FILE="$SCRIPT_DIR/.StAgent.lock"
 
 acquire_lock() {
     if [ -f "$LOCK_FILE" ]; then
         local lock_pid
         lock_pid="$(cat "$LOCK_FILE" 2>/dev/null || true)"
         if [ -n "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then
-            fail "Another LeAgent instance is running (PID $lock_pid). Use './start.sh stop' first, or remove $LOCK_FILE."
+            fail "Another StAgent instance is running (PID $lock_pid). Use './start.sh stop' first, or remove $LOCK_FILE."
         fi
         warn "Stale lock file found (PID $lock_pid no longer running) — removing"
         rm -f "$LOCK_FILE"
@@ -180,7 +180,7 @@ release_lock() {
     fi
 }
 
-stop_leagent() {
+stop_StAgent() {
     _kill_stray_log_tails
     _kill_port "$BACKEND_PORT"
     _kill_port "$FRONTEND_PORT"
@@ -202,7 +202,7 @@ stop_leagent() {
         fi
         rm -f "$LOCK_FILE"
     fi
-    success "Stopped LeAgent processes on ports ${BACKEND_PORT}, ${FRONTEND_PORT}"
+    success "Stopped StAgent processes on ports ${BACKEND_PORT}, ${FRONTEND_PORT}"
 }
 
 # ── Platform-safe port killing ──────────────────────────────────
@@ -256,7 +256,7 @@ _kill_stray_log_tails() {
 # ── Log rotation ────────────────────────────────────────────────
 # Rotate only when the log exceeds a size threshold (default 50 MB)
 # to avoid unbounded growth between restarts.
-LOG_ROTATE_MAX_BYTES="${LEAGENT_LOG_ROTATE_MAX_MB:-50}"
+LOG_ROTATE_MAX_BYTES="${StAgent_LOG_ROTATE_MAX_MB:-50}"
 LOG_ROTATE_MAX_BYTES=$(( LOG_ROTATE_MAX_BYTES * 1024 * 1024 ))
 
 _rotate_log() {
@@ -420,7 +420,7 @@ fix_dependencies() {
     install_or_update_node
     echo ""
     success "Dependencies are ready"
-    info "Run ${BOLD}./start.sh${NC} to start LeAgent"
+    info "Run ${BOLD}./start.sh${NC} to start StAgent"
 }
 
 # ── Prerequisite checks ────────────────────────────────────────
@@ -504,10 +504,10 @@ ensure_backend_sync() {
 
 # ── Playwright browser binaries (Chromium) ─────────────────────
 ensure_playwright_browsers() {
-    [ "${LEAGENT_SKIP_PLAYWRIGHT_INSTALL:-0}" = "1" ] && return 0
+    [ "${StAgent_SKIP_PLAYWRIGHT_INSTALL:-0}" = "1" ] && return 0
     # Playwright is a core dependency (zero-config Bing search + browser tools).
     # Still honor UV_SYNC_EXTRAS containing browser for backwards-compatible markers.
-    if [ -z "${PLAYWRIGHT_DOWNLOAD_HOST:-}" ] && [ "${LEAGENT_PLAYWRIGHT_MIRROR:-0}" = "1" ]; then
+    if [ -z "${PLAYWRIGHT_DOWNLOAD_HOST:-}" ] && [ "${StAgent_PLAYWRIGHT_MIRROR:-0}" = "1" ]; then
         export PLAYWRIGHT_DOWNLOAD_HOST="https://npmmirror.com/mirrors/playwright/"
     fi
     local pw_marker="$BACKEND_DIR/.playwright_chromium_marker"
@@ -530,7 +530,7 @@ ensure_playwright_browsers() {
         _write_marker "$pw_marker" "$lock_hash"
         success "Playwright Chromium ready ($(_elapsed "$t"))"
     else
-        warn "playwright install chromium failed — set PLAYWRIGHT_DOWNLOAD_HOST or LEAGENT_PLAYWRIGHT_MIRROR=1 and retry"
+        warn "playwright install chromium failed — set PLAYWRIGHT_DOWNLOAD_HOST or StAgent_PLAYWRIGHT_MIRROR=1 and retry"
         return 0
     fi
     # System libraries (apt) — one-time; do not re-run on every marker miss.
@@ -613,7 +613,7 @@ _stream_logs() {
         wait
         return
     fi
-    local backlog="${LEAGENT_LOG_BACKLOG:-200}"
+    local backlog="${StAgent_LOG_BACKLOG:-200}"
     tail -n "$backlog" -F "${SPAWNED_LOG_FILES[@]}" &
     TAIL_PID=$!
     wait "$TAIL_PID"
@@ -642,17 +642,17 @@ start_backend() {
     step "Starting backend"
     if [ "$MODE" = "prod" ]; then
         build_frontend
-        export LEAGENT_FRONTEND_DIST="$SCRIPT_DIR/frontend/dist"
+        export StAgent_FRONTEND_DIST="$SCRIPT_DIR/frontend/dist"
         # Default to a single worker (safe for the default SQLite database).
-        # Opt into more workers only via LEAGENT_WORKERS; the launcher validates
+        # Opt into more workers only via StAgent_WORKERS; the launcher validates
         # it against the configured database backend before binding.
-        PRODUCTION_WORKERS="${LEAGENT_WORKERS:-1}"
+        PRODUCTION_WORKERS="${StAgent_WORKERS:-1}"
         _spawn "Backend (prod)" "monolith" \
-            uv run --directory "$BACKEND_DIR" leagent app start \
+            uv run --directory "$BACKEND_DIR" StAgent app start \
                 --host "$HOST" --port "$BACKEND_PORT" --workers "$PRODUCTION_WORKERS" --production
     else
         _spawn "Backend (dev)" "monolith" \
-            uv run --directory "$BACKEND_DIR" leagent app start \
+            uv run --directory "$BACKEND_DIR" StAgent app start \
                 --host "$HOST" --port "$BACKEND_PORT" --reload
     fi
 }
@@ -660,7 +660,7 @@ start_backend() {
 start_frontend() {
     _kill_stray_log_tails
     if [ "$MODE" = "prod" ]; then
-        info "Production UI is served by the backend (LEAGENT_FRONTEND_DIST)"
+        info "Production UI is served by the backend (StAgent_FRONTEND_DIST)"
         info "Open ${BOLD}http://${HOST}:${BACKEND_PORT}${NC}  — not :${FRONTEND_PORT}"
         return 0
     fi
@@ -697,7 +697,7 @@ wait_for_backend_ready() {
 
 # ── Status ──────────────────────────────────────────────────────
 show_status() {
-    step "LeAgent service status"
+    step "StAgent service status"
     local backend_pids frontend_pids
     backend_pids="$(_pids_on_port "$BACKEND_PORT")"
     frontend_pids="$(_pids_on_port "$FRONTEND_PORT")"
@@ -735,7 +735,7 @@ check_system() {
     [ -f "$SCRIPT_DIR/frontend/package.json" ]  || fail "frontend/package.json missing"
     step "Verifying backend import"
     uv run --directory "$BACKEND_DIR" python -c \
-        "import leagent.main; print('  ✔ leagent.main importable')"
+        "import StAgent.main; print('  ✔ StAgent.main importable')"
     echo ""
     success "All checks passed"
 }
@@ -833,13 +833,13 @@ case "$COMMAND" in
     log)
         _ensure_log_dir
         if [ -n "$LOG_SERVICE" ]; then
-            tail -n "${LEAGENT_LOG_BACKLOG:-200}" -F "$LOG_DIR/${LOG_SERVICE}.log"
+            tail -n "${StAgent_LOG_BACKLOG:-200}" -F "$LOG_DIR/${LOG_SERVICE}.log"
         else
-            tail -n "${LEAGENT_LOG_BACKLOG:-200}" -F "$LOG_DIR"/*.log
+            tail -n "${StAgent_LOG_BACKLOG:-200}" -F "$LOG_DIR"/*.log
         fi
         ;;
     stop)
-        stop_leagent
+        stop_StAgent
         ;;
     backend)
         acquire_lock

@@ -6,14 +6,14 @@ from uuid import UUID, uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from leagent.db import get_database_service
-from leagent.db.models import Flow
-from leagent.services.auth import deps as auth_deps
-from leagent.services.auth.deps import get_current_user_id
-from leagent.services.auth.deps import UserPrincipal
-from leagent.services.auth.service import AuthService, init_auth_service
-from leagent.workflow.server.flow_permissions import can_access_flow
-from leagent.workflow.server.router import router as workflow_router
+from StAgent.db import get_database_service
+from StAgent.db.models import Flow
+from StAgent.services.auth import deps as auth_deps
+from StAgent.services.auth.deps import get_current_user_id
+from StAgent.services.auth.deps import UserPrincipal
+from StAgent.services.auth.service import AuthService, init_auth_service
+from StAgent.workflow.server.flow_permissions import can_access_flow
+from StAgent.workflow.server.router import router as workflow_router
 
 
 def _principal(user_id: UUID, *, admin: bool = False) -> UserPrincipal:
@@ -202,7 +202,7 @@ def test_patch_flow_updates_settings_and_returns_settings() -> None:
 def test_get_validate_saved_flow_uses_stored_document(sample_canonical_document: dict) -> None:
     import asyncio
 
-    from leagent.workflow.nodes import bootstrap
+    from StAgent.workflow.nodes import bootstrap
 
     asyncio.run(bootstrap())
     owner = uuid4()

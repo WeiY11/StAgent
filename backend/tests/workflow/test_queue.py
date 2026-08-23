@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from leagent.workflow.queue import InMemoryPromptQueue, PromptHistoryEntry, PromptItem
+from StAgent.workflow.queue import InMemoryPromptQueue, PromptHistoryEntry, PromptItem
 
 
 @pytest.mark.asyncio

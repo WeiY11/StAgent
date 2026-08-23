@@ -1,7 +1,7 @@
-﻿import time
+import time
 from fastapi.testclient import TestClient
-from leagent.main import create_app, mount_frontend_spa_if_configured
-from leagent.config.settings import get_settings
+from StAgent.main import create_app, mount_frontend_spa_if_configured
+from StAgent.config.settings import get_settings
 get_settings()
 app = create_app()
 mount_frontend_spa_if_configured(app)

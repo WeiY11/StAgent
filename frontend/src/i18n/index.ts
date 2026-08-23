@@ -3,8 +3,8 @@ import { initReactI18next } from 'react-i18next';
 
 export type SupportedLng = 'zh-CN' | 'en-US';
 
-const COOKIE_NAME = 'leagent-lang';
-const STORAGE_KEY = 'leagent-language';
+const COOKIE_NAME = 'StAgent-lang';
+const STORAGE_KEY = 'StAgent-language';
 
 /**
  * All translation bundle file names.

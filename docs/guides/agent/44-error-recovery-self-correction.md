@@ -45,11 +45,11 @@ Agent 面对的“失败”并不都一样：
 
 预算（`max_turns`、token）防止无限自救；审批暂停（`awaiting_user_input`）是控制流，不是错误。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
 ### 1. `ResultProcessor`：统一工具观察形状
 
-`backend/leagent/agent/recovery.py` 中的 `ResultProcessor` 负责：
+`backend/StAgent/agent/recovery.py` 中的 `ResultProcessor` 负责：
 
 - `normalize()`：把任意返回值压成统一 dict；
 - `serialize_for_llm()`：生成 query 循环真正追加到消息里的字符串（失败时带 `tool_ok: false` 与 detail）；
@@ -74,7 +74,7 @@ Agent 面对的“失败”并不都一样：
 
 ### 3. `ArtifactErrorTracker`：产物脏状态与再生指令
 
-`backend/leagent/context/artifact_error_tracker.py` 按 session 跟踪 dirty artifact。`QueryEngine` 在工具结果回流时调用 `_track_artifact_error`。覆盖类型包括 GenUI、canvas、code、workflow、spreadsheet、document，以及显式 `quality_passed=False` 的可下载产物。
+`backend/StAgent/context/artifact_error_tracker.py` 按 session 跟踪 dirty artifact。`QueryEngine` 在工具结果回流时调用 `_track_artifact_error`。覆盖类型包括 GenUI、canvas、code、workflow、spreadsheet、document，以及显式 `quality_passed=False` 的可下载产物。
 
 特别约定：`workflow_run` 即使 `success=True`，若 `quality_passed is False` 或分数低于阈值，仍记 dirty——这样 Agent 可在**同一 turn** 内关闭 save → run → evaluate → re-run 环。
 
@@ -125,7 +125,7 @@ uv run pytest tests/eval/test_workflow_agent_trace.py tests/integration/test_edi
 
 ## 业内对照
 
-OpenAI / Anthropic 的 tool result 协议本身只提供“把失败返回给模型”的通道；应用仍需决定哪些错误可自动重试。LangGraph 常用条件边或显式 retry 节点表达恢复；LeAgent 则把瞬时重试收在 `ErrorRecovery`，把语义自校正收在 tracker + 下一轮上下文。游戏艺术管线的 `Art.QualityCritic` → `QualityGateNode` → `IterativeRefineNode` 是引擎侧闭环，与 Agent 侧 `ArtifactErrorTracker` 互补：前者改图执行态，后者改下一轮 prompt。Anthropic 长任务实践强调增量提交与 progress 文件；Agents SDK 的 guardrail tripwire 则更接近“阻止”而非“重试”。
+OpenAI / Anthropic 的 tool result 协议本身只提供“把失败返回给模型”的通道；应用仍需决定哪些错误可自动重试。LangGraph 常用条件边或显式 retry 节点表达恢复；StAgent 则把瞬时重试收在 `ErrorRecovery`，把语义自校正收在 tracker + 下一轮上下文。游戏艺术管线的 `Art.QualityCritic` → `QualityGateNode` → `IterativeRefineNode` 是引擎侧闭环，与 Agent 侧 `ArtifactErrorTracker` 互补：前者改图执行态，后者改下一轮 prompt。Anthropic 长任务实践强调增量提交与 progress 文件；Agents SDK 的 guardrail tripwire 则更接近“阻止”而非“重试”。
 
 ## 生产检查表与总结
 
@@ -145,5 +145,5 @@ OpenAI / Anthropic 的 tool result 协议本身只提供“把失败返回给模
 - [45｜Trace、ExecutionRun 与 OpenTelemetry](45-tracing-and-otel.md)
 - [46｜Agent 轨迹评测与回归测试](46-trajectory-evaluation.md)
 - [23｜文件产物与沙箱](23-files-artifacts-and-sandbox.md)
-- 源码：[`backend/leagent/agent/recovery.py`](../../../backend/leagent/agent/recovery.py)、[`backend/leagent/context/artifact_error_tracker.py`](../../../backend/leagent/context/artifact_error_tracker.py)
+- 源码：[`backend/StAgent/agent/recovery.py`](../../../backend/StAgent/agent/recovery.py)、[`backend/StAgent/context/artifact_error_tracker.py`](../../../backend/StAgent/context/artifact_error_tracker.py)
 - 测试：[`backend/tests/test_artifact_error_tracker.py`](../../../backend/tests/test_artifact_error_tracker.py)

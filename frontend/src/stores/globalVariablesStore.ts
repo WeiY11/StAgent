@@ -276,7 +276,7 @@ export const useGlobalVariablesStore = create<GlobalVariablesState>()(
       },
     }),
     {
-      name: 'leagent-global-variables',
+      name: 'StAgent-global-variables',
       partialize: () => ({}),
     }
   )

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from leagent.tools.base import ToolContext
+from StAgent.tools.base import ToolContext
 
 
 def _have(module: str) -> bool:
@@ -67,7 +67,7 @@ def paper_pdf(tmp_path: Path) -> Path:
 
 
 def test_extract_structure(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_structure
+    from StAgent.tools.doc.pdf_research_core import extract_structure
 
     data = extract_structure(str(paper_pdf))
     assert data["page_count"] == 2
@@ -84,7 +84,7 @@ def test_derive_sections_ieee_roman_headings(tmp_path: Path) -> None:
     """IEEE Roman-numeral headings are detected; prose false-positives rejected."""
     import fitz
 
-    from leagent.tools.doc.pdf_research_core import extract_structure
+    from StAgent.tools.doc.pdf_research_core import extract_structure
 
     path = tmp_path / "ieee.pdf"
     doc = fitz.open()
@@ -122,7 +122,7 @@ def test_derive_sections_ieee_roman_headings(tmp_path: Path) -> None:
 
 
 def test_extract_page_text_range(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_page_text
+    from StAgent.tools.doc.pdf_research_core import extract_page_text
 
     p1 = extract_page_text(str(paper_pdf), 1, 1)
     assert "Abstract" in p1
@@ -132,7 +132,7 @@ def test_extract_page_text_range(paper_pdf: Path) -> None:
 
 
 def test_extract_citations(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_citations
+    from StAgent.tools.doc.pdf_research_core import extract_citations
 
     citations = extract_citations(str(paper_pdf))
     assert len(citations) >= 3
@@ -143,7 +143,7 @@ def test_extract_citations(paper_pdf: Path) -> None:
 
 
 def test_extract_region_text(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_region_text
+    from StAgent.tools.doc.pdf_research_core import extract_region_text
 
     # Region covering the top-left text block on page 1.
     text = extract_region_text(str(paper_pdf), 1, (60, 60, 400, 120))
@@ -151,7 +151,7 @@ def test_extract_region_text(paper_pdf: Path) -> None:
 
 
 def test_figures_carry_bbox(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_structure
+    from StAgent.tools.doc.pdf_research_core import extract_structure
 
     figures = extract_structure(str(paper_pdf))["figures"]
     by_label = {f["label"].lower(): f for f in figures}
@@ -163,7 +163,7 @@ def test_figures_carry_bbox(paper_pdf: Path) -> None:
 
 
 def test_extract_pages_text_tagged(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research_core import extract_pages_text_tagged
+    from StAgent.tools.doc.pdf_research_core import extract_pages_text_tagged
 
     tagged = extract_pages_text_tagged(str(paper_pdf))
     assert "[[PAGE 1]]" in tagged
@@ -172,7 +172,7 @@ def test_extract_pages_text_tagged(paper_pdf: Path) -> None:
 
 
 def test_parse_formula_json_variants() -> None:
-    from leagent.tools.doc.pdf_research import parse_formula_json
+    from StAgent.tools.doc.pdf_research import parse_formula_json
 
     fenced = (
         "```json\n"
@@ -190,7 +190,7 @@ def test_parse_formula_json_variants() -> None:
 
 
 def test_build_formula_extraction_prompt() -> None:
-    from leagent.tools.doc.pdf_research import build_formula_extraction_prompt
+    from StAgent.tools.doc.pdf_research import build_formula_extraction_prompt
 
     prompt = build_formula_extraction_prompt("[[PAGE 1]]\nx = y + 1")
     assert "JSON array" in prompt
@@ -202,7 +202,7 @@ def test_extract_formula_candidates(tmp_path: Path) -> None:
     """The LLM-free fallback should capture equation-like lines and skip prose."""
     import fitz
 
-    from leagent.tools.doc.pdf_research_core import extract_formula_candidates
+    from StAgent.tools.doc.pdf_research_core import extract_formula_candidates
 
     path = tmp_path / "eqs.pdf"
     doc = fitz.open()
@@ -239,7 +239,7 @@ def _ctx(llm=None) -> ToolContext:
 
 @pytest.mark.asyncio
 async def test_pdf_structure_tool(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import PDFStructureTool
+    from StAgent.tools.doc.pdf_research import PDFStructureTool
 
     result = await PDFStructureTool().execute({"file_path": str(paper_pdf)}, _ctx())
     assert result.success
@@ -248,7 +248,7 @@ async def test_pdf_structure_tool(paper_pdf: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_citation_extractor_tool(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import CitationExtractorTool
+    from StAgent.tools.doc.pdf_research import CitationExtractorTool
 
     result = await CitationExtractorTool().execute({"file_path": str(paper_pdf)}, _ctx())
     assert result.success
@@ -257,7 +257,7 @@ async def test_citation_extractor_tool(paper_pdf: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_section_summarizer_tool_uses_llm(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import SectionSummarizerTool
+    from StAgent.tools.doc.pdf_research import SectionSummarizerTool
 
     class _StubLLM:
         last_prompt = ""
@@ -277,7 +277,7 @@ async def test_section_summarizer_tool_uses_llm(paper_pdf: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_section_summarizer_requires_llm(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import SectionSummarizerTool
+    from StAgent.tools.doc.pdf_research import SectionSummarizerTool
 
     result = await SectionSummarizerTool().execute(
         {"file_path": str(paper_pdf)}, _ctx(None)
@@ -287,7 +287,7 @@ async def test_section_summarizer_requires_llm(paper_pdf: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_pdf_translate_tool_text(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import PDFTranslateTool
+    from StAgent.tools.doc.pdf_research import PDFTranslateTool
 
     class _StubLLM:
         async def complete(self, prompt, max_tokens=0):  # noqa: ANN001
@@ -303,7 +303,7 @@ async def test_pdf_translate_tool_text(paper_pdf: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_pdf_translate_region(paper_pdf: Path) -> None:
-    from leagent.tools.doc.pdf_research import PDFTranslateTool
+    from StAgent.tools.doc.pdf_research import PDFTranslateTool
 
     class _StubLLM:
         seen = ""

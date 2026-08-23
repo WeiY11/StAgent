@@ -6,28 +6,28 @@ from uuid import uuid4
 
 import pytest
 
-from leagent.api.v1 import chat as chat_mod
+from StAgent.api.v1 import chat as chat_mod
 from jsonschema.exceptions import ValidationError
 
-from leagent.services.gen_ui.schema import (
+from StAgent.services.gen_ui.schema import (
     normalize_ui_tree,
     validate_ui_patch,
     validate_ui_tree,
 )
-from leagent.tools.executor import normalize_tool_parameters
-from leagent.services.canvas.service import (
+from StAgent.tools.executor import normalize_tool_parameters
+from StAgent.services.canvas.service import (
     build_preview_html,
     mint_preview_token,
     preview_query_path,
     sanitize_html,
 )
-from leagent.config.settings import CanvasSettings, Settings
-from leagent.db.models.canvas import CanvasContentType, CanvasDocument
-from leagent.tools.base import ToolContext
-from leagent.tools.canvas.canvas_publish import CanvasPublishTool
-from leagent.tools.canvas.genui_guide import GetGenuiGuideTool
-from leagent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
-from leagent.tools.canvas.ui_components import EmitUiPatchTool, EmitUiTreeTool
+from StAgent.config.settings import CanvasSettings, Settings
+from StAgent.db.models.canvas import CanvasContentType, CanvasDocument
+from StAgent.tools.base import ToolContext
+from StAgent.tools.canvas.canvas_publish import CanvasPublishTool
+from StAgent.tools.canvas.genui_guide import GetGenuiGuideTool
+from StAgent.tools.canvas.html_guide import GetHtmlCanvasGuideTool
+from StAgent.tools.canvas.ui_components import EmitUiPatchTool, EmitUiTreeTool
 
 
 def test_canvas_publish_params_accepts_html_blob_id() -> None:
@@ -229,7 +229,7 @@ def test_validate_ui_tree_accepts_chart_node():
 
 
 def test_print_renderer_chart_table_fallback():
-    from leagent.services.gen_ui.print_renderer import render_pages_html
+    from StAgent.services.gen_ui.print_renderer import render_pages_html
 
     tree = {
         "schemaVersion": "1",
@@ -604,7 +604,7 @@ def test_emit_ui_tree_recover_raw_args_from_broken_outer_json():
 
 def test_recover_emit_ui_tree_truncated_mid_stream():
     """Truncated provider output (mid-key) should salvage a partial tree."""
-    from leagent.tools.executor import _recover_emit_ui_tree_args
+    from StAgent.tools.executor import _recover_emit_ui_tree_args
 
     raw = (
         '{"tree": {"root":{"kind":"DesignSurface","props":{"preset":"editorial"},'
@@ -619,7 +619,7 @@ def test_recover_emit_ui_tree_truncated_mid_stream():
 
 
 def test_recover_emit_ui_patch_truncated_mid_stream():
-    from leagent.tools.executor import _recover_emit_ui_patch_args
+    from StAgent.tools.executor import _recover_emit_ui_patch_args
 
     raw = (
         '{"patches":[{"op":"add","path":"/root","value":{"kind":"Card","props":'
@@ -639,7 +639,7 @@ def test_emit_ui_patch_omits_null_canvas_id():
 @pytest.mark.asyncio
 async def test_emit_ui_patch_execute_without_canvas_id():
     tool = EmitUiPatchTool()
-    patches = [{"op": "replace", "path": "/root/props/title", "value": "LeAgent Workflow 引擎"}]
+    patches = [{"op": "replace", "path": "/root/props/title", "value": "StAgent Workflow 引擎"}]
     result = await tool.execute({"patches": patches, "seq": 1}, ToolContext(user_id="u1", session_id="s1"))
     assert result["patches"] == patches
     assert "canvas_id" not in result
@@ -998,10 +998,10 @@ def test_build_preview_html_allow_js_toggle():
     assert "var a = 1" not in html_off
     assert "onclick" in html_on.lower()
     assert "var a = 1" in html_on
-    assert "__leagentReleaseMedia" in html_on
-    assert "__leagentAttachCamera" in html_on
-    assert "__leagentPreviewIframeBootstrap" in html_on
-    assert "__leagentReleaseMedia" not in html_off
+    assert "__StAgentReleaseMedia" in html_on
+    assert "__StAgentAttachCamera" in html_on
+    assert "__StAgentPreviewIframeBootstrap" in html_on
+    assert "__StAgentReleaseMedia" not in html_off
 
 
 def test_build_preview_html_skips_duplicate_three_bootstrap():
@@ -1120,7 +1120,7 @@ async def test_get_genui_guide_returns_payload():
 
 
 def test_list_component_catalog_returns_singleton_list():
-    from leagent.services.gen_ui.schema import list_component_catalog
+    from StAgent.services.gen_ui.schema import list_component_catalog
 
     a = list_component_catalog()
     b = list_component_catalog()

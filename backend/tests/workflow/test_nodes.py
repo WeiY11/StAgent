@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from leagent.workflow.io import IO, NodeOutput, Schema
-from leagent.workflow.io.contract import NOT_CACHEABLE
-from leagent.workflow.nodes import bootstrap, get_registry
-from leagent.workflow.nodes.base import WorkflowNode
-from leagent.workflow.nodes.registry import NodeRegistry
+from StAgent.workflow.io import IO, NodeOutput, Schema
+from StAgent.workflow.io.contract import NOT_CACHEABLE
+from StAgent.workflow.nodes import bootstrap, get_registry
+from StAgent.workflow.nodes.base import WorkflowNode
+from StAgent.workflow.nodes.registry import NodeRegistry
 
 
 class _DummyNode(WorkflowNode):
@@ -42,9 +42,9 @@ class _NotCacheableNode(_DummyNode):
 async def test_bootstrap_registers_builtins(monkeypatch):
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880")
 
     await bootstrap()
     reg = get_registry()

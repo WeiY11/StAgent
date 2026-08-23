@@ -15,7 +15,7 @@ let updaterListenersAttached = false;
 function notifyUpdateReady(): void {
   if (Notification.isSupported()) {
     new Notification({
-      title: 'LeAgent Update Ready',
+      title: 'StAgent Update Ready',
       body: 'A new version has been downloaded. Restart to apply.',
     }).show();
   }

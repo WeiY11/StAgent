@@ -1,9 +1,9 @@
-# LeAgent 执行拓扑
+# StAgent 执行拓扑
 
 > 状态：活契约。另见 [`agent_sdk_zh.md`](agent_sdk_zh.md) 与
 > [`agent-runtime_zh.md`](agent-runtime_zh.md)。
 
-本文档形式化请求如何流经 LeAgent 的执行栈、哪些子系统拥有状态，以及每个调用方应使用的规范入口路径。
+本文档形式化请求如何流经 StAgent 的执行栈、哪些子系统拥有状态，以及每个调用方应使用的规范入口路径。
 
 英文版：[execution-topology.md](./execution-topology.md)
 
@@ -27,7 +27,7 @@ Observability (EventManager, OTel)
 
 ## 规范 Agent 路径
 
-所有 Agent 轮次**必须**流经 `leagent.sdk.kernel.loop.run_loop`，要么直接调用，要么经由 `AgentRuntime.stream()` / `AgentController._run_via_query_engine()`。
+所有 Agent 轮次**必须**流经 `StAgent.sdk.kernel.loop.run_loop`，要么直接调用，要么经由 `AgentRuntime.stream()` / `AgentController._run_via_query_engine()`。
 
 | 调用方 | 入口 | 内核 |
 |--------|------|------|
@@ -58,7 +58,7 @@ Observability (EventManager, OTel)
 | **聊天步骤卡** | `ChatWorkflowSpec` → 编译后的线性流程 | `WorkflowService` 作用域运行 | 聊天中的 playbook 步骤 |
 | **聊天嵌入** | 已校验的 Flow JSON | Preview + Flow API | 聊天中的图预览 |
 
-聊天步骤卡经 `leagent.chat_workflow.compile` 编译为线性 `WorkflowDocument` 实例，因此步骤执行共享引擎内核。
+聊天步骤卡经 `StAgent.chat_workflow.compile` 编译为线性 `WorkflowDocument` 实例，因此步骤执行共享引擎内核。
 
 ## 状态所有权
 
@@ -73,7 +73,7 @@ Observability (EventManager, OTel)
 
 ## 暂停 / 恢复
 
-统一的 `PauseToken`（`leagent.runtime.execution_run`）引用：
+统一的 `PauseToken`（`StAgent.runtime.execution_run`）引用：
 
 - Agent 作用域暂停的 `checkpoint_id`
 - DAG 暂停的 `workflow_execution_id` + `workflow_state_id`
@@ -108,7 +108,7 @@ OTel spans 通过 `ExecutionRun` 上的 `run_id` 与 `parent_run_id` 关联。
 
 ## 统一执行平面
 
-所有入口表面通过 `leagent.runtime.execution_factory` 铸造一个 `ExecutionRun`，并通过共享关联键在 `EventManager` 上发布生命周期信号。
+所有入口表面通过 `StAgent.runtime.execution_factory` 铸造一个 `ExecutionRun`，并通过共享关联键在 `EventManager` 上发布生命周期信号。
 
 ```
 Ingress (Chat SSE / Chat step HTTP / Workflow WS / Task / GenUI / Cron)
@@ -145,7 +145,7 @@ Observability (EventManager FLOW_*/TASK_*/AGENT_*, OTel, WS/SSE transports)
 
 ### 聊天步骤 WebSocket 桥接
 
-聊天 playbook 步骤经 `leagent.chat_workflow.compile` 编译，并通过
+聊天 playbook 步骤经 `StAgent.chat_workflow.compile` 编译，并通过
 `WorkflowService.run_compiled_document()` 执行（不是直接 `_executor.execute_async`）。
 
 每次步骤运行：
@@ -164,10 +164,10 @@ Observability (EventManager FLOW_*/TASK_*/AGENT_*, OTel, WS/SSE transports)
 
 ### 单进程注册表说明
 
-`ExecutionRunRegistry` 是 `RunStore` 协议（`leagent.runtime.run_store`）的默认进程内实现，
+`ExecutionRunRegistry` 是 `RunStore` 协议（`StAgent.runtime.run_store`）的默认进程内实现，
 为每进程单例，所有调用点统一通过 `get_run_store()` 访问；阻塞运行会保留在其中直到恢复或
 显式 `end_execution`，并由一个受节流的、基于 TTL 的惰性清扫
-（`LEAGENT_EXECUTION_RUN_TTL_SECONDS`，默认 6 小时；设为 `0` 可关闭）回收被遗弃的暂停，
+（`StAgent_EXECUTION_RUN_TTL_SECONDS`，默认 6 小时；设为 `0` 可关闭）回收被遗弃的暂停，
 使长期运行的单进程服务保持内存有界。
 
 #### 横向扩展到多 worker
@@ -179,7 +179,7 @@ Observability (EventManager FLOW_*/TASK_*/AGENT_*, OTel, WS/SSE transports)
 （**粘性会话**），或 (b) 在启动时安装一个**共享运行存储**，使得当一个聊天轮次、其子 agent
 与其工作流步骤落在不同 worker 上时，跨作用域关联与暂停/恢复查找仍然有效。
 
-`RunStore` 就是 (b) 的接缝。`RedisRunStore`（`leagent.runtime.redis_run_store`）是一个
+`RunStore` 就是 (b) 的接缝。`RedisRunStore`（`StAgent.runtime.redis_run_store`）是一个
 可直接替换的共享后端：
 
 - 用**同步** redis 客户端构建，并在进程启动时安装一次：
@@ -191,7 +191,7 @@ Observability (EventManager FLOW_*/TASK_*/AGENT_*, OTel, WS/SSE transports)
 - **修改**已取出运行的调用方（如 SSE 循环与工作流执行器中的 `run.pause(...)`）会重新 register
   以便共享存储观察到变更；对进程内后端而言这是一次无副作用的重存。
 
-**前置条件 / 阈值：** 仅当部署确实运行 `LEAGENT_WORKERS > 1`（或多进程）**且**无法使用粘性路由
+**前置条件 / 阈值：** 仅当部署确实运行 `StAgent_WORKERS > 1`（或多进程）**且**无法使用粘性路由
 时才采用共享运行存储。它需要可达的 Redis（standalone 构建未提供，`ServiceManager.redis` 为
 `None`）以及 `redis` 客户端依赖。低于该阈值时应严格优先使用进程内注册表——避免在热路径上引入
 每个运行的网络往返。

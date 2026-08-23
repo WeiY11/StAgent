@@ -10,7 +10,7 @@ INV-1: No direct ``open(…, 'wb'/'w')``, ``write_bytes()`` or ``write_text()`` 
        workflow-definition serialization, and Tier-B sandbox/output-path tool
        writes governed by the path sandbox) — each justified in
        ``_INV1_ALLOWLIST`` / covered by ``_INV1_ALLOWED_PREFIXES``.
-INV-5: ``leagent/project/`` never imports ``FileService`` or ``FileRef``.
+INV-5: ``StAgent/project/`` never imports ``FileService`` or ``FileRef``.
 INV-7: Path-containment checks delegate to ``primitives.is_path_inside`` rather
        than inline ``is_relative_to`` / ``commonpath``.
 """
@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent / "leagent"
+BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent / "StAgent"
 
 # Tier B packages own their workspaces (project scaffolds, code sandboxes,
 # skill bundles) and are exempt from the managed-blob ingress rule entirely.
@@ -76,22 +76,22 @@ class TestINV1_NoDirectWriteInBlobPaths:
         # Durable operational registries with their own file formats.
         "cron/repository.py": "atomic write of the cron jobs registry file",
         "extensions/manager.py": "persists the installed-extensions registry",
-        "harness/report.py": "writes harness episode reports under LEAGENT_HOME reports dir",
+        "harness/report.py": "writes harness episode reports under StAgent_HOME reports dir",
         "knowledge/local_models.py": "atomically persists the validated local-model catalog",
-        "tools/data/stock_alert.py": "persists the stock-alert registry JSON under LEAGENT_HOME",
+        "tools/data/stock_alert.py": "persists the stock-alert registry JSON under StAgent_HOME",
         "mcp/manager.py": "persists the mcp_servers.yaml config file",
         "channels/weixin/store.py": "atomic write of Weixin credential/context-token store",
         # Security control plane: local secret + setup-state files (0600).
         "services/auth/store.py": "atomic write of the security setup-state file",
         "services/auth/secrets.py": "persists the generated signing secret file",
         # Observability artifacts (debug payload capture, not session blobs).
-        "telemetry/trace/recorder.py": "writes trace payload JSON under LEAGENT_HOME traces dir",
+        "telemetry/trace/recorder.py": "writes trace payload JSON under StAgent_HOME traces dir",
         # Workflow definitions are documents, not managed blobs.
         "workflow/io/serializer.py": "serializes workflow definitions to yaml/json",
-        "docgen/fonts.py": "caches sha256-verified font downloads under LEAGENT_HOME/fonts",
+        "docgen/fonts.py": "caches sha256-verified font downloads under StAgent_HOME/fonts",
         "docgen/renderers/html.py": "writes rendered HTML/Markdown to sandbox-validated output_path",
-        "docgen/theming.py": "persists custom theme YAML under LEAGENT_HOME/templates/styles",
-        "docgen/templates.py": "persists doc-template YAML under LEAGENT_HOME/templates/docgen",
+        "docgen/theming.py": "persists custom theme YAML under StAgent_HOME/templates/styles",
+        "docgen/templates.py": "persists doc-template YAML under StAgent_HOME/templates/docgen",
         # Tier-B tool writes: sandbox-validated output_path / config / temp / auth.
         "tools/_data/records.py": "writes to sandbox-validated output path",
         "tools/doc/config_file_tool.py": "edits config files at sandbox paths",
@@ -141,7 +141,7 @@ class TestINV1_NoDirectWriteInBlobPaths:
 
 
 class TestINV5_ProjectNeverImportsFileService:
-    """leagent/project/ must never import FileService or FileRef."""
+    """StAgent/project/ must never import FileService or FileRef."""
 
     def test_no_file_service_imports(self):
         project_dir = BACKEND_ROOT / "project"
@@ -157,7 +157,7 @@ class TestINV5_ProjectNeverImportsFileService:
                 if pattern.search(line):
                     violations.append(f"{py.relative_to(BACKEND_ROOT)}:{i}: {line.strip()}")
 
-        assert not violations, "leagent/project/ must not reference FileService/FileRef:\n" + "\n".join(violations)
+        assert not violations, "StAgent/project/ must not reference FileService/FileRef:\n" + "\n".join(violations)
 
 
 class TestINV7_PathContainmentInBlobLayer:
@@ -184,5 +184,5 @@ class TestINV7_PathContainmentInBlobLayer:
 
         assert not violations, (
             "Inline path-containment found in blob-layer code outside "
-            "primitives.py. Use leagent.file.primitives.is_path_inside:\n" + "\n".join(violations)
+            "primitives.py. Use StAgent.file.primitives.is_path_inside:\n" + "\n".join(violations)
         )

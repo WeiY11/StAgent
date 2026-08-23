@@ -1,7 +1,7 @@
 /**
  * Client-side graph layout for the workflow canvas.
  *
- * Mirrors the backend module {@code leagent.workflow.layout} so the
+ * Mirrors the backend module {@code StAgent.workflow.layout} so the
  * "Re-layout" button and canonical documents without stored positions
  * render with the same deterministic topology the backend produces when
  * a template is first applied.

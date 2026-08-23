@@ -14,27 +14,27 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from leagent.llm.domain_models import register_builtin_domain_models
-from leagent.llm.domain_models.diffusion import manager as diffusion_manager
-from leagent.llm.domain_models.diffusion.adapter import DiffusersTxt2ImgAdapter
-from leagent.llm.domain_models.diffusion.manager import GenerationResult
-from leagent.llm.domain_models.local_audio import (
+from StAgent.llm.domain_models import register_builtin_domain_models
+from StAgent.llm.domain_models.diffusion import manager as diffusion_manager
+from StAgent.llm.domain_models.diffusion.adapter import DiffusersTxt2ImgAdapter
+from StAgent.llm.domain_models.diffusion.manager import GenerationResult
+from StAgent.llm.domain_models.local_audio import (
     LocalTTSAdapter,
     LocalWhisperASRAdapter,
 )
-from leagent.llm.domain_registry import (
+from StAgent.llm.domain_registry import (
     DomainModelRegistry,
     DomainModelResult,
     DomainModelSpec,
     DomainParam,
 )
-from leagent.workflow.engine.progress import ProgressRegistry
-from leagent.workflow.io import HiddenHolder
-from leagent.workflow.nodes.domain_model_nodes import (
+from StAgent.workflow.engine.progress import ProgressRegistry
+from StAgent.workflow.io import HiddenHolder
+from StAgent.workflow.nodes.domain_model_nodes import (
     MODEL_OUTPUT_NAMES,
     build_domain_model_node,
 )
-from leagent.workflow.nodes.registry import NodeRegistry
+from StAgent.workflow.nodes.registry import NodeRegistry
 
 
 class _FakeAdapter:
@@ -138,7 +138,7 @@ def test_build_domain_model_node_schema_shape():
 
 def test_model_node_object_info_contract(monkeypatch):
     """Model.* nodes serve COMBO choices + numeric widget hints via /object_info."""
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "fake/model")
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "fake/model")
     adapter = DiffusersTxt2ImgAdapter(manager=_FakePipelineManager())
     info = build_domain_model_node(adapter).get_schema().get_info_dict()
 
@@ -267,9 +267,9 @@ def test_diffusion_discovery(tmp_path, monkeypatch):
     loras.mkdir()
     (loras / "detail.safetensors").write_bytes(b"x")
 
-    monkeypatch.setenv("LEAGENT_DIFFUSION_MODELS_DIR", str(models))
-    monkeypatch.setenv("LEAGENT_DIFFUSION_LORA_DIR", str(loras))
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "hub/some-model")
+    monkeypatch.setenv("StAgent_DIFFUSION_MODELS_DIR", str(models))
+    monkeypatch.setenv("StAgent_DIFFUSION_LORA_DIR", str(loras))
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "hub/some-model")
 
     found = diffusion_manager.discover_models()
     assert "dreamshaper.safetensors" in found
@@ -281,7 +281,7 @@ def test_diffusion_discovery(tmp_path, monkeypatch):
 
 
 async def test_diffusers_adapter_with_fake_manager(monkeypatch):
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "fake/model")
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "fake/model")
     fake = _FakePipelineManager()
     adapter = DiffusersTxt2ImgAdapter(manager=fake)
 
@@ -323,7 +323,7 @@ async def test_diffusers_adapter_with_fake_manager(monkeypatch):
 
 
 async def test_diffusers_adapter_random_seed_and_defaults(monkeypatch):
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "fake/model")
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "fake/model")
     fake = _FakePipelineManager()
     adapter = DiffusersTxt2ImgAdapter(manager=fake)
 
@@ -335,7 +335,7 @@ async def test_diffusers_adapter_random_seed_and_defaults(monkeypatch):
 
 
 async def test_diffusers_adapter_requires_prompt(monkeypatch):
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "fake/model")
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "fake/model")
     adapter = DiffusersTxt2ImgAdapter(manager=_FakePipelineManager())
     result = await adapter.invoke(prompt="")
     assert not result.success and "prompt" in (result.error or "")
@@ -357,10 +357,10 @@ async def test_diffusers_real_pipeline_smoke():
 
 
 def test_local_audio_env_config(monkeypatch):
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_MODEL", "large-v3")
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880/v1")
-    monkeypatch.delenv("LEAGENT_LOCAL_TTS_MODEL", raising=False)
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_MODEL", "large-v3")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880/v1")
+    monkeypatch.delenv("StAgent_LOCAL_TTS_MODEL", raising=False)
 
     asr = LocalWhisperASRAdapter()
     assert asr.spec.key == "asr.local"
@@ -373,8 +373,8 @@ def test_local_audio_env_config(monkeypatch):
 
 
 def test_local_audio_requires_url(monkeypatch):
-    monkeypatch.delenv("LEAGENT_LOCAL_ASR_URL", raising=False)
-    monkeypatch.delenv("LEAGENT_LOCAL_TTS_URL", raising=False)
+    monkeypatch.delenv("StAgent_LOCAL_ASR_URL", raising=False)
+    monkeypatch.delenv("StAgent_LOCAL_TTS_URL", raising=False)
     with pytest.raises(ValueError):
         LocalWhisperASRAdapter()
     with pytest.raises(ValueError):
@@ -390,15 +390,15 @@ def _clear_provider_env(monkeypatch) -> None:
     for var in (
         "DASHSCOPE_API_KEY",
         "OPENAI_API_KEY",
-        "LEAGENT_LOCAL_ASR_URL",
-        "LEAGENT_LOCAL_TTS_URL",
+        "StAgent_LOCAL_ASR_URL",
+        "StAgent_LOCAL_TTS_URL",
     ):
         monkeypatch.delenv(var, raising=False)
 
 
 def test_gating_nothing_configured(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
     registry = DomainModelRegistry()
     assert register_builtin_domain_models(registry) == []
     assert registry.all() == []
@@ -406,9 +406,9 @@ def test_gating_nothing_configured(monkeypatch):
 
 def test_gating_local_audio_urls(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880")
 
     registry = DomainModelRegistry()
     registered = register_builtin_domain_models(registry)
@@ -419,10 +419,10 @@ def test_gating_local_audio_urls(monkeypatch):
 
 def test_gating_diffusion_import(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.delenv("LEAGENT_DIFFUSION_ENABLED", raising=False)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_DEFAULT_MODEL", "fake/model")
+    monkeypatch.delenv("StAgent_DIFFUSION_ENABLED", raising=False)
+    monkeypatch.setenv("StAgent_DIFFUSION_DEFAULT_MODEL", "fake/model")
 
-    import leagent.llm.domain_models.diffusion as diffusion_pkg
+    import StAgent.llm.domain_models.diffusion as diffusion_pkg
 
     # Simulate diffusers installed without importing torch.
     monkeypatch.setattr(diffusion_pkg, "diffusers_available", lambda: True)
@@ -439,9 +439,9 @@ def test_gating_diffusion_import(monkeypatch):
 
 def test_gating_diffusion_disabled_by_env(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
 
-    import leagent.llm.domain_models.diffusion as diffusion_pkg
+    import StAgent.llm.domain_models.diffusion as diffusion_pkg
 
     monkeypatch.setattr(diffusion_pkg, "diffusers_available", lambda: True)
     registry = DomainModelRegistry()
@@ -458,7 +458,7 @@ def test_register_domain_model_nodes_lifts_adapters():
     registry.register(_FakeAdapter())
     node_reg = NodeRegistry()
 
-    from leagent.workflow.nodes.domain_model_factory import register_domain_model_nodes
+    from StAgent.workflow.nodes.domain_model_factory import register_domain_model_nodes
 
     ids = register_domain_model_nodes(node_reg, domain_registry=registry)
     assert ids == ["Model.echo.fake"]
@@ -468,11 +468,11 @@ def test_register_domain_model_nodes_lifts_adapters():
 @pytest.mark.asyncio
 async def test_bootstrap_registers_domain_models_when_env_set(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880")
 
-    from leagent.workflow.nodes import bootstrap, get_registry
+    from StAgent.workflow.nodes import bootstrap, get_registry
 
     summary = await bootstrap()
     reg = get_registry()
@@ -499,7 +499,7 @@ class _FakeEntryPoint:
 
 
 def test_load_domain_model_plugins(monkeypatch):
-    from leagent.llm import domain_registry as dr
+    from StAgent.llm import domain_registry as dr
 
     fake_ep = _FakeEntryPoint("echo_plugin", _FakeAdapter())
     monkeypatch.setattr(dr, "entry_points", lambda *a, **k: [fake_ep])
@@ -583,7 +583,7 @@ def _attach_mock_http(adapter, **kwargs):
 
 @pytest.mark.asyncio
 async def test_openai_tts_invoke_success():
-    from leagent.llm.domain_models.openai_audio import OpenAITTSAdapter
+    from StAgent.llm.domain_models.openai_audio import OpenAITTSAdapter
 
     adapter = OpenAITTSAdapter(api_key="sk-test")
     _attach_mock_http(adapter, content=b"mp3-bytes")
@@ -595,7 +595,7 @@ async def test_openai_tts_invoke_success():
 
 @pytest.mark.asyncio
 async def test_openai_tts_missing_text():
-    from leagent.llm.domain_models.openai_audio import OpenAITTSAdapter
+    from StAgent.llm.domain_models.openai_audio import OpenAITTSAdapter
 
     adapter = OpenAITTSAdapter(api_key="sk-test")
     result = await adapter.invoke(text="")
@@ -604,7 +604,7 @@ async def test_openai_tts_missing_text():
 
 @pytest.mark.asyncio
 async def test_openai_asr_invoke_success(tmp_path):
-    from leagent.llm.domain_models.openai_audio import OpenAIASRAdapter
+    from StAgent.llm.domain_models.openai_audio import OpenAIASRAdapter
 
     audio = tmp_path / "clip.wav"
     audio.write_bytes(b"wav")
@@ -617,7 +617,7 @@ async def test_openai_asr_invoke_success(tmp_path):
 
 @pytest.mark.asyncio
 async def test_openai_asr_missing_file():
-    from leagent.llm.domain_models.openai_audio import OpenAIASRAdapter
+    from StAgent.llm.domain_models.openai_audio import OpenAIASRAdapter
 
     adapter = OpenAIASRAdapter(api_key="sk-test")
     result = await adapter.invoke(audio_path="/no/such/file.wav")
@@ -626,7 +626,7 @@ async def test_openai_asr_missing_file():
 
 @pytest.mark.asyncio
 async def test_dashscope_tts_invoke_with_inline_b64():
-    from leagent.llm.domain_models.dashscope_audio import DashScopeTTSAdapter
+    from StAgent.llm.domain_models.dashscope_audio import DashScopeTTSAdapter
 
     adapter = DashScopeTTSAdapter(api_key="ds-test")
     _attach_mock_http(adapter, json_body={"output": {"audio": {"data": "YWFh"}}})
@@ -637,7 +637,7 @@ async def test_dashscope_tts_invoke_with_inline_b64():
 
 @pytest.mark.asyncio
 async def test_dashscope_asr_invoke_success():
-    from leagent.llm.domain_models.dashscope_audio import DashScopeASRAdapter
+    from StAgent.llm.domain_models.dashscope_audio import DashScopeASRAdapter
 
     adapter = DashScopeASRAdapter(api_key="ds-test")
     _attach_mock_http(
@@ -651,8 +651,8 @@ async def test_dashscope_asr_invoke_success():
 
 @pytest.mark.asyncio
 async def test_dashscope_image_gen_invoke_success(monkeypatch):
-    from leagent.llm.generation.base import GenerationOutput
-    from leagent.llm.domain_models.image import DashScopeImageGenAdapter
+    from StAgent.llm.generation.base import GenerationOutput
+    from StAgent.llm.domain_models.image import DashScopeImageGenAdapter
 
     class _FakeGenService:
         async def generate(self, **kwargs):
@@ -666,7 +666,7 @@ async def test_dashscope_image_gen_invoke_success(monkeypatch):
                 meta={"revised_prompt": "revised"},
             )
 
-    import leagent.llm.generation as gen_pkg
+    import StAgent.llm.generation as gen_pkg
 
     monkeypatch.setattr(gen_pkg, "get_generation_service", lambda: _FakeGenService())
     adapter = DashScopeImageGenAdapter(api_key="ds-test")
@@ -678,9 +678,9 @@ async def test_dashscope_image_gen_invoke_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_local_tts_invoke_success(monkeypatch):
-    from leagent.llm.domain_models.local_audio import LocalTTSAdapter
+    from StAgent.llm.domain_models.local_audio import LocalTTSAdapter
 
-    monkeypatch.setenv("LEAGENT_LOCAL_TTS_URL", "http://localhost:8880")
+    monkeypatch.setenv("StAgent_LOCAL_TTS_URL", "http://localhost:8880")
     adapter = LocalTTSAdapter()
     _attach_mock_http(adapter, content=b"mp3")
 
@@ -690,9 +690,9 @@ async def test_local_tts_invoke_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_local_asr_invoke_success(tmp_path, monkeypatch):
-    from leagent.llm.domain_models.local_audio import LocalWhisperASRAdapter
+    from StAgent.llm.domain_models.local_audio import LocalWhisperASRAdapter
 
-    monkeypatch.setenv("LEAGENT_LOCAL_ASR_URL", "http://localhost:8000")
+    monkeypatch.setenv("StAgent_LOCAL_ASR_URL", "http://localhost:8000")
     audio = tmp_path / "x.wav"
     audio.write_bytes(b"wav")
     adapter = LocalWhisperASRAdapter()
@@ -709,7 +709,7 @@ async def test_local_asr_invoke_success(tmp_path, monkeypatch):
 
 def test_gating_openai_api_key(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
     registry = DomainModelRegistry()
@@ -719,7 +719,7 @@ def test_gating_openai_api_key(monkeypatch):
 
 def test_gating_dashscope_api_key(monkeypatch):
     _clear_provider_env(monkeypatch)
-    monkeypatch.setenv("LEAGENT_DIFFUSION_ENABLED", "0")
+    monkeypatch.setenv("StAgent_DIFFUSION_ENABLED", "0")
     monkeypatch.setenv("DASHSCOPE_API_KEY", "ds-test")
 
     registry = DomainModelRegistry()

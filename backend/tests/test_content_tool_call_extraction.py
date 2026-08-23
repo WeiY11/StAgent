@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from leagent.agent.deps import (
+from StAgent.agent.deps import (
     _known_tool_names,
     _try_extract_content_tool_calls,
 )

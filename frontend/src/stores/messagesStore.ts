@@ -206,7 +206,7 @@ export const useMessagesStore = create<MessagesState>()(
       getMessageCount: (conversationId) => get().messages[conversationId]?.length || 0,
     }),
     {
-      name: 'leagent-messages',
+      name: 'StAgent-messages',
       partialize: (state) => ({
         messages: state.messages,
         activeConversationId: state.activeConversationId,

@@ -25,10 +25,10 @@ describe('getCameraAccessIssue', () => {
 });
 
 describe('stopIframeMediaTracks', () => {
-  it('calls __leagentReleaseMedia when present', () => {
+  it('calls __StAgentReleaseMedia when present', () => {
     const release = vi.fn();
     const iframe = {
-      contentWindow: { __leagentReleaseMedia: release, document: { querySelectorAll: () => [] } },
+      contentWindow: { __StAgentReleaseMedia: release, document: { querySelectorAll: () => [] } },
     } as unknown as HTMLIFrameElement;
     stopIframeMediaTracks(iframe);
     expect(release).toHaveBeenCalledOnce();

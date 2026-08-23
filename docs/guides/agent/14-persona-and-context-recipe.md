@@ -4,7 +4,7 @@
 
 [13｜分层提示词](13-layered-prompts.md) 已经说明：系统提示词由 `ContextManager.prepare_turn` 装配，`PromptBuilder` 只是 façade。本篇回答一个更具体的设计问题——为什么「角色怎么说」与「本轮装哪些上下文源」必须拆成两个旋钮。建议先修 12–13。
 
-对照代码：[`AgentDefinition.resolved_recipe()`](../../../backend/leagent/runtime/definition.py)、[`ContextManager.recipe`](../../../backend/leagent/context/manager.py)、[`RECIPE_REGISTRY`](../../../backend/leagent/context/recipe.py)、[`IdentitySource`](../../../backend/leagent/context/sources/identity.py)。
+对照代码：[`AgentDefinition.resolved_recipe()`](../../../backend/StAgent/runtime/definition.py)、[`ContextManager.recipe`](../../../backend/StAgent/context/manager.py)、[`RECIPE_REGISTRY`](../../../backend/StAgent/context/recipe.py)、[`IdentitySource`](../../../backend/StAgent/context/sources/identity.py)。
 
 ## 学习目标
 
@@ -47,7 +47,7 @@ context_recipe  = default_agent    # 仍使用完整办公上下文 sources
 ### 第 1 步：显式解耦
 
 ```python
-from leagent.sdk import AgentBuilder
+from StAgent.sdk import AgentBuilder
 
 finance = (
     AgentBuilder("finance_agent")

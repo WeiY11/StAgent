@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-  Build LeAgent Desktop for Windows (x64).
+  Build StAgent Desktop for Windows (x64).
 
 .DESCRIPTION
   Downloads portable Python + uv, stages the backend payload, builds the
@@ -20,6 +20,11 @@
 .PARAMETER SkipFrontend
   Skip the frontend npm ci / build step.
 
+.PARAMETER SkipElectronInstall
+  Reuse the existing desktop/electron/node_modules tree instead of running
+  npm ci. Useful for offline builds when the lockfile dependencies are already
+  present and verified locally.
+
 .PARAMETER SkipCompileall
   Skip pre-compiling .pyc bytecode for bundled Python packages.
 
@@ -31,6 +36,7 @@ param(
   [switch]$SkipRuntime,
   [switch]$SkipBackendPayload,
   [switch]$SkipFrontend,
+  [switch]$SkipElectronInstall,
   [switch]$SkipCompileall,
   [ValidateSet("stable","beta")]
   [string]$Channel = "stable"
@@ -58,7 +64,7 @@ function Remove-PathWithRetry {
       return
     } catch {
       if ($i -eq $Attempts) {
-        throw "Unable to remove '$Path'. Close LeAgent, Explorer windows, terminals, or antivirus scans using this folder, then retry. Last error: $_"
+        throw "Unable to remove '$Path'. Close StAgent, Explorer windows, terminals, or antivirus scans using this folder, then retry. Last error: $_"
       }
       Start-Sleep -Seconds $i
     }
@@ -138,7 +144,7 @@ function Remove-WinBuildDefenderExclusions {
 }
 
 Write-Host "============================================"
-Write-Host "  LeAgent Desktop — Windows Build"
+Write-Host "  StAgent Desktop — Windows Build"
 Write-Host "  Version : $Version"
 Write-Host "  Channel : $Channel"
 Write-Host "============================================"
@@ -200,9 +206,9 @@ if (-not $SkipCompileall) {
 
   if ($runtimeWorks) {
     Write-Host "`n==> compileall backend payload"
-    $leagentPkg = Join-Path $payloadDir "leagent"
-    if (Test-Path $leagentPkg) {
-      & $runtimePy -m compileall -q $leagentPkg
+    $StAgentPkg = Join-Path $payloadDir "StAgent"
+    if (Test-Path $StAgentPkg) {
+      & $runtimePy -m compileall -q $StAgentPkg
       if ($LASTEXITCODE -ne 0) { Write-Warning "compileall exited $LASTEXITCODE (non-fatal)" }
     }
   } else {
@@ -216,8 +222,12 @@ if (-not $SkipCompileall) {
 Write-Host "`n==> Electron npm ci + build + pack"
 Push-Location $DesktopElectron
 try {
-  npm ci
-  if ($LASTEXITCODE -ne 0) { throw "npm ci failed in desktop/electron (exit $LASTEXITCODE)" }
+  if (-not $SkipElectronInstall) {
+    npm ci
+    if ($LASTEXITCODE -ne 0) { throw "npm ci failed in desktop/electron (exit $LASTEXITCODE)" }
+  } else {
+    Write-Warning "SkipElectronInstall: reusing existing desktop/electron/node_modules."
+  }
 
   # npm ci restores the pristine app-builder-lib; re-apply the EPERM rename-retry
   # patch so extraction survives transient antivirus locks even without elevation.
@@ -266,7 +276,7 @@ try {
 # ── 7. Report ──
 Write-Host "`n==> Build complete"
 $distPack = Join-Path $DesktopElectron "dist-pack"
-$setup = Get-ChildItem -Path $distPack -Filter "LeAgent-Setup-*.exe" -ErrorAction SilentlyContinue |
+$setup = Get-ChildItem -Path $distPack -Filter "StAgent-Setup-*.exe" -ErrorAction SilentlyContinue |
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 1
 if ($setup) {

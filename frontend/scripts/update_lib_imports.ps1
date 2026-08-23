@@ -1,4 +1,4 @@
-$src = "d:\LeAgent\frontend\src"
+$src = "d:\StAgent\frontend\src"
 $lib = "$src\lib"
 
 $map = @{

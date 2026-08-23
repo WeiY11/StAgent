@@ -1,11 +1,11 @@
-# LeAgent Agent Runtime SDK
+# StAgent Agent Runtime SDK
 
-> Status: production. Package: `backend/leagent/runtime/`.
+> Status: production. Package: `backend/StAgent/runtime/`.
 
 中文版: [`agent-runtime_zh.md`](./agent-runtime_zh.md)
 
 The Agent Runtime is the unified, SDK-governed harness for building and
-executing agents in LeAgent. It replaces the previous pattern of
+executing agents in StAgent. It replaces the previous pattern of
 hand-constructing `QueryEngine` / `QueryEngineConfig` at every call site
 (chat API, background tasks, cron, CLI, workflow nodes, sub-agents) with a
 single declarative contract plus one execution facade.
@@ -38,7 +38,7 @@ AgentDefinition  +  RuntimeContext  +  per-call args
 ### AgentDefinition
 
 ```python
-from leagent.runtime import AgentDefinition, ToolPolicy, ModelPolicy, MemoryPolicy
+from StAgent.runtime import AgentDefinition, ToolPolicy, ModelPolicy, MemoryPolicy
 
 AgentDefinition(
     name="support_agent",
@@ -63,7 +63,7 @@ Key behaviours:
 ### AgentBuilder (code-first)
 
 ```python
-from leagent.runtime import AgentBuilder
+from StAgent.runtime import AgentBuilder
 
 support = (
     AgentBuilder("support_agent")
@@ -104,7 +104,7 @@ runtime.registry.register(support)            # or get_agent_registry().register
 ## 2. Execution
 
 ```python
-from leagent.runtime import AgentRuntime
+from StAgent.runtime import AgentRuntime
 
 runtime = AgentRuntime.from_service_manager(service_manager)
 
@@ -155,7 +155,7 @@ event.is_terminal                  # type == "result"
 ### Single think-act path (`sdk.kernel.run_loop`)
 
 Every execution path — **including the chat SSE route** — drives through the
-one kernel loop, `leagent.sdk.kernel.loop.run_loop`. `AgentRuntime.stream`
+one kernel loop, `StAgent.sdk.kernel.loop.run_loop`. `AgentRuntime.stream`
 and `AgentController._run_via_query_engine` both delegate to it rather than
 iterating `QueryEngine.submit_message` directly. The loop:
 
@@ -187,7 +187,7 @@ flowchart LR
 `AgentRuntime.delegate(parent, agent, prompt, **overrides)` is the unified
 entry point for sub-agent invocation. It resolves the child
 `AgentDefinition` for tool/model/budget policy, then drives the proven fork
-core (`leagent.agent.subagent._run_subagent_core`) off the `parent`
+core (`StAgent.agent.subagent._run_subagent_core`) off the `parent`
 (`AgentController` or `QueryEngine`). The fork mechanics — child-scoped
 executor, abort bridge, nested-preview plumbing, file-state merge — are
 reused, so delegation is declarative without re-implementing the
@@ -277,7 +277,7 @@ assembly path; `RuntimeContext` injects the builder explicitly).
 
 ## 6. Observability
 
-`AgentRuntime` emits OpenTelemetry spans via `leagent.telemetry.otel`:
+`AgentRuntime` emits OpenTelemetry spans via `StAgent.telemetry.otel`:
 
 - `agent.runtime.stream` — attributes: `agent.name`, `agent.variant`,
   `agent.runtime_profile`, `agent.session_id`.
@@ -297,7 +297,7 @@ These nest under the existing `agent.query_turn` span emitted by
 | Workflow `Agent.<name>` factory (schema, registration, delegation) | `backend/tests/workflow/test_agent_nodes.py` |
 | Kernel `run_loop` wire shape / messages / hooks; `SQLCheckpointStore` round-trip; resume | `backend/tests/test_kernel_checkpoint.py` |
 | Chat SSE wire-contract regression (kernel reroute) | `backend/tests/test_chat_sse_wire_contract.py` |
-| Plugin discovery (`leagent.llm_providers` / `leagent.context_sources`) | `backend/tests/test_plugin_discovery.py` |
+| Plugin discovery (`StAgent.llm_providers` / `StAgent.context_sources`) | `backend/tests/test_plugin_discovery.py` |
 
 ```bash
 cd backend
@@ -310,7 +310,7 @@ uv run pytest tests/test_runtime_sdk.py tests/workflow/test_agent_nodes.py \
 ## 8. Extending: a new domain agent
 
 ```python
-from leagent.runtime import AgentBuilder, get_agent_registry
+from StAgent.runtime import AgentBuilder, get_agent_registry
 
 triage = (
     AgentBuilder("triage_agent")

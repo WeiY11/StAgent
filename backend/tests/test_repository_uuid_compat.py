@@ -12,15 +12,15 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
-from leagent.api.v1.admin.tasks import cancel_task_admin, list_tasks_admin
-from leagent.api.v1.activities import get_activities
-from leagent.api.v1.stats import get_dashboard_stats, get_home_stats, get_usage_data
-from leagent.api.v1.tasks import get_task_files, list_tasks
-from leagent.config.settings import Settings
-from leagent.db.models.task import TaskStatus
-from leagent.db.service import DatabaseService
-from leagent.services.task_manager import TaskManager
-from leagent.workflow.services import WorkflowService
+from StAgent.api.v1.admin.tasks import cancel_task_admin, list_tasks_admin
+from StAgent.api.v1.activities import get_activities
+from StAgent.api.v1.stats import get_dashboard_stats, get_home_stats, get_usage_data
+from StAgent.api.v1.tasks import get_task_files, list_tasks
+from StAgent.config.settings import Settings
+from StAgent.db.models.task import TaskStatus
+from StAgent.db.service import DatabaseService
+from StAgent.services.task_manager import TaskManager
+from StAgent.workflow.services import WorkflowService
 
 
 @pytest_asyncio.fixture()

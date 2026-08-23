@@ -23,16 +23,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from leagent.agent.base import AgentContext
-from leagent.agent.hooks import AgentHook, HookManager
-from leagent.agent.query_engine import SDKMessage
-from leagent.sdk.kernel.checkpoint import (
+from StAgent.agent.base import AgentContext
+from StAgent.agent.hooks import AgentHook, HookManager
+from StAgent.agent.query_engine import SDKMessage
+from StAgent.sdk.kernel.checkpoint import (
     InMemoryCheckpointStore,
     SQLCheckpointStore,
     create_checkpoint,
 )
-from leagent.sdk.kernel.loop import run_loop
-from leagent.sdk.kernel.state import RunState
+from StAgent.sdk.kernel.loop import run_loop
+from StAgent.sdk.kernel.state import RunState
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ class _InMemoryDB:
         self._repositories = None
 
     async def prepare(self) -> None:
-        from leagent.db.models.agent_checkpoint import AgentCheckpoint
+        from StAgent.db.models.agent_checkpoint import AgentCheckpoint
 
         async with self._engine.begin() as conn:
             await conn.run_sync(
@@ -228,7 +228,7 @@ class _InMemoryDB:
     @property
     def repositories(self):
         if self._repositories is None:
-            from leagent.db.repositories import Repositories
+            from StAgent.db.repositories import Repositories
 
             self._repositories = Repositories(self)
         return self._repositories
@@ -305,7 +305,7 @@ async def test_sql_checkpoint_store_round_trip(fake_db: _InMemoryDB) -> None:
 
 @pytest.mark.asyncio
 async def test_runtime_resume_unknown_checkpoint_raises() -> None:
-    from leagent.runtime import AgentRuntime, RuntimeContext
+    from StAgent.runtime import AgentRuntime, RuntimeContext
 
     rt = AgentRuntime(RuntimeContext(checkpoint_store=InMemoryCheckpointStore()))
     with pytest.raises(ValueError, match="not found"):
@@ -316,7 +316,7 @@ async def test_runtime_resume_unknown_checkpoint_raises() -> None:
 @pytest.mark.asyncio
 async def test_runtime_resume_seeds_engine_with_checkpoint_messages() -> None:
     """End-to-end: load a checkpoint, rebuild the engine with its history."""
-    from leagent.runtime import AgentEvent, AgentRuntime, RuntimeContext
+    from StAgent.runtime import AgentEvent, AgentRuntime, RuntimeContext
 
     store = InMemoryCheckpointStore()
     history = [

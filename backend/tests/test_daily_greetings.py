@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from leagent.services.chat import daily_greetings as dg
+from StAgent.services.chat import daily_greetings as dg
 
 
 def test_normalize_greeting_locale() -> None:

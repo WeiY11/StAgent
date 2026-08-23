@@ -8,9 +8,9 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 
-from leagent.config.settings import Settings
-from leagent.db.models.mission import Mission, MissionStatus, MissionStep
-from leagent.db.service import DatabaseService
+from StAgent.config.settings import Settings
+from StAgent.db.models.mission import Mission, MissionStatus, MissionStep
+from StAgent.db.service import DatabaseService
 
 
 @pytest_asyncio.fixture()
@@ -26,7 +26,7 @@ async def repo_db(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
 
 async def _insert_user(db: DatabaseService) -> UUID:
-    from leagent.db.models.identity_stub import UserStub
+    from StAgent.db.models.identity_stub import UserStub
 
     user_id = uuid4()
     async with db.session() as session:

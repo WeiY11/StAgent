@@ -1,7 +1,7 @@
 /**
  * Typed-socket model for the workflow editor.
  *
- * Ported from the backend `leagent/workflow/io/types.py` so the editor can
+ * Ported from the backend `StAgent/workflow/io/types.py` so the editor can
  * type-check links client-side before they ever reach the server. The colour
  * legend mirrors `SOCKET_COLORS`; the backend also ships its own legend over
  * `/object_info` (`socket_colors`) which, when present, overrides these

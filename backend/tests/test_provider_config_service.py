@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from leagent.llm.provider_config import (
+from StAgent.llm.provider_config import (
     PROVIDER_PRESETS,
     ProviderConfigService,
     ProviderConfigValidationError,

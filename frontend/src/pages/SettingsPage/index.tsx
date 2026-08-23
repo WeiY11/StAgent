@@ -814,26 +814,26 @@ export default function SettingsPage() {
 
   const handleSaveMail = useCallback(async () => {
     const values: Record<string, string> = {
-      LEAGENT_SMTP_HOST: mailHost.trim(),
-      LEAGENT_SMTP_PORT: String(parseInt(mailPort, 10) || 587),
-      LEAGENT_SMTP_FROM_EMAIL: mailFromEmail.trim(),
-      LEAGENT_SMTP_FROM_NAME: mailFromName.trim(),
+      StAgent_SMTP_HOST: mailHost.trim(),
+      StAgent_SMTP_PORT: String(parseInt(mailPort, 10) || 587),
+      StAgent_SMTP_FROM_EMAIL: mailFromEmail.trim(),
+      StAgent_SMTP_FROM_NAME: mailFromName.trim(),
     };
     if (mailUsername.trim()) {
-      values.LEAGENT_SMTP_USERNAME = mailUsername.trim();
+      values.StAgent_SMTP_USERNAME = mailUsername.trim();
     }
     if (mailEncryption === 'ssl') {
-      values.LEAGENT_SMTP_USE_SSL = 'true';
-      values.LEAGENT_SMTP_USE_TLS = 'false';
+      values.StAgent_SMTP_USE_SSL = 'true';
+      values.StAgent_SMTP_USE_TLS = 'false';
     } else if (mailEncryption === 'starttls') {
-      values.LEAGENT_SMTP_USE_SSL = 'false';
-      values.LEAGENT_SMTP_USE_TLS = 'true';
+      values.StAgent_SMTP_USE_SSL = 'false';
+      values.StAgent_SMTP_USE_TLS = 'true';
     } else {
-      values.LEAGENT_SMTP_USE_SSL = 'false';
-      values.LEAGENT_SMTP_USE_TLS = 'false';
+      values.StAgent_SMTP_USE_SSL = 'false';
+      values.StAgent_SMTP_USE_TLS = 'false';
     }
     if (mailPassword.trim()) {
-      values.LEAGENT_SMTP_PASSWORD = mailPassword.trim();
+      values.StAgent_SMTP_PASSWORD = mailPassword.trim();
     }
     setMailSaving(true);
     try {
@@ -865,7 +865,7 @@ export default function SettingsPage() {
   const handleClearMailPassword = useCallback(async () => {
     setMailSaving(true);
     try {
-      await apiClient.put('/settings/tokens', { values: { LEAGENT_SMTP_PASSWORD: '' } });
+      await apiClient.put('/settings/tokens', { values: { StAgent_SMTP_PASSWORD: '' } });
       toast({ variant: 'success', title: t('settings.mailSaved') });
       await loadMailSettings();
     } catch (e) {

@@ -4,13 +4,13 @@
 
 - **定位**：生产系列收官。把预算、延迟、扩展拓扑与此前讲过的 Trace、安全、恢复收成一张可执行检查表。
 - **难度**：★★★★☆
-- **先修**：已读 43–47；了解默认端口与 `LEAGENT_HOME`；浏览 `deploy/.env.example`。
+- **先修**：已读 43–47；了解默认端口与 `StAgent_HOME`；浏览 `deploy/.env.example`。
 
 ## 学习目标
 
 完成本篇后，你应该能：
 
-1. 指出默认单机拓扑的正确性条件：`SQLite` + `LEAGENT_WORKERS=1`。
+1. 指出默认单机拓扑的正确性条件：`SQLite` + `StAgent_WORKERS=1`。
 2. 解释为何 `ExecutionRunRegistry` 与进程内事件总线强制 sticky sessions。
 3. 从 turn / token / 工具 / 模型四层控制成本与尾延迟。
 4. 设计扩容阶梯：垂直 → PostgreSQL → sticky 多 worker →（未来）durable run store。
@@ -31,22 +31,22 @@
 
 扩展不是“把 workers 调大”：SQLite 单写者、进程内 Registry、进程内 EventManager 共同决定了当前安全扩展边界。
 
-## LeAgent 的真实实现
+## StAgent 的真实实现
 
 ### 默认拓扑
 
 | 组件 | 默认 | 含义 |
 |------|------|------|
-| 数据库 | SQLite WAL @ `LEAGENT_HOME` | 零配置；单写者 |
-| `LEAGENT_WORKERS` | `1` | 与 SQLite / Registry 匹配 |
+| 数据库 | SQLite WAL @ `StAgent_HOME` | 零配置；单写者 |
+| `StAgent_WORKERS` | `1` | 与 SQLite / Registry 匹配 |
 | 后端端口 | 开发 `:7860`；镜像常 `:8000` | 见 deploy 与 start 脚本 |
 | 向量记忆 | 无 Milvus 可跑 | 回退 lexical；写向量 no-op |
 
-`AgentSettings`（`LEAGENT_AGENT__*` / 嵌套配置）提供 `max_turns`、`max_tool_calls_per_turn`，以及 long/extended profile 的更大预算与更长工具超时。运行时另受 tool timeout、sandbox 并发、`max_concurrent_per_user` 约束。
+`AgentSettings`（`StAgent_AGENT__*` / 嵌套配置）提供 `max_turns`、`max_tool_calls_per_turn`，以及 long/extended profile 的更大预算与更长工具超时。运行时另受 tool timeout、sandbox 并发、`max_concurrent_per_user` 约束。
 
 ### 进程内状态与 sticky
 
-`ExecutionRunRegistry`（`backend/leagent/runtime/execution_registry.py`）保存活跃 `ExecutionRun`、暂停 token、按 `prompt_id` / session 的查询。多 worker 时：
+`ExecutionRunRegistry`（`backend/StAgent/runtime/execution_registry.py`）保存活跃 `ExecutionRun`、暂停 token、按 `prompt_id` / session 的查询。多 worker 时：
 
 - worker A 上的 pause/resume、审批热状态、output stream 关联，worker B 不可见；
 - 同理，进程内事件总线订阅者也不能跨进程扇出。
@@ -74,7 +74,7 @@
 1. **单机垂直**：更多 CPU/RAM；保持 `workers=1` + SQLite。
 2. **PostgreSQL**：并发写；仍建议先单 worker 验证。
 3. **多 worker + sticky**：HTTP sticky 到会话；监控跨实例不一致。
-4. **外部对象存储 / 备份**：`LEAGENT_HOME` 树与 DB 一起备份。
+4. **外部对象存储 / 备份**：`StAgent_HOME` 树与 DB 一起备份。
 5. **未来**：durable ExecutionRun、跨进程事件总线——**尚未宣称本仓库已交付**。
 
 向量层：Milvus 可增强 recall，不自动解决执行拓扑扩展。
@@ -94,7 +94,7 @@ uv run pytest tests/test_security_control_plane.py -v
 uv run pytest tests/test_runtime_sdk.py tests/test_agent_trace.py -v
 ```
 
-部署前人工核对 `deploy/.env.example`：`LEAGENT_WORKERS`、`LEAGENT_SECRET_KEY`、`DATABASE_URL`、OTel endpoint、安全相关变量。启动后确认日志无 “SQLite + workers>1” 类警告。
+部署前人工核对 `deploy/.env.example`：`StAgent_WORKERS`、`StAgent_SECRET_KEY`、`DATABASE_URL`、OTel endpoint、安全相关变量。启动后确认日志无 “SQLite + workers>1” 类警告。
 
 压测建议：分场景测 P50/P95（纯问答 / 多工具 / 审批暂停恢复），并观察单成功任务成本；不要只报吞吐。
 
@@ -109,20 +109,20 @@ uv run pytest tests/test_runtime_sdk.py tests/test_agent_trace.py -v
 
 ## 业内对照
 
-托管 Agent 平台通常把队列、run state、文件与计费拆到托管服务；自建栈则必须自己处理亲和与持久化。K8s 水平扩展前提是**无本地共享可变状态**——当前 LeAgent 单机默认刻意违反这一条以换零配置。这与许多“先单进程做对，再拆服务”的路径一致；问题在于文档是否诚实写出边界。本篇选择诚实：默认正确形态是单 worker；多实例是有前提的演进，不是开关。
+托管 Agent 平台通常把队列、run state、文件与计费拆到托管服务；自建栈则必须自己处理亲和与持久化。K8s 水平扩展前提是**无本地共享可变状态**——当前 StAgent 单机默认刻意违反这一条以换零配置。这与许多“先单进程做对，再拆服务”的路径一致；问题在于文档是否诚实写出边界。本篇选择诚实：默认正确形态是单 worker；多实例是有前提的演进，不是开关。
 
 ## 生产检查表与总结
 
 ### 安全与暴露面
 
-- [ ] 强 `LEAGENT_SECRET_KEY`；生产 enforce auth；CORS/Host 收窄
+- [ ] 强 `StAgent_SECRET_KEY`；生产 enforce auth；CORS/Host 收窄
 - [ ] 文档与 metrics 已门禁；反向代理 TLS
 
 ### 数据与进程模型
 
-- [ ] SQLite → `LEAGENT_WORKERS=1`
+- [ ] SQLite → `StAgent_WORKERS=1`
 - [ ] 多 worker 仅在 PostgreSQL + sticky sessions 下启用
-- [ ] 备份包含 DB + `LEAGENT_HOME` 关键目录
+- [ ] 备份包含 DB + `StAgent_HOME` 关键目录
 - [ ] 暂停/恢复路径在亲和策略下验证通过
 
 ### 预算与性能
@@ -141,7 +141,7 @@ uv run pytest tests/test_runtime_sdk.py tests/test_agent_trace.py -v
 
 ---
 
-默认把 LeAgent 当成**单进程、可恢复、可观测的桌面/局域网 Agent 运行时**是正确的。成本靠预算与模型分层降，延迟靠工具与上下文治理降，扩展靠先换存储再谈多 worker，而不是先把 `LEAGENT_WORKERS` 调大。进程内 `ExecutionRunRegistry` 是今天必须记住的架构事实：忘记它，暂停恢复与审批会在负载均衡后随机失败。
+默认把 StAgent 当成**单进程、可恢复、可观测的桌面/局域网 Agent 运行时**是正确的。成本靠预算与模型分层降，延迟靠工具与上下文治理降，扩展靠先换存储再谈多 worker，而不是先把 `StAgent_WORKERS` 调大。进程内 `ExecutionRunRegistry` 是今天必须记住的架构事实：忘记它，暂停恢复与审批会在负载均衡后随机失败。
 
 系列回顾：
 

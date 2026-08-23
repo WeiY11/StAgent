@@ -183,7 +183,7 @@ export function PdfPage({
       <canvas ref={canvasRef} className="block" />
       <div
         ref={textLayerRef}
-        className="leagent-pdf-textLayer"
+        className="StAgent-pdf-textLayer"
         style={{ pointerEvents: areaMode ? 'none' : 'auto' }}
       />
       {highlightRect && (

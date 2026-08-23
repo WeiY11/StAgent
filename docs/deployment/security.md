@@ -1,3 +1,3 @@
-﻿# Security
+# Security
 
 TODO: Write security guide.

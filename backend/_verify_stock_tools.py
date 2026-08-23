@@ -1,11 +1,11 @@
 """Verify stock tools completeness."""
 import asyncio
-from leagent.tools.data.stock_quote import StockQuoteTool
-from leagent.tools.data.stock_indicator import StockIndicatorTool
-from leagent.tools.data.stock_screener import StockScreenerTool
-from leagent.tools.data.stock_alert import StockAlertTool
-from leagent.tools.data.stock_chart import StockChartTool
-from leagent.tools.base import ToolContext
+from StAgent.tools.data.stock_quote import StockQuoteTool
+from StAgent.tools.data.stock_indicator import StockIndicatorTool
+from StAgent.tools.data.stock_screener import StockScreenerTool
+from StAgent.tools.data.stock_alert import StockAlertTool
+from StAgent.tools.data.stock_chart import StockChartTool
+from StAgent.tools.base import ToolContext
 
 tools = [StockQuoteTool(), StockIndicatorTool(), StockScreenerTool(), StockAlertTool(), StockChartTool()]
 
@@ -32,7 +32,7 @@ for t in tools:
     print(f"  Tool.{t.name} node: ready")
 
 print("\n=== Alias Registration ===")
-from leagent.tools.registry import ToolRegistry
+from StAgent.tools.registry import ToolRegistry
 reg = ToolRegistry()
 for t in tools:
     reg.register(t)
