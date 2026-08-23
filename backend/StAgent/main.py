@@ -1,0 +1,475 @@
+"""FastAPI application factory — standalone local deployment."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import mimetypes
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+# Windows registry-backed mimetypes maps .svg to the non-canonical "image/svg"
+# (missing +xml suffix); force the correct IANA type so StaticFiles serves SVG
+# with a Content-Type browsers accept.
+mimetypes.add_type("image/svg+xml", ".svg")
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+from StAgent import __version__ as StAgent_version
+from StAgent.api.middleware import (
+    AccessLogMiddleware,
+    APIVersionMiddleware,
+    ContentSizeLimitMiddleware,
+    RateLimitMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+)
+from StAgent.api.router import api_router
+from StAgent.config.settings import get_settings
+from StAgent.exceptions.handlers import register_exception_handlers
+from StAgent.utils.logging import get_logger, setup_logging
+
+if TYPE_CHECKING:
+    from StAgent.services.service_manager import ServiceManager
+
+logger = get_logger(__name__)
+
+_service_manager: ServiceManager | None = None
+
+
+def get_service_manager() -> ServiceManager:
+    assert _service_manager is not None, "ServiceManager not initialised"
+    return _service_manager
+
+
+def set_service_manager(sm: ServiceManager | None) -> None:
+    global _service_manager
+    _service_manager = sm
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan: start services on startup, stop on shutdown."""
+    global _service_manager
+
+    settings = get_settings()
+    setup_logging(
+        level=settings.log_level,
+        log_format=settings.log_format,
+        json_output=not settings.debug,
+        log_file=settings.log_file,
+    )
+
+    # Activate OpenTelemetry export + auto-instrumentation when an OTLP
+    # endpoint is configured. No-op otherwise (spans degrade to the
+    # NullTracer), so this is safe for the default zero-config deployment.
+    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        with contextlib.suppress(Exception):
+            from StAgent.telemetry import TelemetryConfig, instrument_all, setup_otel
+
+            setup_otel(
+                TelemetryConfig(
+                    service_name="StAgent",
+                    environment="debug" if settings.debug else "production",
+                    otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+                )
+            )
+            instrument_all(app)
+
+    logger.info("StAgent starting up (standalone local mode)...")
+
+    try:
+        from StAgent.services.auth.policy import bind_exposure_warnings
+        from StAgent.services.auth.users import ensure_users_schema
+
+        for warning in bind_exposure_warnings(settings):
+            logger.warning("security_readiness: %s", warning)
+        with contextlib.suppress(Exception):
+            ensure_users_schema()
+    except Exception:
+        logger.debug("Security readiness checks skipped", exc_info=True)
+
+    from StAgent.services.service_manager import ServiceManager
+
+    _service_manager = ServiceManager(settings)
+    await _service_manager.start_all()
+
+    # Expose the running services on ``app.state`` so request dependencies resolve
+    # them without reaching for a module-global (testable, no import-time coupling).
+    app.state.service_manager = _service_manager
+
+    try:
+        await _run_db_migrations()
+    except Exception:
+        if settings.database.fail_fast_migrations:
+            logger.error("Database migration failed; aborting startup (fail-fast)", exc_info=True)
+            raise
+        logger.warning("Database migration skipped (non-fatal)", exc_info=True)
+
+    # Tool registry must be populated before accepting HTTP traffic; deferred
+    # warmup runs concurrently and chat/agent requests used to race ahead of
+    # bootstrap_tools(), yielding intermittent tool_not_found for curated tools.
+    await _bootstrap_tool_system()
+
+    app.state.post_startup_warmup = asyncio.Event()
+    app.state._warmup_task = asyncio.create_task(
+        _post_startup_warmup(app, _service_manager),
+        name="post-startup-warmup",
+    )
+
+    logger.info("StAgent ready")
+    yield
+
+    logger.info("StAgent shutting down...")
+    wt = getattr(app.state, "_warmup_task", None)
+    if wt is not None:
+        wt.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await wt
+    try:
+        from StAgent.api.v1.chat import manager as chat_ws_manager
+        await chat_ws_manager.aclose()
+    except Exception:
+        logger.debug("ws manager close failed", exc_info=True)
+    # Flush pending trace data before tearing down services.
+    with contextlib.suppress(Exception):
+        from StAgent.telemetry.trace import get_trace_recorder
+        await get_trace_recorder().flush()
+    try:
+        await asyncio.wait_for(_service_manager.stop_all(), timeout=30.0)
+    except TimeoutError:
+        logger.error("Service shutdown timed out after 30s, forcing exit")
+    _service_manager = None
+    app.state.service_manager = None
+    logger.info("StAgent stopped")
+
+
+async def _post_startup_warmup(app: FastAPI, sm: ServiceManager) -> None:
+    """Deferred startup: tools, skills, routes.
+
+    When ``StAgent_DESKTOP=1`` (Electron shell), Playwright browser
+    installation check and other heavyweight optional services are
+    skipped to minimise cold-start time.
+    """
+    import os
+
+    is_desktop = os.environ.get("StAgent_DESKTOP") == "1"
+    ev: asyncio.Event = app.state.post_startup_warmup
+    try:
+        # Routers are registered eagerly in ``create_app`` (see
+        # ``StAgent.api.router``); warmup only performs heavy *initialization*.
+        await _load_skills()
+
+        # Durable background-job recovery: re-enqueue jobs left non-terminal by a
+        # previous process so persisted work survives restarts.
+        try:
+            from StAgent.tasks.jobs import recover_pending_jobs
+
+            if sm.db is not None:
+                await recover_pending_jobs(sm.db)
+        except Exception:
+            logger.warning("Background job recovery skipped (non-fatal)", exc_info=True)
+
+        mount_frontend_spa_if_configured(app)
+
+        if is_desktop:
+            logger.info("Desktop mode — skipping optional heavyweight service warmup")
+        logger.info("Post-startup warmup complete")
+    finally:
+        ev.set()
+
+
+_migrations_applied = False
+
+
+async def _run_db_migrations() -> None:
+    """Apply Alembic migrations (in-process for SQLite).
+
+    Delegates to :func:`StAgent.alembic.sync_runner.run_sync_migrations`, which
+    uses ``alembic.command.upgrade`` so ``env.run_migrations_online`` can use the
+    injected connection. Skips when no revision scripts exist.
+
+    A process-level guard makes repeat calls a no-op: a process runs its lifespan
+    once in production, so re-checking is only ever hit by the test suite (each
+    ``with TestClient(app)`` re-enters the lifespan) where it wasted ~2.4s of
+    Alembic config/engine loading per test even though the schema was at head.
+    """
+    global _migrations_applied
+    if _migrations_applied:
+        return
+
+    settings = get_settings()
+    if settings.skip_startup_migrations:
+        logger.info("Database migrations skipped by configuration")
+        _migrations_applied = True
+        return
+
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import create_engine, text
+
+    from StAgent.alembic.runtime_config import load_alembic_config
+    from StAgent.alembic.sync_runner import run_sync_migrations
+
+    def _migrate() -> None:
+        cfg = load_alembic_config()
+        script = ScriptDirectory.from_config(cfg)
+        head = script.get_current_head()
+        if head is None:
+            logger.info("No Alembic revisions in script directory; skipping migrations")
+            return
+
+        # Non-SQLite backends (e.g. PostgreSQL) migrate through env.py's async
+        # path: sync_url maps to psycopg2, which we don't ship. Injecting no
+        # connection makes env.run_migrations_online build its own asyncpg
+        # engine from settings. upgrade() is idempotent (no-op at head).
+        if not settings.database.is_sqlite:
+            from alembic import command
+
+            command.upgrade(load_alembic_config(), "head")
+            logger.info("Database migrations applied (async path): %s", head)
+            return
+
+        url = settings.database.sync_url
+        eng = create_engine(url)
+        try:
+            with eng.connect() as conn:
+                try:
+                    row = conn.execute(
+                        text("SELECT version_num FROM alembic_version")
+                    ).fetchone()
+                    current = row[0] if row else None
+                except Exception:
+                    current = None
+            if current == head:
+                logger.info("Database migrations already at head: %s", head)
+                return
+            with eng.connect() as connection:
+                run_sync_migrations(connection)
+            logger.info("Database migrations applied (in-process)")
+        finally:
+            eng.dispose()
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _migrate)
+    _migrations_applied = True
+
+
+async def _bootstrap_tool_system() -> None:
+    try:
+        from StAgent.agent.current import get_current_agent_controller
+        from StAgent.bootstrap import (
+            bootstrap_tools,
+            register_coding_agent_tool,
+            register_script_agent_tool,
+            register_subagent_tool,
+        )
+        from StAgent.tools.registry import get_registry
+
+        summary = await bootstrap_tools()
+        registry = get_registry()
+        register_script_agent_tool(
+            registry,
+            parent_provider=get_current_agent_controller,
+        )
+        register_coding_agent_tool(
+            registry,
+            parent_provider=get_current_agent_controller,
+        )
+        register_subagent_tool(
+            registry,
+            parent_provider=get_current_agent_controller,
+        )
+        logger.info(
+            "Tool system ready: %d tools, %d workflow nodes",
+            len(registry.list_tools()),
+            len(summary["nodes"]),
+        )
+    except Exception:
+        logger.warning("Tool bootstrap failed (non-fatal)", exc_info=True)
+
+
+async def _load_skills() -> None:
+    try:
+        from StAgent.config.settings import get_settings
+        from StAgent.skills.manager import get_skills_manager
+
+        manager = get_skills_manager()
+        count = await manager.load_all()
+        logger.info("Skills loaded: %d skill(s)", count)
+        if get_settings().skills_activate_all_on_start and count:
+            results = await manager.activate_all()
+            n_on = sum(1 for v in results.values() if v)
+            logger.info("Skills activated on start: %d / %d", n_on, len(results))
+    except Exception:
+        logger.warning("Skills loading skipped (non-fatal)", exc_info=True)
+
+
+from starlette.staticfiles import StaticFiles
+
+
+class _SPAStaticFiles(StaticFiles):
+    """``StaticFiles`` that falls back to ``index.html`` for unknown paths.
+
+    A single-page app uses client-side routing, so a hard refresh / deep link
+    on a route like ``/chat`` or ``/workflows/123`` has no matching file on
+    disk. Plain ``StaticFiles`` would return 404; here we serve ``index.html``
+    instead and let the React router resolve the route. Real missing assets
+    (paths with a file extension, e.g. a stale hashed bundle) still 404 so the
+    browser surfaces the error rather than receiving HTML for a ``.js`` request.
+    """
+
+    async def get_response(self, path: str, scope):  # type: ignore[no-untyped-def]
+        from starlette.exceptions import HTTPException as StarletteHTTPException
+
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not Path(path).suffix:
+                return await super().get_response("index.html", scope)
+            raise
+
+
+def mount_frontend_spa_if_configured(app: FastAPI) -> None:
+    """Serve the built SPA from ``/`` **after** all API routers are registered.
+
+    Mounting ``StaticFiles`` at ``/`` too early shadows ``include_router`` calls,
+    producing 404/405 on paths like ``POST /api/v1/streams/rtsp/token``; it runs
+    in warmup after ``create_app`` has registered every router. A bare
+    ``StAgent_FRONTEND_DIST`` must
+    not be treated as a path: ``Path('').resolve()`` is the process cwd, which
+    is always a directory and would incorrectly mount the cwd as the SPA.
+    """
+    if getattr(app.state, "frontend_spa_mounted", False):
+        return
+    raw = (os.environ.get("StAgent_FRONTEND_DIST") or "").strip()
+    if not raw:
+        return
+    dist = Path(raw).expanduser().resolve()
+    if not dist.is_dir():
+        logger.warning("StAgent_FRONTEND_DIST is not a directory: %s", dist)
+        return
+
+    app.mount("/", _SPAStaticFiles(directory=str(dist), html=True), name="spa")
+    app.state.frontend_spa_mounted = True
+    logger.info("Mounted frontend static files from %s", dist)
+
+
+def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
+    settings = get_settings()
+    from StAgent.services.auth.policy import effective_enforce_auth, effective_rate_limit_enabled
+
+    docs_enabled = bool(settings.debug)
+    if effective_enforce_auth(settings) and settings.security.gate_openapi:
+        docs_enabled = False
+
+    app = FastAPI(
+        title="StAgent API",
+        description="Intelligent Office Agent Platform (Local)",
+        version=StAgent_version,
+        lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+    )
+
+    from StAgent.utils.metrics import MetricsMiddleware
+
+    sec = settings.security
+
+    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(
+        APIVersionMiddleware,
+        deprecation_date=settings.api_v1_deprecation_date,
+        sunset_date=settings.api_v1_sunset_date,
+        policy_url=settings.api_deprecation_policy_url,
+    )
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(
+        ContentSizeLimitMiddleware,
+        max_content_size=max(1, settings.files.max_upload_bytes),
+        max_streaming_size=sec.max_streaming_body_bytes,
+    )
+
+    if sec.security_headers_enabled:
+        app.add_middleware(SecurityHeadersMiddleware, hsts_enabled=sec.hsts_enabled)
+
+    from StAgent.services.auth.policy import effective_enforce_auth, effective_rate_limit_enabled
+
+    if effective_rate_limit_enabled(settings):
+        app.add_middleware(
+            RateLimitMiddleware,
+            per_minute=sec.rate_limit_per_minute,
+            burst=sec.rate_limit_burst,
+        )
+
+    # CORS: ``*`` origins are incompatible with credentials per the CORS spec —
+    # browsers reject credentialed wildcard responses, so disable credentials then.
+    cors_origins = sec.cors_origins_list()
+    # When auth is enforced on a LAN bind, discourage wildcard CORS.
+    if effective_enforce_auth(settings) and cors_origins == ["*"]:
+        logger.warning(
+            "Auth is enforced with CORS origins=*; prefer an explicit "
+            "StAgent_SECURITY_CORS_ALLOW_ORIGINS list for browser clients."
+        )
+    allow_credentials = sec.cors_allow_credentials and cors_origins != ["*"]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=allow_credentials,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    trusted_hosts = sec.trusted_hosts_list()
+    if trusted_hosts != ["*"]:
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
+
+    app.add_middleware(MetricsMiddleware)
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+
+    from StAgent.api.schemas.errors import default_error_responses
+
+    app.include_router(api_router, prefix="/api", responses=default_error_responses)
+
+    register_exception_handlers(app)
+
+    @app.get("/health")
+    async def health() -> dict:
+        if _service_manager is not None and _service_manager.is_started:
+            report = await _service_manager.health_check()
+            status_code = 200 if report.get("healthy") else 503
+            from starlette.responses import JSONResponse
+
+            return JSONResponse(
+                content={
+                    "status": "healthy" if report.get("healthy") else "degraded",
+                    "version": StAgent_version,
+                    "services": report.get("services", {}),
+                },
+                status_code=status_code,
+            )
+        return {"status": "healthy", "version": StAgent_version}
+
+    spa_raw = (os.environ.get("StAgent_FRONTEND_DIST") or "").strip()
+    spa_ready = bool(spa_raw and Path(spa_raw).expanduser().resolve().is_dir())
+    if not spa_ready:
+
+        @app.get("/")
+        async def root(request: Request) -> dict:
+            return {
+                "name": "StAgent",
+                "version": StAgent_version,
+                "docs": str(request.url_for("swagger_ui_html")) if settings.debug else None,
+            }
+
+    return app
+
+
+app = create_app()

@@ -1,0 +1,708 @@
+"""Shared registration of tool-produced files as session artifacts.
+
+The agent runtime sees filesystem paths from several places: ordinary tools,
+code-execution workspaces, nested subagents, and older ``ArtifactRef`` shaped
+payloads. This module is the thin adapter that turns those paths into
+managed session attachments via
+:meth:`~StAgent.services.session.manager.SessionManager.promote_tool_output`
+(FileService blob + versioning + quality). Do not re-implement promotion or
+quality here.
+"""
+
+from __future__ import annotations
+
+import json
+import mimetypes
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.parse import unquote, urlparse
+from uuid import UUID
+
+import structlog
+
+from StAgent.file.primitives import is_path_inside as _is_path_inside_multi
+
+logger = structlog.get_logger(__name__)
+
+_PREVIEWABLE_MIME_PREFIXES = ("image/", "application/pdf", "text/html")
+_PREVIEWABLE_EXTENSIONS = frozenset({
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".pdf", ".html", ".htm",
+})
+# Office / data downloads promoted into FileService alongside previewables so
+# ``code_execution`` overwrites refresh managed attachment identity.
+_MANAGED_DOWNLOAD_EXTENSIONS = frozenset({
+    ".xlsx", ".xls", ".csv", ".tsv", ".docx", ".doc", ".pptx", ".ppt",
+    ".zip", ".json", ".md", ".txt", ".xml",
+})
+_MANAGED_DOWNLOAD_MIMES = frozenset({
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "text/csv",
+    "application/json",
+    "application/zip",
+    "application/x-zip-compressed",
+})
+_INTERNAL_TOOL_ARTIFACT_NAMES = frozenset({
+    "__last_source__.py",
+})
+_INTERNAL_TOOL_ARTIFACT_NAMES_CASEFOLD = frozenset(
+    name.casefold() for name in _INTERNAL_TOOL_ARTIFACT_NAMES
+)
+
+
+_SINGLE_PATH_KEYS = (
+    "file_path",
+    "path",
+    "output_path",
+    "saved_path",
+    "saved_to",
+    "destination",
+    "output_file",
+    "target_path",
+    "download_path",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ProducedPathCandidate:
+    """A concrete file path emitted by a tool result."""
+
+    path: str
+    display_name: str | None = None
+    allowed_root: str | None = None
+    source: str = "tool_result"
+    content_type_hint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredArtifact:
+    """A managed artifact registered on a chat session."""
+
+    path: str
+    attachment: dict[str, Any]
+
+
+def is_internal_tool_artifact(value: str | Path | dict[str, Any]) -> bool:
+    """Return whether an artifact is runtime state, not a user-facing output."""
+
+    if isinstance(value, dict):
+        raw = (
+            value.get("filename")
+            or value.get("name")
+            or value.get("source_tool_path")
+            or value.get("storage_path")
+            or ""
+        )
+    else:
+        raw = str(value)
+    return (
+        Path(str(raw).replace("\\", "/")).name.casefold()
+        in _INTERNAL_TOOL_ARTIFACT_NAMES_CASEFOLD
+    )
+
+
+def coerce_tool_result_data(raw: Any) -> dict[str, Any]:
+    """Normalise loose tool-result data to a mapping for artifact extraction."""
+
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, list):
+        return {"_wa_produced_list": raw}
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        if text[0] in "{[":
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return {}
+            if isinstance(parsed, dict):
+                return parsed
+            if isinstance(parsed, list):
+                return {"_wa_produced_list": parsed}
+    return {}
+
+
+_DATA_IMAGE_MARKDOWN_RE = re.compile(
+    r"!\[([^\]]*)\]\(data:image/[^;)]+;base64,[^)]+\)",
+    re.IGNORECASE,
+)
+_DATA_IMAGE_BARE_RE = re.compile(
+    r"data:image/[^;)]+;base64,[A-Za-z0-9+/=\s]{200,}",
+    re.IGNORECASE,
+)
+
+
+def strip_inline_base64_payloads(value: Any) -> Any:
+    """Return ``value`` without inline base64 blobs.
+
+    Generated media should travel as managed file references, not as giant JSON
+    strings in tool results, prompt history, or frontend event payloads.
+    """
+
+    if isinstance(value, dict):
+        return {
+            str(k): strip_inline_base64_payloads(v)
+            for k, v in value.items()
+            if str(k).lower() not in {"base64", "content_base64", "b64_json"}
+        }
+    if isinstance(value, list):
+        return [strip_inline_base64_payloads(item) for item in value]
+    return value
+
+
+def strip_base64_from_text(text: str) -> str:
+    """Remove inline ``data:image/...;base64,...`` blobs from free-form text."""
+
+    if not text or "data:image" not in text.lower():
+        return text
+    return _DATA_IMAGE_BARE_RE.sub("[base64 image omitted]", text)
+
+
+def _preview_path_from_image_entry(entry: dict[str, Any]) -> str | None:
+    for key in ("preview_url", "preview_path", "previewUrl", "previewPath"):
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    file_id = entry.get("file_id") or entry.get("id")
+    if isinstance(file_id, str) and file_id.strip():
+        return f"/api/v1/files/{file_id.strip()}/preview"
+    return None
+
+
+def _scan_image_preview_urls(data: dict[str, Any]) -> list[str]:
+    urls: list[str] = []
+    for key in ("managed_artifacts", "images", "produced_files"):
+        items = data.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            mime = str(item.get("mime") or item.get("content_type") or "").lower()
+            if key == "produced_files" and mime and not mime.startswith("image/"):
+                continue
+            preview = _preview_path_from_image_entry(item)
+            if preview:
+                urls.append(preview)
+    return urls
+
+
+def collect_image_preview_urls_from_messages(messages: list[Any]) -> list[str]:
+    """Collect managed image preview URLs from recent tool results."""
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+
+    def add(url: str) -> None:
+        if url in seen:
+            return
+        seen.add(url)
+        ordered.append(url)
+
+    for msg in reversed(messages):
+        if not isinstance(msg, dict) or msg.get("role") != "tool":
+            continue
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        for url in _scan_image_preview_urls(parsed):
+            add(url)
+
+    ordered.reverse()
+    return ordered
+
+
+def rewrite_inline_data_image_markdown(text: str, preview_urls: list[str]) -> str:
+    """Rewrite markdown/base64 image embeds to managed preview URLs."""
+
+    if not text or "data:image" not in text.lower():
+        return text
+
+    url_iter = iter(preview_urls)
+
+    def next_preview() -> str | None:
+        try:
+            return next(url_iter)
+        except StopIteration:
+            return None
+
+    def repl_markdown(match: re.Match[str]) -> str:
+        alt = match.group(1)
+        preview = next_preview()
+        if preview:
+            return f"![{alt}]({preview})"
+        return f"*{alt or 'Image'}*"
+
+    out = _DATA_IMAGE_MARKDOWN_RE.sub(repl_markdown, text)
+
+    def repl_bare(_match: re.Match[str]) -> str:
+        preview = next_preview()
+        return preview or "[inline image omitted — use preview_url from tool result]"
+
+    return _DATA_IMAGE_BARE_RE.sub(repl_bare, out)
+
+
+def _file_uri_to_path(raw: str) -> str | None:
+    parsed = urlparse(raw)
+    path_part = unquote(parsed.path) if parsed.path else ""
+    netloc = unquote(parsed.netloc) if parsed.netloc else ""
+    # Windows file URIs need care: a naive ``file://C:\dir\file`` (missing the
+    # third slash) parks the whole drive-qualified path in ``netloc`` with an
+    # empty path, while a canonical ``file:///C:/dir`` yields ``/C:/dir`` whose
+    # leading slash must be dropped. A genuine host (``localhost``) has a
+    # non-empty path, so it never trips the drive-in-netloc branch.
+    if not path_part and netloc and (":" in netloc or "\\" in netloc):
+        path_part = netloc
+    elif len(path_part) >= 3 and path_part[0] == "/" and path_part[2] == ":":
+        path_part = path_part[1:]
+    return path_part or None
+
+
+def _resolve_workspace_root(raw: str | None) -> Path | None:
+    if not raw:
+        return None
+    try:
+        return Path(raw).expanduser().resolve()
+    except OSError:
+        return None
+
+
+def _path_is_inside(path: Path, root: Path) -> bool:
+    try:
+        resolved = path.expanduser().resolve()
+        return _is_path_inside_multi(resolved, (root,))
+    except OSError:
+        return False
+
+
+def extract_produced_path_candidates(
+    data: Any,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> list[ProducedPathCandidate]:
+    """Collect file paths from a tool result without registering anything."""
+
+    mapping = coerce_tool_result_data(data)
+    meta = metadata or {}
+    workspace = mapping.get("workspace") if isinstance(mapping.get("workspace"), str) else None
+    workspace_root = _resolve_workspace_root(workspace)
+    candidates: list[ProducedPathCandidate] = []
+
+    def add(
+        raw: Any,
+        display_name: str | None = None,
+        *,
+        source: str = "tool_result",
+        content_type_hint: str | None = None,
+    ) -> None:
+        if not isinstance(raw, str) or not raw.strip():
+            return
+        value = raw.strip()
+        if is_internal_tool_artifact(display_name or value):
+            return
+        if value.startswith("file://"):
+            converted = _file_uri_to_path(value)
+            if not converted:
+                return
+            value = converted
+
+        path = Path(value).expanduser()
+        allowed_root: str | None = None
+        try:
+            probe: Path | None
+            if path.is_absolute():
+                probe = path.resolve()
+            elif workspace_root is not None:
+                probe = (workspace_root / path).resolve()
+            else:
+                probe = None
+            if probe is not None and probe.is_dir():
+                return
+        except OSError:
+            probe = None
+
+        if path.is_absolute():
+            if workspace_root is not None and _path_is_inside(path, workspace_root):
+                allowed_root = str(workspace_root)
+            candidates.append(
+                ProducedPathCandidate(
+                    path=value,
+                    display_name=display_name or path.name,
+                    allowed_root=allowed_root,
+                    source=source,
+                    content_type_hint=content_type_hint,
+                ),
+            )
+            return
+
+        if workspace_root is not None:
+            resolved = (workspace_root / path).resolve()
+            candidates.append(
+                ProducedPathCandidate(
+                    path=str(resolved),
+                    display_name=display_name or path.name,
+                    allowed_root=str(workspace_root),
+                    source=source,
+                    content_type_hint=content_type_hint,
+                ),
+            )
+
+    def add_from_mapping(item: dict[str, Any], *, source: str) -> None:
+        hint = item.get("mime") or item.get("content_type") or item.get("contentType")
+        content_type_hint = hint if isinstance(hint, str) else None
+        label = item.get("name") or item.get("filename")
+        display_name = label if isinstance(label, str) else None
+        for key in _SINGLE_PATH_KEYS:
+            add(
+                item.get(key),
+                display_name=display_name,
+                source=f"{source}.{key}",
+                content_type_hint=content_type_hint,
+            )
+        result_data = item.get("result")
+        if isinstance(result_data, dict):
+            add_from_mapping(result_data, source=f"{source}.result")
+        artifact = item.get("artifact")
+        if isinstance(artifact, dict):
+            uri = artifact.get("uri") or artifact.get("path")
+            art_name = artifact.get("name") if isinstance(artifact.get("name"), str) else display_name
+            add(uri, display_name=art_name, source=f"{source}.artifact")
+
+    add_from_mapping(mapping, source="data")
+
+    top_list = mapping.get("_wa_produced_list")
+    if isinstance(top_list, list):
+        for idx, item in enumerate(top_list):
+            if isinstance(item, str):
+                add(item, source=f"list[{idx}]")
+            elif isinstance(item, dict):
+                add_from_mapping(item, source=f"list[{idx}]")
+
+    for key in ("produced_files", "files", "artifacts", "images"):
+        value = mapping.get(key)
+        if not isinstance(value, list):
+            continue
+        for idx, item in enumerate(value):
+            if isinstance(item, str):
+                add(item, source=f"{key}[{idx}]")
+            elif isinstance(item, dict):
+                if item.get("file_id") or item.get("attachment_id") or item.get("managed"):
+                    continue
+                add_from_mapping(item, source=f"{key}[{idx}]")
+
+    add_from_mapping(meta, source="metadata")
+    return candidates
+
+
+def is_previewable_produced_file(path: Path, *, mime: str | None = None) -> bool:
+    """Return whether a produced file should be promoted into managed attachments.
+
+    Includes classic previewables (image/PDF/HTML) and common downloadable
+    office/data formats so path overwrites refresh FileService identity.
+    """
+    guessed = (mime or mimetypes.guess_type(path.name)[0] or "").lower()
+    if guessed.startswith(_PREVIEWABLE_MIME_PREFIXES):
+        return True
+    if guessed in _MANAGED_DOWNLOAD_MIMES:
+        return True
+    suffix = path.suffix.lower()
+    return suffix in _PREVIEWABLE_EXTENSIONS or suffix in _MANAGED_DOWNLOAD_EXTENSIONS
+
+
+def _resolve_produced_entry_path(raw_path: str, workspace_root: Path | None) -> Path | None:
+    path = Path(raw_path).expanduser()
+    try:
+        if path.is_absolute():
+            resolved = path.resolve()
+        elif workspace_root is not None:
+            resolved = (workspace_root / path).resolve()
+        else:
+            return None
+    except OSError:
+        return None
+    return resolved if resolved.is_file() else None
+
+
+def _session_uploads_dir(session_id: str) -> Path | None:
+    try:
+        from StAgent.services.session.paths import get_session_path_registry
+
+        return get_session_path_registry().uploads_dir(UUID(str(session_id)))
+    except (ValueError, TypeError, ImportError):
+        return None
+
+
+def _path_under_uploads(path: Path, uploads: Path) -> bool:
+    try:
+        return _is_path_inside_multi(path.resolve(), (uploads.resolve(),))
+    except (OSError, ValueError):
+        return False
+
+
+def _code_execution_allowed_roots(workspace_root: Path | None) -> tuple[str, ...]:
+    roots: list[str] = []
+    if workspace_root is not None:
+        roots.append(str(workspace_root))
+    try:
+        from StAgent.file.sandbox import _system_temp_roots
+
+        roots.extend(str(root) for root in _system_temp_roots())
+    except ImportError:
+        pass
+    return tuple(roots)
+
+
+async def ingest_previewable_produced_files(
+    context: Any,
+    produced_files: list[dict[str, Any]],
+    *,
+    workspace: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Copy previewable ``code_execution`` outputs into session uploads.
+
+    Returns updated ``produced_files`` entries (paths rewritten to managed
+    storage when registration succeeds) and UI-ready ``managed_artifacts``.
+    """
+    session_id = getattr(context, "session_id", None)
+    if not session_id or not produced_files:
+        return produced_files, []
+
+    try:
+        session_uuid = UUID(str(session_id))
+    except (ValueError, TypeError):
+        return produced_files, []
+
+    user_uuid: UUID | None = None
+    user_id = getattr(context, "user_id", None)
+    if user_id:
+        try:
+            user_uuid = UUID(str(user_id))
+        except (ValueError, TypeError):
+            user_uuid = None
+
+    session_manager: Any | None = None
+    try:
+        from StAgent.main import get_service_manager
+
+        sm = get_service_manager()
+        session_manager = getattr(sm, "session_manager", None) if sm else None
+    except (RuntimeError, AssertionError):
+        session_manager = None
+
+    if session_manager is None:
+        return produced_files, []
+
+    workspace_root = _resolve_workspace_root(workspace)
+    uploads = _session_uploads_dir(str(session_id))
+    allowed_roots = _code_execution_allowed_roots(workspace_root)
+    updated: list[dict[str, Any]] = []
+    managed: list[dict[str, Any]] = []
+
+    for raw_entry in produced_files:
+        if not isinstance(raw_entry, dict):
+            continue
+        if raw_entry.get("file_id") or raw_entry.get("attachment_id"):
+            updated.append(dict(raw_entry))
+            continue
+
+        raw_path = str(raw_entry.get("file_path") or "").strip()
+        if not raw_path:
+            legacy_path = raw_entry.get("path")
+            if legacy_path:
+                logger.warning(
+                    "produced_file_deprecated_path_key",
+                    extra={"tool_output_key": "path", "expected_key": "file_path"},
+                )
+                raw_path = str(legacy_path).strip()
+        if not raw_path:
+            updated.append(dict(raw_entry))
+            continue
+
+        resolved = _resolve_produced_entry_path(raw_path, workspace_root)
+        if resolved is None:
+            updated.append(dict(raw_entry))
+            continue
+
+        mime = raw_entry.get("mime") if isinstance(raw_entry.get("mime"), str) else None
+        if not is_previewable_produced_file(resolved, mime=mime):
+            updated.append(dict(raw_entry))
+            continue
+
+        if uploads is not None and _path_under_uploads(resolved, uploads):
+            entry = dict(raw_entry)
+            entry["file_path"] = str(resolved)
+            entry["path"] = str(resolved)
+            updated.append(entry)
+            continue
+
+        reg = await session_manager.promote_tool_output(
+            session_uuid,
+            user_uuid,
+            path=str(resolved),
+            filename=raw_entry.get("name") or resolved.name,
+            allowed_roots=allowed_roots or None,
+        )
+        if reg is None:
+            logger.info(
+                "code_execution_produced_register_skipped",
+                extra={"session_id": str(session_id), "source_path": str(resolved)},
+            )
+            updated.append(dict(raw_entry))
+            continue
+
+        storage = Path(str(reg.get("storage_path") or "")).expanduser()
+        entry = dict(raw_entry)
+        managed_path = str(storage) if storage.is_file() else str(resolved)
+        entry["file_path"] = managed_path
+        entry["path"] = managed_path
+        entry["source_path"] = str(resolved)
+        entry["file_id"] = str(reg.get("id") or "")
+        if reg.get("preview_url"):
+            entry["preview_url"] = reg["preview_url"]
+        if reg.get("download_url"):
+            entry["download_url"] = reg["download_url"]
+        if reg.get("sha256"):
+            entry["sha256"] = reg["sha256"]
+        if isinstance(reg.get("version"), int):
+            entry["version"] = reg["version"]
+        if "is_latest" in reg:
+            entry["is_latest"] = bool(reg.get("is_latest"))
+        if reg.get("size") is not None:
+            entry["bytes"] = reg["size"]
+        entry["managed"] = True
+        # Quality is assessed once inside SessionManager.promote / register.
+        if "quality_passed" in reg:
+            entry["quality_passed"] = bool(reg.get("quality_passed"))
+        if reg.get("quality_error"):
+            entry["quality_error"] = reg["quality_error"]
+        updated.append(entry)
+        managed.append(dict(reg))
+        logger.info(
+            "code_execution_produced_registered",
+            extra={
+                "session_id": str(session_id),
+                "source_path": str(resolved),
+                "storage_path": entry["path"],
+                "file_id": entry.get("file_id"),
+                "version": entry.get("version"),
+                "quality_passed": entry.get("quality_passed"),
+            },
+        )
+
+    return updated, managed
+
+
+class ArtifactRegistrar:
+    """Register tool-produced paths through ``SessionManager``."""
+
+    def __init__(self, session_manager: Any | None) -> None:
+        self._session_manager = session_manager
+
+    async def register_tool_result(
+        self,
+        *,
+        session_id: UUID,
+        user_id: UUID | None,
+        data: Any,
+        metadata: dict[str, Any] | None = None,
+        seen_paths: set[str] | None = None,
+        produced_files: list[Any] | None = None,
+    ) -> list[RegisteredArtifact]:
+        if self._session_manager is None:
+            return []
+
+        registered: list[RegisteredArtifact] = []
+        # Deduplicate candidates within a single call only. Cross-tool re-register
+        # of the same workspace path is intentional: SessionManager versions by
+        # content hash so overwrites refresh downloadable identity.
+        local_seen: set[str] = set()
+
+        if produced_files:
+            for ref in produced_files:
+                storage_path = (
+                    ref.metadata.get("storage_path", ref.storage_key)
+                    if hasattr(ref, "metadata")
+                    else str(ref)
+                )
+                try:
+                    key = str(Path(storage_path).expanduser().resolve())
+                except OSError:
+                    continue
+                if key in local_seen:
+                    continue
+                local_seen.add(key)
+                if seen_paths is not None:
+                    seen_paths.add(key)
+                att_dict = {
+                    "id": str(ref.id) if hasattr(ref, "id") else str(ref),
+                    "filename": getattr(ref, "filename", Path(storage_path).name),
+                    "name": getattr(ref, "filename", Path(storage_path).name),
+                    "kind": getattr(ref, "category", "other"),
+                    "content_type": getattr(ref, "content_type", "application/octet-stream"),
+                    "size": getattr(ref, "size", 0),
+                    "sha256": getattr(ref, "checksum", ""),
+                }
+                registered.append(RegisteredArtifact(path=key, attachment=att_dict))
+            if registered:
+                return registered
+
+        for candidate in extract_produced_path_candidates(data, metadata=metadata):
+            try:
+                key = str(Path(candidate.path).expanduser().resolve())
+            except OSError:
+                continue
+            if key in local_seen:
+                continue
+            # Allow re-registration when content may have changed: only skip when
+            # *this call* already handled the path. Callers may still pass
+            # ``seen_paths`` for telemetry; do not block overwrite refresh.
+            out = await self._session_manager.promote_tool_output(
+                session_id,
+                user_id,
+                path=candidate.path,
+                filename=candidate.display_name or Path(candidate.path).name,
+                allowed_roots=(candidate.allowed_root,) if candidate.allowed_root else None,
+            )
+            if out is None:
+                continue
+            local_seen.add(key)
+            if seen_paths is not None:
+                seen_paths.add(key)
+            registered.append(RegisteredArtifact(path=key, attachment=out))
+        return registered
+
+
+def attachment_dicts(items: Iterable[RegisteredArtifact]) -> list[dict[str, Any]]:
+    """Return UI-safe attachment payloads from registered artifacts."""
+
+    return [dict(item.attachment) for item in items]
+
+
+__all__ = [
+    "ArtifactRegistrar",
+    "ProducedPathCandidate",
+    "RegisteredArtifact",
+    "attachment_dicts",
+    "coerce_tool_result_data",
+    "collect_image_preview_urls_from_messages",
+    "extract_produced_path_candidates",
+    "ingest_previewable_produced_files",
+    "is_internal_tool_artifact",
+    "is_previewable_produced_file",
+    "rewrite_inline_data_image_markdown",
+    "strip_base64_from_text",
+    "strip_inline_base64_payloads",
+]

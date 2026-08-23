@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "StAgent.fullname" . }}
+  labels:
+    {{- include "StAgent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "StAgent.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "StAgent.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "StAgent.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: StAgent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if or .Values.existingSecret .Values.secret.create }}
+            - name: StAgent_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_SECRET_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: DATABASE_URL
+                  optional: true
+            - name: StAgent_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_REDIS_URL
+                  optional: true
+            - name: StAgent_OBJECT_STORAGE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_OBJECT_STORAGE_ACCESS_KEY_ID
+                  optional: true
+            - name: StAgent_OBJECT_STORAGE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_OBJECT_STORAGE_SECRET_ACCESS_KEY
+                  optional: true
+            - name: StAgent_OBJECT_STORAGE_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_OBJECT_STORAGE_SESSION_TOKEN
+                  optional: true
+            - name: StAgent_KNOWLEDGE_OPENSEARCH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_KNOWLEDGE_OPENSEARCH_API_KEY
+                  optional: true
+            - name: StAgent_KNOWLEDGE_MILVUS_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_KNOWLEDGE_MILVUS_URI
+                  optional: true
+            - name: StAgent_KNOWLEDGE_MILVUS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_KNOWLEDGE_MILVUS_TOKEN
+                  optional: true
+            - name: StAgent_KNOWLEDGE_RERANK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: StAgent_KNOWLEDGE_RERANK_API_KEY
+                  optional: true
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: DEEPSEEK_API_KEY
+                  optional: true
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "StAgent.fullname" .) .Values.existingSecret }}
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "StAgent.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: uploads
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "StAgent.fullname" . }}-uploads
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

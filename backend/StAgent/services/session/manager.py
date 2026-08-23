@@ -1,0 +1,1217 @@
+"""The session manager that owns chat state for the whole process.
+
+All agent entry points (``/api/v1/chat``, websocket handlers, background
+runners) must acquire a session through :class:`SessionManager`. Once
+acquired, the manager guarantees:
+
+* A single :class:`asyncio.Lock` per session prevents two concurrent turns
+  from stepping on each other's transcript updates.
+* The :class:`TieredSessionStore` writes are flushed to the database as soon as
+  the lock is released, so durability is never delayed waiting on Redis.
+* Uploaded files are tracked as :class:`SessionAttachment` entries with
+  server-issued preview / download URLs, so the frontend can render them
+  without additional auth round-trips.
+
+This class is deliberately thin: it is the API between the rest of the
+system and the storage layer. Business logic (compaction, recall, memory
+writes) lives in the agent runtime.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import mimetypes
+import os
+from collections.abc import AsyncIterator, Iterable
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from uuid import UUID, uuid4
+
+from StAgent.db.sqlite_compat import same_user_id
+from StAgent.file.primitives import (
+    classify_file_kind,
+    sanitize_filename,
+)
+from StAgent.services.auth.signed_url import (
+    build_download_url,
+    build_preview_url,
+)
+from StAgent.services.session.paths import SessionPathRegistry
+from StAgent.services.session.state import (
+    SessionAttachment,
+    SessionMessage,
+    SessionState,
+    SessionTodo,
+    enforce_single_in_progress_todos,
+    session_todos_from_tool_dicts,
+    session_todos_to_tool_dicts,
+)
+from StAgent.services.session.store import TieredSessionStore
+from StAgent.services.session.tabular_snapshot import build_tabular_snapshot
+from StAgent.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from fastapi import UploadFile
+
+    from StAgent.config.settings import Settings
+    from StAgent.db.service import DatabaseService
+    from StAgent.services.cache.service import CacheService
+
+logger = get_logger(__name__)
+
+
+class SessionManager:
+    """Process-wide owner of :class:`SessionState` objects.
+
+    The manager is injected through :class:`ServiceManager`. Do not
+    instantiate it directly from endpoints or agents — always go through
+    ``service_manager.session_manager``.
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        database: DatabaseService | None,
+        file_service: Any | None = None,
+        cache: CacheService | None = None,
+    ) -> None:
+        self._settings = settings
+        self._paths = SessionPathRegistry(settings)
+        self._database = database
+        self._file_service = file_service
+        self._store = TieredSessionStore(settings, database=database, cache=cache)
+        self._locks: dict[UUID, asyncio.Lock] = {}
+        self._locks_mutex = asyncio.Lock()
+
+    @property
+    def store(self) -> TieredSessionStore:
+        return self._store
+
+    def _ensure_state_owner(
+        self,
+        state: SessionState,
+        user_id: UUID | None,
+        *,
+        claim_unowned: bool = False,
+    ) -> None:
+        """Reject cross-user access to a hydrated session state.
+
+        ``user_id=None`` is reserved for trusted internal/background paths.
+        API-facing paths pass a concrete user id and must not see or mutate a
+        session already bound to another user. ``claim_unowned`` is only used
+        on creation/mutation paths where legacy or in-memory state has no owner
+        yet and the caller has already been authorised by the outer chat layer.
+        """
+        if user_id is None:
+            return
+        if state.user_id is None:
+            if claim_unowned:
+                state.user_id = user_id
+                return
+            raise PermissionError("Session not found")
+        if not same_user_id(state.user_id, user_id):
+            raise PermissionError("Session not found")
+
+    async def _assert_session_owner(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        *,
+        claim_unowned: bool = False,
+    ) -> None:
+        """Best-effort preflight before doing file I/O for a user-bound session."""
+        if user_id is None:
+            return
+        state = await self._store.load(session_id)
+        if state is None:
+            return
+        self._ensure_state_owner(state, user_id, claim_unowned=claim_unowned)
+
+    # -- locks ----------------------------------------------------------
+
+    async def _lock_for(self, session_id: UUID) -> asyncio.Lock:
+        async with self._locks_mutex:
+            lock = self._locks.get(session_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._locks[session_id] = lock
+            return lock
+
+    @asynccontextmanager
+    async def locked(self, session_id: UUID) -> AsyncIterator[SessionState]:
+        """Acquire the per-session lock and hand back the current state.
+
+        Yields the hydrated :class:`SessionState`. Any mutations the caller
+        performs on it are automatically persisted when the context exits —
+        the caller does **not** need to call :meth:`save` explicitly inside
+        the ``async with`` block.
+        """
+        lock = await self._lock_for(session_id)
+        async with lock:
+            state = await self._store.load(session_id)
+            if state is None:
+                state = SessionState(session_id=session_id)
+            try:
+                yield state
+            finally:
+                # Durable save is now authoritative: it raises on failure so it
+                # cannot publish an undurable state to L1. Recover here (the
+                # runtime boundary) so a transient database error does not crash
+                # the turn, leaving the previously durable state untouched.
+                try:
+                    await self._store.save(state)
+                except Exception:  # noqa: BLE001
+                    logger.warning(
+                        "session_state_save_failed: session_id=%s",
+                        session_id,
+                        exc_info=True,
+                    )
+
+    # -- high-level API -------------------------------------------------
+
+    async def get_or_create(
+        self,
+        session_id: UUID,
+        *,
+        user_id: UUID | None = None,
+        workspace_id: UUID | None = None,
+        flow_id: UUID | None = None,
+    ) -> SessionState:
+        """Hydrate a session, creating an empty one if necessary."""
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
+            if state.user_id is None and user_id is not None:
+                state.user_id = user_id
+            if state.workspace_id is None and workspace_id is not None:
+                state.workspace_id = workspace_id
+            if state.flow_id is None and flow_id is not None:
+                state.flow_id = flow_id
+            return state
+
+    async def load(self, session_id: UUID) -> SessionState | None:
+        return await self._store.load(session_id)
+
+    async def get_todos(
+        self,
+        session_id: UUID,
+        *,
+        user_id: UUID | None = None,
+    ) -> list[SessionTodo]:
+        """Return the session-scoped agent todo list."""
+        state = await self._store.load(session_id)
+        if state is None:
+            return []
+        self._ensure_state_owner(state, user_id)
+        return list(state.todos)
+
+    async def set_todos(
+        self,
+        session_id: UUID,
+        todos: list[SessionTodo] | list[dict[str, Any]],
+        *,
+        user_id: UUID | None = None,
+    ) -> list[SessionTodo]:
+        """Replace session todos and persist."""
+        if not todos:
+            normalised: list[SessionTodo] = []
+        elif isinstance(todos[0], dict):
+            normalised = session_todos_from_tool_dicts(todos)  # type: ignore[arg-type]
+        else:
+            normalised = list(todos)  # type: ignore[arg-type]
+        normalised = enforce_single_in_progress_todos(normalised)
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
+            state.todos = normalised
+            return list(state.todos)
+
+    async def update_todo_status(
+        self,
+        session_id: UUID,
+        todo_id: str,
+        status: str,
+        *,
+        user_id: UUID | None = None,
+    ) -> list[SessionTodo]:
+        """Update one todo status (user or API); demote other in_progress when needed."""
+        from StAgent.services.session.state import SessionTodoStatus, _utc_now
+
+        raw = str(status or "pending").strip().lower()
+        if raw not in {"pending", "in_progress", "completed", "cancelled"}:
+            msg = f"Invalid todo status: {status!r}"
+            raise ValueError(msg)
+        new_status: SessionTodoStatus = raw  # type: ignore[assignment]
+        tid = str(todo_id or "").strip()
+        if not tid:
+            msg = "Todo id is required"
+            raise ValueError(msg)
+
+        now = _utc_now()
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
+            if not state.todos:
+                msg = f"Todo {tid!r} not found"
+                raise ValueError(msg)
+
+            found = False
+            updated: list[SessionTodo] = []
+            for todo in state.todos:
+                if todo.id != tid:
+                    if new_status == "in_progress" and todo.status == "in_progress":
+                        updated.append(
+                            SessionTodo(
+                                id=todo.id,
+                                content=todo.content,
+                                status="pending",
+                                order=todo.order,
+                                updated_at=now,
+                            )
+                        )
+                    else:
+                        updated.append(todo)
+                    continue
+                found = True
+                updated.append(
+                    SessionTodo(
+                        id=todo.id,
+                        content=todo.content,
+                        status=new_status,
+                        order=todo.order,
+                        updated_at=now,
+                    )
+                )
+
+            if not found:
+                msg = f"Todo {tid!r} not found"
+                raise ValueError(msg)
+
+            state.todos = enforce_single_in_progress_todos(updated)
+            return list(state.todos)
+
+    def todos_as_tool_dicts(self, todos: Iterable[SessionTodo]) -> list[dict[str, Any]]:
+        return session_todos_to_tool_dicts(todos)
+
+    async def append_user(
+        self,
+        session_id: UUID,
+        content: str,
+        *,
+        attachment_ids: Iterable[UUID] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> SessionMessage:
+        async with self.locked(session_id) as state:
+            message = SessionMessage(
+                role="user",
+                content=content,
+                attachment_ids=[str(a) for a in (attachment_ids or [])],
+            )
+            state.append_message(message)
+            if metadata:
+                state.metadata.update(metadata)
+            return message
+
+    async def append_assistant(
+        self,
+        session_id: UUID,
+        content: str,
+        *,
+        tool_calls: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> SessionMessage:
+        async with self.locked(session_id) as state:
+            message = SessionMessage(
+                role="assistant",
+                content=content,
+                tool_calls=tool_calls,
+                model=model,
+            )
+            state.append_message(message)
+            state.usage.add(input_tokens=input_tokens, output_tokens=output_tokens)
+            return message
+
+    async def append_tool_result(
+        self,
+        session_id: UUID,
+        *,
+        tool_call_id: str,
+        content: str,
+    ) -> SessionMessage:
+        async with self.locked(session_id) as state:
+            message = SessionMessage(
+                role="tool",
+                content=content,
+                tool_call_id=tool_call_id,
+            )
+            state.append_message(message)
+            return message
+
+    async def replace_pending_tool_reply(
+        self,
+        session_id: UUID,
+        *,
+        tool_call_id: str,
+        content: str,
+    ) -> bool:
+        """If a placeholder ``ask_user`` tool row exists, replace its body; else return False."""
+        token = "_wa_pending"
+        async with self.locked(session_id) as state:
+            for msg in state.messages:
+                if (
+                    msg.role == "tool"
+                    and msg.tool_call_id == tool_call_id
+                    and token in (msg.content or "")
+                ):
+                    msg.content = content
+                    return True
+            return False
+
+    async def replace_messages(
+        self,
+        session_id: UUID,
+        messages: Iterable[SessionMessage],
+    ) -> None:
+        async with self.locked(session_id) as state:
+            state.replace_messages(messages)
+
+    async def save_file_state(
+        self,
+        session_id: UUID,
+        snapshot: list[dict[str, Any]],
+    ) -> None:
+        async with self.locked(session_id) as state:
+            state.file_state = list(snapshot or [])
+
+    async def set_system_prompt_fingerprint(
+        self, session_id: UUID, fingerprint: str
+    ) -> None:
+        async with self.locked(session_id) as state:
+            state.system_prompt_fingerprint = fingerprint
+
+    # -- attachments ----------------------------------------------------
+
+    async def attach_files(
+        self,
+        session_id: UUID,
+        uploads: Iterable[UploadFile],
+        *,
+        user_id: UUID | None = None,
+    ) -> list[SessionAttachment]:
+        """Persist uploaded files to disk and register them on the session.
+
+        The method is safe to call before any user message is appended — in
+        fact, the ``/api/v1/chat/stream`` handler calls this immediately
+        after receiving the multipart form so the attachment IDs are known
+        when ``append_user`` records the first turn.
+        """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
+        persisted: list[SessionAttachment] = []
+        max_bytes = max(0, int(self._settings.files.max_upload_bytes))
+
+        for upload in uploads:
+            if upload is None:
+                continue
+            filename = upload.filename or f"attachment-{uuid4().hex}"
+            content_type = (
+                upload.content_type
+                or mimetypes.guess_type(filename)[0]
+                or "application/octet-stream"
+            )
+            try:
+                raw = await self._read_upload_limited(upload, max_bytes, filename)
+            finally:
+                try:
+                    await upload.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            attachment = await self._persist_attachment_blob(
+                session_id,
+                raw,
+                filename=filename,
+                content_type=content_type,
+                user_id=user_id,
+            )
+            persisted.append(attachment)
+
+        if not persisted:
+            return persisted
+
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
+            for att in persisted:
+                state.upsert_attachment(att)
+
+        return persisted
+
+    @staticmethod
+    async def _read_upload_limited(
+        upload: UploadFile, max_bytes: int, filename: str
+    ) -> bytes:
+        """Read an upload fully into memory, enforcing the size limit."""
+        buf = bytearray()
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            buf.extend(chunk)
+            if max_bytes and len(buf) > max_bytes:
+                raise ValueError(
+                    f"Attachment {filename!r} exceeds the "
+                    f"{max_bytes} byte upload limit"
+                )
+        return bytes(buf)
+
+    def _ensure_file_service(self) -> Any:
+        """Return the injected FileService, lazily building a local one.
+
+        ``FileService.register`` is the single managed-blob ingress, so the
+        manager never writes attachment bytes directly. When no service was
+        injected (lightweight test contexts) we construct a local-backed one
+        rooted at the configured upload directory.
+        """
+        if self._file_service is None:
+            from StAgent.file.service import FileService
+            from StAgent.file.storage.local import LocalStorageBackend
+
+            backend = LocalStorageBackend(self._settings.files.upload_dir)
+            self._file_service = FileService(
+                default_backend=backend,
+                default_backend_name="local",
+                database=self._database,
+            )
+        return self._file_service
+
+    async def _persist_attachment_blob(
+        self,
+        session_id: UUID,
+        raw: bytes,
+        *,
+        filename: str,
+        content_type: str,
+        user_id: UUID | None,
+    ) -> SessionAttachment:
+        """Persist a single attachment blob via the FileService ingress.
+
+        Returns a :class:`SessionAttachment` built from the resulting
+        :class:`~StAgent.file.service.FileRef`. The DB ``File`` row is written
+        by ``FileService.register`` itself, so no separate insert is needed.
+        """
+        from StAgent.file.primitives import FileScope
+
+        file_service = self._ensure_file_service()
+        ref = await file_service.register(
+            raw,
+            filename=filename,
+            content_type=content_type,
+            user_id=user_id,
+            session_id=session_id,
+            scope=FileScope.SESSION,
+            category="upload",
+            origin_type="upload",
+        )
+        kind = classify_file_kind(filename, content_type).value
+        attachment = SessionAttachment(
+            id=ref.id,
+            session_id=session_id,
+            filename=filename,
+            storage_path=ref.metadata.get("storage_path", ref.storage_key),
+            content_type=content_type,
+            kind=kind,
+            size=ref.size,
+            sha256=ref.checksum,
+        )
+        snapshot = await self._build_tabular_snapshot(raw, filename, content_type)
+        if snapshot is not None:
+            attachment.extra["tabular_snapshot"] = snapshot
+        self._populate_urls(attachment, user_id=user_id)
+        return attachment
+
+    @staticmethod
+    async def _build_tabular_snapshot(
+        raw: bytes, filename: str, content_type: str
+    ) -> dict[str, Any] | None:
+        """Run the snapshot builder off-loop; never let it break an upload."""
+        try:
+            return await asyncio.to_thread(
+                build_tabular_snapshot, raw, filename, content_type
+            )
+        except Exception:  # noqa: BLE001 - snapshots are strictly best-effort
+            logger.debug("tabular_snapshot_failed", extra={"filename": filename})
+            return None
+
+    async def register_external_file(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        source_path: str,
+        *,
+        display_name: str | None = None,
+        allowed_roots: Iterable[str | os.PathLike[str]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Copy a tool-generated file from the path sandbox into session attachments.
+
+        The source path must sit under a configured tool file root. On success
+        the file is added like an upload, with DB rows and signed URLs, so the
+        chat workspace and ``/api/v1/files`` stay consistent.
+        """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
+        from StAgent.file.sandbox import _get_allowed_roots, _is_inside
+
+        try:
+            src = Path(source_path).expanduser().resolve()
+        except OSError as exc:
+            logger.warning(
+                "register_external_file_bad_path",
+                extra={"source_path": source_path, "session_id": str(session_id), "error": str(exc)},
+            )
+            return None
+        if not src.is_file():
+            logger.warning(
+                "register_external_file_not_file",
+                extra={
+                    "session_id": str(session_id),
+                    "source_path": source_path,
+                    "resolved": str(src),
+                    "is_dir": src.is_dir(),
+                },
+            )
+            return None
+        extra_roots = tuple(
+            Path(root).expanduser().resolve()
+            for root in (allowed_roots or ())
+            if root
+        )
+        tool_roots = _get_allowed_roots()
+        combined = (*tool_roots, *extra_roots)
+        if not _is_inside(src, combined):
+            logger.warning(
+                "register_external_file_rejected_outside_sandbox",
+                extra={
+                    "session_id": str(session_id),
+                    "resolved_source": str(src),
+                    "tool_root_count": len(tool_roots),
+                    "tool_roots_sample": [str(p) for p in tool_roots[:3]],
+                    "extra_roots": [str(p) for p in extra_roots],
+                },
+            )
+            return None
+
+        label = sanitize_filename(display_name or src.name, default="attachment")
+
+        return await self._register_external_via_service(
+            session_id, user_id, src, label=label,
+        )
+
+    async def list_attachments(
+        self, session_id: UUID, *, user_id: UUID | None = None
+    ) -> list[SessionAttachment]:
+        state = await self._store.load(session_id)
+        if state is None:
+            return []
+        self._ensure_state_owner(state, user_id)
+        attachments = list(state.attachments)
+        if user_id is not None:
+            for attachment in attachments:
+                self._populate_urls(attachment, user_id=user_id)
+        return attachments
+
+    def build_attachment_manifest(
+        self, attachments: Iterable[SessionAttachment]
+    ) -> str:
+        """Render a machine-parsable manifest for the LLM system prompt.
+
+        The agent sees every attachment even before it has called a tool, so
+        it can decide when to invoke ``file_manager`` or ``excel_reader`` on
+        the user's files.
+        """
+        lines: list[str] = []
+        for att in attachments:
+            stem = Path(att.filename).stem if att.filename else ""
+            storage_basename = Path(att.storage_path).name if att.storage_path else ""
+            safe_name = storage_basename.split("_", 1)[1] if "_" in storage_basename else storage_basename
+            aliases = sorted({
+                att.filename.casefold() if att.filename else "",
+                stem.casefold() if stem else "",
+                storage_basename.casefold(),
+                safe_name.casefold(),
+                Path(safe_name).stem.casefold() if safe_name else "",
+            } - {""})
+            parts = [
+                f"- id={att.id}",
+                f"name={att.filename!r}",
+                f"stem={stem!r}",
+                f"storage_basename={storage_basename!r}",
+                f"kind={att.kind}",
+                f"type={att.content_type}",
+                f"size={att.size}",
+                f"file_path={att.storage_path}",
+                f"aliases={aliases!r}",
+            ]
+            if att.preview_url:
+                parts.append(f"preview={att.preview_url}")
+            lines.append(" ".join(parts))
+        if not lines:
+            return ""
+        header = (
+            "<session_attachments>\n"
+            "The user has attached the following files to this conversation.\n"
+            "When the user references an attachment by name, match it to "
+            "`name`, `stem`, or `aliases` (case-insensitive), then use the "
+            "exact `file_path` value below in your FIRST file-reading tool call.\n"
+            "Do not call list/tree/glob to discover files that are already "
+            "listed in this section.\n"
+        )
+        footer = "\n</session_attachments>"
+        return header + "\n".join(lines) + footer
+
+    def _populate_urls(
+        self,
+        attachment: SessionAttachment,
+        *,
+        user_id: UUID | None,
+    ) -> None:
+        try:
+            attachment.preview_url = build_preview_url(
+                self._settings,
+                attachment_id=attachment.id,
+                user_id=user_id,
+            )
+            attachment.download_url = build_download_url(
+                self._settings,
+                attachment_id=attachment.id,
+                user_id=user_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("signed_url_generation_failed: %s", exc)
+
+    def _attachment_row_dict(
+        self,
+        attachment: SessionAttachment,
+        *,
+        user_id: UUID | None = None,
+    ) -> dict[str, Any]:
+        """Serialize a session attachment for tool/UI consumers."""
+        self._populate_urls(attachment, user_id=user_id)
+        extra = attachment.extra if isinstance(attachment.extra, dict) else {}
+        row: dict[str, Any] = {
+            "id": str(attachment.id),
+            "filename": attachment.filename,
+            "name": attachment.filename,
+            "kind": attachment.kind,
+            "content_type": attachment.content_type,
+            "size": attachment.size,
+            "sha256": attachment.sha256,
+            "storage_path": attachment.storage_path,
+            "preview_url": attachment.preview_url,
+            "download_url": attachment.download_url,
+            "extra": dict(extra),
+        }
+        source_path = extra.get("source_tool_path")
+        if isinstance(source_path, str) and source_path:
+            row["source_tool_path"] = source_path
+        version = extra.get("version")
+        if isinstance(version, int):
+            row["version"] = version
+        if "is_latest" in extra:
+            row["is_latest"] = bool(extra.get("is_latest"))
+        superseded_by = extra.get("superseded_by")
+        if superseded_by is not None:
+            row["superseded_by"] = str(superseded_by)
+        # Quality is owned here (assessed once at promotion) — callers must not
+        # re-run openpyxl/PIL outside SessionManager.
+        if "quality_passed" in extra:
+            row["quality_passed"] = bool(extra.get("quality_passed"))
+        if extra.get("quality_error"):
+            row["quality_error"] = str(extra["quality_error"])
+        if extra.get("quality_artifact_type"):
+            row["quality_artifact_type"] = str(extra["quality_artifact_type"])
+        return row
+
+    @staticmethod
+    def _ensure_quality_on_attachment(attachment: SessionAttachment) -> None:
+        """Run content quality once per content hash; persist on ``extra``.
+
+        This is the **sole** promotion-time quality hook for downloadable
+        session artifacts. Tool code and QueryEngine should only *read*
+        ``quality_passed`` from the attachment row.
+        """
+        extra = dict(attachment.extra or {})
+        if (
+            "quality_passed" in extra
+            and extra.get("quality_sha256")
+            and attachment.sha256
+            and extra.get("quality_sha256") == attachment.sha256
+        ):
+            return
+        try:
+            from StAgent.file.quality import assess_artifact_quality
+
+            verdict = assess_artifact_quality(
+                attachment.storage_path,
+                content_type=attachment.content_type,
+                filename=attachment.filename,
+            )
+        except Exception:  # noqa: BLE001 — never block promotion
+            logger.debug("attachment_quality_check_failed", exc_info=True)
+            return
+        if verdict is None:
+            return
+        extra["quality_passed"] = verdict.passed
+        extra["quality_artifact_type"] = verdict.artifact_type
+        extra["quality_sha256"] = attachment.sha256
+        if verdict.details:
+            extra["quality_details"] = dict(verdict.details)
+        if not verdict.passed:
+            extra["quality_error"] = verdict.message or "artifact quality gate failed"
+        else:
+            extra.pop("quality_error", None)
+        attachment.extra = extra
+
+    def _finalize_attachment_row(
+        self,
+        attachment: SessionAttachment,
+        *,
+        user_id: UUID | None = None,
+        assess_quality: bool = True,
+    ) -> dict[str, Any]:
+        """Quality-annotate (once) then serialize for tool/UI consumers."""
+        if assess_quality:
+            self._ensure_quality_on_attachment(attachment)
+        return self._attachment_row_dict(attachment, user_id=user_id)
+
+    async def promote_tool_output(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        *,
+        path: str | os.PathLike[str] | None = None,
+        data: bytes | None = None,
+        filename: str | None = None,
+        content_type: str | None = None,
+        source_tool_path: str | None = None,
+        allowed_roots: Iterable[str | os.PathLike[str]] | None = None,
+        origin_ref: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Unified promotion of a tool output into FileService + session attachments.
+
+        Prefer this (or the thin wrappers ``register_external_file`` /
+        ``register_artifact_bytes`` / ``register_tool_artifact``) over ad-hoc
+        quality checks or direct FileService calls from tools.
+
+        Exactly one of *path* or *data* must be provided.
+        """
+        if path is not None and data is not None:
+            raise ValueError("promote_tool_output: pass path or data, not both")
+        if path is None and data is None:
+            raise ValueError("promote_tool_output: path or data is required")
+        if path is not None:
+            return await self.register_external_file(
+                session_id,
+                user_id,
+                str(path),
+                display_name=filename,
+                allowed_roots=allowed_roots,
+            )
+        return await self.register_artifact_bytes(
+            session_id,
+            user_id,
+            data or b"",
+            filename=filename or "artifact",
+            content_type=content_type,
+            origin_ref=origin_ref,
+            source_tool_path=source_tool_path,
+        )
+
+    @staticmethod
+    def _paths_equal(left: str, right: str) -> bool:
+        try:
+            return (
+                str(Path(left).expanduser().resolve())
+                == str(Path(right).expanduser().resolve())
+            )
+        except OSError:
+            return left == right
+
+    def _latest_attachment_for_source_path(
+        self,
+        attachments: list[SessionAttachment],
+        resolved_src: str,
+    ) -> SessionAttachment | None:
+        """Return the newest attachment keyed by ``source_tool_path``, if any."""
+        matches: list[SessionAttachment] = []
+        for existing in attachments:
+            extra = existing.extra if isinstance(existing.extra, dict) else {}
+            prior_src = extra.get("source_tool_path")
+            if not isinstance(prior_src, str) or not prior_src:
+                continue
+            if self._paths_equal(prior_src, resolved_src):
+                matches.append(existing)
+        if not matches:
+            return None
+        # Prefer explicit latest flag, then highest version, then created_at.
+        def _sort_key(att: SessionAttachment) -> tuple[int, int, float]:
+            extra = att.extra if isinstance(att.extra, dict) else {}
+            is_latest = 1 if extra.get("is_latest", True) else 0
+            version = extra.get("version")
+            ver = int(version) if isinstance(version, int) else 0
+            return (is_latest, ver, att.created_at.timestamp())
+
+        return max(matches, key=_sort_key)
+
+    async def _find_reusable_attachment(
+        self,
+        session_id: UUID,
+        *,
+        src: Path,
+        checksum: str | None = None,
+    ) -> SessionAttachment | None:
+        """Return an attachment to reuse only when content still matches.
+
+        Same ``source_tool_path`` with a **different** sha256 must not reuse the
+        prior row (that is the attachment/path drift bug). Identical checksum
+        still dedupes even when paths differ.
+        """
+        resolved_src = str(src)
+        async with self.locked(session_id) as state:
+            by_path = self._latest_attachment_for_source_path(
+                list(state.attachments),
+                resolved_src,
+            )
+            if by_path is not None:
+                if checksum and by_path.sha256 and by_path.sha256 == checksum:
+                    return by_path
+                if checksum and by_path.sha256 and by_path.sha256 != checksum:
+                    return None
+                # No checksum available: treat as reuse only if sizes match.
+                if not checksum:
+                    try:
+                        if by_path.size == src.stat().st_size:
+                            return by_path
+                    except OSError:
+                        return by_path
+                    return None
+            if checksum:
+                for existing in state.attachments:
+                    if existing.sha256 and existing.sha256 == checksum:
+                        return existing
+        return None
+
+    async def _supersede_path_attachments(
+        self,
+        session_id: UUID,
+        *,
+        resolved_src: str,
+        new_id: UUID,
+        new_version: int,
+    ) -> None:
+        """Mark prior attachments for *resolved_src* as superseded by *new_id*."""
+        async with self.locked(session_id) as state:
+            for existing in state.attachments:
+                if existing.id == new_id:
+                    continue
+                extra = existing.extra if isinstance(existing.extra, dict) else {}
+                prior_src = extra.get("source_tool_path")
+                if not isinstance(prior_src, str) or not prior_src:
+                    continue
+                if not self._paths_equal(prior_src, resolved_src):
+                    continue
+                updated = dict(extra)
+                updated["is_latest"] = False
+                updated["superseded_by"] = str(new_id)
+                if "version" not in updated:
+                    updated["version"] = max(1, new_version - 1)
+                existing.extra = updated
+
+    async def _register_external_via_service(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        src: Path,
+        *,
+        label: str,
+    ) -> dict[str, Any] | None:
+        """Register an external file using FileService.register().
+
+        Path is a workspace alias: identical content (sha256) reuses the prior
+        attachment; content changes mint a new FileRef and supersede the old
+        attachment for that path so downloads never serve a stale snapshot.
+        """
+        import hashlib
+
+        from StAgent.file.primitives import FileScope
+
+        checksum = ""
+        try:
+            digest = hashlib.sha256()
+            with src.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            checksum = digest.hexdigest()
+        except OSError:
+            checksum = ""
+
+        existing = await self._find_reusable_attachment(
+            session_id,
+            src=src,
+            checksum=checksum or None,
+        )
+        if existing is not None:
+            return await self._attachment_row_for_id(
+                session_id, existing.id, user_id=user_id
+            )
+
+        # Determine next version for this workspace path.
+        version = 1
+        async with self.locked(session_id) as state:
+            prior = self._latest_attachment_for_source_path(
+                list(state.attachments),
+                str(src),
+            )
+            if prior is not None:
+                prior_extra = prior.extra if isinstance(prior.extra, dict) else {}
+                prior_ver = prior_extra.get("version")
+                version = (int(prior_ver) if isinstance(prior_ver, int) else 1) + 1
+
+        file_service = self._ensure_file_service()
+        try:
+            ref = await file_service.register(
+                data=src,
+                filename=label,
+                scope=FileScope.OUTPUT,
+                session_id=session_id,
+                user_id=user_id,
+                category="tool_output",
+                library_scope="artifact",
+                origin_type="tool",
+            )
+        except Exception as exc:
+            logger.warning("register_external_via_service_failed: %s", exc)
+            return None
+
+        row = await self._attach_ref(
+            ref,
+            session_id,
+            user_id,
+            label=label,
+            extra={
+                "source_tool_path": str(src),
+                "version": version,
+                "is_latest": True,
+            },
+            allow_path_replace=True,
+        )
+        if version > 1 and row is not None:
+            await self._supersede_path_attachments(
+                session_id,
+                resolved_src=str(src),
+                new_id=ref.id,
+                new_version=version,
+            )
+            # Refresh URLs after supersede metadata write.
+            return await self._attachment_row_for_id(
+                session_id, ref.id, user_id=user_id
+            ) or row
+        return row
+
+    async def _attachment_row_for_id(
+        self,
+        session_id: UUID,
+        attachment_id: UUID,
+        *,
+        user_id: UUID | None = None,
+    ) -> dict[str, Any] | None:
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id)
+            for existing in state.attachments:
+                if existing.id == attachment_id:
+                    self._ensure_quality_on_attachment(existing)
+                    return self._attachment_row_dict(existing, user_id=user_id)
+        return None
+
+    async def register_artifact_bytes(
+        self,
+        session_id: UUID,
+        user_id: UUID | None,
+        data: bytes,
+        *,
+        filename: str,
+        content_type: str | None = None,
+        origin_ref: str | None = None,
+        source_tool_path: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Register an in-memory tool artifact as a session attachment.
+
+        The single managed-blob ingress (``FileService.register``) persists the
+        bytes and the ``File`` row. Optional *source_tool_path* enables the same
+        path-alias versioning as :meth:`register_external_file`.
+        """
+        await self._assert_session_owner(session_id, user_id, claim_unowned=True)
+        import hashlib
+
+        from StAgent.file.primitives import FileScope
+
+        label = sanitize_filename(filename, default="artifact")
+        checksum = hashlib.sha256(data).hexdigest() if data is not None else ""
+
+        version = 1
+        extra: dict[str, Any] = {"is_latest": True, "version": 1}
+        alias = (source_tool_path or "").strip()
+        if alias:
+            extra["source_tool_path"] = alias
+            try:
+                src = Path(alias).expanduser().resolve()
+            except OSError:
+                src = Path(alias)
+            existing = await self._find_reusable_attachment(
+                session_id,
+                src=src,
+                checksum=checksum or None,
+            )
+            if existing is not None:
+                return await self._attachment_row_for_id(
+                    session_id, existing.id, user_id=user_id
+                )
+            async with self.locked(session_id) as state:
+                prior = self._latest_attachment_for_source_path(
+                    list(state.attachments),
+                    str(src),
+                )
+                if prior is not None:
+                    prior_extra = prior.extra if isinstance(prior.extra, dict) else {}
+                    prior_ver = prior_extra.get("version")
+                    version = (int(prior_ver) if isinstance(prior_ver, int) else 1) + 1
+            extra["version"] = version
+
+        file_service = self._ensure_file_service()
+        try:
+            ref = await file_service.register(
+                data,
+                filename=label,
+                content_type=content_type,
+                scope=FileScope.OUTPUT,
+                session_id=session_id,
+                user_id=user_id,
+                category="tool_output",
+                library_scope="artifact",
+                origin_type="tool",
+                origin_ref=origin_ref,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("register_artifact_bytes_failed: %s", exc)
+            return None
+
+        if user_id is not None:
+            try:
+                from StAgent.db.service import get_database_service
+                from StAgent.services.chat.project_files import (
+                    link_file_ids_to_folder,
+                    resolve_session_project_file_space,
+                )
+
+                db = get_database_service()
+                space = await resolve_session_project_file_space(
+                    db, session_id=session_id, user_id=user_id
+                )
+                if space is not None:
+                    await link_file_ids_to_folder(
+                        db,
+                        file_ids=[ref.id],
+                        folder_id=space.folder_id,
+                        user_id=user_id,
+                    )
+            except Exception:  # noqa: BLE001
+                logger.debug("register_artifact_project_folder_link_skipped", exc_info=True)
+
+        row = await self._attach_ref(
+            ref,
+            session_id,
+            user_id,
+            label=label,
+            extra=extra,
+            allow_path_replace=bool(alias),
+        )
+        if alias and version > 1 and row is not None:
+            try:
+                resolved_alias = str(Path(alias).expanduser().resolve())
+            except OSError:
+                resolved_alias = alias
+            await self._supersede_path_attachments(
+                session_id,
+                resolved_src=resolved_alias,
+                new_id=ref.id,
+                new_version=version,
+            )
+            return await self._attachment_row_for_id(
+                session_id, ref.id, user_id=user_id
+            ) or row
+        return row
+
+    async def _attach_ref(
+        self,
+        ref: Any,
+        session_id: UUID,
+        user_id: UUID | None,
+        *,
+        label: str,
+        extra: dict[str, Any] | None = None,
+        allow_path_replace: bool = False,
+    ) -> dict[str, Any]:
+        """Build a :class:`SessionAttachment` from *ref* and upsert it.
+
+        When *allow_path_replace* is True (content-changed workspace path), do
+        not short-circuit on ``source_tool_path`` — the caller mints a new
+        FileRef and supersedes prior path versions explicitly.
+        """
+        kind = classify_file_kind(label, ref.content_type).value
+        attachment = SessionAttachment(
+            id=ref.id,
+            session_id=session_id,
+            filename=label,
+            storage_path=ref.metadata.get("storage_path", ref.storage_key),
+            content_type=ref.content_type,
+            kind=kind,
+            size=ref.size,
+            sha256=ref.checksum,
+            extra=extra or {},
+        )
+        self._populate_urls(attachment, user_id=user_id)
+        # Assess quality before upsert so the lock/save below persists it.
+        self._ensure_quality_on_attachment(attachment)
+
+        new_extra = extra or {}
+        new_src = new_extra.get("source_tool_path")
+        async with self.locked(session_id) as state:
+            self._ensure_state_owner(state, user_id, claim_unowned=True)
+            for existing in state.attachments:
+                if existing.id == ref.id:
+                    state.upsert_attachment(attachment)
+                    return self._attachment_row_dict(attachment, user_id=user_id)
+                existing_extra = existing.extra if isinstance(existing.extra, dict) else {}
+                prior_src = existing_extra.get("source_tool_path")
+                if (
+                    not allow_path_replace
+                    and isinstance(new_src, str)
+                    and new_src
+                    and isinstance(prior_src, str)
+                    and prior_src
+                    and self._paths_equal(new_src, prior_src)
+                ):
+                    if ref.checksum and existing.sha256 and existing.sha256 == ref.checksum:
+                        self._ensure_quality_on_attachment(existing)
+                        self._populate_urls(existing, user_id=user_id)
+                        return self._attachment_row_dict(existing, user_id=user_id)
+                if ref.checksum and existing.sha256 and existing.sha256 == ref.checksum:
+                    self._ensure_quality_on_attachment(existing)
+                    self._populate_urls(existing, user_id=user_id)
+                    return self._attachment_row_dict(existing, user_id=user_id)
+            state.upsert_attachment(attachment)
+
+        return self._attachment_row_dict(attachment, user_id=user_id)
+
+# _safe_filename removed – use StAgent.file.primitives.sanitize_filename
+
+
+__all__ = ["SessionManager"]

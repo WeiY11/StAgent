@@ -1,0 +1,119 @@
+replicaCount: 1
+
+image:
+  repository: StAgent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: StAgent.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+env:
+  StAgent_HOME: /app/data
+  StAgent_PORT: "8000"
+  StAgent_HOST: 0.0.0.0
+  StAgent_ENVIRONMENT: production
+  StAgent_WORKERS: "1"
+  StAgent_RUN_MIGRATIONS: "true"
+  StAgent_MIGRATIONS_REQUIRED: "true"
+  StAgent_SECURITY_ENFORCE_AUTH: "true"
+  StAgent_SECURITY_RATE_LIMIT_ENABLED: "true"
+  FILES_UPLOAD_DIR: /app/uploads
+  # Redis is disabled by default; multiple workers require it at startup.
+  StAgent_REDIS_ENABLED: "false"
+  StAgent_REDIS_PREFIX: StAgent
+  # Endpoint/bucket are non-secret. Credentials remain in existingSecret.
+  StAgent_OBJECT_STORAGE_ENABLED: "false"
+  StAgent_OBJECT_STORAGE_ENDPOINT_URL: ""
+  StAgent_OBJECT_STORAGE_REGION_NAME: us-east-1
+  StAgent_OBJECT_STORAGE_BUCKET: ""
+  StAgent_OBJECT_STORAGE_PREFIX: StAgent
+  # Empty values preserve the local lexical path. Set these only after the
+  # corresponding external service has passed its live smoke test.
+  StAgent_KNOWLEDGE_INDEX_VERSION: rag-v1
+  StAgent_KNOWLEDGE_OPENSEARCH_URL: ""
+  StAgent_KNOWLEDGE_OPENSEARCH_INDEX: knowledge_chunks
+  StAgent_KNOWLEDGE_OPENSEARCH_TIMEOUT_SECONDS: "5"
+  StAgent_KNOWLEDGE_MILVUS_ENABLED: "false"
+  StAgent_KNOWLEDGE_MILVUS_HOST: milvus
+  StAgent_KNOWLEDGE_MILVUS_PORT: "19530"
+  StAgent_KNOWLEDGE_EMBEDDING_ENABLED: "false"
+  StAgent_KNOWLEDGE_EMBEDDING_PROVIDER: ""
+  StAgent_KNOWLEDGE_EMBEDDING_MODEL: ""
+  StAgent_KNOWLEDGE_EMBEDDING_DIMENSION: "1024"
+  StAgent_KNOWLEDGE_RERANK_ENDPOINT: ""
+  StAgent_KNOWLEDGE_RERANK_TIMEOUT_SECONDS: "5"
+  StAgent_KNOWLEDGE_QUERY_REWRITE_ENABLED: "false"
+  StAgent_KNOWLEDGE_STRICT_EVIDENCE: "true"
+  StAgent_KNOWLEDGE_MAX_CONTEXT_TOKENS: "6000"
+  StAgent_KNOWLEDGE_RECALL_AT_10_TARGET: "0.90"
+  StAgent_KNOWLEDGE_NDCG_AT_10_TARGET: "0.80"
+  StAgent_KNOWLEDGE_CITATION_ACCURACY_TARGET: "0.95"
+  StAgent_KNOWLEDGE_HALLUCINATION_RATE_MAX: "0.02"
+  StAgent_KNOWLEDGE_RETRIEVAL_P95_MS_TARGET: "5000"
+
+# Prefer an existing Secret in production. Set secret.create=true only when
+# supplying secret.data.StAgent_SECRET_KEY explicitly.
+existingSecret: ""
+secret:
+  create: false
+  data:
+    StAgent_SECRET_KEY: ""
+    DATABASE_URL: ""
+    DEEPSEEK_API_KEY: ""
+    OPENAI_API_KEY: ""
+    ANTHROPIC_API_KEY: ""
+    StAgent_KNOWLEDGE_OPENSEARCH_API_KEY: ""
+    StAgent_KNOWLEDGE_MILVUS_URI: ""
+    StAgent_KNOWLEDGE_MILVUS_TOKEN: ""
+    StAgent_KNOWLEDGE_RERANK_API_KEY: ""
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+  size: 20Gi
+  uploadsSize: 50Gi
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70

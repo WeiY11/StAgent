@@ -1,0 +1,56 @@
+"""Directory layout constants."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Directory layout
+# ---------------------------------------------------------------------------
+
+StAgent_HOME = Path(os.getenv("StAgent_HOME", Path.home() / ".StAgent"))
+WORKING_DIR = StAgent_HOME / "working"
+SECRET_DIR = StAgent_HOME / "secrets"
+CONFIG_PATH = StAgent_HOME / "config.yaml"
+PROVIDERS_PATH = StAgent_HOME / "providers.yaml"
+JOBS_PATH = StAgent_HOME / "jobs"
+
+UPLOAD_DIR = WORKING_DIR / "uploads"
+OUTPUT_DIR = WORKING_DIR / "outputs"
+TEMP_DIR = WORKING_DIR / "tmp"
+LOG_DIR = StAgent_HOME / "logs"
+TEMPLATE_DIR = StAgent_HOME / "templates"
+RULES_DIR = StAgent_HOME / "rules"
+WORKFLOWS_DIR = StAgent_HOME / "workflows"
+CACHE_DIR = WORKING_DIR / "cache"
+# Subprocess ``code_execution`` sandboxes (per-session dirs under this root).
+CODE_EXEC_ROOT = WORKING_DIR / "code-exec"
+# Shared on-disk roots for chat projects (``working/projects/<project_id>/``).
+CHAT_PROJECTS_FILES_ROOT = WORKING_DIR / "projects"
+# Indexed knowledge / document blobs (default; override via ``FilesSettings.knowledge_storage_dir``).
+KNOWLEDGE_DIR = StAgent_HOME / "knowledge"
+# Out-of-line agent trace payloads (opt-in via StAgent_TRACE_CAPTURE_PAYLOADS).
+TRACES_DIR = StAgent_HOME / "traces"
+# Task output files (per-task result logs).
+TASK_OUTPUT_DIR = StAgent_HOME / "tasks"
+
+ALL_DIRS = [
+    StAgent_HOME,
+    WORKING_DIR,
+    SECRET_DIR,
+    UPLOAD_DIR,
+    OUTPUT_DIR,
+    TEMP_DIR,
+    LOG_DIR,
+    TEMPLATE_DIR,
+    RULES_DIR,
+    WORKFLOWS_DIR,
+    JOBS_PATH,
+    CACHE_DIR,
+    CODE_EXEC_ROOT,
+    CHAT_PROJECTS_FILES_ROOT,
+    KNOWLEDGE_DIR,
+    TRACES_DIR,
+    TASK_OUTPUT_DIR,
+]
