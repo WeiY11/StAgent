@@ -116,7 +116,7 @@ production = [
     "redis>=5.0.0",
     "boto3>=1.35.0",
     # KnowledgeVectorIndex uses the stable PyMilvus 2.x Collection API.
-    "pymilvus>=2.5,<3",
+    "pymilvus>=2.5,<4",
 ]
 paddle = [
     "paddleocr",
