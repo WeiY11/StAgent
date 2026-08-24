@@ -447,6 +447,8 @@ async def get_execution(
         started_at=_opt_dt(record.get("started_at")),
         completed_at=_opt_dt(record.get("completed_at")),
         created_at=_opt_dt(record.get("created_at")) or datetime.utcnow(),
+        prompt_id=record.get("prompt_id"),
+        cron_job_id=record.get("cron_job_id"),
     )
 
 

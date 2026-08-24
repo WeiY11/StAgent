@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -23,6 +22,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from StAgent.db.engine import make_async_engine
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from StAgent.config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ class DatabaseService:
             logger.warning("uuid_expression_index bootstrap skipped: %s", exc)
 
     async def _ensure_document_chunk_fts(self, conn: Any) -> None:
-        """Create the SQLite FTS5 chunk index when using the metadata path.
+        """Create the SQLite FTS5 chunk indexes when using the metadata path.
 
         Alembic migration ``0006_document_chunks`` installs this on migrated
         deployments; ``create_tables`` (the zero-config SQLite bootstrap) must
@@ -129,9 +130,9 @@ class DatabaseService:
         try:
             from sqlalchemy import text as _sa_text
 
-            from StAgent.library.fts import FTS_DDL
+            from StAgent.library.fts import FTS_DDL, TRIGRAM_DDL
 
-            for ddl in FTS_DDL:
+            for ddl in (*FTS_DDL, *TRIGRAM_DDL):
                 await conn.execute(_sa_text(ddl))
         except Exception as exc:  # noqa: BLE001
             logger.warning("document_chunks_fts bootstrap skipped: %s", exc)

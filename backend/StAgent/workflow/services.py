@@ -511,6 +511,136 @@ class WorkflowService:
             result = await session.exec(q)
             return [self._record_to_dict(r) for r in result.all()]
 
+    async def list_all_executions(
+        self,
+        *,
+        user_id: UUID | str | None = None,
+        status: str | None = None,
+        flow_id: UUID | None = None,
+        trigger_type: str | None = None,
+        q: str | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Cross-flow execution history for the observability plane.
+
+        Unlike :meth:`list_executions` (single flow) this spans every flow the
+        caller owns and returns ``(rows, total)`` so a table can paginate. Rows
+        are enriched with ``flow_name`` and ``cron_job_name`` — resolved in two
+        batched lookups rather than per row — so the UI can show and link the
+        trigger source without an N+1 fan-out.
+
+        ``q`` is a case-insensitive substring match over the flow name, the
+        prompt id and the execution id.
+        """
+        from sqlalchemy import String, cast
+        from sqlmodel import col, func, or_, select
+
+        from StAgent.db.models.cron import CronJobModel
+        from StAgent.db.models.flow import Flow
+        from StAgent.db.models.workflow_execution import WorkflowExecution
+
+        limit = max(1, min(int(limit), 200))
+        offset = max(0, int(offset))
+
+        async with self._db.session() as session:
+            conditions = []
+            if user_id is not None:
+                conditions.append(
+                    uuid_column_equals(
+                        session,
+                        WorkflowExecution.user_id,
+                        user_id if isinstance(user_id, UUID) else UUID(str(user_id)),
+                    )
+                )
+            if status:
+                conditions.append(WorkflowExecution.status == status)
+            if trigger_type:
+                conditions.append(WorkflowExecution.trigger_type == trigger_type)
+            if flow_id is not None:
+                conditions.append(
+                    uuid_column_equals(session, WorkflowExecution.flow_id, flow_id)
+                )
+            if started_after is not None:
+                conditions.append(col(WorkflowExecution.created_at) >= started_after)
+            if started_before is not None:
+                conditions.append(col(WorkflowExecution.created_at) <= started_before)
+
+            # Keyword search needs the flow name, so match ids here and resolve
+            # name matches through a flow-id subquery below.
+            if q:
+                needle = f"%{q.strip().lower()}%"
+                flow_ids = (
+                    await session.exec(
+                        select(Flow.id).where(func.lower(Flow.name).like(needle))
+                    )
+                ).all()
+                keyword_clauses = [
+                    func.lower(func.coalesce(WorkflowExecution.prompt_id, "")).like(needle),
+                    func.lower(cast(WorkflowExecution.id, String)).like(needle),
+                ]
+                if flow_ids:
+                    keyword_clauses.append(col(WorkflowExecution.flow_id).in_(flow_ids))
+                conditions.append(or_(*keyword_clauses))
+
+            count_stmt = select(func.count()).select_from(WorkflowExecution)
+            page_stmt = select(WorkflowExecution)
+            for condition in conditions:
+                count_stmt = count_stmt.where(condition)
+                page_stmt = page_stmt.where(condition)
+
+            total = int((await session.exec(count_stmt)).one() or 0)
+            records = list(
+                (
+                    await session.exec(
+                        page_stmt.order_by(col(WorkflowExecution.created_at).desc())
+                        .offset(offset)
+                        .limit(limit)
+                    )
+                ).all()
+            )
+
+            rows = [self._record_to_dict(r) for r in records]
+            await self._attach_trigger_labels(session, rows, Flow, CronJobModel)
+            return rows, total
+
+    @staticmethod
+    async def _attach_trigger_labels(
+        session: Any,
+        rows: list[dict[str, Any]],
+        flow_model: Any,
+        cron_model: Any,
+    ) -> None:
+        """Batch-resolve ``flow_name`` / ``cron_job_name`` onto *rows* in place."""
+        from sqlmodel import col, select
+
+        flow_ids = {r["flow_id"] for r in rows if r.get("flow_id")}
+        cron_ids = {r["cron_job_id"] for r in rows if r.get("cron_job_id")}
+        flow_names: dict[str, str] = {}
+        cron_names: dict[str, str] = {}
+        try:
+            if flow_ids:
+                result = await session.exec(
+                    select(flow_model.id, flow_model.name).where(
+                        col(flow_model.id).in_([UUID(str(i)) for i in flow_ids])
+                    )
+                )
+                flow_names = {str(fid): name for fid, name in result.all()}
+            if cron_ids:
+                result = await session.exec(
+                    select(cron_model.id, cron_model.name).where(
+                        col(cron_model.id).in_([UUID(str(i)) for i in cron_ids])
+                    )
+                )
+                cron_names = {str(cid): name for cid, name in result.all()}
+        except Exception:  # noqa: BLE001 - labels are cosmetic, never fatal
+            logger.debug("workflow_execution_label_lookup_failed", exc_info=True)
+        for row in rows:
+            row["flow_name"] = flow_names.get(str(row.get("flow_id")))
+            row["cron_job_name"] = cron_names.get(str(row.get("cron_job_id")))
+
     async def cancel_execution(self, execution_id: UUID) -> bool:
         from StAgent.db.models.workflow_execution import WorkflowExecution
         async with self._db.session() as session:

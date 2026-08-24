@@ -1,0 +1,121 @@
+{
+  "observatory": {
+    "title": "Execution Observatory",
+    "subtitle": "Real-time Gantt timelines, a live run wall, and global execution history across every workflow",
+    "refresh": "Refresh",
+    "status": {
+      "running": "Running",
+      "success": "Success",
+      "error": "Failed",
+      "blocked": "Waiting on human",
+      "cached": "Cache hit",
+      "skipped": "Skipped"
+    },
+    "execStatus": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "paused": "Paused",
+      "waiting_human": "Waiting on human",
+      "pending": "Queued",
+      "queued": "Queued"
+    },
+    "trigger": {
+      "manual": "Manual",
+      "cron": "Scheduled",
+      "subworkflow": "Subworkflow",
+      "api": "API",
+      "webhook": "Webhook"
+    },
+    "gantt": {
+      "title": "Gantt timeline",
+      "pickOne": "Pick a run from the wall above or the history below",
+      "streaming": "Streaming live",
+      "loadFailed": "Could not load the timeline for this run",
+      "empty": "No node executions recorded yet",
+      "approximate": "Approximate timeline",
+      "tipStatus": "Status",
+      "tipDuration": "Duration",
+      "tipStart": "Start offset",
+      "tipIteration": "Iteration",
+      "tipRetry": "Retries"
+    },
+    "wall": {
+      "title": "Live run wall",
+      "subtitle": "{{total}} execution(s) currently in flight",
+      "empty": "No workflow is executing right now",
+      "untitledFlow": "Untitled workflow",
+      "currentNodes": "Current nodes",
+      "queuePosition": "Queue position {{position}}",
+      "group": {
+        "running": "Running",
+        "waiting_human": "Waiting on human",
+        "queued": "Queued"
+      },
+      "idle": {
+        "running": "Scheduling the next batch of nodes",
+        "waiting_human": "Waiting for human confirmation",
+        "queued": "Waiting for a concurrency slot"
+      }
+    },
+    "profile": {
+      "title": "Execution profile",
+      "totalAndPath": "Total {{total}} · Critical path {{path}}",
+      "bottleneck": "Bottleneck node",
+      "none": "None",
+      "waitingHuman": "Human wait",
+      "cacheSaved": "Saved by cache",
+      "estimated": "Estimated from comparable nodes",
+      "parallelism": "Average parallelism",
+      "efficiency": "Timeline utilisation {{value}}%",
+      "compositionAria": "Breakdown of execution time",
+      "approximate": "This run has no precise timestamps — the profile is approximated from duration_ms.",
+      "kind": {
+        "compute": "Compute",
+        "waiting_human": "Human wait",
+        "cached_saving": "Cache saving",
+        "retry": "Retry"
+      }
+    },
+    "table": {
+      "title": "Global execution history",
+      "subtitle": "Every run across every workflow, searchable by status, trigger, time range and keyword",
+      "searchPlaceholder": "Search by workflow name or execution id",
+      "clearSearch": "Clear search",
+      "filterStatus": "Filter by status",
+      "anyStatus": "Any status",
+      "filterTrigger": "Filter by trigger",
+      "anyTrigger": "Any trigger",
+      "filterRange": "Filter by time range",
+      "range": {
+        "all": "All time",
+        "1h": "Last hour",
+        "24h": "Last 24 hours",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days"
+      },
+      "colStatus": "Status",
+      "colFlow": "Workflow",
+      "colTrigger": "Trigger",
+      "colNodes": "Nodes",
+      "colDuration": "Duration",
+      "colStartedAt": "Started",
+      "empty": "No executions match these filters",
+      "summary": "{{total}} total · page {{page}}/{{pages}}",
+      "prevPage": "Previous page",
+      "nextPage": "Next page"
+    },
+    "drawer": {
+      "stillOpen": "In progress",
+      "computeBeforeWait": "Compute before wait",
+      "cachedNote": "This node hit the cache — it never ran, and reused the previous output.",
+      "skippedNote": "This node was skipped (muted or bypassed) and produced no output.",
+      "noPayloadYet": "This run is not persisted yet, so there is no payload to show.",
+      "noRecord": "The execution history has no record for this node.",
+      "preview": "Output preview",
+      "output": "Output",
+      "metadata": "Metadata"
+    }
+  }
+}

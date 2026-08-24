@@ -23,6 +23,7 @@ import {
   Radio,
   ScrollText,
   Target,
+  Radar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -147,6 +148,7 @@ const NavRail = ({
     { id: 'playground', label: t('nav.playground'), icon: PlayCircle, href: '/playground' },
     { id: 'templates', label: t('nav.templates'), icon: LayoutTemplate, href: '/templates' },
     { id: 'cron', label: t('nav.cron'), icon: Clock, href: '/cron' },
+    { id: 'observatory', label: t('nav.observatory'), icon: Radar, href: '/observatory' },
     { id: 'missions', label: t('nav.missions'), icon: Target, href: '/missions' },
     { id: 'complaints', label: t('nav.complaints'), icon: MessageSquareWarning, href: '/complaints' },
   ], [t]);

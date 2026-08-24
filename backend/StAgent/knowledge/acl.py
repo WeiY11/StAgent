@@ -289,7 +289,11 @@ async def ensure_personal_knowledge_space(db: object, user_id: UUID) -> UUID:
                     {
                         "created_at": now,
                         "updated_at": now,
-                        "id": str(space_id),
+                        # ORM-created File rows bind UUID foreign keys as
+                        # dashless hex on SQLite. Keep fresh personal-space
+                        # ids in the same representation so a normal upload
+                        # can satisfy ``files.knowledge_space_id`` FK checks.
+                        "id": space_id.hex,
                         "workspace_id": workspace_db_id,
                         "name": "Personal",
                         "slug": "personal",

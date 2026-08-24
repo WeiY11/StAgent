@@ -50,10 +50,17 @@ def _is_uuid(value: str) -> bool:
     except (ValueError, AttributeError):
         return False
 
+
 #: Default search limit.
 DEFAULT_SEARCH_LIMIT = 20
 #: Maximum allowed search limit.
 MAX_SEARCH_LIMIT = 100
+
+#: The bounded candidate pool supplied to a reranker before final top-K cutoff.
+RERANK_CANDIDATE_MULTIPLIER = 4
+MAX_RERANK_CANDIDATES = MAX_SEARCH_LIMIT * RERANK_CANDIDATE_MULTIPLIER
+#: Bump when changes to retrieval can alter cached result ranking.
+RETRIEVAL_CACHE_VERSION = "candidate-pool-v5"
 
 
 @dataclass(frozen=True)
@@ -155,9 +162,7 @@ class KnowledgeRetrievalPipeline:
                 logger.debug("opensearch_backend_not_configured", exc_info=True)
         self._opensearch = opensearch
 
-    def _cache_key(
-        self, options: SearchOptions, generation: int
-    ) -> str | None:
+    def _cache_key(self, options: SearchOptions, generation: int) -> str | None:
         """Build a deterministic cache key from search options."""
         if self._cache is None:
             return None
@@ -168,6 +173,7 @@ class KnowledgeRetrievalPipeline:
             owner_id=options.user_id,
             generation=generation,
             vary={
+                "retrieval_strategy": RETRIEVAL_CACHE_VERSION,
                 "query": options.query,
                 "limit": options.limit,
                 "scope": options.library_scope,
@@ -244,6 +250,10 @@ class KnowledgeRetrievalPipeline:
                 if get_settings().knowledge.query_rewrite_enabled:
                     options = replace(options, query_rewrite=True)
 
+        candidate_limit = (
+            min(MAX_RERANK_CANDIDATES, options.limit * RERANK_CANDIDATE_MULTIPLIER) if options.rerank else options.limit
+        )
+
         # Check cache.
         cache_key: str | None = None
         if self._cache is not None:
@@ -253,9 +263,7 @@ class KnowledgeRetrievalPipeline:
                     generation = await self._generation_getter(options)
             cache_key = self._cache_key(options, generation)
             if cache_key is not None:
-                hit = await self._cache.get(
-                    cache_key, namespace="kb_search", default=_MISS
-                )
+                hit = await self._cache.get(cache_key, namespace="kb_search", default=_MISS)
                 if hit is not _MISS:
                     return deepcopy(hit)
 
@@ -268,19 +276,23 @@ class KnowledgeRetrievalPipeline:
             fused_rank_score: dict[UUID, float] = {}
             for variant in rewrite.variants:
                 variant_options = replace(options, query=variant, query_rewrite=False)
-                for rank, result in enumerate(await self._execute_search(variant_options), start=1):
+                variant_results = await self._execute_search(
+                    variant_options,
+                    candidate_limit=candidate_limit,
+                )
+                for rank, result in enumerate(variant_results, start=1):
                     fused_rank_score[result.chunk_id] = fused_rank_score.get(result.chunk_id, 0.0) + 1.0 / (60 + rank)
                     previous = merged.get(result.chunk_id)
                     if previous is None or result.score > previous.score:
                         merged[result.chunk_id] = result
-            results = [
-                replace(item, score=fused_rank_score.get(item.chunk_id, item.score))
-                for item in merged.values()
-            ]
+            results = [replace(item, score=fused_rank_score.get(item.chunk_id, item.score)) for item in merged.values()]
             results.sort(key=lambda item: item.score, reverse=True)
-            results = results[: options.limit]
+            results = results[:candidate_limit]
         else:
-            results = await self._execute_search(options)
+            results = await self._execute_search(
+                options,
+                candidate_limit=candidate_limit,
+            )
 
         if options.rerank and self._reranker is not None and results:
             try:
@@ -290,21 +302,16 @@ class KnowledgeRetrievalPipeline:
                     [item.text for item in original_results],
                     top_n=min(options.limit, len(original_results)),
                 )
-                ranked_indices = [
-                    index
-                    for index, _ in order
-                    if 0 <= index < len(original_results)
-                ]
+                ranked_indices = [index for index, _ in order if 0 <= index < len(original_results)]
                 selected = set(ranked_indices)
                 results = [original_results[index] for index in ranked_indices]
-                results.extend(
-                    item
-                    for index, item in enumerate(original_results)
-                    if index not in selected
-                )
+                results.extend(item for index, item in enumerate(original_results) if index not in selected)
                 results = results[: options.limit]
             except Exception:  # noqa: BLE001
                 logger.debug("knowledge_rerank_degraded", exc_info=True)
+                # Candidate expansion is internal. A failing optional reranker
+                # must degrade to the fused top-K rather than exposing the pool.
+                results = results[: options.limit]
 
         # Cache the result.
         if cache_key is not None and self._cache is not None:
@@ -313,7 +320,10 @@ class KnowledgeRetrievalPipeline:
         return results
 
     async def _execute_search(
-        self, options: SearchOptions
+        self,
+        options: SearchOptions,
+        *,
+        candidate_limit: int | None = None,
     ) -> list[RetrievalResult]:
         """Run the actual search pipeline (no caching).
 
@@ -329,6 +339,9 @@ class KnowledgeRetrievalPipeline:
             options.query,
             limit=options.limit * 4,
             library_scope=options.library_scope,
+            file_type_filter=options.file_type_filter,
+            folder_id=options.folder_id,
+            space_id=options.space_id,
         )
 
         if self._opensearch is not None:
@@ -383,11 +396,7 @@ class KnowledgeRetrievalPipeline:
             return []
 
         # Step 2: Batch-validate file metadata.
-        fusion_scores = (
-            _rrf_fusion_scores(chunk_hits, vector_hits)
-            if options.fusion_method == "rrf"
-            else {}
-        )
+        fusion_scores = _rrf_fusion_scores(chunk_hits, vector_hits) if options.fusion_method == "rrf" else {}
         file_ids = list({hit.file_id for hit in chunk_hits})
         # Also include file_ids from vector hits (need to resolve chunk_id → file_id).
         if vector_hits:
@@ -427,10 +436,15 @@ class KnowledgeRetrievalPipeline:
                 for f in result.all():
                     files_by_id[f.id] = f
 
-        # Step 3: Build validated results from lexical hits.
+        # Step 3: Build validated results from lexical hits. Do not cut down
+        # to top-K before vector fusion or reranking; a candidate at K+1 may
+        # be the best result after those later ranking stages.
+        result_limit = max(options.limit, candidate_limit or options.limit)
         seen_chunk_ids: set[UUID] = set()
         results: list[RetrievalResult] = []
         for hit in chunk_hits:
+            if hit.chunk_id in seen_chunk_ids:
+                continue
             f = files_by_id.get(hit.file_id)
             if f is None:
                 continue
@@ -440,9 +454,7 @@ class KnowledgeRetrievalPipeline:
                 and f.file_type.value not in options.file_type_filter
             ):
                 continue
-            if options.folder_id is not None and not same_user_id(
-                f.folder_id, options.folder_id
-            ):
+            if options.folder_id is not None and not same_user_id(f.folder_id, options.folder_id):
                 continue
             # Boost score if this chunk also appeared in vector results.
             boost = vector_hits.get(str(hit.chunk_id), 0.0)
@@ -461,11 +473,12 @@ class KnowledgeRetrievalPipeline:
                 )
             )
             seen_chunk_ids.add(hit.chunk_id)
-            if len(results) >= options.limit:
+            if not vector_hits and len(results) >= result_limit:
                 break
 
-        # Step 4: Append vector-only hits not already in lexical results.
-        if vector_hits and len(results) < options.limit:
+        # Step 4: Append vector-only hits before final ranking. A full lexical
+        # top-K must not exclude a more relevant semantic candidate.
+        if vector_hits:
             await self._append_vector_only_hits(
                 results,
                 seen_chunk_ids,
@@ -477,7 +490,7 @@ class KnowledgeRetrievalPipeline:
 
         # Sort by combined score descending.
         results.sort(key=lambda r: r.score, reverse=True)
-        return results[: options.limit]
+        return results[:result_limit]
 
     async def _visible_knowledge_file_ids(self, options: SearchOptions) -> list[UUID]:
         """Resolve the SQL-authorized file set before local vector KNN.
@@ -499,13 +512,9 @@ class KnowledgeRetrievalPipeline:
                 .where(File.is_indexed == True)  # noqa: E712
             )
             if options.space_id is not None:
-                statement = statement.where(
-                    uuid_column_equals(session, File.knowledge_space_id, options.space_id)
-                )
+                statement = statement.where(uuid_column_equals(session, File.knowledge_space_id, options.space_id))
             if options.folder_id is not None:
-                statement = statement.where(
-                    uuid_column_equals(session, File.folder_id, options.folder_id)
-                )
+                statement = statement.where(uuid_column_equals(session, File.folder_id, options.folder_id))
             if options.file_type_filter:
                 statement = statement.where(File.file_type.in_(options.file_type_filter))
             result = await session.exec(statement)
@@ -522,27 +531,19 @@ class KnowledgeRetrievalPipeline:
     ) -> None:
         """Add vector-only hits that weren't captured by lexical search."""
         from StAgent.db.models.document_chunk import DocumentChunk
-        from StAgent.db.sqlite_compat import uuid_column_in
+        from StAgent.db.sqlite_compat import same_user_id, uuid_column_in
 
-        unseen_ids = [
-            UUID(cid)
-            for cid in vector_hits
-            if _is_uuid(cid) and UUID(cid) not in seen_chunk_ids
-        ]
+        unseen_ids = [UUID(cid) for cid in vector_hits if _is_uuid(cid) and UUID(cid) not in seen_chunk_ids]
         if not unseen_ids:
             return
 
         async with self._db.session() as session:
             vc_result = await session.exec(
-                select(DocumentChunk).where(
-                    uuid_column_in(session, DocumentChunk.id, unseen_ids)
-                )
+                select(DocumentChunk).where(uuid_column_in(session, DocumentChunk.id, unseen_ids))
             )
             chunks_by_id = {c.id: c for c in vc_result.all()}
 
         for cid_str, score in vector_hits.items():
-            if len(results) >= options.limit:
-                break
             if not _is_uuid(cid_str):
                 continue
             cid = UUID(cid_str)
@@ -553,6 +554,14 @@ class KnowledgeRetrievalPipeline:
                 continue
             f = files_by_id.get(chunk.file_id)
             if f is None:
+                continue
+            if (
+                options.file_type_filter
+                and hasattr(f.file_type, "value")
+                and f.file_type.value not in options.file_type_filter
+            ):
+                continue
+            if options.folder_id is not None and not same_user_id(f.folder_id, options.folder_id):
                 continue
             results.append(
                 RetrievalResult(

@@ -12,10 +12,21 @@ import asyncio
 import contextvars
 import inspect
 import threading
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+
+def now_ms() -> int:
+    """Absolute wall-clock milliseconds since the epoch.
+
+    Timestamps are absolute (not offsets from the execution start) so that a
+    Gantt chart can be rebuilt from a persisted ``execution_history`` without
+    knowing the origin, and so they line up with ``WorkflowExecution.started_at``.
+    """
+    return int(time.time() * 1000)
 
 
 class NodeStatus(str, Enum):
@@ -28,6 +39,12 @@ class NodeStatus(str, Enum):
     SKIPPED = "skipped"
 
 
+#: Statuses that close a node's timeline span.
+TERMINAL_NODE_STATUSES: frozenset[NodeStatus] = frozenset(
+    {NodeStatus.SUCCESS, NodeStatus.ERROR, NodeStatus.CACHED, NodeStatus.SKIPPED}
+)
+
+
 @dataclass
 class NodeProgressState:
     node_id: str
@@ -36,7 +53,9 @@ class NodeProgressState:
     max: float = 1.0
     preview: Any = None
     message: str = ""
+    #: Absolute epoch ms when the node's current span opened (see :meth:`ProgressRegistry._stamp`).
     started_at_ms: int | None = None
+    #: Absolute epoch ms when the span closed; ``None`` while running or blocked.
     finished_at_ms: int | None = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -149,7 +168,9 @@ class ProgressRegistry:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         st = self.state(node_id)
+        previous = st.status
         st.status = status
+        self._stamp(st, previous, status)
         if error is not None:
             st.error = error
         if metadata is not None:
@@ -160,3 +181,38 @@ class ProgressRegistry:
             node_id=node_id,
             state=st,
         ))
+
+    @staticmethod
+    def _stamp(
+        st: NodeProgressState, previous: NodeStatus, status: NodeStatus
+    ) -> None:
+        """Maintain ``started_at_ms`` / ``finished_at_ms`` for the Gantt timeline.
+
+        Rules, chosen so a single node can own several spans over one execution:
+
+        * Entering ``RUNNING`` from a non-running status opens a **new** span.
+          The runner re-emits ``RUNNING`` for every retry attempt, so a retry
+          must *not* reset the start; a loop re-entry (``SUCCESS`` → ``RUNNING``)
+          *must*.
+        * Terminal statuses close the span. ``CACHED``/``SKIPPED`` never pass
+          through ``RUNNING``, so they get a zero-width span stamped on the spot
+          (the cache hit still occupies a visible slot on the timeline).
+        * ``BLOCKED`` deliberately leaves ``finished_at_ms`` unset: the bar hangs
+          open so the human-wait duration stays visible and keeps growing.
+        """
+        stamp = now_ms()
+        if status == NodeStatus.RUNNING:
+            if previous != NodeStatus.RUNNING:
+                st.started_at_ms = stamp
+                st.finished_at_ms = None
+            return
+        if status in TERMINAL_NODE_STATUSES:
+            if st.started_at_ms is None:
+                st.started_at_ms = stamp
+            st.finished_at_ms = stamp
+            return
+        if status == NodeStatus.BLOCKED:
+            if st.started_at_ms is None:
+                st.started_at_ms = stamp
+            st.finished_at_ms = None
+

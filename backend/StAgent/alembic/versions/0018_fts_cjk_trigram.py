@@ -5,12 +5,10 @@ Revises: 0017_complaints
 Create Date: 2026-07-29
 
 Creates a supplementary ``document_chunks_trigram`` virtual table using the
-FTS5 ``trigram`` tokenizer.  The default ``unicode61`` tokenizer treats each
-CJK character as an individual token, making multi-character phrase searches
-unreliable (e.g. querying ``知识库`` tokenises into ``知``, ``识``, ``库``
-independently).  The trigram tokenizer indexes 3-character overlapping
-n-grams that handle CJK text naturally without a language-specific
-dictionary.
+FTS5 ``trigram`` tokenizer. The default ``unicode61`` tokenizer does not
+perform reliable word segmentation for continuous CJK prose, making a whole
+multi-character question over-constrained. The trigram tokenizer indexes
+3-character overlapping n-grams without a language-specific dictionary.
 
 The trigram table is *not* a replacement for the BM25 table — it is used as
 a fallback when the main BM25 path returns zero hits.
@@ -18,10 +16,13 @@ a fallback when the main BM25 path returns zero hits.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from alembic import op
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 revision: str = "0018_fts_cjk_trigram"
 down_revision: str | None = "0017_complaints"

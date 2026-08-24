@@ -13,6 +13,10 @@ Mounted by the app at ``/api/v1/workflow``. It owns the new endpoints:
 - ``POST /admin/replacements`` — manage node-replacement entries.
 - ``WS   /ws/executions/{prompt_id}`` — per-prompt event stream.
 - ``WS   /ws/executions`` — monitor mode.
+
+Two sub-routers are mounted here: ``flows_router`` (flow CRUD / IO) and
+``observability_router`` (``/observability/*`` — the read-only execution
+observation plane).
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ from ..nodes.replacement import NodeReplacement, get_replace_registry
 from .event_bus import ExecutionEventBus
 from .flow_permissions import require_flow_access
 from .flows_router import flows_router
+from .observability_router import observability_router
 from .prompt_hooks import apply_replacements, seed_context, validate_prompt
 from .schemas import (
     FlowBuildRequest,
@@ -58,11 +63,13 @@ from .schemas import (
     WorkflowExecutionSummary,
 )
 from .ws import stream_all, stream_execution
+from .ws_auth import authenticate_websocket
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/workflow", tags=["workflow"])
 router.include_router(flows_router)
+router.include_router(observability_router)
 _workflow_admin = [Depends(require_permissions("workflow:admin"))]
 
 
@@ -493,53 +500,8 @@ async def _authenticate_websocket(
     *,
     require_admin: bool = False,
 ) -> tuple[UUID, str | None] | None:
-    """Validate WS credentials.
-
-    Returns ``(user_id, accept_subprotocol)`` or closes the socket and returns
-    ``None``. When the client offers ``bearer,<jwt>`` via
-    ``Sec-WebSocket-Protocol``, the accept subprotocol is ``bearer``.
-    """
-    from StAgent.config.constants import LOCAL_USER_ID
-    from StAgent.config.settings import get_settings
-    from StAgent.services.auth.policy import effective_enforce_auth
-    from StAgent.services.auth.service import get_auth_service
-
-    token: str | None = None
-    accept_subprotocol: str | None = None
-    auth = websocket.headers.get("authorization") or ""
-    if auth.lower().startswith("bearer "):
-        token = auth[7:].strip() or None
-    if not token:
-        proto = websocket.headers.get("sec-websocket-protocol") or ""
-        parts = [p.strip() for p in proto.split(",") if p.strip()]
-        if len(parts) >= 2 and parts[0].lower() == "bearer":
-            token = parts[1]
-            accept_subprotocol = "bearer"
-        elif len(parts) == 1 and parts[0].lower() != "bearer":
-            # Some clients send the raw JWT as the sole subprotocol.
-            token = parts[0]
-            accept_subprotocol = parts[0]
-    if not token:
-        token = websocket.query_params.get("token")
-
-    settings = get_settings()
-    enforced = effective_enforce_auth(settings)
-    if not token:
-        if enforced:
-            await websocket.close(code=4001, reason="Authentication required")
-            return None
-        return LOCAL_USER_ID, None
-
-    svc = get_auth_service()
-    payload = svc.decode_access_token(token)
-    if payload is None:
-        await websocket.close(code=4001, reason="Invalid token")
-        return None
-    uid = UUID(payload.sub)
-    if require_admin and payload.role != "admin" and uid != LOCAL_USER_ID:
-        await websocket.close(code=4003, reason="Admin required")
-        return None
-    return uid, accept_subprotocol
+    """Validate WS credentials — see :func:`ws_auth.authenticate_websocket`."""
+    return await authenticate_websocket(websocket, require_admin=require_admin)
 
 
 def _to_summary(record: dict[str, Any]) -> WorkflowExecutionSummary:
@@ -554,6 +516,8 @@ def _to_summary(record: dict[str, Any]) -> WorkflowExecutionSummary:
         started_at=_opt_dt(record.get("started_at")),
         completed_at=_opt_dt(record.get("completed_at")),
         created_at=_opt_dt(record.get("created_at")) or datetime.utcnow(),
+        prompt_id=record.get("prompt_id"),
+        cron_job_id=record.get("cron_job_id"),
     )
 
 
@@ -573,6 +537,8 @@ def _to_detail(record: dict[str, Any]) -> WorkflowExecutionDetail:
         started_at=_opt_dt(record.get("started_at")),
         completed_at=_opt_dt(record.get("completed_at")),
         created_at=_opt_dt(record.get("created_at")) or datetime.utcnow(),
+        prompt_id=record.get("prompt_id"),
+        cron_job_id=record.get("cron_job_id"),
     )
 
 

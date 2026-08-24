@@ -133,6 +133,13 @@ class NodeExecutionResult(BaseModel):
     duration_ms: int = 0
     next_node: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    #: Absolute epoch ms when the node started, mirrored from
+    #: ``NodeProgressState.started_at_ms``. ``None`` for records written before
+    #: the observability plane existed — the Gantt then degrades to an
+    #: approximate timeline stitched from ``duration_ms``.
+    started_at_ms: int | None = None
+    #: Absolute epoch ms when the node finished. See ``started_at_ms``.
+    finished_at_ms: int | None = None
 
 
 class WorkflowState(BaseModel):

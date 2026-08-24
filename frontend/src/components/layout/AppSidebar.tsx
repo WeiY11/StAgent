@@ -23,6 +23,7 @@ import {
   Webhook,
   Radio,
   ScrollText,
+  Radar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -100,6 +101,12 @@ const AppSidebar = ({ collapsed = false, onCollapsedChange }: AppSidebarProps) =
       label: t('nav.cron'),
       icon: <Clock className="w-5 h-5" />,
       href: '/cron',
+    },
+    {
+      id: 'observatory',
+      label: t('nav.observatory'),
+      icon: <Radar className="w-5 h-5" />,
+      href: '/observatory',
     },
     {
       id: 'complaints',

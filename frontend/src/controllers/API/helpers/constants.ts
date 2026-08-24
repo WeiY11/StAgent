@@ -119,6 +119,15 @@ export const URL_KEYS = {
   FLOW_EXECUTION_PAUSE: (execId: string) => `/workflow/executions/${execId}/pause`,
   FLOW_EXECUTION_RESUME: (execId: string) => `/workflow/executions/${execId}/resume`,
 
+  // Execution observability (Gantt timeline / live wall / global history)
+  OBS_GANTT: (promptId: string) => `/workflow/observability/gantt/${promptId}`,
+  OBS_GANTT_BY_EXECUTION: (execId: string) =>
+    `/workflow/observability/gantt/by-execution/${execId}`,
+  OBS_LIVE: '/workflow/observability/live',
+  OBS_PROFILE: (promptId: string) => `/workflow/observability/profile/${promptId}`,
+  OBS_EXECUTIONS: '/workflow/observability/executions',
+  OBS_STREAM: (promptId: string) => `/workflow/observability/stream/${promptId}`,
+
   // Templates
   TEMPLATES: '/templates',
   TEMPLATE_BY_ID: (id: string) => `/templates/${id}`,
@@ -183,6 +192,13 @@ export const QUERY_KEYS = {
 
   EXECUTIONS: (flowId: string) => ['flows', flowId, 'executions'] as const,
   EXECUTION: (execId: string) => ['executions', execId] as const,
+
+  OBS_GANTT: (promptId: string) => ['observability', 'gantt', promptId] as const,
+  OBS_GANTT_BY_EXECUTION: (execId: string) =>
+    ['observability', 'gantt', 'by-execution', execId] as const,
+  OBS_LIVE: ['observability', 'live'] as const,
+  OBS_PROFILE: (promptId: string) => ['observability', 'profile', promptId] as const,
+  OBS_EXECUTIONS: ['observability', 'executions'] as const,
 
   TEMPLATES: ['templates'] as const,
   TEMPLATE: (id: string) => ['templates', id] as const,

@@ -1093,6 +1093,15 @@ class ServiceManager:
                         await self._event.bridge_workflow_progress_event(event, run_id=run_id)
                 except Exception:
                     logger.debug("Workflow EventManager bridge failed", exc_info=True)
+                # Observability plane: a third, independent bypass consumer.
+                # ``on_event`` swallows its own errors; the guard here is belt and
+                # braces so a Gantt problem can never surface as an execution one.
+                try:
+                    from StAgent.workflow.observability import get_observability_hub
+
+                    get_observability_hub().on_event(event)
+                except Exception:
+                    logger.debug("Workflow observability hub bridge failed", exc_info=True)
 
             executor.register_progress_handler(_publish_to_event_bus)
             registry = FlowWorkflowRegistry(self._db)

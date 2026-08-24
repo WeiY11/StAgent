@@ -23,7 +23,13 @@ from StAgent.db.sqlite_compat import (
     uuid_column_equals,
 )
 from StAgent.library.chunking import Chunk  # noqa: TC001 - protocol annotations are runtime-facing
-from StAgent.library.fts import FTS_TABLE, TRIGRAM_TABLE, escape_fts_query, escape_trigram_query
+from StAgent.library.fts import (
+    FTS_TABLE,
+    TRIGRAM_TABLE,
+    cjk_lexical_terms,
+    escape_fts_query,
+    escape_trigram_query,
+)
 from StAgent.memory.lexical_backend import session_dialect
 
 if TYPE_CHECKING:
@@ -63,6 +69,9 @@ class DocumentChunkRepository(Protocol):
         *,
         limit: int = 20,
         library_scope: str | None = None,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
     ) -> list[ChunkHit]: ...
 
 
@@ -365,29 +374,69 @@ class DbDocumentChunkRepository:
         *,
         limit: int = 20,
         library_scope: str | None = None,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
     ) -> list[ChunkHit]:
         query = (query or "").strip()
         if not query:
             return []
         async with self._db.session() as session:
             dialect = session_dialect(session)
+            if dialect == "sqlite":
+                # unicode61 treats continuous Chinese prose as unsuitable
+                # whole tokens. Score explicit CJK bigrams first so a
+                # question does not have to occur verbatim in its evidence.
+                cjk_hits = await self._search_cjk_terms(
+                    session,
+                    user_id,
+                    query,
+                    limit,
+                    library_scope,
+                    file_type_filter=file_type_filter,
+                    folder_id=folder_id,
+                    space_id=space_id,
+                )
+                if cjk_hits:
+                    return cjk_hits
             if dialect == "sqlite" and await self._fts_available(session):
                 hits = await self._search_fts(
-                    session, user_id, query, limit, library_scope
+                    session,
+                    user_id,
+                    query,
+                    limit,
+                    library_scope,
+                    file_type_filter=file_type_filter,
+                    folder_id=folder_id,
+                    space_id=space_id,
                 )
                 if hits:
                     return hits
                 # Trigram fallback for CJK substring matching when BM25
-                # returns no results (e.g. multi-character Chinese phrases
-                # that the unicode61 tokenizer splits into single chars).
+                # returns no results (e.g. a continuous Chinese question is
+                # over-constrained by unicode61 tokenization).
                 if await self._trigram_available(session):
                     trigram_hits = await self._search_trigram(
-                        session, user_id, query, limit, library_scope
+                        session,
+                        user_id,
+                        query,
+                        limit,
+                        library_scope,
+                        file_type_filter=file_type_filter,
+                        folder_id=folder_id,
+                        space_id=space_id,
                     )
                     if trigram_hits:
                         return trigram_hits
             return await self._search_lexical(
-                session, user_id, query, limit, library_scope
+                session,
+                user_id,
+                query,
+                limit,
+                library_scope,
+                file_type_filter=file_type_filter,
+                folder_id=folder_id,
+                space_id=space_id,
             )
 
     # ── internals ────────────────────────────────────────────────
@@ -405,6 +454,84 @@ class DbDocumentChunkRepository:
         except Exception:
             return False
 
+    async def _search_cjk_terms(
+        self,
+        session: AsyncSession,
+        user_id: UUID | None,
+        query: str,
+        limit: int,
+        library_scope: str | None,
+        *,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
+    ) -> list[ChunkHit]:
+        """Rank CJK passages by explicit overlapping-bigram coverage.
+
+        This SQLite-only path is a bounded local floor, not a semantic model.
+        It runs before unicode61 FTS because Chinese question text commonly
+        shares separated terms with an answer passage rather than one verbatim
+        phrase. ACL and library-scope predicates remain in SQL before ranking.
+        """
+
+        from StAgent.knowledge.acl import (
+            SQLITE_KNOWLEDGE_ACCESS_SQL,
+            sqlite_access_params,
+        )
+
+        terms = cjk_lexical_terms(query)
+        if not terms:
+            return []
+        scope_value, scope_name = _scope_variants(library_scope)
+        file_filter_sql, file_filter_params = _sqlite_file_filter_sql(
+            file_type_filter=file_type_filter,
+            folder_id=folder_id,
+            space_id=space_id,
+        )
+        score_terms = [
+            f"CASE WHEN instr(dc.text, :term_{index}) > 0 THEN 1 ELSE 0 END"
+            for index, _ in enumerate(terms)
+        ]
+        where_terms = [f"instr(dc.text, :term_{index}) > 0" for index, _ in enumerate(terms)]
+        sql = sa.text(
+            f"""
+            SELECT dc.id AS chunk_id, dc.file_id AS file_id, dc.seq AS seq,
+                   dc.start_offset AS start_offset, dc.end_offset AS end_offset,
+                   dc.text AS text, f.name AS file_name,
+                   ({' + '.join(score_terms)}) AS score,
+                   dc.text AS snippet
+            FROM document_chunks dc
+            JOIN files f ON f.id = dc.file_id
+            WHERE ({' OR '.join(where_terms)})
+              AND f.is_deleted = 0
+              AND {SQLITE_KNOWLEDGE_ACCESS_SQL}
+              AND (
+                    :scope_value IS NULL
+                    OR f.library_scope = :scope_value
+                    OR f.library_scope = :scope_name
+                  )
+            {file_filter_sql}
+            ORDER BY score DESC, dc.rowid ASC
+            LIMIT :limit
+            """
+        )
+        parameters: dict[str, object] = {
+            "scope_value": scope_value,
+            "scope_name": scope_name,
+            "limit": limit,
+            **sqlite_access_params(user_id),
+            **file_filter_params,
+        }
+        parameters.update({f"term_{index}": term for index, term in enumerate(terms)})
+        try:
+            result = await session.execute(sql, parameters)
+        except Exception:
+            return []
+        hits = [self._row_to_hit(row, score=float(row.score)) for row in result]
+        for hit in hits:
+            hit.snippet = _lexical_snippet(hit.text, query)
+        return hits
+
     async def _search_fts(
         self,
         session: AsyncSession,
@@ -412,6 +539,10 @@ class DbDocumentChunkRepository:
         query: str,
         limit: int,
         library_scope: str | None,
+        *,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
     ) -> list[ChunkHit] | None:
         from StAgent.knowledge.acl import (
             SQLITE_KNOWLEDGE_ACCESS_SQL,
@@ -424,6 +555,11 @@ class DbDocumentChunkRepository:
         # SQLite may persist UUIDs as dashed or hex-only text; compare both.
         # SQLModel/SQLite may store Enum by name ("KNOWLEDGE") or value ("knowledge").
         scope_value, scope_name = _scope_variants(library_scope)
+        file_filter_sql, file_filter_params = _sqlite_file_filter_sql(
+            file_type_filter=file_type_filter,
+            folder_id=folder_id,
+            space_id=space_id,
+        )
         sql = sa.text(
             f"""
             SELECT dc.id AS chunk_id, dc.file_id AS file_id, dc.seq AS seq,
@@ -443,6 +579,7 @@ class DbDocumentChunkRepository:
                     OR f.library_scope = :scope_value
                     OR f.library_scope = :scope_name
                   )
+            {file_filter_sql}
             ORDER BY score
             LIMIT :limit
             """
@@ -456,6 +593,7 @@ class DbDocumentChunkRepository:
                     "scope_name": scope_name,
                     "limit": limit,
                     **sqlite_access_params(user_id),
+                    **file_filter_params,
                 },
             )
         except Exception:
@@ -483,6 +621,10 @@ class DbDocumentChunkRepository:
         query: str,
         limit: int,
         library_scope: str | None,
+        *,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
     ) -> list[ChunkHit]:
         """Trigram-based fallback for CJK substring matching.
 
@@ -500,6 +642,11 @@ class DbDocumentChunkRepository:
         if not match_expr:
             return []
         scope_value, scope_name = _scope_variants(library_scope)
+        file_filter_sql, file_filter_params = _sqlite_file_filter_sql(
+            file_type_filter=file_type_filter,
+            folder_id=folder_id,
+            space_id=space_id,
+        )
         sql = sa.text(
             f"""
             SELECT dc.id AS chunk_id, dc.file_id AS file_id, dc.seq AS seq,
@@ -519,6 +666,7 @@ class DbDocumentChunkRepository:
                     OR f.library_scope = :scope_value
                     OR f.library_scope = :scope_name
                   )
+            {file_filter_sql}
             LIMIT :limit
             """
         )
@@ -531,6 +679,7 @@ class DbDocumentChunkRepository:
                     "scope_name": scope_name,
                     "limit": limit,
                     **sqlite_access_params(user_id),
+                    **file_filter_params,
                 },
             )
         except Exception:
@@ -551,6 +700,10 @@ class DbDocumentChunkRepository:
         query: str,
         limit: int,
         library_scope: str | None,
+        *,
+        file_type_filter: list[str] | None = None,
+        folder_id: UUID | None = None,
+        space_id: UUID | None = None,
     ) -> list[ChunkHit]:
         from StAgent.db.models.file import File
 
@@ -572,6 +725,15 @@ class DbDocumentChunkRepository:
             except ValueError:
                 scope_enum = _LibraryScope[str(library_scope).upper()]
             stmt = stmt.where(File.library_scope == scope_enum)
+        if space_id is not None:
+            stmt = stmt.where(
+                uuid_column_equals(session, File.knowledge_space_id, space_id)
+            )
+        if folder_id is not None:
+            stmt = stmt.where(uuid_column_equals(session, File.folder_id, folder_id))
+        file_types = _normalized_file_type_filter(file_type_filter)
+        if file_types:
+            stmt = stmt.where(File.file_type.in_(file_types))
         stmt = stmt.limit(limit)
         result = await session.exec(stmt)
         hits: list[ChunkHit] = []
@@ -610,6 +772,61 @@ def _as_uuid(value: object) -> UUID:
     if isinstance(value, UUID):
         return value
     return UUID(str(value))
+
+
+def _normalized_file_type_filter(
+    file_type_filter: list[str] | None,
+) -> tuple[str, ...]:
+    """Normalize string/enum type filters without treating an empty list as a filter."""
+
+    if not file_type_filter:
+        return ()
+    values: list[str] = []
+    for raw in file_type_filter:
+        value = getattr(raw, "value", raw)
+        normalized = str(value).strip().lower()
+        if normalized not in values:
+            values.append(normalized)
+    return tuple(values)
+
+
+def _sqlite_file_filter_sql(
+    *,
+    file_type_filter: list[str] | None,
+    folder_id: UUID | None,
+    space_id: UUID | None,
+) -> tuple[str, dict[str, object]]:
+    """Return parameterized file predicates for raw SQLite chunk queries.
+
+    Every predicate references the joined ``files`` row and is appended before
+    ranking and ``LIMIT``. UUID comparisons accept SQLite's dashed and hex-only
+    storage forms; file-type comparisons tolerate case drift in older rows.
+    """
+
+    clauses: list[str] = []
+    parameters: dict[str, object] = {}
+    if space_id is not None:
+        clauses.append(
+            "lower(replace(CAST(f.knowledge_space_id AS TEXT), '-', '')) "
+            "= :knowledge_space_id_hex"
+        )
+        parameters["knowledge_space_id_hex"] = space_id.hex.lower()
+    if folder_id is not None:
+        clauses.append(
+            "lower(replace(CAST(f.folder_id AS TEXT), '-', '')) = :folder_id_hex"
+        )
+        parameters["folder_id_hex"] = folder_id.hex.lower()
+    file_types = _normalized_file_type_filter(file_type_filter)
+    if file_types:
+        names: list[str] = []
+        for index, file_type in enumerate(file_types):
+            name = f"file_type_{index}"
+            names.append(f":{name}")
+            parameters[name] = file_type
+        clauses.append(f"lower(CAST(f.file_type AS TEXT)) IN ({', '.join(names)})")
+    if not clauses:
+        return "", parameters
+    return " AND " + " AND ".join(clauses), parameters
 
 
 def _scope_variants(library_scope: str | None) -> tuple[str | None, str | None]:

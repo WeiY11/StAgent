@@ -41,6 +41,7 @@ export const loadWorkflowsPage = () => {
   return import('../pages/WorkflowsPage');
 };
 export const loadExecutionPage = () => import('../pages/ExecutionPage');
+export const loadObservatoryPage = () => import('../pages/ObservatoryPage');
 export const loadCronPage = () => import('../pages/CronPage');
 export const loadTemplatesPage = () => import('../pages/TemplatesPage');
 export const loadPlaygroundPage = () => import('../pages/PlaygroundPage');
@@ -66,6 +67,7 @@ export const HomePage = lazyPage(loadHomePage);
 export const DashboardPage = lazyPage(loadDashboardPage);
 export const WorkflowsPage = lazyPage(loadWorkflowsPage);
 export const ExecutionPage = lazyPage(loadExecutionPage);
+export const ObservatoryPage = lazyPage(loadObservatoryPage);
 export const CronPage = lazyPage(loadCronPage);
 export const TemplatesPage = lazyPage(loadTemplatesPage);
 export const PlaygroundPage = lazyPage(loadPlaygroundPage);
@@ -116,6 +118,9 @@ const prefetchByHref: Record<string, () => void> = {
   },
   '/cron': () => {
     void loadCronPage();
+  },
+  '/observatory': () => {
+    void loadObservatoryPage();
   },
   '/knowledge': () => {
     void loadKnowledgePage();

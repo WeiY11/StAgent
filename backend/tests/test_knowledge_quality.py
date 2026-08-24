@@ -45,12 +45,57 @@ async def test_local_reranker_prefers_phrase_and_term_overlap() -> None:
     assert ranked[0][0] == 1
 
 
+@pytest.mark.asyncio
+async def test_local_reranker_uses_cjk_terms_instead_of_one_whole_sentence_token() -> None:
+    """CJK query terms can promote a passage even when the question is not verbatim."""
+
+    ranked = await LexicalRerankProvider().rerank(
+        "中国首都在哪里？",
+        ["这是一段无关的旅游介绍。", "北京是中国的首都。"],
+        top_n=2,
+    )
+
+    assert ranked[0][0] == 1
+
+
+@pytest.mark.asyncio
+async def test_local_reranker_checks_cjk_terms_beyond_document_term_cap() -> None:
+    """A late relevant CJK phrase must not disappear behind a document token cap."""
+
+    prefix = "".join(chr(0x4E00 + index) for index in range(49))
+    ranked = await LexicalRerankProvider().rerank(
+        "中国首都在哪里？",
+        [prefix, f"{prefix}北京是中国的首都。"],
+        top_n=2,
+    )
+
+    assert ranked[0][0] == 1
+
+
 def test_rrf_fuses_lexical_and_vector_ranks() -> None:
     lexical = type("Hit", (), {"chunk_id": uuid4()})()
     vector_id = str(uuid4())
     scores = _rrf_fusion_scores([lexical], {vector_id: 0.8})
     assert str(lexical.chunk_id) in scores
     assert vector_id in scores
+
+
+def test_knowledge_cache_key_versions_the_candidate_pool_strategy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A ranking change must not serve cached results from the old strategy."""
+
+    captured: dict[str, object] = {}
+
+    def build_key(*_args: object, **kwargs: object) -> str:
+        captured.update(kwargs)
+        return "knowledge-cache-key"
+
+    monkeypatch.setattr("StAgent.services.cache.keys.build_scoped_cache_key", build_key)
+    pipeline = KnowledgeRetrievalPipeline(object(), cache=object())  # type: ignore[arg-type]
+
+    assert pipeline._cache_key(SearchOptions(query="candidate", user_id=uuid4()), generation=0) == "knowledge-cache-key"
+    assert captured["vary"]["retrieval_strategy"] == "candidate-pool-v5"  # type: ignore[index]
 
 
 @pytest.mark.asyncio
@@ -193,13 +238,16 @@ async def test_opensearch_projection_writes_versioned_bulk_documents(
 
     class _Client:
         def __init__(self, **_: object) -> None:
-            return None
+            self.is_closed = False
 
         async def __aenter__(self) -> _Client:
             return self
 
         async def __aexit__(self, *_args: object) -> None:
             return None
+
+        async def aclose(self) -> None:
+            self.is_closed = True
 
         async def post(self, url: str, **kwargs: object) -> _Response:
             calls.append((url, kwargs))
@@ -249,13 +297,16 @@ async def test_opensearch_version_filters_cover_dynamic_keyword_mappings(
 
     class _Client:
         def __init__(self, **_: object) -> None:
-            return None
+            self.is_closed = False
 
         async def __aenter__(self) -> _Client:
             return self
 
         async def __aexit__(self, *_args: object) -> None:
             return None
+
+        async def aclose(self) -> None:
+            self.is_closed = True
 
         async def post(self, _url: str, **kwargs: object) -> _Response:
             calls.append(kwargs)

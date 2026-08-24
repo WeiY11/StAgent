@@ -50,7 +50,13 @@ from .errors import (
     ValidationError,
 )
 from .graph import DynamicPrompt, ExecutionList, ExpandFrame, TopologicalSort
-from .progress import NodeStatus, ProgressEvent, ProgressHandler, ProgressRegistry
+from .progress import (
+    NodeStatus,
+    ProgressEvent,
+    ProgressHandler,
+    ProgressRegistry,
+    now_ms,
+)
 from .runner import NodeRunner, NodeRunResult
 
 logger = structlog.get_logger(__name__)
@@ -229,7 +235,18 @@ class WorkflowExecutor:
 
         progress.emit(
             ProgressEvent(
-                type="execution_start", prompt_id=prompt_id, data={"workflow_id": doc.id, "outputs": output_nodes}
+                type="execution_start",
+                prompt_id=prompt_id,
+                data={
+                    "workflow_id": doc.id,
+                    "outputs": output_nodes,
+                    # Observability plane: a self-contained node catalogue so a
+                    # Gantt consumer can label bars without re-loading the flow.
+                    "flow_name": doc.name,
+                    "started_at_ms": now_ms(),
+                    "node_total": len(doc.nodes),
+                    "nodes": _node_catalogue(doc.nodes),
+                },
             )
         )
 
@@ -308,7 +325,12 @@ class WorkflowExecutor:
                 if state.status == WorkflowStatus.COMPLETED
                 else f"execution_{state.status.value}",
                 prompt_id=prompt_id,
-                data={"duration_ms": duration_ms, "outputs": resolved_outputs, "errors": errors_list},
+                data={
+                    "duration_ms": duration_ms,
+                    "outputs": resolved_outputs,
+                    "errors": errors_list,
+                    "finished_at_ms": now_ms(),
+                },
             )
         )
 
@@ -494,11 +516,14 @@ class WorkflowExecutor:
             errors_list.append(f"{node_id}: {exc}")
             state.error_stack.append(f"{node_id}: {exc}")
             exec_list.fail_node_execution(node_id)
+            started_at_ms, finished_at_ms = _node_span(progress, node_id)
             state.record_execution(
                 NodeExecutionResult(
                     node_id=node_id,
                     status=WorkflowStatus.FAILED,
                     error=str(exc),
+                    started_at_ms=started_at_ms,
+                    finished_at_ms=finished_at_ms,
                 )
             )
             if control.get("error_handler"):
@@ -516,12 +541,17 @@ class WorkflowExecutor:
             errors_list.append(f"{node_id}: {output.error}")
             state.error_stack.append(f"{node_id}: {output.error}")
             exec_list.fail_node_execution(node_id)
+            started_at_ms, finished_at_ms = _node_span(
+                progress, node_id, duration_ms=result.duration_ms if result else 0
+            )
             state.record_execution(
                 NodeExecutionResult(
                     node_id=node_id,
                     status=WorkflowStatus.FAILED,
                     error=output.error,
                     duration_ms=result.duration_ms if result else 0,
+                    started_at_ms=started_at_ms,
+                    finished_at_ms=finished_at_ms,
                 )
             )
             if control.get("error_handler"):
@@ -534,6 +564,9 @@ class WorkflowExecutor:
             state.status = (
                 WorkflowStatus.WAITING_HUMAN if output.block_execution == "awaiting_review" else WorkflowStatus.PAUSED
             )
+            started_at_ms, finished_at_ms = _node_span(
+                progress, node_id, duration_ms=result.duration_ms if result else 0
+            )
             state.record_execution(
                 NodeExecutionResult(
                     node_id=node_id,
@@ -541,6 +574,8 @@ class WorkflowExecutor:
                     output=output.values,
                     duration_ms=result.duration_ms if result else 0,
                     metadata=output.metadata,
+                    started_at_ms=started_at_ms,
+                    finished_at_ms=finished_at_ms,
                 )
             )
             # Tell clients which node blocked and why (e.g. the agent's
@@ -602,6 +637,9 @@ class WorkflowExecutor:
                 exec_list.reopen_or_add(next_id, allow_reopen=allow_reopen)
 
         exec_list.complete_node_execution(node_id)
+        started_at_ms, finished_at_ms = _node_span(
+            progress, node_id, duration_ms=result.duration_ms if result else 0
+        )
         state.record_execution(
             NodeExecutionResult(
                 node_id=node_id,
@@ -609,7 +647,9 @@ class WorkflowExecutor:
                 output=_first_value(output),
                 duration_ms=result.duration_ms if result else 0,
                 next_node=output.next_node or control.get("next"),
-                metadata=output.metadata,
+                metadata=_annotate_outcome(output.metadata, node_def, result),
+                started_at_ms=started_at_ms,
+                finished_at_ms=finished_at_ms,
             )
         )
 
@@ -892,6 +932,80 @@ def _node_mode(node_def: dict[str, Any]) -> str:
         return ""
     mode = meta.get("mode")
     return mode if isinstance(mode, str) else ""
+
+
+def _annotate_outcome(
+    metadata: dict[str, Any],
+    node_def: dict[str, Any],
+    result: NodeRunResult | None,
+) -> dict[str, Any]:
+    """Tag a persisted node record with cache-hit / skip provenance.
+
+    A cache hit and a muted node both land on the success path with
+    ``duration_ms == 0``, indistinguishable once persisted. The live event stream
+    says ``node_cached`` / ``node_skipped``, but ``execution_history`` does not —
+    so replaying an old execution could not colour those bars. These two keys
+    close that gap. Purely descriptive: nothing in the engine reads them.
+    """
+    cached = bool(result is not None and result.cached)
+    mode = _node_mode(node_def)
+    if not cached and mode not in ("mute", "bypass"):
+        return metadata
+    annotated = dict(metadata)
+    if cached:
+        annotated["cached"] = True
+    if mode in ("mute", "bypass"):
+        annotated["skipped_mode"] = mode
+    return annotated
+
+
+def _node_span(
+    progress: ProgressRegistry, node_id: str, *, duration_ms: int = 0
+) -> tuple[int | None, int | None]:
+    """Read a node's absolute ``(started_at_ms, finished_at_ms)`` from the registry.
+
+    Persisted alongside each :class:`NodeExecutionResult` so a finished execution
+    can be replayed as a precise Gantt chart. Returns ``(None, None)`` when the
+    node never reported a span, which is the signal the observability plane uses
+    to fall back to an approximate timeline. A still-open span (a blocked node)
+    is closed at ``started + duration_ms`` — the node's own compute time — so the
+    persisted bar has a finite width; the human wait then shows up as the gap
+    before the node's next span.
+    """
+    try:
+        st = progress.state(node_id)
+    except Exception:  # noqa: BLE001 - observability must never break execution
+        return (None, None)
+    started, finished = st.started_at_ms, st.finished_at_ms
+    if started is None and finished is None:
+        return (None, None)
+    if finished is None:
+        finished = started + max(duration_ms, 0) if started is not None else now_ms()
+    if started is None:
+        started = finished - max(duration_ms, 0)
+    return (started, finished)
+
+
+def _node_catalogue(nodes: dict[str, dict[str, Any]]) -> dict[str, dict[str, str]]:
+    """Flatten ``{node_id: {class_type, display_name}}`` for the ``execution_start`` event.
+
+    Rides along on the event stream so observability consumers can label Gantt
+    bars without a second flow lookup. Mirrors ``layout.ui._node_label``: the
+    editor-assigned ``meta.name`` wins, falling back to the node id.
+    """
+    catalogue: dict[str, dict[str, str]] = {}
+    for node_id, spec in (nodes or {}).items():
+        if not isinstance(spec, dict):
+            continue
+        meta = spec.get("meta")
+        name = meta.get("name") if isinstance(meta, dict) else None
+        catalogue[str(node_id)] = {
+            "class_type": str(spec.get("class_type") or ""),
+            "display_name": name.strip()
+            if isinstance(name, str) and name.strip()
+            else str(node_id),
+        }
+    return catalogue
 
 
 def _mode_passthrough_output(

@@ -15,6 +15,10 @@ export interface WorkflowExecutionSummary {
   started_at?: string;
   completed_at?: string;
   created_at: string;
+  /** Engine-side run id — the key for the Gantt timeline and its event stream. */
+  prompt_id?: string | null;
+  /** Set when the run was started by a scheduled job. */
+  cron_job_id?: string | null;
 }
 
 export interface NodeExecutionResult {
@@ -25,6 +29,9 @@ export interface NodeExecutionResult {
   duration_ms: number;
   next_node?: string;
   metadata?: Record<string, unknown>;
+  /** Absolute epoch ms. Null on rows written before spans were recorded. */
+  started_at_ms?: number | null;
+  finished_at_ms?: number | null;
 }
 
 export interface WorkflowExecutionDetail extends WorkflowExecutionSummary {

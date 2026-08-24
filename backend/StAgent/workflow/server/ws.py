@@ -88,6 +88,10 @@ async def _send_event(websocket: WebSocket, event: ProgressEvent) -> None:
             "message": state.message,
             "error": state.error,
             "metadata": state.metadata,
+            # Absolute epoch ms — lets a browser grow a Gantt bar in place
+            # instead of guessing widths from event arrival times.
+            "started_at_ms": state.started_at_ms,
+            "finished_at_ms": state.finished_at_ms,
         }
     payload = {
         "type": event.type,

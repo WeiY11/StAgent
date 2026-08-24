@@ -54,6 +54,7 @@ class RetrievalEvaluationReport:
     cases: int
     k: int
     recall_at_k: float
+    precision_at_k: float
     ndcg_at_k: float
     mrr: float
     retrieval_p95_ms: float
@@ -68,6 +69,7 @@ class RetrievalEvaluationReport:
             "cases": self.cases,
             "k": self.k,
             "recall_at_k": self.recall_at_k,
+            "precision_at_k": self.precision_at_k,
             "ndcg_at_k": self.ndcg_at_k,
             "mrr": self.mrr,
             "retrieval_p95_ms": self.retrieval_p95_ms,
@@ -118,13 +120,25 @@ def _recall(retrieved: Sequence[str], relevant: frozenset[str]) -> float:
     return len(set(retrieved) & relevant) / len(relevant)
 
 
-def _ndcg(retrieved: Sequence[str], relevant: frozenset[str]) -> float:
-    dcg = sum(
-        1.0 / math.log2(rank + 2)
-        for rank, item in enumerate(retrieved)
-        if item in relevant
-    )
-    ideal_len = min(len(relevant), len(retrieved))
+def _precision(
+    retrieved: Sequence[str],
+    relevant: frozenset[str],
+    k: int,
+) -> float:
+    """Return Precision@K, counting missing result slots as non-relevant."""
+    return len(set(retrieved) & relevant) / k
+
+
+def _ndcg(retrieved: Sequence[str], relevant: frozenset[str], k: int) -> float:
+    """Return nDCG@K using the full ideal top-K relevance budget."""
+
+    seen: set[str] = set()
+    dcg = 0.0
+    for rank, item in enumerate(retrieved):
+        if item in relevant and item not in seen:
+            dcg += 1.0 / math.log2(rank + 2)
+        seen.add(item)
+    ideal_len = min(len(relevant), k)
     if ideal_len <= 0:
         return 0.0
     idcg = sum(1.0 / math.log2(rank + 2) for rank in range(ideal_len))
@@ -164,6 +178,7 @@ async def evaluate_retriever(
         raise ValueError("at least one evaluation case is required")
     k = max(1, min(int(k), 100))
     recalls: list[float] = []
+    precisions: list[float] = []
     ndcgs: list[float] = []
     mrrs: list[float] = []
     latencies: list[float] = []
@@ -171,33 +186,31 @@ async def evaluate_retriever(
         started = time.perf_counter()
         raw_results = await retrieve(case.query, k)
         latencies.append((time.perf_counter() - started) * 1000.0)
-        retrieved = [
-            result_id
-            for result in list(raw_results)[:k]
-            if (result_id := _result_id(result)) is not None
-        ]
+        retrieved = [result_id for result in list(raw_results)[:k] if (result_id := _result_id(result)) is not None]
         recalls.append(_recall(retrieved, case.relevant_chunk_ids))
-        ndcgs.append(_ndcg(retrieved, case.relevant_chunk_ids))
+        precisions.append(_precision(retrieved, case.relevant_chunk_ids, k))
+        ndcgs.append(_ndcg(retrieved, case.relevant_chunk_ids, k))
         mrrs.append(_mrr(retrieved, case.relevant_chunk_ids))
 
     recall_at_k = sum(recalls) / len(recalls)
+    precision_at_k = sum(precisions) / len(precisions)
     ndcg_at_k = sum(ndcgs) / len(ndcgs)
     mrr = sum(mrrs) / len(mrrs)
     retrieval_p95_ms = _p95(latencies)
     retrieval_gate_passed = (
-        recall_at_k >= recall_target
-        and ndcg_at_k >= ndcg_target
-        and retrieval_p95_ms <= p95_ms_target
+        recall_at_k >= recall_target and ndcg_at_k >= ndcg_target and retrieval_p95_ms <= p95_ms_target
     )
     answer_metrics_present = citation_accuracy is not None and hallucination_rate is not None
-    strict_gate_passed = retrieval_gate_passed and answer_metrics_present and (
-        citation_accuracy >= citation_accuracy_target
-        and hallucination_rate <= hallucination_rate_max
+    strict_gate_passed = (
+        retrieval_gate_passed
+        and answer_metrics_present
+        and (citation_accuracy >= citation_accuracy_target and hallucination_rate <= hallucination_rate_max)
     )
     return RetrievalEvaluationReport(
         cases=len(cases),
         k=k,
         recall_at_k=recall_at_k,
+        precision_at_k=precision_at_k,
         ndcg_at_k=ndcg_at_k,
         mrr=mrr,
         retrieval_p95_ms=retrieval_p95_ms,

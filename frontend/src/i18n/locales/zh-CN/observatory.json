@@ -1,0 +1,121 @@
+{
+  "observatory": {
+    "title": "执行观测中心",
+    "subtitle": "跨工作流的实时甘特时间线、运行监控墙与全局执行历史",
+    "refresh": "刷新",
+    "status": {
+      "running": "运行中",
+      "success": "成功",
+      "error": "失败",
+      "blocked": "等待人工",
+      "cached": "命中缓存",
+      "skipped": "已跳过"
+    },
+    "execStatus": {
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "已失败",
+      "cancelled": "已取消",
+      "paused": "已暂停",
+      "waiting_human": "等待人工",
+      "pending": "排队中",
+      "queued": "排队中"
+    },
+    "trigger": {
+      "manual": "手动触发",
+      "cron": "定时任务",
+      "subworkflow": "子工作流",
+      "api": "API 调用",
+      "webhook": "Webhook"
+    },
+    "gantt": {
+      "title": "甘特时间线",
+      "pickOne": "从上方监控墙或下方历史列表中选择一次执行",
+      "streaming": "实时推送中",
+      "loadFailed": "无法加载该次执行的时间线",
+      "empty": "暂无节点执行记录",
+      "approximate": "近似时间轴",
+      "tipStatus": "状态",
+      "tipDuration": "耗时",
+      "tipStart": "起始偏移",
+      "tipIteration": "第几轮",
+      "tipRetry": "重试次数"
+    },
+    "wall": {
+      "title": "运行监控墙",
+      "subtitle": "当前共有 {{total}} 次执行正在进行",
+      "empty": "当前没有正在执行的工作流",
+      "untitledFlow": "未命名工作流",
+      "currentNodes": "当前节点",
+      "queuePosition": "队列第 {{position}} 位",
+      "group": {
+        "running": "运行中",
+        "waiting_human": "等待人工",
+        "queued": "排队中"
+      },
+      "idle": {
+        "running": "正在调度下一批节点",
+        "waiting_human": "等待人工确认",
+        "queued": "等待并发额度"
+      }
+    },
+    "profile": {
+      "title": "执行画像",
+      "totalAndPath": "总耗时 {{total}} · 关键路径 {{path}}",
+      "bottleneck": "瓶颈节点",
+      "none": "无",
+      "waitingHuman": "人工等待",
+      "cacheSaved": "缓存节省",
+      "estimated": "按同类节点均值估算",
+      "parallelism": "平均并行度",
+      "efficiency": "时间轴利用率 {{value}}%",
+      "compositionAria": "执行耗时构成",
+      "approximate": "该次执行缺少精确时间戳，画像由 duration_ms 近似推算。",
+      "kind": {
+        "compute": "计算",
+        "waiting_human": "人工等待",
+        "cached_saving": "缓存节省",
+        "retry": "重试"
+      }
+    },
+    "table": {
+      "title": "全局执行历史",
+      "subtitle": "跨所有工作流的执行记录，可按状态、触发方式、时间范围与关键字检索",
+      "searchPlaceholder": "搜索工作流名称或执行 ID",
+      "clearSearch": "清除搜索",
+      "filterStatus": "按状态筛选",
+      "anyStatus": "全部状态",
+      "filterTrigger": "按触发方式筛选",
+      "anyTrigger": "全部触发方式",
+      "filterRange": "按时间范围筛选",
+      "range": {
+        "all": "全部时间",
+        "1h": "近 1 小时",
+        "24h": "近 24 小时",
+        "7d": "近 7 天",
+        "30d": "近 30 天"
+      },
+      "colStatus": "状态",
+      "colFlow": "工作流",
+      "colTrigger": "触发来源",
+      "colNodes": "节点数",
+      "colDuration": "耗时",
+      "colStartedAt": "开始时间",
+      "empty": "没有符合条件的执行记录",
+      "summary": "共 {{total}} 条 · 第 {{page}}/{{pages}} 页",
+      "prevPage": "上一页",
+      "nextPage": "下一页"
+    },
+    "drawer": {
+      "stillOpen": "进行中",
+      "computeBeforeWait": "等待前计算",
+      "cachedNote": "该节点命中缓存，未实际执行，输出直接复用上一次结果。",
+      "skippedNote": "该节点被跳过（静默或旁路），未产生输出。",
+      "noPayloadYet": "该次执行尚未落库，暂无输入输出详情。",
+      "noRecord": "执行历史中没有该节点的记录。",
+      "preview": "输出预览",
+      "output": "输出",
+      "metadata": "元数据"
+    }
+  }
+}

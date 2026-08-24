@@ -6,6 +6,8 @@ import re
 from collections.abc import Sequence  # noqa: TC003 - runtime provider annotations are public
 from typing import Any, Protocol
 
+from StAgent.library.fts import cjk_lexical_terms
+
 
 class RerankProvider(Protocol):
     async def rerank(
@@ -18,8 +20,35 @@ class RerankProvider(Protocol):
 
 
 def _terms(value: str) -> set[str]:
+    """Return comparable lexical units for local reranking.
+
+    Continuous CJK prose is not reliably split into useful words by the
+    zero-dependency tokenizer. Reuse the bounded bigrams used by the SQLite
+    retrieval floor, while retaining ordinary ASCII terms for mixed queries.
+    """
+
+    cjk_terms = set(cjk_lexical_terms(value))
+    ascii_terms = set(re.findall(r"[A-Za-z0-9_]+", value.lower()))
+    if cjk_terms:
+        return cjk_terms | ascii_terms
+
     words = re.findall(r"[\w\u4e00-\u9fff]+", value.lower())
     return {word for word in words if word}
+
+
+def _cjk_overlap(query_terms: tuple[str, ...], document: str) -> float:
+    """Return the same bounded bigram-coverage signal as SQLite retrieval.
+
+    ``cjk_lexical_terms`` is intentionally capped for a *query*. Applying that
+    cap to an entire passage is incorrect: relevant terms near the end of a
+    chunk vanish. Checking the bounded query terms directly against the full
+    passage preserves the primary SQLite rank signal without a segmenter.
+    """
+
+    if not query_terms:
+        return 0.0
+    normalized_document = document.lower()
+    return sum(term in normalized_document for term in query_terms) / len(query_terms)
 
 
 class LexicalRerankProvider:
@@ -32,11 +61,15 @@ class LexicalRerankProvider:
         *,
         top_n: int,
     ) -> list[tuple[int, float]]:
-        query_terms = _terms(query)
+        cjk_query_terms = cjk_lexical_terms(query)
+        query_terms = _terms(query) if not cjk_query_terms else set()
         scored: list[tuple[int, float]] = []
         for index, document in enumerate(documents):
-            doc_terms = _terms(document)
-            overlap = len(query_terms & doc_terms) / max(1, len(query_terms))
+            if cjk_query_terms:
+                overlap = _cjk_overlap(cjk_query_terms, document)
+            else:
+                doc_terms = _terms(document)
+                overlap = len(query_terms & doc_terms) / max(1, len(query_terms))
             phrase = 1.0 if query.lower() in document.lower() else 0.0
             scored.append((index, overlap * 0.8 + phrase * 0.2))
         scored.sort(key=lambda item: item[1], reverse=True)

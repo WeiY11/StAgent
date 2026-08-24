@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,6 +28,10 @@ import {
   useResumeExecution,
   type NodeExecutionResult,
 } from '@/controllers/API/queries/executions';
+import { useExecutionProfile } from '@/controllers/API/queries/observability';
+import { GanttTimeline, GanttLegend, barKey } from '@/pages/ObservatoryPage/GanttTimeline';
+import { ProfilePanel } from '@/pages/ObservatoryPage/ProfilePanel';
+import { useLiveGantt } from '@/pages/ObservatoryPage/useLiveGantt';
 import { useToast } from '@/components/ui/Toaster';
 import { GenUiTreeView } from '@/components/canvas/GenUiRegistry';
 import { outputsToGenUiTree } from '@/features/workflow/genui/outputsToGenUiTree';
@@ -73,6 +77,25 @@ export default function ExecutionPage() {
   const { data: execution, isLoading, refetch } = useExecution(executionId || '', {
     enabled: !!executionId,
   });
+
+  // Progressive enhancement: the Gantt streams over the observability socket, while
+  // the 3s poll above stays as the fallback for runs the hub no longer tracks.
+  const promptId = execution?.prompt_id ?? null;
+  const [selectedBarKey, setSelectedBarKey] = useState<string | null>(null);
+  const { chart, nowMs, isLive } = useLiveGantt(promptId);
+  const profile = useExecutionProfile(promptId, { enabled: !!promptId });
+
+  // The stream knows the run ended before the next poll does — pull the row early.
+  const wasLive = useRef(false);
+  const refetchProfile = profile.refetch;
+  useEffect(() => {
+    if (isLive) wasLive.current = true;
+    else if (wasLive.current) {
+      wasLive.current = false;
+      void refetch();
+      void refetchProfile();
+    }
+  }, [isLive, refetch, refetchProfile]);
 
   const cancelMutation = useCancelExecution();
   const pauseMutation = usePauseExecution();
@@ -261,6 +284,38 @@ export default function ExecutionPage() {
           </div>
         ))}
       </div>
+
+      {/* Gantt timeline — streams while the run is live, replays once it is not */}
+      {chart && chart.bars.length > 0 && (
+        <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
+          <header className="flex items-baseline justify-between gap-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              {t('observatory.gantt.title')}
+            </h3>
+            {isLive && (
+              <span className="flex items-center gap-1.5 text-xs text-cyan-400">
+                <Activity className="h-3.5 w-3.5 animate-pulse" />
+                {t('observatory.gantt.streaming')}
+              </span>
+            )}
+          </header>
+          <GanttTimeline
+            chart={chart}
+            nowMs={nowMs}
+            selectedKey={selectedBarKey}
+            onSelectBar={(bar) => {
+              setSelectedBarKey(barKey(bar));
+              const matches = (execution.execution_history ?? []).filter(
+                (r) => r.node_id === bar.node_id,
+              );
+              setSelectedNode(matches[Math.min(bar.iteration, matches.length - 1)] ?? null);
+            }}
+          />
+          <GanttLegend approximate={chart.approximate} />
+        </section>
+      )}
+
+      {profile.data && <ProfilePanel profile={profile.data} />}
 
       {/* Error banner */}
       {execution.error && (

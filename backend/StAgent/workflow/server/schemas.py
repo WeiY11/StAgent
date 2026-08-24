@@ -37,6 +37,10 @@ class WorkflowExecutionSummary(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     created_at: datetime
+    #: Engine-side correlation id. Exposed so a client holding only an execution
+    #: id can open the live event stream / Gantt chart for the same run.
+    prompt_id: str | None = None
+    cron_job_id: UUID | None = None
 
 
 class WorkflowExecutionDetail(WorkflowExecutionSummary):
